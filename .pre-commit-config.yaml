@@ -1,0 +1,50 @@
+---
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+fail_fast: false
+repos:
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.0
+    hooks:
+      - id: yamllint
+        args:
+          - --config-file
+          - .github/linters/.yamllint.yaml
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: sort-simple-yaml
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+      - id: forbid-crlf
+      - id: forbid-tabs
+      - id: remove-crlf
+      - id: remove-tabs
+  - repo: https://github.com/sirosen/fix-smartquotes
+    rev: 0.2.0
+    hooks:
+      - id: fix-smartquotes
+  - repo: https://github.com/k8s-at-home/sops-pre-commit
+    rev: v2.1.1
+    hooks:
+      - id: forbid-secrets
+  # - repo: https://github.com/igorshubovych/markdownlint-cli
+  #   rev: v0.44.0
+  #   hooks:
+  #     - id: markdownlint
+  #       args:
+  #         - --config
+  #         - '.github/linters/.markdownlint.yaml'
+  # - repo: https://github.com/python-jsonschema/check-jsonschema
+  #   rev: 0.29.4
+  #   hooks:
+  #     - id: check-renovate
+  - repo: https://github.com/zricethezav/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
