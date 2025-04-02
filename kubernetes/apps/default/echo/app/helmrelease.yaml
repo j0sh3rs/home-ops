@@ -78,7 +78,7 @@ spec:
             scrapeTimeout: 10s
     route:
       app:
-        hostnames: ["{{ .Release.Name }}.bth.wtf"]
+        hostnames: ["echo.bth.wtf"]
         parentRefs:
           - name: external
             namespace: kube-system
