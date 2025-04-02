@@ -1,0 +1,9 @@
+machine:
+  install:
+    extraKernelArgs:
+      - apparmor=0
+      - mitigations=off
+      - security=none
+      - amd_pstate=active
+      - cpufreq.default_governor=performance
+      - iommu.passthrough=1
