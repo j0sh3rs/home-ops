@@ -9,3 +9,4 @@ components:
 resources:
   - ./cloudflared/ks.yaml
   - ./external-dns/ks.yaml
+  - ./unifi-dns/ks.yaml
