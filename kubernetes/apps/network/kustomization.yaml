@@ -8,5 +8,5 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./cloudflared/ks.yaml
-  - ./external-dns/ks.yaml
+  - ./cloudflare-dns/ks.yaml
   - ./unifi-dns/ks.yaml
