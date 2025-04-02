@@ -5,18 +5,20 @@ bandwidthManager:
   bbr: true
 bpf:
   datapathMode: netkit
-  masquerade: false
+  masquerade: true
   preallocateMaps: true
+  # tproxy: true
 bpfClockProbe: true
+bgpControlPlane:
+  enabled: true
 cgroup:
   automount:
     enabled: false
   hostRoot: /sys/fs/cgroup
 cluster:
   id: 1
-  name: "kubernetes"
+  name: main
 cni:
-  # Required for pairing with Multus CNI
   exclusive: false
 dashboards:
   enabled: true
@@ -26,15 +28,15 @@ endpointRoutes:
   enabled: true
 envoy:
   rollOutPods: true
-hubble:
-  enabled: false
 gatewayAPI:
   enabled: true
   enableAlpn: true
   xffNumTrustedHops: 1
+hubble:
+  enabled: false
 ipam:
   mode: kubernetes
-ipv4NativeRoutingCIDR: "10.42.0.0/16"
+ipv4NativeRoutingCIDR: 10.42.0.0/16
 k8sServiceHost: 127.0.0.1
 k8sServicePort: 7445
 kubeProxyReplacement: true
@@ -43,7 +45,7 @@ l2announcements:
   enabled: true
 loadBalancer:
   algorithm: maglev
-  mode: "dsr"
+  mode: dsr
 localRedirectPolicy: true
 operator:
   dashboards:
@@ -81,5 +83,3 @@ securityContext:
       - NET_ADMIN
       - SYS_ADMIN
       - SYS_RESOURCE
-socketLB:
-  hostNamespaceOnly: true
