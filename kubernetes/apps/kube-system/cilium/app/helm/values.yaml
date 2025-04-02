@@ -1,26 +1,37 @@
 ---
 autoDirectNodeRoutes: true
+bandwidthManager:
+  enabled: true
+  bbr: true
 bpf:
-  masquerade: true
-  # Ref: https://github.com/siderolabs/talos/issues/10002
-  hostLegacyRouting: true
-cni:
-  # Required for pairing with Multus CNI
-  exclusive: false
+  datapathMode: netkit
+  masquerade: false
+  preallocateMaps: true
+bpfClockProbe: true
 cgroup:
   automount:
     enabled: false
   hostRoot: /sys/fs/cgroup
-# NOTE: devices might need to be set if you have more than one active NIC on your hosts
-# devices: eno+ eth+
+cluster:
+  id: 1
+  name: "kubernetes"
+cni:
+  # Required for pairing with Multus CNI
+  exclusive: false
+dashboards:
+  enabled: true
+devices: enp+
+enableIPv4BIGTCP: true
 endpointRoutes:
   enabled: true
 envoy:
-  enabled: false
-dashboards:
-  enabled: true
+  rollOutPods: true
 hubble:
   enabled: false
+gatewayAPI:
+  enabled: true
+  enableAlpn: true
+  xffNumTrustedHops: 1
 ipam:
   mode: kubernetes
 ipv4NativeRoutingCIDR: "10.42.0.0/16"
