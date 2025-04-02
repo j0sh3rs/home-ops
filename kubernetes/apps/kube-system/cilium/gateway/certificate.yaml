@@ -11,3 +11,16 @@ spec:
     kind: ClusterIssuer
   commonName: bth.wtf
   dnsNames: ["bth.wtf", "*.bth.wtf"]
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cert-manager.io/certificate_v1.json
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: 68cc-io
+spec:
+  secretName: 68cc-io-tls
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+  commonName: 68cc.io
+  dnsNames: ["68cc.io", "*.68cc.io"]
