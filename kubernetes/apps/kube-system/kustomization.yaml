@@ -6,8 +6,11 @@ namespace: kube-system
 components:
   - ../../components/common
 resources:
+  - ./amd-gpu/ks.yaml
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
+  - ./descheduler/ks.yaml
   - ./metrics-server/ks.yaml
+  - ./nfs-external-provisioner/ks.yaml
   - ./reloader/ks.yaml
   - ./spegel/ks.yaml

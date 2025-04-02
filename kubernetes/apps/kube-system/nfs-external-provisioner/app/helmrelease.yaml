@@ -1,0 +1,39 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nfs-external-provisioner
+  namespace: kube-system
+spec:
+  interval: 5m
+  chart:
+    spec:
+      # renovate: registryUrl=https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner
+      chart: nfs-subdir-external-provisioner
+      version: 4.0.18
+      sourceRef:
+        kind: HelmRepository
+        name: nfs-external-provisioner
+        namespace: flux-system
+      interval: 15m
+  values:
+    nfs:
+      server: 192.168.35.5
+      path: /volume1/k8s/pods
+      volumeName: nfs-subdir-external-provisioner-root
+      # Reclaim policy for the main nfs volume
+      reclaimPolicy: Delete
+    # For creating the StorageClass automatically:
+    storageClass:
+      # Set StorageClass as the default StorageClass
+      # Ignored if storageClass.create is false
+      defaultClass: false
+      # Set access mode - ReadWriteOnce, ReadOnlyMany or ReadWriteMany
+      accessModes: ReadWriteMany
+    leaderElection:
+      # When set to false leader election will be disabled
+      enabled: true
+    resources:
+      requests:
+        cpu: 200m
+        memory: 128Mi

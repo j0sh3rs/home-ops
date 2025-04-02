@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrepository-source-v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: amd-gpu
+  namespace: kube-system
+spec:
+  interval: 10m0s
+  url: https://rocm.github.io/k8s-device-plugin
