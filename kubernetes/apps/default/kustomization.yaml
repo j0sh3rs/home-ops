@@ -9,6 +9,5 @@ components:
 resources:
   - ./atuin/ks.yaml
   # - ./ebook2audio/ks.yaml
-  - ./echo/ks.yaml
   - ./it-tools/ks.yaml
   # - ./linkwarden/ks.yaml
