@@ -5,7 +5,7 @@ kind: Kustomization
 namespace: default
 resources:
   - ./namespace.yaml
-  - ./atuin/ks.yaml
+  # - ./atuin/ks.yaml
   # - ./ebook2audio/ks.yaml
   - ./it-tools/ks.yaml
   # - ./linkwarden/ks.yaml
