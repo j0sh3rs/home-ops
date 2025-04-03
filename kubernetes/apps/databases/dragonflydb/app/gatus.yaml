@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dragonfly-gatus
+  labels:
+    gatus.io/enabled: "true"
+data:
+  config.yaml: |
+    endpoints:
+      - name: dragonflydb-memcached
+        group: infrastructure
+        url: tcp://dragonflydb-memcached.databases.svc.cluster.local:11211
+        interval: 1m
+        ui:
+          hide-url: true
+          hide-hostname: true
+        conditions:
+          - "[CONNECTED] == true"
+        alerts:
+          - type: discord
+      - name: dragonflydb-redis
+        group: infrastructure
+        url: tcp://dragonflydb.databases.svc.cluster.local:6379
+        interval: 1m
+        ui:
+          hide-url: true
+          hide-hostname: true
+        conditions:
+          - "[CONNECTED] == true"
+        alerts:
+          - type: discord
