@@ -1,0 +1,90 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app ebook2audio
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      ebook2audio:
+        replicas: 1
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/athomasson2/ebook2audiobook
+              tag: rocm@sha256:e144eec0368eee004b1de396af0ecd00a7bac4b57557c86e40fb110fb9458d81
+            command: ["python", "app.py", "--script_mode", "full_docker"]
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                amd.com/gpu: 1
+                cpu: 300m
+                memory: 1Gi
+              limits:
+                memory: 4Gi
+                cpu: 2
+                amd.com/gpu: 1
+
+        pod:
+          securityContext:
+            runAsUser: 568
+            runAsGroup: 568
+            runAsNonRoot: true
+            fsGroup: 568
+            fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            primary: true
+            port: &port 7860
+    # serviceMonitor:
+    #   app:
+    #     serviceName: *app
+    #     endpoints:
+    #       - port: metrics
+    #         scheme: http
+    #         path: /metrics
+    #         interval: 1m
+    #         scrapeTimeout: 10s
+    ingress:
+      app:
+        className: internal
+        hosts:
+          - host: &host ebook.bth.wtf
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - hosts:
+              - *host
+    persistence:
+      app:
+        enabled: true
+        size: 20Gi
+        storageClass: nfs-client
+        accessMode: ReadWriteMany
