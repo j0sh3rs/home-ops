@@ -10,3 +10,4 @@ resources:
   - ./cloudflared/ks.yaml
   - ./cloudflare-dns/ks.yaml
   - ./echo/ks.yaml
+  - ./tailscale-operator/ks.yaml

@@ -9,5 +9,5 @@ spec:
   proxyClass: kernel-org-tun
   subnetRouter:
     advertiseRoutes:
-      - "10.69.0.0/16" # pods
-      - "10.96.0.0/16" # services/lbs
+      - "10.42.0.0/16" # pods
+      - "10.43.0.0/16" # services/lbs
