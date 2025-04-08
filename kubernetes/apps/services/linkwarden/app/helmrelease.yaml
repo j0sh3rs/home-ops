@@ -3,28 +3,19 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: linkwarden
+  name: &app linkwarden
 spec:
-  interval: 30m
-  chart:
-    spec:
-      chart: app-template
-      version: 3.7.3
-      sourceRef:
-        kind: HelmRepository
-        name: bjw-s
-        namespace: flux-system
-  maxHistory: 2
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
   install:
-    createNamespace: true
     remediation:
       retries: 3
   upgrade:
     cleanupOnFail: true
     remediation:
       retries: 3
-  uninstall:
-    keepHistory: false
   values:
     global:
       annotations:
@@ -85,22 +76,18 @@ spec:
                 enabled: false
     service:
       app:
-        controller: linkwarden
+        controller: *app
         ports:
           http:
-            port: 3000
-    ingress:
-      linkwarden:
-        enabled: true
-        className: internal
-        hosts:
-          - host: &host "links.bth.wtf"
-            paths:
-              - path: /
-                pathType: ImplementationSpecific
-                service:
-                  identifier: app
-                  port: http
-        tls:
-          - hosts:
-              - *host
+            port: &port 3000
+    route:
+      app:
+        hostnames: ["links.bth.wtf"]
+        parentRefs:
+          - name: external
+            namespace: kube-system
+            sectionName: https
+        rules:
+          - backendRefs:
+              - name: *app
+                port: *port
