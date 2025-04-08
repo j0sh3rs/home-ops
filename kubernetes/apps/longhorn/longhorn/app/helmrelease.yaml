@@ -14,7 +14,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: longhorn
-        namespace: longhorn-system
+        namespace: flux-system
       interval: 5m
   valuesFrom:
     - kind: Secret
