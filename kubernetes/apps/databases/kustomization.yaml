@@ -6,4 +6,4 @@ components:
   - ../../components/common
 resources:
   - ./cloudnative-pg/ks.yaml
-  # - ./dragonflydb/ks.yaml
+  - ./dragonflydb/ks.yaml
