@@ -12,6 +12,7 @@ resources:
   - ./grafana.yaml
   - ./ingress-nginx.yaml
   - ./jetstack.yaml
+  - ./longhorn.yaml
   - ./nfs-external-provisioner.yaml
   - ./prometheus-community.yaml
   - ./tailscale.yaml
