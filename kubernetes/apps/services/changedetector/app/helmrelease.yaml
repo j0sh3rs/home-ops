@@ -40,6 +40,14 @@ spec:
             env:
               - name: WEBDRIVER_URL
                 value: http://localhost:4444/wd/hub
+              - name: TZ
+                value: America/New_York
+              - name: DISABLE_VERSION_CHECK
+                value: true
+              - name: BASE_URL
+                value: https://cd.bth.wtf
+              - name: PLAYWRIGHT_DRIVER_URL
+                value: ws://localhost:3000
           browser-chrome:
             image:
               repository: selenium/standalone-chrome
