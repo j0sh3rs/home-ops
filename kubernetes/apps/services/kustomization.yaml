@@ -10,4 +10,4 @@ resources:
   # - ./atuin/ks.yaml
   # - ./ebook2audio/ks.yaml
   - ./it-tools/ks.yaml
-  # - ./linkwarden/ks.yaml
+  - ./linkwarden/ks.yaml
