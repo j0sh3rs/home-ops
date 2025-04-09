@@ -10,6 +10,11 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   interval: 1h
+  dependsOn:
+    - name: cloudnative-pg
+      namespace: &cnpg-ns databases
+    - name: cloudnative-pg-cluster
+      namespace: *cnpg-ns
   path: ./kubernetes/apps/services/linkwarden/app
   prune: true
   retryInterval: 2m
