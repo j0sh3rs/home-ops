@@ -80,7 +80,7 @@ spec:
             port: &port 5000
     route:
       app:
-        hostnames: ["tools.bth.wtf"]
+        hostnames: ["cd.bth.wtf"]
         parentRefs:
           - name: external
             namespace: kube-system
