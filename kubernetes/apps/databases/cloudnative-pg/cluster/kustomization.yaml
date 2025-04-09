@@ -7,4 +7,3 @@ resources:
   # - ./gatus.yaml
   - ./scheduledbackup.yaml
   - ./prometheusrule.yaml
-  - ./service.yaml
