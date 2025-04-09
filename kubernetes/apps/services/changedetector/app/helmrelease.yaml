@@ -30,7 +30,6 @@ spec:
               tag: 0.49.12
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
