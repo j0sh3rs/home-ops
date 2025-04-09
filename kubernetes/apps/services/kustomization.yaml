@@ -7,7 +7,6 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  # - ./atuin/ks.yaml
-  # - ./ebook2audio/ks.yaml
+  - ./atuin/ks.yaml
   - ./it-tools/ks.yaml
   - ./linkwarden/ks.yaml
