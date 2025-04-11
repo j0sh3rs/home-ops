@@ -27,9 +27,10 @@ spec:
     keepHistory: false
   values:
     podAnnotations:
-      reloader.stakater.com/auto: "true"
-    timeZone: "America/New_York"
+      reloader.stakater.com/auto: 'true'
+    timeZone: 'America/New_York'
     kind: CronJob
+    schedule: '*/30 * * * *'
     deschedulerPolicy:
       profiles:
         - name: Default
@@ -67,14 +68,14 @@ spec:
                 targetThresholds:
                   memory: 70
                   cpu: 70
-            - name: "RemoveFailedPods"
+            - name: 'RemoveFailedPods'
               args:
                 reasons:
-                - "OutOfcpu"
-                - "CreateContainerConfigError"
+                  - 'OutOfcpu'
+                  - 'CreateContainerConfigError'
                 includingInitContainers: true
                 excludeOwnerKinds:
-                  - "Job"
+                  - 'Job'
                 minPodLifetimeSeconds: 3600
           plugins:
             balance:
