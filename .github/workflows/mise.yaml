@@ -1,11 +1,11 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: "Mise"
+name: 'Mise'
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 0 * * 0" # once a week
+    - cron: '0 0 * * 0' # once a week
 jobs:
   mise:
     name: upgrade-tools
@@ -20,7 +20,7 @@ jobs:
       - name: Setup mise
         uses: jdx/mise-action@7a111ead46986ccad89a74ad013ba2a7c08c9e67 # v2.2.1
         env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
       - name: Upgrade dependencies
         run: mise upgrade --bump
@@ -50,10 +50,10 @@ jobs:
         name: Create Pull Request
         uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
         with:
-          token: "${{ secrets.GITHUB_TOKEN }}"
-          title: "chore(mise): upgrade dependencies"
-          commit-message: "chore(mise): upgrade dependencies"
-          branch: "mise-upgrade-dependencies"
+          token: '${{ github.token }}'
+          title: 'chore(mise): upgrade dependencies'
+          commit-message: 'chore(mise): upgrade dependencies'
+          branch: 'mise-upgrade-dependencies'
           body: |
             Upgraded dependencies found in `.mise.toml`:
 
