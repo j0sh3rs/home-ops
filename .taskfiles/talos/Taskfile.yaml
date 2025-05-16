@@ -3,7 +3,6 @@
 version: '3'
 
 tasks:
-
   generate-config:
     desc: Generate Talos configuration
     dir: '{{.TALOS_DIR}}'
@@ -48,7 +47,7 @@ tasks:
   upgrade-k8s:
     desc: Upgrade Kubernetes
     dir: '{{.TALOS_DIR}}'
-    cmd: talhelper gencommand upgrade-k8s --extra-flags "--to '{{.KUBERNETES_VERSION}}' --preserve" | bash
+    cmd: talhelper gencommand upgrade-k8s --extra-flags "--to '{{.KUBERNETES_VERSION}}'" | bash
     vars:
       KUBERNETES_VERSION:
         sh: yq '.kubernetesVersion' {{.TALOS_DIR}}/talenv.yaml
