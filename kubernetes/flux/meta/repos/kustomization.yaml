@@ -13,6 +13,7 @@ resources:
   - ./ingress-nginx.yaml
   - ./jetstack.yaml
   - ./longhorn.yaml
+  - ./netdata.yaml
   - ./nfs-external-provisioner.yaml
   - ./prometheus-community.yaml
   - ./tailscale.yaml
