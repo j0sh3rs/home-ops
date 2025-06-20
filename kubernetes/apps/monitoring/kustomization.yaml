@@ -6,6 +6,7 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  - ./kube-prometheus-stack/ks.yaml
   - ./grafana/ks.yaml
+  - ./kube-prometheus-stack/ks.yaml
+  - ./netdata/ks.yaml
   - ./unpoller/ks.yaml
