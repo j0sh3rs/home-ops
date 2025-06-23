@@ -90,7 +90,7 @@ spec:
         providers:
           - name: default
             orgId: 1
-            folder: ""
+            folder: ''
             type: file
             disableDeletion: false
             editable: true
@@ -226,7 +226,7 @@ spec:
       datasources:
         enabled: true
         searchNamespace: ALL
-        labelValue: ""
+        labelValue: ''
     plugins:
       - grafana-clock-panel
       - grafana-piechart-panel
@@ -235,12 +235,13 @@ spec:
       - pr0ps-trackmap-panel
       - vonage-status-panel
       - camptocamp-prometheus-alertmanager-datasource
+      - https://github.com/netdata/netdata-grafana-datasource-plugin/releases/download/v3.0.1/netdatacloud-netdata-datasource-3.0.1.zip;netdata-datasource
     serviceMonitor:
       enabled: true
     route:
       main:
         enabled: true
-        hostnames: ["{{ .Release.Name }}.68cc.io"]
+        hostnames: ['{{ .Release.Name }}.68cc.io']
         parentRefs:
           - name: internal
             namespace: kube-system
