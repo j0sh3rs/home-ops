@@ -34,7 +34,7 @@ spec:
             dependsOn: init-db
             image:
               repository: ghcr.io/kiwigrid/k8s-sidecar
-              tag: 1.30.4@sha256:704b2419e80b7469e934b95a7b7f055f2897169359968764ed2e2a895c2c60a1
+              tag: 1.30.5@sha256:b50fb46b5b3291fb82e85429781a27a5c36fe97f330908afe00652ee6c425459
             env:
               FOLDER: /config
               LABEL: gatus.io/enabled
