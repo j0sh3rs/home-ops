@@ -27,7 +27,6 @@ spec:
               tag: 3.21.1
             env:
               TZ: America/New_York
-            command: ['/bin/bash', '-c', 'sleep 1h']
             resources:
               requests:
                 cpu: 10m
