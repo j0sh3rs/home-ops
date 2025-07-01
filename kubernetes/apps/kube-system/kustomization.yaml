@@ -11,7 +11,7 @@ resources:
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
   - ./descheduler/ks.yaml
-  # - ./irqbalance/ks.yaml
+  - ./irqbalance/ks.yaml
   - ./metrics-server/ks.yaml
   - ./nfs-external-provisioner/ks.yaml
   - ./reloader/ks.yaml
