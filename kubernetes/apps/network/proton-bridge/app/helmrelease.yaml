@@ -27,6 +27,7 @@ spec:
               tag: 3.21.1
             env:
               TZ: America/New_York
+            command: ['/bin/bash', '-c', 'sleep 1h']
             resources:
               requests:
                 cpu: 10m
@@ -49,7 +50,7 @@ spec:
       root:
         enabled: true
         size: 1Gi
-        accessMode: ReadWriteOnce
+        accessMode: ReadWriteMany
         globalMounts:
           - path: /root
       localtime:
