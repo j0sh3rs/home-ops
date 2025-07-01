@@ -53,19 +53,8 @@ spec:
           imap:
             primary: false
             port: 143
-          # metrics:
-          #   port: *metricsPort
-    # serviceMonitor:
-    #   app:
-    #     serviceName: *app
-    #     endpoints:
-    #       - port: metrics
-    #         scheme: http
-    #         path: /metrics
-    #         interval: 1m
-    #         scrapeTimeout: 10s
     persistence:
-      root:
+      protonmail:
         enabled: true
         size: 1Gi
         accessMode: ReadWriteOnce
