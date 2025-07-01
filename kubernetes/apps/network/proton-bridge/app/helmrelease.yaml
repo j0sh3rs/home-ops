@@ -42,9 +42,11 @@ spec:
           smtp:
             primary: true
             port: 25
+            targetPort: 1025
           imap:
             primary: false
             port: 143
+            targetPort: 1143
     persistence:
       root:
         enabled: true
