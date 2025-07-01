@@ -50,7 +50,7 @@ spec:
             primary: false
             port: 143
     persistence:
-      data:
+      root:
         enabled: true
         size: 1Gi
         accessMode: ReadWriteOnce
