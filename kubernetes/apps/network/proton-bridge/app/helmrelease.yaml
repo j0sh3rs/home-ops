@@ -26,7 +26,6 @@ spec:
               tag: 3.21.1
             env:
               TZ: America/New_York
-            args: ['init']
             resources:
               requests:
                 cpu: 10m
