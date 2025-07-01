@@ -22,15 +22,11 @@ spec:
         containers:
           app:
             image:
-              repository: shenxn/protonmail-bridge
-              tag: 3.19.0-build
+              repository: ghcr.io/j0sh3rs/protonmail-bridge-docker
+              tag: 3.21.1
             env:
               TZ: America/New_York
             args: ['init']
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
-              capabilities: { drop: ['ALL'] }
             resources:
               requests:
                 cpu: 10m
