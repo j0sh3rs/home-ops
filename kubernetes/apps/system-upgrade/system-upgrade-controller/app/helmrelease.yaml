@@ -37,12 +37,12 @@ spec:
                 valueFrom:
                   fieldRef:
                     fieldPath: spec.nodeName
-              SYSTEM_UPGRADE_JOB_BACKOFF_LIMIT: "99"
+              SYSTEM_UPGRADE_JOB_BACKOFF_LIMIT: '99'
               SYSTEM_UPGRADE_JOB_PRIVILEGED: false
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: { drop: ['ALL'] }
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -54,7 +54,7 @@ spec:
         kind: ServiceAccount
         spec:
           spec:
-            roles: ["os:admin"]
+            roles: ['os:admin']
     rbac:
       bindings:
         system-upgrade-controller:
@@ -64,5 +64,3 @@ spec:
             name: cluster-admin
           subjects:
             - identifier: system-upgrade-controller
-    serviceAccount:
-      system-upgrade-controller: {}
