@@ -54,10 +54,12 @@ spec:
             primary: false
             port: 143
     persistence:
-      protonmail:
+      data:
         enabled: true
         size: 1Gi
         accessMode: ReadWriteOnce
+        globalMounts:
+          - path: /root
       localtime:
         enabled: true
         type: hostPath
