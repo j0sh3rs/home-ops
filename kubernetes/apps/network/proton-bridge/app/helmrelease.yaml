@@ -19,10 +19,14 @@ spec:
   values:
     controllers:
       proton-bridge:
-        replicas: 1
+        replicas: 2
         containers:
           app:
-            command: ['/bin/bash', '-c', 'sleep 1h']
+            # We use the long sleep command to keep the container running indefinitely, and avoid the initial entrypoint that opens ports.
+            # This way, we can bootstrap the container by logging in with `kubectl exec` and running `/protonmail/entrypoint.sh init` manually
+            #
+            # Once the init is done, and the sync is complete, we can comment out the command line below and let the pods restart normally.
+            # command: ['/bin/bash', '-c', 'sleep 1h']
             image:
               repository: ghcr.io/j0sh3rs/protonmail-bridge-docker
               tag: 3.21.1
