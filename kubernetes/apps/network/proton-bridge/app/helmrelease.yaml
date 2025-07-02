@@ -19,9 +19,10 @@ spec:
   values:
     controllers:
       proton-bridge:
-        replicas: 2
+        replicas: 1
         containers:
           app:
+            command: ['/bin/bash', '-c', 'sleep 1h']
             image:
               repository: ghcr.io/j0sh3rs/protonmail-bridge-docker
               tag: 3.21.1
