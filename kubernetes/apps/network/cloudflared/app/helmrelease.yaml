@@ -21,12 +21,12 @@ spec:
       cloudflared:
         strategy: RollingUpdate
         annotations:
-          reloader.stakater.com/auto: "true"
+          reloader.stakater.com/auto: 'true'
         containers:
           app:
             image:
               repository: docker.io/cloudflare/cloudflared
-              tag: 2025.6.1
+              tag: 2025.6.1@sha256:175aee7e8b548f983f7e3b79ace217676d2a79255a73c074dacb491e59603679
             env:
               NO_AUTOUPDATE: true
               TUNNEL_METRICS: 0.0.0.0:8080
@@ -36,7 +36,7 @@ spec:
             envFrom:
               - secretRef:
                   name: cloudflared-secret
-            args: ["tunnel", "run"]
+            args: ['tunnel', 'run']
             probes:
               liveness: &probes
                 enabled: true
@@ -53,7 +53,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: { drop: ['ALL'] }
             resources:
               requests:
                 cpu: 10m
