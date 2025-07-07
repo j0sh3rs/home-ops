@@ -8,6 +8,7 @@ spec:
   version: ${TALOS_VERSION}
   concurrency: 1
   postCompleteDelay: 2m
+  jobActiveDeadlineSecs: 0
   exclusive: true
   serviceAccountName: system-upgrade-controller
   secrets:
