@@ -27,7 +27,7 @@ spec:
               tag: 2024.5.10-33e5294
             env:
               TZ: America/New_York
-              TESTING_CHAINING: ${MYVAR}
+              TESTING_CHAINING: "${MYVAR}"
     service:
       app:
         controller: *app
@@ -36,7 +36,7 @@ spec:
             port: &port 80
     route:
       app:
-        hostnames: ['tools.bth.wtf']
+        hostnames: ["tools.bth.wtf"]
         parentRefs:
           - name: external
             namespace: kube-system

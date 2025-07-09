@@ -22,4 +22,4 @@ spec:
   wait: false
   postBuild:
     substitute:
-      MYVAR: ${MYVAR}
+      MYVAR: "${MYVAR}"
