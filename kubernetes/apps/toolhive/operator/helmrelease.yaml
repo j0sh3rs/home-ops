@@ -18,3 +18,9 @@ spec:
     cleanupOnFail: true
     remediation:
       retries: 3
+  values:
+    operator:
+      autoscaling:
+        enabled: true
+        minReplicas: 1
+        maxReplicas: 3
