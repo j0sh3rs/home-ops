@@ -1,11 +1,12 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrepository-source-v1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/ocirepository-source-v1.json
 apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
+kind: OCIRepository
 metadata:
   name: toolhive-operator
   namespace: flux-system
 spec:
-  type: oci
-  interval: 5m
+  interval: 30m0s
   url: oci://ghcr.io/stacklok/toolhive/toolhive-operator
+  ref:
+    tag: 0.2.1
