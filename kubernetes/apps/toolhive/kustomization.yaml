@@ -8,4 +8,4 @@ components:
 resources:
   - ./namespace.yaml
   - ./crds
-  - ./operator
+  # - ./operator
