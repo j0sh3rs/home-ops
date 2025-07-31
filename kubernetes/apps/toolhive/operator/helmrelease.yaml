@@ -17,21 +17,4 @@ spec:
         name: netdata
         namespace: flux-system
       interval: 5m
-  # valuesFrom:
-  #   - kind: Secret
-  #     name: netdata-secrets
-  #     valuesKey: PARENT_CLAIMING_TOKEN
-  #     targetPath: parent.claiming.token
-  #   - kind: Secret
-  #     name: netdata-secrets
-  #     valuesKey: PARENT_CLAIMING_ROOMS
-  #     targetPath: parent.claiming.rooms
-  #   - kind: Secret
-  #     name: netdata-secrets
-  #     valuesKey: CHILD_CLAIMING_TOKEN
-  #     targetPath: child.claiming.token
-  #   - kind: Secret
-  #     name: netdata-secrets
-  #     valuesKey: CHILD_CLAIMING_ROOMS
-  #     targetPath: child.claiming.rooms
   values: {}

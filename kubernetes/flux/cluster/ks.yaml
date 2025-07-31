@@ -44,9 +44,6 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  postBuild:
-    substitute:
-      MYVAR: "myval"
   patches:
     - # Add Sops decryption and postBuild substitutions to child Kustomizations
       patch: |-

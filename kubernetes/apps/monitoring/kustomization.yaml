@@ -8,5 +8,5 @@ components:
 resources:
   - ./grafana/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
-  - ./netdata/ks.yaml
+  # - ./netdata/ks.yaml
   - ./unpoller/ks.yaml
