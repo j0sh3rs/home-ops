@@ -11,3 +11,6 @@ machine:
       - amd_pstate=active
       - cpufreq.default_governor=performance
       - iommu.passthrough=1
+      - init_on_alloc=0
+      - init_on_free=0
+      - talos.auditd.disabled=1
