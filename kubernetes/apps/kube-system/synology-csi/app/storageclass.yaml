@@ -12,5 +12,5 @@ parameters:
   protocol: iscsi
   csi.storage.k8s.io/fstype: ext4
   formatOptions: "-E lazy_itable_init"
-reclaimPolicy: Retain
+reclaimPolicy: Delete
 allowVolumeExpansion: true
