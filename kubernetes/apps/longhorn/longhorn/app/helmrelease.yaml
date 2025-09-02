@@ -94,13 +94,14 @@ spec:
     longhornUI:
       replicas: 1
     annotations:
-      reloader.stakater.com/auto: 'true'
+      reloader.stakater.com/auto: "true"
     metrics:
       serviceMonitor:
         enabled: true
     persistence:
       defaultClassReplicaCount: 2
       defaultDataLocality: best-effort
+      defaultClass: false
     defaultSettings:
       replicaAutoBalance: best-effort
       defaultDataLocality: best-effort
