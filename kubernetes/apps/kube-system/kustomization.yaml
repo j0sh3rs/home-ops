@@ -10,7 +10,6 @@ resources:
   - ./amd-gpu/ks.yaml
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
-  - ./democratic-csi/ks.yaml
   - ./descheduler/ks.yaml
   - ./irqbalance/ks.yaml
   - ./metrics-server/ks.yaml

@@ -6,7 +6,6 @@ resources:
   - ./amd-gpu.yaml
   - ./bjw-s.yaml
   - ./cloudnative-pg.yaml
-  - ./democratic-csi.yaml
   - ./descheduler.yaml
   - ./dragonflydb.yaml
   - ./external-dns.yaml
