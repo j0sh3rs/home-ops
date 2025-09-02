@@ -1,0 +1,120 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: democratic-csi
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: democratic-csi
+      version: 0.15.0
+      sourceRef:
+        kind: HelmRepository
+        name: democratic-csi
+        namespace: kube-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  valuesFrom:
+    - kind: Secret
+      name: democratic-csi-secrets
+      valuesKey: SYNOLOGY_USERNAME
+      targetPath: driver.config.httpConnection.username
+    - kind: Secret
+      name: democratic-csi-secrets
+      valuesKey: SYNOLOGY_PASSWORD
+      targetPath: driver.config.httpConnection.password
+  values:
+    csiDriver:
+      name: "org.democratic-csi.iscsi-synology"
+    storageClasses:
+      - name: synology-iscsi
+        defaultClass: false
+        reclaimPolicy: Delete
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+        parameters:
+          # for block-based storage can be ext3, ext4, xfs
+          # for nfs should be nfs
+          fsType: ext4
+        mountOptions: []
+        secrets:
+          provisioner-secret:
+          controller-publish-secret:
+          node-stage-secret:
+          node-publish-secret:
+          controller-expand-secret:
+    controller:
+      externalResizer:
+        enabled: true
+      externalSnapshotter:
+        enabled: true
+    volumeSnapshotClasses:
+      - name: synology-iscsi
+        parameters:
+        secrets:
+          snapshotter-secret:
+    driver:
+      config:
+        # please see the most up-to-date example of the corresponding config here:
+        # https://github.com/democratic-csi/democratic-csi/tree/master/examples
+        # YOU MUST COPY THE DATA HERE INLINE!
+        driver: synology-iscsi
+        httpConnection:
+          protocol: https
+          host: 192.168.35.5
+          port: 5001
+          allowInsecure: true
+          # should be uniqe across all installs to the same nas
+          session: "democratic-csi"
+          serialize: true
+          iscsi:
+            targetPortal: "192.168.35.5:5001"
+            interface: ""
+            baseiqn: "iqn.2000-01.com.synology:csi."
+
+            # MUST ensure uniqueness
+            # full iqn limit is 223 bytes, plan accordingly
+            namePrefix: ""
+            nameSuffix: ""
+
+            # documented below are several blocks
+            # pick the option appropriate for you based on what your backing fs is and desired features
+            # you do not need to alter dev_attribs under normal circumstances but they may be altered in advanced use-cases
+            # These options can also be configured per storage-class:
+            # See https://github.com/democratic-csi/democratic-csi/blob/master/docs/storage-class-parameters.md
+            lunTemplate:
+              description: "{{ parameters.[csi.storage.k8s.io/pvc/namespace] }}-{{ parameters.[csi.storage.k8s.io/pvc/name] }}"
+              type: "THIN"
+              direct_io_pattern: 0
+              dev_attribs:
+                - dev_attrib: can_snapshot
+                  enable: 1
+                - dev_attrib: emulate_tpu # Space Reclamation
+                  enable: 1
+                - dev_attrib: emulate_3pc # Hardware-Assisted Data Transfer
+                  enable: 1
+                - dev_attrib: emulate_tpws # Hardware-Assisted Zeroing
+                  enable: 1
+                - dev_attrib: emulate_caw # Hardware-Assisted Locking
+                  enable: 1
+
+            lunSnapshotTemplate:
+              is_locked: true
+              # https://kb.synology.com/en-me/DSM/tutorial/What_is_file_system_consistent_snapshot
+              is_app_consistent: true
+
+            targetTemplate:
+              auth_type: 0
+              max_sessions: 0
+              multi_sessions: true
+              max_recv_seg_bytes: 262144
+              max_send_seg_bytes: 262144
+              has_header_checksum: false
+              has_data_checksum: false
