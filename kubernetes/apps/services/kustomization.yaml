@@ -8,6 +8,6 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./atuin/ks.yaml
-  # - ./changedetector/ks.yaml
+  - ./changedetector/ks.yaml
   - ./it-tools/ks.yaml
   - ./linkwarden/ks.yaml
