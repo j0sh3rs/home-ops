@@ -5,7 +5,7 @@ kind: Cluster
 metadata:
   name: postgres17
 spec:
-  instances: 2
+  instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:17
   description: "Shared PG17 Cluster"
   primaryUpdateStrategy: unsupervised
@@ -18,7 +18,7 @@ spec:
     parameters:
       max_connections: "500"
       shared_buffers: 512MB
-      pg_stat_statements.max: '10000'
+      pg_stat_statements.max: "10000"
       pg_stat_statements.track: all
   resources:
     requests:
