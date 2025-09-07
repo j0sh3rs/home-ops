@@ -27,7 +27,7 @@ spec:
           app:
             image:
               repository: ghcr.io/dgtlmoon/changedetection.io
-              tag: 0.50.11
+              tag: 0.50.12
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
