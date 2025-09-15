@@ -10,5 +10,5 @@ resources:
   - ./cloudflared/ks.yaml
   # - ./cloudflare-dns/ks.yaml
   # - ./echo/ks.yaml
-  - ./proton-bridge/ks.yaml
+  # - ./proton-bridge/ks.yaml
   - ./tailscale/ks.yaml
