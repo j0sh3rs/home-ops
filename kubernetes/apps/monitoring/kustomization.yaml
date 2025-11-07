@@ -7,7 +7,7 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./grafana/ks.yaml
-  - ./kube-prometheus-stack/ks.yaml
+  # - ./kube-prometheus-stack/ks.yaml
   - ./loki/ks.yaml
   - ./mimir/ks.yaml
   - ./netdata/ks.yaml
