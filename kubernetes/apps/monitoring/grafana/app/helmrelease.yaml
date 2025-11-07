@@ -35,7 +35,7 @@ spec:
       type: Recreate
     admin:
       existingSecret: grafana-admin-secret
-    envFromSecret: 'grafana-secrets'
+    envFromSecret: "grafana-secrets"
     env:
       GF_DATE_FORMATS_USE_BROWSER_LOCALE: true
       GF_EXPLORE_ENABLED: true
@@ -74,9 +74,38 @@ spec:
             type: loki
             uid: loki
             access: proxy
-            url: http://loki-headless.monitoring.svc.cluster.local:3100
+            url: http://loki-gateway.monitoring.svc.cluster.local:3100
             jsonData:
               maxLines: 250
+          - name: Tempo
+            type: tempo
+            uid: tempo
+            access: proxy
+            url: http://tempo.monitoring.svc.cluster.local:3100
+            jsonData:
+              tracesToLogsV2:
+                datasourceUid: loki
+                spanStartTimeShift: "-1h"
+                spanEndTimeShift: "1h"
+                filterByTraceID: true
+                filterBySpanID: false
+              tracesToMetrics:
+                datasourceUid: mimir
+              serviceMap:
+                datasourceUid: prometheus
+              nodeGraph:
+                enabled: true
+              lokiSearch:
+                datasourceUid: loki
+          - name: Mimir
+            type: prometheus
+            uid: mimir
+            access: proxy
+            url: http://mimir-nginx.monitoring.svc.cluster.local:8080/prometheus
+            jsonData:
+              timeInterval: 1m
+              prometheusType: Mimir
+              cacheLevel: High
           - name: Alertmanager
             type: alertmanager
             uid: alertmanager
@@ -90,7 +119,7 @@ spec:
         providers:
           - name: default
             orgId: 1
-            folder: ''
+            folder: ""
             type: file
             disableDeletion: false
             editable: true
@@ -226,7 +255,7 @@ spec:
       datasources:
         enabled: true
         searchNamespace: ALL
-        labelValue: ''
+        labelValue: ""
     plugins:
       - grafana-clock-panel
       - grafana-piechart-panel
@@ -241,7 +270,7 @@ spec:
     route:
       main:
         enabled: true
-        hostnames: ['{{ .Release.Name }}.68cc.io']
+        hostnames: ["{{ .Release.Name }}.68cc.io"]
         parentRefs:
           - name: internal
             namespace: kube-system

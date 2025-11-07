@@ -1,0 +1,105 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1beta2.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: loki
+spec:
+  interval: 5m
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: 6.21.0
+  url: oci://ghcr.io/grafana/helm-charts/loki
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: loki
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    deploymentMode: SimpleScalable
+    loki:
+      auth_enabled: false
+      commonConfig:
+        replication_factor: 1
+      ingester:
+        chunk_encoding: snappy
+      storage:
+        type: s3
+        bucketNames:
+          chunks: loki-chunks
+        s3:
+          endpoint: https://s3.68cc.io
+          region: us-east-1
+          s3ForcePathStyle: true
+          insecure: false
+      structuredConfig:
+        common:
+          storage:
+            s3:
+              access_key_id: ${S3_ACCESS_KEY_ID}
+              secret_access_key: ${S3_SECRET_ACCESS_KEY}
+      schemaConfig:
+        configs:
+          - from: "2024-01-01"
+            store: tsdb
+            object_store: s3
+            schema: v13
+            index:
+              prefix: loki_index_
+              period: 24h
+      limits_config:
+        retention_period: 30d
+        max_cache_freshness_per_query: 10m
+        split_queries_by_interval: 15m
+    backend:
+      replicas: 1
+      persistence:
+        storageClass: local-hostpath
+        size: 10Gi
+      extraEnvFrom:
+        - secretRef:
+            name: loki-s3-secret
+    read:
+      replicas: 1
+      persistence:
+        storageClass: local-hostpath
+        size: 10Gi
+      extraEnvFrom:
+        - secretRef:
+            name: loki-s3-secret
+    write:
+      replicas: 1
+      persistence:
+        storageClass: local-hostpath
+        size: 10Gi
+      extraEnvFrom:
+        - secretRef:
+            name: loki-s3-secret
+    gateway:
+      enabled: true
+      replicas: 1
+    singleBinary:
+      replicas: 0
+    chunksCache:
+      enabled: false
+    resultsCache:
+      enabled: false
+    lokiCanary:
+      enabled: false
+    test:
+      enabled: false

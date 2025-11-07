@@ -89,6 +89,17 @@ spec:
           - new-service-discovery-manager
         retention: 14d
         retentionSize: 70GB
+        remoteWrite:
+          - url: http://mimir-nginx.monitoring.svc.cluster.local:8080/api/v1/push
+            queueConfig:
+              capacity: 10000
+              maxShards: 50
+              minShards: 1
+              maxSamplesPerSend: 5000
+              batchSendDeadline: 5s
+              minBackoff: 30ms
+              maxBackoff: 5s
+
         resources:
           requests:
             cpu: 100m
