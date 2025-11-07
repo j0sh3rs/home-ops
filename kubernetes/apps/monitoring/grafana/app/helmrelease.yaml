@@ -62,14 +62,6 @@ spec:
           - { name: Loki, orgId: 1 }
           - { name: Prometheus, orgId: 1 }
         datasources:
-          - name: Prometheus
-            type: prometheus
-            uid: prometheus
-            access: proxy
-            url: http://prometheus-operated.monitoring.svc.cluster.local:9090
-            jsonData:
-              timeInterval: 1m
-            isDefault: true
           - name: Loki
             type: loki
             uid: loki
@@ -99,6 +91,7 @@ spec:
                 datasourceUid: loki
           - name: Mimir
             type: prometheus
+            isDefault: true
             uid: mimir
             access: proxy
             url: http://mimir-nginx.monitoring.svc.cluster.local:8080/prometheus
@@ -264,7 +257,7 @@ spec:
       - pr0ps-trackmap-panel
       - vonage-status-panel
       - camptocamp-prometheus-alertmanager-datasource
-      - https://github.com/netdata/netdata-grafana-datasource-plugin/releases/download/v3.0.1/netdatacloud-netdata-datasource-3.0.1.zip;netdata-datasource
+      - https://github.com/netdata/netdata-grafana-datasource-plugin/releases/download/v3.0.2/netdatacloud-netdata-datasource-3.0.2.zip;netdata-datasource
     serviceMonitor:
       enabled: true
     route:
