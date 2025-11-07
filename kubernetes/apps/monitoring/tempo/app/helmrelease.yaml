@@ -37,13 +37,13 @@ spec:
         trace:
           backend: s3
           s3:
-            bucket: tempo-traces
+            bucket: tempo
             endpoint: s3.68cc.io:443
             region: us-east-1
             access_key: ${S3_ACCESS_KEY_ID}
             secret_key: ${S3_SECRET_ACCESS_KEY}
             insecure: false
-      retention: 720h  # 30 days
+      retention: 720h # 30 days
       receivers:
         otlp:
           protocols:
@@ -64,7 +64,6 @@ spec:
         remoteWriteUrl: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
     persistence:
       enabled: true
-      storageClassName: local-hostpath
       size: 10Gi
     service:
       type: ClusterIP

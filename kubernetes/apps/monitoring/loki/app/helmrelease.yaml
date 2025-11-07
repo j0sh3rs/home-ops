@@ -41,7 +41,7 @@ spec:
       storage:
         type: s3
         bucketNames:
-          chunks: loki-chunks
+          chunks: loki
         s3:
           endpoint: https://s3.68cc.io
           region: us-east-1
@@ -69,7 +69,6 @@ spec:
     backend:
       replicas: 1
       persistence:
-        storageClass: local-hostpath
         size: 10Gi
       extraEnvFrom:
         - secretRef:
@@ -77,7 +76,6 @@ spec:
     read:
       replicas: 1
       persistence:
-        storageClass: local-hostpath
         size: 10Gi
       extraEnvFrom:
         - secretRef:
@@ -85,7 +83,6 @@ spec:
     write:
       replicas: 1
       persistence:
-        storageClass: local-hostpath
         size: 10Gi
       extraEnvFrom:
         - secretRef:
