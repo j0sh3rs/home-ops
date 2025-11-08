@@ -1,0 +1,120 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: openebs
+spec:
+  interval: 1h
+  url: https://openebs.github.io/openebs
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openebs
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: openebs
+      version: 4.x
+      sourceRef:
+        kind: HelmRepository
+        name: openebs
+      interval: 1h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # OpenEBS LocalPV Provisioner Configuration
+    # Fulfills: REQ-a7f3d9c2-001 (LocalPV Storage Provisioner)
+    # AC-001-01: PVC provisioning within 30 seconds
+    # AC-001-02: HA deployment pattern (Deployment with leader election)
+    # AC-001-04: Multiple storage classes (hostpath + device)
+    # NFR-SCALE-001: Resource limits <500Mi per pod
+
+    localprovisioner:
+      enabled: true
+
+      # HA Configuration (3 replicas with leader election for high availability)
+      replicas: 3
+      enableLeaderElection: true
+
+      # Resource Limits per NFR-SCALE-001 (<500Mi memory per pod)
+      resources:
+        limits:
+          cpu: 500m
+          memory: 500Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+
+      # Base path for hostpath volumes
+      basePath: "/var/openebs/local"
+
+      # Enable both hostpath and device storage classes
+      enableHostpathClass: true
+      enableDeviceClass: true
+
+      # Hostpath StorageClass Configuration (default)
+      hostpathClass:
+        name: openebs-localpv-hostpath
+        enabled: true
+        isDefaultClass: true # Make this the default storage class
+        reclaimPolicy: Delete
+        volumeBindingMode: WaitForFirstConsumer
+
+      # Device StorageClass Configuration (optional)
+      deviceClass:
+        name: openebs-localpv-device
+        enabled: true
+        isDefaultClass: false
+        reclaimPolicy: Delete
+        volumeBindingMode: WaitForFirstConsumer
+        fsType: "ext4"
+
+      # Node placement configuration
+      nodeSelector: {}
+      tolerations: []
+      affinity: {}
+
+      # Health check settings
+      healthCheck:
+        initialDelaySeconds: 30
+        periodSeconds: 60
+
+    # Node Disk Manager (NDM) Configuration
+    # Required for device-based LocalPV volumes
+    ndm:
+      enabled: true
+
+      # Resource limits for NDM daemon
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+
+      # Disk filters to prevent OS disk usage
+      filters:
+        enableOsDiskExcludeFilter: true
+        enableVendorFilter: true
+        excludeVendors: "CLOUDBYT,OpenEBS"
+        enablePathFilter: true
+        excludePaths: "loop,/dev/fd0,/dev/sr0,/dev/ram,/dev/dm-,/dev/md,/dev/rbd,/dev/zd"
+
+    # Disable components not needed for LocalPV
+    mayastor:
+      enabled: false
+
+    engines:
+      replicated:
+        mayastor:
+          enabled: false
