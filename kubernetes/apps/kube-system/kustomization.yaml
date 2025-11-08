@@ -14,6 +14,7 @@ resources:
   - ./irqbalance/ks.yaml
   - ./metrics-server/ks.yaml
   - ./nfs-external-provisioner/ks.yaml
+  - ./openebs/ks.yaml
   - ./reloader/ks.yaml
   - ./spegel/ks.yaml
   # - ./synology-csi/ks.yaml
