@@ -18,16 +18,16 @@
 **Trace:** REQ-a7f3d9c2-003, REQ-a7f3d9c2-001 | **Design:** ADR-004 | **AC:** AC-003-01
 **DoD (EARS Format):**
 
-- WHEN task completed, SHALL have created `kubernetes/apps/storage/openebs/ks.yaml` with valid FluxCD Kustomization
-- WHEN task completed, SHALL have created `kubernetes/apps/storage/openebs/app/kustomization.yaml` following existing patterns
-- WHEN task completed, SHALL have created `kubernetes/apps/storage/openebs/app/helmrelease.yaml` with OpenEBS chart reference
-- WHERE namespace created, SHALL be `openebs` per EARS contract specifications
+- WHEN task completed, SHALL have created `kubernetes/apps/kube-system/openebs/ks.yaml` with valid FluxCD Kustomization
+- WHEN task completed, SHALL have created `kubernetes/apps/kube-system/openebs/app/kustomization.yaml` following existing patterns
+- WHEN task completed, SHALL have created `kubernetes/apps/kube-system/openebs/app/helmrelease.yaml` with OpenEBS chart reference
+- WHERE namespace created, SHALL be `kube-system` per EARS contract specifications
 
 **Risk:** Low | **Deps:** None | **Effort:** 2pts
 
 **Sub-tasks:**
 
-- [ ] Create directory structure: `kubernetes/apps/storage/openebs/{ks.yaml,app/}`
+- [x] Create directory structure: `kubernetes/apps/kube-system/openebs/{ks.yaml,app/}`
 - [ ] Write `ks.yaml` with FluxCD Kustomization manifest
 - [ ] Write `app/kustomization.yaml` with namespace and HelmRelease resources
 - [ ] Write `app/helmrelease.yaml` with OpenEBS chart from OCI registry

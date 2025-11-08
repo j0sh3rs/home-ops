@@ -24,7 +24,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: openebs
-        namespace: openebs
+        namespace: kube-system
   install:
     createNamespace: true
     remediation:
