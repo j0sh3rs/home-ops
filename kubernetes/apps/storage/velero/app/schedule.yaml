@@ -1,0 +1,44 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/velero.io/schedule_v1.json
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-backup
+  namespace: velero
+spec:
+  # Daily backup at 02:00 UTC (AC-002-02)
+  schedule: "0 2 * * *"
+
+  # Template for backups created by this schedule
+  template:
+    # 30-day retention (720 hours) per AC-002-02
+    ttl: 720h
+
+    # Include all namespaces by default
+    includedNamespaces:
+      - "*"
+
+    # Exclude system namespaces that don't need backup
+    excludedNamespaces:
+      - kube-system
+      - kube-public
+      - kube-node-lease
+      - flux-system
+
+    # CSI snapshot support
+    snapshotVolumes: true
+
+    # Storage location
+    storageLocation: default
+
+    # Volume snapshot location
+    volumeSnapshotLocations:
+      - default
+
+    # Include cluster-scoped resources
+    includeClusterResources: true
+
+    # Label for identifying scheduled backups
+    labels:
+      backup-type: scheduled
+      schedule: daily

@@ -13,7 +13,7 @@ resources:
   - ./descheduler/ks.yaml
   - ./irqbalance/ks.yaml
   - ./metrics-server/ks.yaml
-  - ./nfs-external-provisioner/ks.yaml
+  # - ./nfs-external-provisioner/ks.yaml
   - ./reloader/ks.yaml
   - ./spegel/ks.yaml
-  - ./synology-csi/ks.yaml
+  # - ./synology-csi/ks.yaml

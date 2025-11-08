@@ -1,0 +1,105 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrepository-source-v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: vmware-tanzu
+  namespace: velero
+spec:
+  interval: 1h
+  url: https://vmware-tanzu.github.io/helm-charts
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: velero
+  namespace: velero
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: velero
+      version: 8.x
+      sourceRef:
+        kind: HelmRepository
+        name: vmware-tanzu
+        namespace: velero
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # Resource limits per NFR-SCALE-001
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 500Mi
+
+    # Initialize with plugins for S3 and CSI
+    initContainers:
+      - name: velero-plugin-for-aws
+        image: velero/velero-plugin-for-aws:v1.11.0
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - mountPath: /target
+            name: plugins
+      - name: velero-plugin-for-csi
+        image: velero/velero-plugin-for-csi:v0.8.1
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - mountPath: /target
+            name: plugins
+
+    # Backup storage location configuration
+    configuration:
+      backupStorageLocation:
+        - name: default
+          provider: aws
+          bucket: openebs-backups
+          default: true
+          config:
+            region: us-east-1  # Required by AWS SDK but not used by Minio
+            s3ForcePathStyle: "true"  # Required for Minio S3 compatibility
+            s3Url: https://s3.68cc.io
+
+      # Volume snapshot location for CSI snapshots
+      volumeSnapshotLocation:
+        - name: default
+          provider: csi
+
+      # Enable CSI snapshot features
+      features: EnableCSI
+
+      # Default backup TTL
+      defaultBackupTTL: 720h  # 30 days
+
+    # Credentials for S3 access (from SOPS-encrypted secret)
+    credentials:
+      existingSecret: velero-s3-secret
+      secretContents:
+        cloud: |
+          [default]
+          aws_access_key_id=${S3_ACCESS_KEY_ID}
+          aws_secret_access_key=${S3_SECRET_ACCESS_KEY}
+
+    # Backup snapshot configuration
+    snapshotsEnabled: true
+
+    # Deploy node-agent (formerly restic) for file-level backups
+    deployNodeAgent: false  # Not needed for CSI snapshots
+
+    # ServiceMonitor for Prometheus metrics (NFR-OPER-001)
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+        additionalLabels:
+          release: kube-prometheus-stack
