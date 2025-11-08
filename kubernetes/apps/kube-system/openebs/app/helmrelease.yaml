@@ -38,7 +38,7 @@ spec:
     localprovisioner:
       enabled: true
       replicas: 3
-      enableLeaderElection: true
+      enableLeaderElection: false
       resources:
         limits:
           cpu: 500m
@@ -62,7 +62,6 @@ spec:
         reclaimPolicy: Delete
         volumeBindingMode: WaitForFirstConsumer
         fsType: "ext4"
-
     # Node Disk Manager - for device discovery
     ndm:
       enabled: true
@@ -73,23 +72,20 @@ spec:
         requests:
           cpu: 50m
           memory: 64Mi
-
     # Disable engines not needed for LocalPV + S3 snapshot strategy
     mayastor:
       enabled: false
-
     # Disable ZFS LocalPV (not using ZFS)
     zfs-localpv:
       enabled: false
-
     # Disable LVM LocalPV (not using LVM)
     lvm-localpv:
       enabled: false
-
     # Disable built-in Loki (using existing LGTM stack)
     loki:
       enabled: false
-
     # Disable built-in Minio (using existing Minio S3)
     minio:
+      enabled: false
+    alloy:
       enabled: false
