@@ -1,18 +1,20 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrepository-source-v1.json
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: openebs
+  namespace: openebs
 spec:
   interval: 1h
   url: https://openebs.github.io/openebs
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: openebs
+  namespace: openebs
 spec:
   interval: 1h
   chart:
@@ -22,8 +24,9 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: openebs
-      interval: 1h
+        namespace: openebs
   install:
+    createNamespace: true
     remediation:
       retries: 3
   upgrade:
@@ -31,21 +34,11 @@ spec:
     remediation:
       retries: 3
   values:
-    # OpenEBS LocalPV Provisioner Configuration
-    # Fulfills: REQ-a7f3d9c2-001 (LocalPV Storage Provisioner)
-    # AC-001-01: PVC provisioning within 30 seconds
-    # AC-001-02: HA deployment pattern (Deployment with leader election)
-    # AC-001-04: Multiple storage classes (hostpath + device)
-    # NFR-SCALE-001: Resource limits <500Mi per pod
-
+    # LocalPV Provisioner - Primary storage engine
     localprovisioner:
       enabled: true
-
-      # HA Configuration (3 replicas with leader election for high availability)
       replicas: 3
       enableLeaderElection: true
-
-      # Resource Limits per NFR-SCALE-001 (<500Mi memory per pod)
       resources:
         limits:
           cpu: 500m
@@ -53,23 +46,15 @@ spec:
         requests:
           cpu: 100m
           memory: 128Mi
-
-      # Base path for hostpath volumes
       basePath: "/var/openebs/local"
-
-      # Enable both hostpath and device storage classes
       enableHostpathClass: true
       enableDeviceClass: true
-
-      # Hostpath StorageClass Configuration (default)
       hostpathClass:
         name: openebs-localpv-hostpath
         enabled: true
-        isDefaultClass: true # Make this the default storage class
+        isDefaultClass: true
         reclaimPolicy: Delete
         volumeBindingMode: WaitForFirstConsumer
-
-      # Device StorageClass Configuration (optional)
       deviceClass:
         name: openebs-localpv-device
         enabled: true
@@ -78,43 +63,33 @@ spec:
         volumeBindingMode: WaitForFirstConsumer
         fsType: "ext4"
 
-      # Node placement configuration
-      nodeSelector: {}
-      tolerations: []
-      affinity: {}
-
-      # Health check settings
-      healthCheck:
-        initialDelaySeconds: 30
-        periodSeconds: 60
-
-    # Node Disk Manager (NDM) Configuration
-    # Required for device-based LocalPV volumes
+    # Node Disk Manager - for device discovery
     ndm:
       enabled: true
-
-      # Resource limits for NDM daemon
       resources:
         limits:
           cpu: 100m
           memory: 256Mi
         requests:
           cpu: 50m
-          memory: 128Mi
+          memory: 64Mi
 
-      # Disk filters to prevent OS disk usage
-      filters:
-        enableOsDiskExcludeFilter: true
-        enableVendorFilter: true
-        excludeVendors: "CLOUDBYT,OpenEBS"
-        enablePathFilter: true
-        excludePaths: "loop,/dev/fd0,/dev/sr0,/dev/ram,/dev/dm-,/dev/md,/dev/rbd,/dev/zd"
-
-    # Disable components not needed for LocalPV
+    # Disable engines not needed for LocalPV + S3 snapshot strategy
     mayastor:
       enabled: false
 
-    engines:
-      replicated:
-        mayastor:
-          enabled: false
+    # Disable ZFS LocalPV (not using ZFS)
+    zfs-localpv:
+      enabled: false
+
+    # Disable LVM LocalPV (not using LVM)
+    lvm-localpv:
+      enabled: false
+
+    # Disable built-in Loki (using existing LGTM stack)
+    loki:
+      enabled: false
+
+    # Disable built-in Minio (using existing Minio S3)
+    minio:
+      enabled: false
