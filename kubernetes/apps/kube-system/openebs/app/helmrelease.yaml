@@ -11,7 +11,7 @@ spec:
   interval: 1h
   values:
     preUpgradeHook:
-      enabled: false
+      enabled: true
     localpv-provisioner:
       analytics:
         enabled: false
