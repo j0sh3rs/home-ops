@@ -39,7 +39,7 @@ spec:
       endpointURL: https://s3.68cc.io
       # Note: serverName version needs to be incremented
       # when recovering from an existing cnpg cluster
-      serverName: &currentCluster postgres17-v2
+      serverName: &currentCluster postgres17-v3
       s3Credentials:
         accessKeyId:
           name: cloudnative-pg-secret
