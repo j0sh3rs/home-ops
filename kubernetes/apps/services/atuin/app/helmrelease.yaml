@@ -34,7 +34,6 @@ spec:
               tag: 2.1.2@sha256:8b875915be0869624cf5dfd48a1dfbfb627e778793cc1612d00fb281a8805c63
             env:
               FOLDER: /config
-              LABEL: gatus.io/enabled
               NAMESPACE: ALL
               RESOURCE: both
               UNIQUE_FILENAMES: true
@@ -48,7 +47,7 @@ spec:
         replicas: 1
         strategy: RollingUpdate
         annotations:
-          reloader.stakater.com/auto: 'true'
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -57,19 +56,19 @@ spec:
             env:
               ATUIN_HOST: 0.0.0.0
               ATUIN_PORT: &port 80
-              ATUIN_OPEN_REGISTRATION: 'false'
-              ATUIN_METRICS__ENABLE: 'true'
+              ATUIN_OPEN_REGISTRATION: "false"
+              ATUIN_METRICS__ENABLE: "true"
               ATUIN_METRICS__HOST: 0.0.0.0
               ATUIN_METRICS__PORT: &metricsPort 8080
-              ATUIN_TLS_ENABLE: 'false'
+              ATUIN_TLS_ENABLE: "false"
             envFrom:
               - secretRef:
                   name: atuin-secrets
-            args: ['server', 'start']
+            args: ["server", "start"]
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ['ALL'] }
+              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 10m
@@ -102,7 +101,7 @@ spec:
             scrapeTimeout: 10s
     route:
       app:
-        hostnames: ['sh.bth.wtf']
+        hostnames: ["sh.bth.wtf"]
         parentRefs:
           - name: external
             namespace: kube-system

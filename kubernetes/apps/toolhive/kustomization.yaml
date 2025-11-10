@@ -8,4 +8,4 @@ components:
 resources:
   - ./crds
   - ./operator
-  # - ./mcp_servers
+  - ./mcp_servers
