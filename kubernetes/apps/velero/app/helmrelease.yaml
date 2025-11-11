@@ -49,7 +49,7 @@ spec:
     # Initialize with AWS S3 plugin (CSI plugin temporarily disabled until working version found)
     initContainers:
       - name: velero-plugin-for-aws
-        image: cleanstart/velero-plugin-for-aws:1.13.0
+        image: velero/velero-plugin-for-aws:v1.10.0
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - mountPath: /target
@@ -63,9 +63,11 @@ spec:
           bucket: velero
           default: true
           config:
-            region: us-east-1 # Required by AWS SDK but not used by Minio
+            region: minio # Use 'minio' as region for non-AWS S3
             s3ForcePathStyle: "true" # Required for Minio S3 compatibility
             s3Url: https://s3.68cc.io
+            publicUrl: https://s3.68cc.io
+            insecureSkipTLSVerify: "false"
 
       # CSI snapshot support temporarily disabled (no working CSI plugin version)
       # volumeSnapshotLocation:
