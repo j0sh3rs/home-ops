@@ -8,7 +8,6 @@ components:
 resources:
   - ./grafana/ks.yaml
   # - ./kube-prometheus-stack/ks.yaml
-  - ./mimir/ks.yaml
+  # - ./mimir/ks.yaml
   # - ./netdata/ks.yaml
-  - ./tempo/ks.yaml
   - ./unpoller/ks.yaml
