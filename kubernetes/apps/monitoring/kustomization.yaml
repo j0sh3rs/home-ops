@@ -7,7 +7,7 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./grafana/ks.yaml
-  # - ./kube-prometheus-stack/ks.yaml
-  # - ./mimir/ks.yaml
-  # - ./netdata/ks.yaml
+  - ./netdata/ks.yaml
   - ./unpoller/ks.yaml
+  - ./victoria-metrics-k8s-stack/ks.yaml
+  - ./victoria-logs-cluster/ks.yaml

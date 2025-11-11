@@ -61,51 +61,38 @@ spec:
           - { name: Alertmanager, orgId: 1 }
           - { name: Loki, orgId: 1 }
           - { name: Prometheus, orgId: 1 }
+          - { name: Tempo, orgId: 1 }
+          - { name: Mimir, orgId: 1 }
         datasources:
-          - name: Loki
-            type: loki
-            uid: loki
-            access: proxy
-            url: http://loki-gateway.monitoring.svc.cluster.local:3100
-            jsonData:
-              maxLines: 250
-          - name: Tempo
-            type: tempo
-            uid: tempo
-            access: proxy
-            url: http://tempo.monitoring.svc.cluster.local:3100
-            jsonData:
-              tracesToLogsV2:
-                datasourceUid: loki
-                spanStartTimeShift: "-1h"
-                spanEndTimeShift: "1h"
-                filterByTraceID: true
-                filterBySpanID: false
-              tracesToMetrics:
-                datasourceUid: mimir
-              serviceMap:
-                datasourceUid: prometheus
-              nodeGraph:
-                enabled: true
-              lokiSearch:
-                datasourceUid: loki
-          - name: Mimir
+          # VictoriaMetrics - Replaces Prometheus and Mimir
+          - name: VictoriaMetrics
             type: prometheus
             isDefault: true
-            uid: mimir
+            uid: victoriametrics
             access: proxy
-            url: http://mimir-nginx.monitoring.svc.cluster.local:8080/prometheus
+            url: http://vmsingle-victoria-metrics-k8s-stack.monitoring.svc:8429
             jsonData:
-              timeInterval: 1m
-              prometheusType: Mimir
-              cacheLevel: High
-          - name: Alertmanager
-            type: alertmanager
-            uid: alertmanager
+              timeInterval: 30s
+              httpMethod: POST
+            editable: false
+          # VictoriaLogs - Replaces Loki
+          - name: VictoriaLogs
+            type: loki
+            uid: victorialogs
             access: proxy
-            url: http://alertmanager-operated.monitoring.svc.cluster.local:9093
+            url: http://vlselect.monitoring.svc:8481/select/logsql
+            jsonData:
+              maxLines: 1000
+            editable: false
+          # VMAlertmanager - Replaces Alertmanager
+          - name: VMAlertmanager
+            type: alertmanager
+            uid: vmalertmanager
+            access: proxy
+            url: http://vmalertmanager-victoria-metrics-k8s-stack.monitoring.svc:9093
             jsonData:
               implementation: prometheus
+            editable: false
     dashboardProviders:
       dashboardproviders.yaml:
         apiVersion: 1
