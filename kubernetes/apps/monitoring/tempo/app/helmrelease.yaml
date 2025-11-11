@@ -33,11 +33,17 @@ spec:
   values:
     tempo:
       replicas: 1
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
       storage:
         trace:
           backend: s3
           s3:
-            bucket: tempo
+            bucket: tempo-traces
             endpoint: s3.68cc.io:443
             region: us-east-1
             access_key: ${S3_ACCESS_KEY_ID}
@@ -51,24 +57,17 @@ spec:
               endpoint: 0.0.0.0:4317
             http:
               endpoint: 0.0.0.0:4318
-        jaeger:
-          protocols:
-            thrift_http:
-              endpoint: 0.0.0.0:14268
-            grpc:
-              endpoint: 0.0.0.0:14250
-        zipkin:
-          endpoint: 0.0.0.0:9411
       metricsGenerator:
         enabled: true
         remoteWriteUrl: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+    # Disable local persistence - S3 backend provides durability (ADR-002)
     persistence:
-      enabled: true
-      size: 10Gi
+      enabled: false
     service:
       type: ClusterIP
     serviceMonitor:
       enabled: true
+    # Mount S3 credentials from secret as environment variables (AC-lgtm-004-02)
     extraEnvFrom:
       - secretRef:
           name: tempo-s3-secret
