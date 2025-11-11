@@ -12,7 +12,7 @@ spec:
   dependsOn:
     - name: openebs
   interval: 1h
-  path: ./kubernetes/apps/storage/velero/app
+  path: ./kubernetes/apps/velero/app
   prune: true
   retryInterval: 2m
   sourceRef:

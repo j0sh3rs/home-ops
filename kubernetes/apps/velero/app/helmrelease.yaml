@@ -63,11 +63,11 @@ spec:
       backupStorageLocation:
         - name: default
           provider: aws
-          bucket: openebs-backups
+          bucket: velero
           default: true
           config:
-            region: us-east-1  # Required by AWS SDK but not used by Minio
-            s3ForcePathStyle: "true"  # Required for Minio S3 compatibility
+            region: us-east-1 # Required by AWS SDK but not used by Minio
+            s3ForcePathStyle: "true" # Required for Minio S3 compatibility
             s3Url: https://s3.68cc.io
 
       # Volume snapshot location for CSI snapshots
@@ -79,7 +79,7 @@ spec:
       features: EnableCSI
 
       # Default backup TTL
-      defaultBackupTTL: 720h  # 30 days
+      defaultBackupTTL: 720h # 30 days
 
     # Credentials for S3 access (from SOPS-encrypted secret)
     credentials:
@@ -94,7 +94,7 @@ spec:
     snapshotsEnabled: true
 
     # Deploy node-agent (formerly restic) for file-level backups
-    deployNodeAgent: false  # Not needed for CSI snapshots
+    deployNodeAgent: false # Not needed for CSI snapshots
 
     # ServiceMonitor for Prometheus metrics (NFR-OPER-001)
     metrics:
