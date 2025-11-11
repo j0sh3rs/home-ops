@@ -46,16 +46,10 @@ spec:
         cpu: 500m
         memory: 500Mi
 
-    # Initialize with plugins for S3 and CSI
+    # Initialize with AWS S3 plugin (CSI plugin temporarily disabled until working version found)
     initContainers:
       - name: velero-plugin-for-aws
         image: velero/velero-plugin-for-aws:v1.11.0
-        imagePullPolicy: IfNotPresent
-        volumeMounts:
-          - mountPath: /target
-            name: plugins
-      - name: velero-plugin-for-csi
-        image: velero/velero-plugin-for-csi:v0.8.0
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - mountPath: /target
@@ -73,13 +67,12 @@ spec:
             s3ForcePathStyle: "true" # Required for Minio S3 compatibility
             s3Url: https://s3.68cc.io
 
-      # Volume snapshot location for CSI snapshots
-      volumeSnapshotLocation:
-        - name: default
-          provider: csi
+      # CSI snapshot support temporarily disabled (no working CSI plugin version)
+      # volumeSnapshotLocation:
+      #   - name: default
+      #     provider: csi
 
-      # Enable CSI snapshot features
-      features: EnableCSI
+      # features: EnableCSI
 
       # Default backup TTL
       defaultBackupTTL: 720h # 30 days
