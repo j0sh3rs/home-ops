@@ -83,6 +83,11 @@ spec:
     credentials:
       existingSecret: velero-s3-secret
 
+    # Environment variables to force AWS SDK to use credentials file (not EC2 IMDS)
+    extraEnvVars:
+      AWS_SHARED_CREDENTIALS_FILE: /credentials/cloud
+      AWS_SDK_LOAD_CONFIG: "false"
+
     # Backup snapshot configuration (disabled - no CSI plugin)
     snapshotsEnabled: false
 
