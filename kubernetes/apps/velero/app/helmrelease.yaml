@@ -49,13 +49,13 @@ spec:
     # Initialize with plugins for S3 and CSI
     initContainers:
       - name: velero-plugin-for-aws
-        image: velero/velero-plugin-for-aws:v1.13.1
+        image: velero/velero-plugin-for-aws:v1.11.0
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - mountPath: /target
             name: plugins
       - name: velero-plugin-for-csi
-        image: velero/velero-plugin-for-csi:v0.8.1
+        image: velero/velero-plugin-for-csi:v0.8.0
         imagePullPolicy: IfNotPresent
         volumeMounts:
           - mountPath: /target
