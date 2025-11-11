@@ -61,6 +61,18 @@ spec:
       metricsGenerator:
         enabled: true
         remoteWriteUrl: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+      # Mount S3 credentials from secret as environment variables (AC-lgtm-004-02)
+      extraEnv:
+        - name: S3_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: tempo-s3-secret
+              key: S3_ACCESS_KEY_ID
+        - name: S3_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: tempo-s3-secret
+              key: S3_SECRET_ACCESS_KEY
     # Disable local persistence - S3 backend provides durability (ADR-002)
     persistence:
       enabled: false
@@ -68,7 +80,3 @@ spec:
       type: ClusterIP
     serviceMonitor:
       enabled: true
-    # Mount S3 credentials from secret as environment variables (AC-lgtm-004-02)
-    extraEnvFrom:
-      - secretRef:
-          name: tempo-s3-secret
