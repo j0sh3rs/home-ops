@@ -6,4 +6,5 @@ resources:
   - ./namespace.yaml
   - ./secret.sops.yaml
   - ./helmrelease.yaml
-  - ./schedule.yaml
+  # Temporarily commented out until Velero CRDs are installed
+  # - ./schedule.yaml
