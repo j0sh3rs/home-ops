@@ -45,10 +45,11 @@ spec:
           s3:
             bucket: tempo-traces
             endpoint: s3.68cc.io:443
-            region: us-east-1
+            region: minio
             access_key: ${S3_ACCESS_KEY_ID}
             secret_key: ${S3_SECRET_ACCESS_KEY}
             insecure: false
+            forcepathstyle: true
       retention: 720h # 30 days
       receivers:
         otlp:
