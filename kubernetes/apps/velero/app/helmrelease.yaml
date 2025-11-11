@@ -69,12 +69,13 @@ spec:
             publicUrl: https://s3.68cc.io
             insecureSkipTLSVerify: "false"
 
-      # CSI snapshot support temporarily disabled (no working CSI plugin version)
-      # volumeSnapshotLocation:
-      #   - name: default
-      #     provider: csi
+      # CSI snapshot support (integrated in Velero v1.17+)
+      volumeSnapshotLocation:
+        - name: default
+          provider: csi
 
-      # features: EnableCSI
+      # Enable CSI feature flag (integrated plugin since v1.14)
+      features: EnableCSI
 
       # Default backup TTL
       defaultBackupTTL: 720h # 30 days
@@ -88,8 +89,8 @@ spec:
       AWS_SHARED_CREDENTIALS_FILE: /credentials/cloud
       AWS_SDK_LOAD_CONFIG: "false"
 
-    # Backup snapshot configuration (disabled - no CSI plugin)
-    snapshotsEnabled: false
+    # Backup snapshot configuration (CSI integrated in v1.17+)
+    snapshotsEnabled: true
 
     # Deploy node-agent (formerly restic) for file-level backups
     deployNodeAgent: false # Not needed for CSI snapshots

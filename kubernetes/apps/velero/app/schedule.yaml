@@ -21,9 +21,14 @@ spec:
       - kube-public
       - kube-node-lease
       - flux-system
-    # Volume snapshots disabled (CSI plugin not available)
-    snapshotVolumes: false
+    # Volume snapshots enabled (CSI integrated in Velero v1.17+)
+    snapshotVolumes: true
+    # Default volume snapshot location
+    defaultVolumesToFsBackup: false
     # Storage location
     storageLocation: default
+    # Volume snapshot location
+    volumeSnapshotLocations:
+      - default
     # Include cluster-scoped resources
     includeClusterResources: true
