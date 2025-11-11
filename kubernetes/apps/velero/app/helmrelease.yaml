@@ -34,12 +34,8 @@ spec:
     remediation:
       retries: 3
   values:
-    # Fix for kubectl image version (use 1.31 without patch version)
-    kubectl:
-      image:
-        registry: docker.io
-        repository: bitnami/kubectl
-        tag: "1.31"
+    # Disable CRD upgrade job (Helm chart handles CRDs via install.crds)
+    upgradeCRDs: false
 
     # Resource limits per NFR-SCALE-001
     resources:
