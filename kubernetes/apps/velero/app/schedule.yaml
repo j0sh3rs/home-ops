@@ -27,7 +27,3 @@ spec:
     storageLocation: default
     # Include cluster-scoped resources
     includeClusterResources: true
-    # Label for identifying scheduled backups
-    labels:
-      backup-type: scheduled
-      schedule: daily
