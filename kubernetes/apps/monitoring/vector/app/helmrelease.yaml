@@ -1,0 +1,81 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: vector
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: vector
+      version: 0.35.0
+      sourceRef:
+        kind: HelmRepository
+        name: vector
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    role: Agent
+
+    serviceAccount:
+      create: false
+      name: vector
+
+    customConfig:
+      data_dir: /vector-data-dir
+      api:
+        enabled: false
+      sources:
+        kubernetes_logs:
+          type: kubernetes_logs
+          auto_partial_merge: true
+          exclude_paths_glob_patterns:
+            - "**/var/log/pods/monitoring_vector-*/**"
+
+      transforms:
+        add_k8s_metadata:
+          type: remap
+          inputs:
+            - kubernetes_logs
+          source: |
+            .k8s.namespace = .kubernetes.pod_namespace
+            .k8s.pod_name = .kubernetes.pod_name
+            .k8s.container_name = .kubernetes.container_name
+            .k8s.node_name = .kubernetes.pod_node_name
+            .k8s.labels = .kubernetes.pod_labels
+
+      sinks:
+        parseable:
+          type: http
+          inputs:
+            - add_k8s_metadata
+          uri: http://parseable.monitoring.svc.cluster.local:8000/api/v1/ingest
+          encoding:
+            codec: json
+          batch:
+            timeout_secs: 5
+            max_bytes: 1048576
+          buffer:
+            type: disk
+            max_size: 1073741824
+          request:
+            retry_attempts: 3
+            retry_max_duration_secs: 30
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+    tolerations:
+      - effect: NoSchedule
+        operator: Exists

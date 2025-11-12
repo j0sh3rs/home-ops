@@ -14,7 +14,9 @@ resources:
   - ./jetstack.yaml
   - ./netdata.yaml
   - ./nfs-external-provisioner.yaml
+  - ./parseable.yaml
   - ./prometheus-community.yaml
   - ./tailscale.yaml
   - ./toolhive-operator-crds.yaml
   - ./toolhive-operator.yaml
+  - ./vector.yaml
