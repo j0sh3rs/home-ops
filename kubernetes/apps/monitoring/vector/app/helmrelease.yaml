@@ -24,6 +24,10 @@ spec:
   values:
     role: Agent
 
+    # Disable service for Agent role (DaemonSet doesn't need exposed service)
+    service:
+      enabled: false
+
     serviceAccount:
       create: false
       name: vector
@@ -56,7 +60,7 @@ spec:
           type: http
           inputs:
             - add_k8s_metadata
-          uri: http://parseable.monitoring.svc.cluster.local:8000/api/v1/ingest
+          uri: http://parseable.monitoring.svc.cluster.local/api/v1/ingest
           encoding:
             codec: json
           batch:
