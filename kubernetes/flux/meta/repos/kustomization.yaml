@@ -16,6 +16,5 @@ resources:
   - ./nfs-external-provisioner.yaml
   - ./prometheus-community.yaml
   - ./tailscale.yaml
-  - ./victoriametrics.yaml
   - ./toolhive-operator-crds.yaml
   - ./toolhive-operator.yaml
