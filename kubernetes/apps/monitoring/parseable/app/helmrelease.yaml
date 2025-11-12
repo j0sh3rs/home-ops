@@ -29,11 +29,26 @@ spec:
         tag: v2.5.1
         pullPolicy: IfNotPresent
 
+      # Disable high availability for standalone mode
       highAvailability:
         enabled: false
 
       # Store type must be a string: "s3-store"
       store: s3-store
+
+      # Persistence configuration for staging directory
+      persistence:
+        staging:
+          enabled: true
+          storageClass: "openebs-localpv-hostpath"
+          accessMode: ReadWriteOnce
+          size: 5Gi
+        ingestor:
+          enabled: false
+        data:
+          enabled: false
+        querier:
+          enabled: false
 
       # S3 configuration via secret with P_ prefix environment variables
       s3ModeSecret:
@@ -52,6 +67,14 @@ spec:
               - s3.secret.key
               - s3.bucket
               - s3.region
+
+      # Explicitly disable other storage modes
+      gcsModeSecret:
+        enabled: false
+      blobModeSecret:
+        enabled: false
+      localModeSecret:
+        enabled: false
 
       resources:
         limits:
