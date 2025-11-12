@@ -9,5 +9,5 @@ resources:
   - ./grafana/ks.yaml
   - ./netdata/ks.yaml
   - ./unpoller/ks.yaml
-  - ./victoria-metrics-k8s-stack/ks.yaml
-  - ./victoria-logs-cluster/ks.yaml
+  - ./victoria-metrics/ks.yaml
+  - ./victoria-logs/ks.yaml
