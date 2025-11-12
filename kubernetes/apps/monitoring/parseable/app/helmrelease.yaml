@@ -40,7 +40,7 @@ spec:
       persistence:
         staging:
           enabled: true
-          storageClass: "openebs-localpv-hostpath"
+          storageClass: "openebs-hostpath"
           accessMode: ReadWriteOnce
           size: 5Gi
         ingestor:
