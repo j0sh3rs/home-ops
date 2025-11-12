@@ -44,33 +44,58 @@ spec:
             memory: 256Mi
           limits:
             memory: 1Gi
-    # VMSingle - Metrics Storage with S3 Backend (Minio Compatible)
+    # VMSingle - Metrics Storage (Local PV + S3 Backups via vmbackup)
     vmsingle:
       enabled: true
       spec:
         retentionPeriod: "30d"
         replicaCount: 1
-        # Environment variables for S3 credentials (Tempo lessons learned)
-        extraEnv:
-          - name: S3_ACCESS_KEY_ID
-            valueFrom:
-              secretKeyRef:
-                name: victoriametrics-s3-secret
-                key: S3_ACCESS_KEY_ID
-          - name: S3_SECRET_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: victoriametrics-s3-secret
-                key: S3_SECRET_ACCESS_KEY
-        # S3 configuration with Minio compatibility (forcepathstyle, region=minio)
+
+        # Local storage configuration
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: openebs-localpv-hostpath
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 50Gi
+
+        # Basic logging configuration
         extraArgs:
-          envflag.enable: "true"
-          envflag.prefix: VM_
           loggerFormat: json
-          remoteStorage.s3.endpoint: "https://s3.68cc.io"
-          remoteStorage.s3.region: minio # Minio compatibility
-          remoteStorage.s3.bucket: victoriametrics-data
-          remoteStorage.s3.forcePathStyle: "true" # Path-style URLs for Minio
+
+        # vmbackup - S3 Backup Configuration
+        vmBackup:
+          acceptEULA: true
+          spec:
+            # Environment variables for S3 credentials
+            extraEnv:
+              - name: AWS_ACCESS_KEY_ID
+                valueFrom:
+                  secretKeyRef:
+                    name: victoriametrics-s3-secret
+                    key: S3_ACCESS_KEY_ID
+              - name: AWS_SECRET_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: victoriametrics-s3-secret
+                    key: S3_SECRET_ACCESS_KEY
+            # S3 destination with Minio compatibility
+            destination: "s3://victoriametrics-data/?region=minio&force_path_style=true&endpoint=https://s3.68cc.io"
+            # Backup schedule (daily at 02:00)
+            extraArgs:
+              snapshot.createURL: "http://localhost:8429/snapshot/create"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+            # Daily backup schedule
+            schedule: "0 2 * * *"
+
         resources:
           requests:
             cpu: 500m
