@@ -25,37 +25,30 @@ spec:
     # vlinsert - Log Ingestion Component
     vlinsert:
       replicaCount: 1
-
       service:
         type: ClusterIP
         port: 8428
-
       resources:
         requests:
           cpu: 100m
           memory: 256Mi
         limits:
-          memory: 2Gi  # AC-vm-003-04
-
+          memory: 2Gi # AC-vm-003-04
     # vlselect - Log Querying Component (LogQL compatible)
     vlselect:
       replicaCount: 1
-
       service:
         type: ClusterIP
-        port: 8481  # LogQL query endpoint
-
+        port: 8481 # LogQL query endpoint
       resources:
         requests:
           cpu: 100m
           memory: 256Mi
         limits:
-          memory: 1Gi  # AC-vm-003-04
-
+          memory: 1Gi # AC-vm-003-04
     # vlstorage - Log Storage Component with S3 Backend
     vlstorage:
       replicaCount: 1
-
       # S3 credentials injection (Tempo lessons learned)
       env:
         - name: S3_ACCESS_KEY_ID
@@ -68,7 +61,6 @@ spec:
             secretKeyRef:
               name: victorialogs-s3-secret
               key: S3_SECRET_ACCESS_KEY
-
       # S3 configuration with Minio compatibility
       extraArgs:
         - -storageDataPath=/storage
@@ -77,14 +69,12 @@ spec:
         - -envflag.enable=true
         - -envflag.prefix=VM_
         - -loggerFormat=json
-
       # No local PVC - S3 only for durability
       persistentVolume:
         enabled: false
-
       resources:
         requests:
           cpu: 100m
           memory: 512Mi
         limits:
-          memory: 2Gi  # AC-vm-003-04
+          memory: 2Gi # AC-vm-003-04
