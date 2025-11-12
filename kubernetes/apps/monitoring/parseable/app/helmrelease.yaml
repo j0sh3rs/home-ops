@@ -23,6 +23,12 @@ spec:
       retries: 3
   values:
     parseable:
+      # Override image to use Docker Hub with latest stable version
+      image:
+        repository: parseable/parseable
+        tag: v2.5.1
+        pullPolicy: IfNotPresent
+
       highAvailability:
         enabled: false
 
