@@ -9,5 +9,6 @@ spec:
     kind: OCIRepository
     name: spegel
   interval: 1h
-valuesFiles:
-  - ./helm/values.yaml
+  valuesFrom:
+    - kind: ConfigMap
+      name: spegel-values

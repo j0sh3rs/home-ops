@@ -6,4 +6,4 @@ resources:
   - ./namespace.yaml
   - ./secret.sops.yaml
   - ./helmrelease.yaml
-  # - ./schedule.yaml
+  - ./schedule.yaml

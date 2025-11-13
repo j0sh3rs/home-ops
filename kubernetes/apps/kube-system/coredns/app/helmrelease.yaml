@@ -9,5 +9,6 @@ spec:
     kind: OCIRepository
     name: coredns
   interval: 1h
-valuesFiles:
-  - ./helm/values.yaml
+  valuesFrom:
+    - kind: ConfigMap
+      name: coredns-values
