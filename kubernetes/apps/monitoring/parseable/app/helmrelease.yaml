@@ -28,28 +28,27 @@ spec:
         repository: parseable/parseable
         tag: v2.5.1
         pullPolicy: IfNotPresent
-
       # Disable high availability for standalone mode
       highAvailability:
         enabled: false
-
       # Store type must be a string: "s3-store"
       store: s3-store
-
       # Persistence configuration for staging directory
       persistence:
         staging:
           enabled: true
           storageClass: "openebs-hostpath"
           accessMode: ReadWriteOnce
-          size: 5Gi
+          size: 50Gi
         ingestor:
           enabled: false
         data:
           enabled: false
         querier:
-          enabled: false
-
+          enabled: true
+          storageClass: "openebs-hostpath"
+          accessMode: ReadWriteOnce
+          size: 50Gi
       # S3 configuration via secret with P_ prefix environment variables
       s3ModeSecret:
         enabled: true
@@ -75,14 +74,16 @@ spec:
         enabled: false
       localModeSecret:
         enabled: false
-
       resources:
         limits:
-          memory: 2Gi
+          memory: 4Gi
+          cpu: 4
         requests:
           cpu: 500m
           memory: 1Gi
-
       service:
         type: ClusterIP
         port: 80
+      metrics:
+        serviceMonitor:
+          enabled: true

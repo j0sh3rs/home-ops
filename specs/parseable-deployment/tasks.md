@@ -1,918 +1,1076 @@
-# Parseable Deployment - Implementation Tasks
+# Tasks: Parseable Logging Aggregator Deployment - Implementer Agent
 
-**Status**: Ready for Implementation
-**Progress**: 0/11 tasks completed
-**Last Updated**: 2025-01-11
+## Context Summary
 
-## Task Execution Order
+Feature UUID: FEAT-prs-d8f3 | Architecture: S3-Native Log Aggregation with DaemonSet Collection | Risk: Medium (S3 compatibility, Vector config complexity)
 
-Tasks are ordered by dependencies and must be executed sequentially within each phase.
+## Metadata
 
-### Phase 1: Infrastructure Preparation
-- [x] TASK-001: Create S3 bucket in Minio
-- [ ] TASK-002: Create Parseable namespace structure
+Complexity: Medium (5 ADRs, 4 REQs, 29 EARS criteria) | Critical Path: S3 config → Parseable → Vector → Grafana
+Timeline: 4-6 hours (incremental deployment with validation gates) | Quality Gates: Manual EARS validation per phase
 
-### Phase 2: Parseable Deployment
-- [ ] TASK-003: Create Parseable HelmRelease
-- [ ] TASK-004: Create Parseable S3 secret (SOPS-encrypted)
-- [ ] TASK-005: Create Parseable ServiceMonitor
-
-### Phase 3: Vector Deployment
-- [ ] TASK-006: Create Vector namespace structure
-- [ ] TASK-007: Create Vector RBAC resources
-- [ ] TASK-008: Create Vector ConfigMap
-- [ ] TASK-009: Create Vector HelmRelease
-
-### Phase 4: Grafana Integration
-- [ ] TASK-010: Update Grafana HelmRelease with Parseable plugin
-
-### Phase 5: Integration & Verification
-- [ ] TASK-011: Update monitoring kustomization and verify deployment
+## Progress: 0/15 Complete, 0 In Progress, 15 Not Started, 0 Blocked
 
 ---
 
-## TASK-001: Create S3 bucket in Minio
+## Phase 1: Foundation - Parseable Server + S3 Configuration
 
-**Traceability**: REQ-prs-d8f3-002 (S3 Storage Configuration)
+### TASK-prs-001: Create Parseable Directory Structure
 
-**Description**: Manually create `parseable-logs` bucket in Minio S3 at https://s3.68cc.io with appropriate lifecycle policy.
+Trace: All REQs | Design: FluxCD deployment pattern | AC: Project structure consistency
+ADR: ADR-005 (FluxCD HelmRelease pattern) | Approach: Follow established monitoring namespace pattern
+DoD (EARS Format): WHEN directory structure created, SHALL match pattern `{app}/ks.yaml` + `{app}/app/kustomization.yaml` + `{app}/app/helmrelease.yaml`
+Risk: Low | Effort: 1pt
+Test Strategy: Manual validation (directory structure inspection) | Dependencies: None
 
-**Definition of Done (EARS)**:
-- DoD-001-01: WHEN bucket is created, it SHALL be named `parseable-logs` {confidence: 100%}
-- DoD-001-02: WHEN accessing bucket, system SHALL use path-style URLs with region `minio` {confidence: 100%}
-- DoD-001-03: WHERE objects exceed 30 days, bucket lifecycle policy SHALL delete them automatically {confidence: 95%}
+**Implementation Details:**
 
-**Implementation Steps**:
-1. Access Minio console at https://s3.68cc.io
-2. Create bucket named `parseable-logs`
-3. Configure lifecycle policy: delete objects older than 30 days
-4. Verify bucket accessibility with path-style URLs
-5. Note access credentials for SOPS encryption in TASK-004
-
-**Verification**:
 ```bash
-# Test bucket access (use actual credentials)
-aws s3 ls s3://parseable-logs/ \
-  --endpoint-url https://s3.68cc.io \
-  --region minio
+# Create directory structure
+mkdir -p kubernetes/apps/monitoring/parseable/app
+
+# Files to create:
+# - kubernetes/apps/monitoring/parseable/ks.yaml
+# - kubernetes/apps/monitoring/parseable/app/kustomization.yaml
+# - kubernetes/apps/monitoring/parseable/app/helmrelease.yaml
+# - kubernetes/apps/monitoring/parseable/app/secret.sops.yaml
+# - kubernetes/apps/monitoring/parseable/app/servicemonitor.yaml
 ```
 
-**Risk**: Low (manual step, reversible)
+**Validation Checklist:**
+
+- [ ] Directory structure matches existing monitoring apps (grafana, loki, tempo)
+- [ ] All required files planned (ks.yaml, kustomization.yaml, helmrelease.yaml, secret, servicemonitor)
 
 ---
 
-## TASK-002: Create Parseable namespace structure
+### TASK-prs-002: Create SOPS-Encrypted S3 Credentials Secret
 
-**Traceability**: ADR-005 (FluxCD HelmRelease Pattern)
+Trace: REQ-prs-d8f3-002 | Design: Secrets Management | AC: AC-prs-002-03 (SOPS encryption)
+ADR: ADR-001 (S3-Native Storage), ADR-005 (FluxCD pattern) | Approach: Follow established S3 secret pattern
+DoD (EARS Format): WHEN credentials stored, SHALL encrypt with SOPS before Git commit AND WHERE secret contains S3 keys, SHALL include S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_ENDPOINT, S3_BUCKET
+Risk: Medium (credential handling) | Effort: 2pts
+Test Strategy: Manual validation (SOPS encryption verification, gitleaks pre-commit) | Dependencies: TASK-prs-001
 
-**Description**: Create directory structure for Parseable deployment following project conventions.
+**Implementation Details:**
 
-**Definition of Done (EARS)**:
-- DoD-002-01: WHEN directory is created, it SHALL exist at `kubernetes/apps/monitoring/parseable/` {confidence: 100%}
-- DoD-002-02: WHEN listing directory, it SHALL contain `ks.yaml` and `app/` subdirectory {confidence: 100%}
-- DoD-002-03: WHEN app subdirectory exists, it SHALL be ready for HelmRelease and secret files {confidence: 100%}
-
-**Implementation Steps**:
-1. Create directory: `mkdir -p kubernetes/apps/monitoring/parseable/app`
-2. Verify structure matches pattern: `{app}/ks.yaml` + `{app}/app/`
-
-**Verification**:
-```bash
-ls -la kubernetes/apps/monitoring/parseable/
-# Should show: ks.yaml, app/
-
-ls -la kubernetes/apps/monitoring/parseable/app/
-# Should be empty, ready for files
-```
-
-**Risk**: None (directory creation)
-
----
-
-## TASK-003: Create Parseable HelmRelease
-
-**Traceability**: REQ-prs-d8f3-001, ADR-001, ADR-004, Component-001
-
-**Description**: Create Parseable HelmRelease with S3 backend configuration and resource limits.
-
-**Definition of Done (EARS)**:
-- DoD-003-01: WHEN HelmRelease is created, it SHALL reference Parseable Helm chart from official repository {confidence: 100%}
-- DoD-003-02: WHEN Parseable starts, it SHALL connect to S3 endpoint `https://s3.68cc.io` with `force_path_style=true` {confidence: 95%}
-- DoD-003-03: WHEN pod is deployed, it SHALL have memory limit of 2Gi and CPU request of 500m {confidence: 100%}
-- DoD-003-04: WHEN retention is applied, system SHALL delete logs older than 30 days {confidence: 90%}
-
-**Files to Create**:
-1. `kubernetes/apps/monitoring/parseable/ks.yaml`
-2. `kubernetes/apps/monitoring/parseable/app/kustomization.yaml`
-3. `kubernetes/apps/monitoring/parseable/app/helmrelease.yaml`
-
-**Implementation Content**:
-
-**File: `kubernetes/apps/monitoring/parseable/ks.yaml`**
 ```yaml
+# File: kubernetes/apps/monitoring/parseable/app/secret.sops.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+    name: parseable-s3-secret
+    namespace: monitoring
+type: Opaque
+stringData:
+    S3_ACCESS_KEY_ID: <REPLACE_WITH_ACTUAL_KEY>
+    S3_SECRET_ACCESS_KEY: <REPLACE_WITH_ACTUAL_SECRET>
+    S3_ENDPOINT: "https://s3.68cc.io"
+    S3_BUCKET: "parseable-logs"
+```
+
+**SOPS Encryption Command:**
+
+```bash
+sops --encrypt \
+  --age $(cat ~/.config/sops/age/keys.txt | grep -oP "public key: \K(.*)") \
+  --encrypted-regex '^(data|stringData)$' \
+  --in-place kubernetes/apps/monitoring/parseable/app/secret.sops.yaml
+```
+
+**Validation Checklist (EARS AC-prs-002-03):**
+
+- [ ] Secret file contains all required keys (S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_ENDPOINT, S3_BUCKET)
+- [ ] SOPS encryption applied (stringData section encrypted)
+- [ ] File extension is `.sops.yaml`
+- [ ] gitleaks pre-commit hook passes (no plaintext credentials)
+
 ---
+
+### TASK-prs-003: Create Parseable HelmRelease Configuration
+
+Trace: REQ-prs-d8f3-001, REQ-prs-d8f3-002 | Design: ParseableAPI component | AC: AC-prs-001-01,02,03,04,05, AC-prs-002-01,02,04,05
+ADR: ADR-001 (S3 storage), ADR-004 (single-replica), ADR-005 (FluxCD) | Approach: Official Parseable Helm chart from https://charts.parseable.com/
+DoD (EARS Format): WHEN HelmRelease deployed, SHALL configure S3 backend with force_path_style=true AND WHILE Parseable runs, SHALL consume <2Gi memory per pod AND WHERE S3 endpoint is Minio, SHALL use region=minio
+Risk: Medium (Helm values complexity, S3 compatibility) | Effort: 5pts
+Test Strategy: Manual validation (HelmRelease syntax, resource limits, S3 config) | Dependencies: TASK-prs-001, TASK-prs-002
+
+**Implementation Details:**
+
+```yaml
+# File: kubernetes/apps/monitoring/parseable/app/helmrelease.yaml
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+    name: parseable
+    namespace: monitoring
+spec:
+    interval: 15m
+    chart:
+        spec:
+            chart: parseable
+            version: ">=1.0.0" # Use latest stable version
+            sourceRef:
+                kind: HelmRepository
+                name: parseable
+                namespace: flux-system
+            interval: 15m
+    install:
+        createNamespace: false
+        remediation:
+            retries: 3
+    upgrade:
+        cleanupOnFail: true
+        remediation:
+            retries: 3
+    values:
+        # Single replica (ADR-004)
+        replicaCount: 1
+
+        image:
+            repository: parseable/parseable
+            tag: latest
+            pullPolicy: IfNotPresent
+
+        # Resource limits (AC-prs-001-04, NFR-prs-d8f3-SCALE-001)
+        resources:
+            requests:
+                cpu: 500m
+                memory: 512Mi
+            limits:
+                memory: 2Gi
+
+        # S3 Configuration (REQ-prs-d8f3-002, AC-prs-002-01,02)
+        parseable:
+            storage:
+                mode: "s3"
+                s3:
+                    endpoint: "https://s3.68cc.io"
+                    region: "minio" # Minio compatibility
+                    bucket: "parseable-logs"
+                    # Force path-style for Minio (AC-prs-002-02)
+                    pathStyle: true
+                    # Credentials from secret
+                    accessKeyId:
+                        valueFrom:
+                            secretKeyRef:
+                                name: parseable-s3-secret
+                                key: S3_ACCESS_KEY_ID
+                    secretAccessKey:
+                        valueFrom:
+                            secretKeyRef:
+                                name: parseable-s3-secret
+                                key: S3_SECRET_ACCESS_KEY
+
+            # Retention policy (AC-prs-002-05)
+            retention:
+                days: 30
+
+        # Service configuration
+        service:
+            type: ClusterIP
+            port: 8000
+            annotations: {}
+
+        # Health checks (AC-prs-001-01)
+        livenessProbe:
+            httpGet:
+                path: /health
+                port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+        readinessProbe:
+            httpGet:
+                path: /health
+                port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+        # Metrics (NFR-prs-d8f3-OPS-001)
+        metrics:
+            enabled: true
+            serviceMonitor:
+                enabled: false # We'll create separate ServiceMonitor
+```
+
+**Validation Checklist:**
+
+- [ ] HelmRelease references correct chart source (parseable from https://charts.parseable.com/)
+- [ ] S3 configuration includes all required fields (endpoint, region, bucket, pathStyle)
+- [ ] Memory limit set to 2Gi (AC-prs-001-04)
+- [ ] Single replica configured (ADR-004)
+- [ ] Secret references correct (parseable-s3-secret)
+- [ ] Health check endpoints configured (/health)
+- [ ] Service type is ClusterIP (no external exposure)
+
+---
+
+### TASK-prs-004: Create Parseable HelmRepository Source
+
+Trace: REQ-prs-d8f3-001 | Design: FluxCD deployment | AC: Helm chart availability
+ADR: ADR-005 (FluxCD pattern) | Approach: Add HelmRepository to flux-system namespace
+DoD (EARS Format): WHEN HelmRepository created, SHALL point to https://charts.parseable.com/ AND WHERE FluxCD reconciles, SHALL successfully fetch chart metadata
+Risk: Low | Effort: 1pt
+Test Strategy: Manual validation (HelmRepository status, chart availability) | Dependencies: None
+
+**Implementation Details:**
+
+```yaml
+# File: kubernetes/flux/repositories/helm/parseable.yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+    name: parseable
+    namespace: flux-system
+spec:
+    interval: 1h
+    url: https://charts.parseable.com/
+```
+
+**Validation Checklist:**
+
+- [ ] HelmRepository created in flux-system namespace
+- [ ] URL points to https://charts.parseable.com/
+- [ ] FluxCD successfully reconciles repository (check status)
+
+---
+
+### TASK-prs-005: Create Parseable Kustomization Files
+
+Trace: All REQs | Design: FluxCD deployment | AC: GitOps deployment pattern
+ADR: ADR-005 (FluxCD pattern) | Approach: Follow established kustomization pattern
+DoD (EARS Format): WHEN kustomization files created, SHALL list all resources AND WHERE ks.yaml deployed, SHALL reference monitoring kustomization as dependency
+Risk: Low | Effort: 2pts
+Test Strategy: Manual validation (kustomization syntax, resource list completeness) | Dependencies: TASK-prs-001, TASK-prs-002, TASK-prs-003
+
+**Implementation Details:**
+
+```yaml
+# File: kubernetes/apps/monitoring/parseable/ks.yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app parseable
-  namespace: flux-system
+    name: parseable
+    namespace: flux-system
 spec:
-  targetNamespace: monitoring
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/monitoring/parseable/app
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: home-kubernetes
-  wait: false
-  interval: 30m
-  retryInterval: 1m
-  timeout: 5m
+    interval: 10m
+    path: ./kubernetes/apps/monitoring/parseable/app
+    prune: true
+    sourceRef:
+        kind: GitRepository
+        name: home-kubernetes
+    wait: true
+    dependsOn:
+        - name: monitoring-namespace
 ```
 
-**File: `kubernetes/apps/monitoring/parseable/app/kustomization.yaml`**
 ```yaml
----
+# File: kubernetes/apps/monitoring/parseable/app/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: monitoring
 resources:
-  - ./helmrelease.yaml
-  - ./secret.sops.yaml
-  - ./servicemonitor.yaml
+    - ./helmrelease.yaml
+    - ./secret.sops.yaml
+    - ./servicemonitor.yaml
 ```
 
-**File: `kubernetes/apps/monitoring/parseable/app/helmrelease.yaml`**
+**Validation Checklist:**
+
+- [ ] ks.yaml references correct path (./kubernetes/apps/monitoring/parseable/app)
+- [ ] ks.yaml has dependsOn: monitoring-namespace
+- [ ] app/kustomization.yaml lists all resources (helmrelease, secret, servicemonitor)
+- [ ] Namespace set to monitoring
+
+---
+
+### TASK-prs-006: Create Parseable ServiceMonitor
+
+Trace: NFR-prs-d8f3-OPS-001 | Design: Monitoring & Observability | AC: Prometheus metrics exposure
+ADR: None (standard monitoring pattern) | Approach: ServiceMonitor for /metrics endpoint
+DoD (EARS Format): WHEN Parseable is deployed, SHALL expose Prometheus metrics at /metrics endpoint AND WHERE ServiceMonitor configured, SHALL scrape metrics every 30s
+Risk: Low | Effort: 1pt
+Test Strategy: Manual validation (ServiceMonitor syntax, Prometheus target discovery) | Dependencies: TASK-prs-003
+
+**Implementation Details:**
+
 ```yaml
----
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: parseable
-spec:
-  interval: 30m
-  chart:
-    spec:
-      chart: parseable
-      version: 1.6.5
-      sourceRef:
-        kind: HelmRepository
-        name: parseable
-        namespace: flux-system
-  install:
-    remediation:
-      retries: 3
-  upgrade:
-    cleanupOnFail: true
-    remediation:
-      strategy: rollback
-      retries: 3
-  values:
-    parseable:
-      highAvailability:
-        enabled: false
-
-      store:
-        staging:
-          path: ./staging
-
-        objectstore:
-          enabled: true
-          type: s3
-          endpoint: https://s3.68cc.io
-          region: minio
-          bucket: parseable-logs
-
-          credentials:
-            existingSecret: parseable-s3-secret
-            accessKeyId: S3_ACCESS_KEY_ID
-            secretAccessKey: S3_SECRET_ACCESS_KEY
-
-      local:
-        retention:
-          days: 30
-
-      resources:
-        limits:
-          memory: 2Gi
-        requests:
-          cpu: 500m
-          memory: 1Gi
-
-      service:
-        type: ClusterIP
-        port: 8000
-```
-
-**Verification**:
-```bash
-# Verify HelmRelease exists
-kubectl get helmrelease -n monitoring parseable
-
-# Check pod status
-kubectl get pods -n monitoring -l app.kubernetes.io/name=parseable
-
-# Check logs for S3 connection
-kubectl logs -n monitoring -l app.kubernetes.io/name=parseable | grep -i s3
-```
-
-**Risk**: Medium (S3 configuration must be correct, blocked by TASK-004 for secrets)
-
----
-
-## TASK-004: Create Parseable S3 secret (SOPS-encrypted)
-
-**Traceability**: REQ-prs-d8f3-002, Security Architecture
-
-**Description**: Create SOPS-encrypted Kubernetes secret with S3 credentials for Parseable.
-
-**Definition of Done (EARS)**:
-- DoD-004-01: WHEN secret is created, it SHALL contain `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` keys {confidence: 100%}
-- DoD-004-02: WHEN secret is committed, it SHALL be encrypted with SOPS using age keys {confidence: 100%}
-- DoD-004-03: WHEN Parseable pod starts, it SHALL successfully authenticate to S3 using secret values {confidence: 95%}
-
-**Files to Create**:
-1. `kubernetes/apps/monitoring/parseable/app/secret.sops.yaml`
-
-**Implementation Content**:
-
-**File: `kubernetes/apps/monitoring/parseable/app/secret.sops.yaml`**
-```yaml
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: parseable-s3-secret
-  namespace: monitoring
-type: Opaque
-stringData:
-  S3_ACCESS_KEY_ID: ENC[AES256_GCM,data:... # REPLACE WITH ACTUAL MINIO ACCESS KEY
-  S3_SECRET_ACCESS_KEY: ENC[AES256_GCM,data:... # REPLACE WITH ACTUAL MINIO SECRET KEY
-```
-
-**Implementation Steps**:
-1. Create unencrypted secret file temporarily
-2. Add actual Minio credentials from TASK-001
-3. Encrypt with SOPS: `sops -e -i kubernetes/apps/monitoring/parseable/app/secret.sops.yaml`
-4. Verify encryption: file should contain `sops:` metadata section
-5. Delete any unencrypted temporary files
-
-**Verification**:
-```bash
-# Verify SOPS encryption
-grep "sops:" kubernetes/apps/monitoring/parseable/app/secret.sops.yaml
-
-# After deployment, verify secret exists
-kubectl get secret -n monitoring parseable-s3-secret
-
-# Verify secret has correct keys
-kubectl get secret -n monitoring parseable-s3-secret -o jsonpath='{.data}' | jq 'keys'
-# Should show: ["S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"]
-```
-
-**Risk**: High (credentials must be correct and encrypted, blocking for Parseable startup)
-
----
-
-## TASK-005: Create Parseable ServiceMonitor
-
-**Traceability**: NFR-prs-d8f3-OBS-001 (Observability)
-
-**Description**: Create ServiceMonitor for Prometheus to scrape Parseable metrics.
-
-**Definition of Done (EARS)**:
-- DoD-005-01: WHEN ServiceMonitor is created, Prometheus SHALL discover Parseable metrics endpoint {confidence: 95%}
-- DoD-005-02: WHEN metrics are scraped, system SHALL expose query latency and ingestion rate {confidence: 90%}
-
-**Files to Create**:
-1. `kubernetes/apps/monitoring/parseable/app/servicemonitor.yaml`
-
-**Implementation Content**:
-
-**File: `kubernetes/apps/monitoring/parseable/app/servicemonitor.yaml`**
-```yaml
----
+# File: kubernetes/apps/monitoring/parseable/app/servicemonitor.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: parseable
-  namespace: monitoring
-  labels:
-    app.kubernetes.io/name: parseable
+    name: parseable
+    namespace: monitoring
 spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: parseable
-  endpoints:
-    - port: http
-      interval: 30s
-      path: /metrics
-      scheme: http
+    selector:
+        matchLabels:
+            app.kubernetes.io/name: parseable
+    endpoints:
+        - port: http
+          path: /metrics
+          interval: 30s
+          scrapeTimeout: 10s
 ```
 
-**Verification**:
-```bash
-# Verify ServiceMonitor exists
-kubectl get servicemonitor -n monitoring parseable
+**Validation Checklist:**
 
-# Check Prometheus targets (after deployment)
-kubectl port-forward -n monitoring svc/prometheus-operated 9090:9090
-# Open browser: http://localhost:9090/targets
-# Search for "parseable" - should show UP status
-```
-
-**Risk**: Low (observability only, non-blocking)
+- [ ] ServiceMonitor selector matches Parseable service labels
+- [ ] Metrics path is /metrics
+- [ ] Scrape interval is 30s
+- [ ] Port name matches service definition (http)
 
 ---
 
-## TASK-006: Create Vector namespace structure
+### TASK-prs-007: Deploy Parseable and Validate Phase 1
 
-**Traceability**: ADR-005 (FluxCD HelmRelease Pattern)
+Trace: REQ-prs-d8f3-001, REQ-prs-d8f3-002 | Design: All Parseable components | AC: AC-prs-001-01,02,03,04,05, AC-prs-002-01,02,03,04
+ADR: All Phase 1 ADRs | Approach: GitOps deployment via FluxCD, manual validation
+DoD (EARS Format): WHEN Parseable deployed, SHALL connect to S3 successfully AND WHERE pod starts, SHALL consume <2Gi memory AND IF S3 bucket doesn't exist, SHALL fail with clear error
+Risk: High (first integration point, S3 connectivity) | Effort: 3pts
+Test Strategy: Manual validation (EARS acceptance criteria checklist) | Dependencies: TASK-prs-001,002,003,004,005,006
 
-**Description**: Create directory structure for Vector deployment following project conventions.
+**Deployment Steps:**
 
-**Definition of Done (EARS)**:
-- DoD-006-01: WHEN directory is created, it SHALL exist at `kubernetes/apps/monitoring/vector/` {confidence: 100%}
-- DoD-006-02: WHEN listing directory, it SHALL contain `ks.yaml` and `app/` subdirectory {confidence: 100%}
+1. Commit all files to Git repository
+2. Push to remote (FluxCD will reconcile)
+3. Monitor FluxCD reconciliation: `flux get kustomizations -n flux-system`
+4. Monitor Parseable pod startup: `kubectl get pods -n monitoring -l app.kubernetes.io/name=parseable`
 
-**Implementation Steps**:
-1. Create directory: `mkdir -p kubernetes/apps/monitoring/vector/app`
-2. Verify structure matches pattern
+**Manual Validation Checklist (EARS Acceptance Criteria):**
 
-**Verification**:
-```bash
-ls -la kubernetes/apps/monitoring/vector/
-# Should show: ks.yaml, app/
-```
+**AC-prs-001-01 (S3 Connectivity):**
 
-**Risk**: None (directory creation)
+- [ ] WHEN Parseable pod starts, system SHALL connect to Minio S3 at https://s3.68cc.io
+- Validation: Check pod logs for successful S3 connection
+- Command: `kubectl logs -n monitoring <parseable-pod> | grep -i s3`
+
+**AC-prs-001-02 (Credential Validation):**
+
+- [ ] WHERE S3 credentials are invalid, system SHALL fail startup with clear authentication error
+- Validation: Verify correct error handling (test by intentionally breaking credentials if needed)
+
+**AC-prs-001-04 (Resource Limits):**
+
+- [ ] WHILE Parseable is running, system SHALL consume <2Gi memory per pod
+- Validation: Check pod memory usage
+- Command: `kubectl top pod -n monitoring <parseable-pod>`
+
+**AC-prs-001-05 (S3 Durability):**
+
+- [ ] IF Parseable pod restarts, system SHALL reconnect to existing S3 data without data loss
+- Validation: Test pod restart and verify S3 reconnection
+- Command: `kubectl delete pod -n monitoring <parseable-pod>` (watch recreate)
+
+**AC-prs-002-01 (S3 Bucket):**
+
+- [ ] WHEN Parseable is configured, system SHALL use dedicated "parseable-logs" S3 bucket
+- Validation: Check Minio console for bucket usage or HelmRelease values
+
+**AC-prs-002-02 (Minio Compatibility):**
+
+- [ ] WHERE S3 endpoint is Minio, system SHALL use force_path_style=true and region=minio
+- Validation: Verify HelmRelease values (pathStyle: true, region: minio)
+
+**AC-prs-002-03 (SOPS Encryption):**
+
+- [ ] WHEN credentials are stored, system SHALL encrypt with SOPS before Git commit
+- Validation: Inspect secret.sops.yaml file (stringData encrypted)
+- Command: `cat kubernetes/apps/monitoring/parseable/app/secret.sops.yaml | grep "sops:"`
+
+**AC-prs-002-04 (Bucket Existence):**
+
+- [ ] IF S3 bucket doesn't exist, system SHALL fail with clear error message
+- Validation: Assumed bucket exists; check pod logs if startup fails
+
+**NFR-prs-d8f3-OPS-001 (Metrics):**
+
+- [ ] WHEN Parseable is deployed, system SHALL expose Prometheus metrics at /metrics endpoint
+- Validation: Check ServiceMonitor target discovery
+- Command: `kubectl get servicemonitor -n monitoring parseable`
+- Prometheus UI: Check Targets page for parseable endpoint
+
+**Health Check:**
+
+- [ ] Parseable pod status is Running
+- [ ] FluxCD Kustomization status is Ready
+- [ ] No error logs in Parseable pod
+- [ ] /health endpoint returns 200 OK: `kubectl exec -n monitoring <pod> -- curl -s http://localhost:8000/health`
+
+**🚨 STOP: Do not proceed to Phase 2 until all Phase 1 validations pass!**
 
 ---
 
-## TASK-007: Create Vector RBAC resources
+## Phase 2: Integration - Vector Log Shipper Deployment
 
-**Traceability**: Component-002, Security Architecture
+### TASK-prs-008: Create Vector Directory Structure
 
-**Description**: Create ServiceAccount, ClusterRole, and ClusterRoleBinding for Vector to read pod logs.
+Trace: REQ-prs-d8f3-003 | Design: FluxCD deployment pattern | AC: Project structure consistency
+ADR: ADR-005 (FluxCD HelmRelease pattern) | Approach: Follow established monitoring namespace pattern
+DoD (EARS Format): WHEN directory structure created, SHALL match pattern `{app}/ks.yaml` + `{app}/app/kustomization.yaml` + `{app}/app/helmrelease.yaml`
+Risk: Low | Effort: 1pt
+Test Strategy: Manual validation (directory structure inspection) | Dependencies: TASK-prs-007 (Phase 1 complete)
 
-**Definition of Done (EARS)**:
-- DoD-007-01: WHEN Vector pod starts, it SHALL use ServiceAccount `vector` with necessary permissions {confidence: 100%}
-- DoD-007-02: WHEN Vector queries Kubernetes API, it SHALL have read access to pods, namespaces, and nodes {confidence: 100%}
+**Implementation Details:**
 
-**Files to Create**:
-1. `kubernetes/apps/monitoring/vector/app/rbac.yaml`
+```bash
+# Create directory structure
+mkdir -p kubernetes/apps/monitoring/vector/app
 
-**Implementation Content**:
+# Files to create:
+# - kubernetes/apps/monitoring/vector/ks.yaml
+# - kubernetes/apps/monitoring/vector/app/kustomization.yaml
+# - kubernetes/apps/monitoring/vector/app/helmrelease.yaml
+# - kubernetes/apps/monitoring/vector/app/rbac.yaml
+```
 
-**File: `kubernetes/apps/monitoring/vector/app/rbac.yaml`**
+**Validation Checklist:**
+
+- [ ] Directory structure matches existing monitoring apps
+- [ ] All required files planned (ks.yaml, kustomization.yaml, helmrelease.yaml, rbac.yaml)
+
+---
+
+### TASK-prs-009: Create Vector RBAC Configuration
+
+Trace: REQ-prs-d8f3-003 | Design: VectorPipeline component | AC: AC-prs-003-01 (Kubernetes API access)
+ADR: ADR-002 (Vector over Promtail) | Approach: ServiceAccount + ClusterRole for pod log access
+DoD (EARS Format): WHEN Vector starts, SHALL have permissions to access Kubernetes API for pod log discovery AND WHERE RBAC configured, SHALL grant read-only access to pods, nodes, namespaces
+Risk: Low | Effort: 2pts
+Test Strategy: Manual validation (RBAC syntax, permission scope) | Dependencies: TASK-prs-008
+
+**Implementation Details:**
+
 ```yaml
----
+# File: kubernetes/apps/monitoring/vector/app/rbac.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: vector
-  namespace: monitoring
+    name: vector
+    namespace: monitoring
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: vector
+    name: vector
 rules:
-  - apiGroups: [""]
-    resources:
-      - namespaces
-      - nodes
-      - pods
-    verbs:
-      - get
-      - list
-      - watch
+    # Pod log discovery (AC-prs-003-01)
+    - apiGroups: [""]
+      resources: ["pods", "namespaces", "nodes"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: [""]
+      resources: ["pods/log"]
+      verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: vector
+    name: vector
 roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: vector
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: vector
 subjects:
-  - kind: ServiceAccount
+    - kind: ServiceAccount
+      name: vector
+      namespace: monitoring
+```
+
+**Validation Checklist:**
+
+- [ ] ServiceAccount created in monitoring namespace
+- [ ] ClusterRole grants access to pods, namespaces, nodes (read-only)
+- [ ] ClusterRole grants access to pods/log (read-only)
+- [ ] ClusterRoleBinding links ServiceAccount to ClusterRole
+
+---
+
+### TASK-prs-010: Create Vector HelmRelease Configuration
+
+Trace: REQ-prs-d8f3-003 | Design: VectorPipeline component | AC: AC-prs-003-01,02,03,04,05
+ADR: ADR-002 (Vector over Promtail) | Approach: Official Vector Helm chart from https://helm.vector.dev
+DoD (EARS Format): WHEN Vector deployed as DaemonSet, SHALL collect logs from all pods AND WHILE pods emit logs, SHALL forward to Parseable within 5s AND IF Parseable unavailable, SHALL buffer logs up to 1GB
+Risk: High (complex configuration, Kubernetes metadata enrichment) | Effort: 6pts
+Test Strategy: Manual validation (HelmRelease syntax, Vector pipeline config, buffer settings) | Dependencies: TASK-prs-008, TASK-prs-009
+
+**Implementation Details:**
+
+```yaml
+# File: kubernetes/apps/monitoring/vector/app/helmrelease.yaml
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
     name: vector
     namespace: monitoring
+spec:
+    interval: 15m
+    chart:
+        spec:
+            chart: vector
+            version: ">=0.30.0" # Use latest stable version
+            sourceRef:
+                kind: HelmRepository
+                name: vector
+                namespace: flux-system
+            interval: 15m
+    install:
+        createNamespace: false
+        remediation:
+            retries: 3
+    upgrade:
+        cleanupOnFail: true
+        remediation:
+            retries: 3
+    values:
+        # DaemonSet deployment (one per node)
+        role: "Agent"
+
+        image:
+            repository: timberio/vector
+            tag: latest-alpine
+            pullPolicy: IfNotPresent
+
+        # Use existing ServiceAccount
+        serviceAccount:
+            create: false
+            name: vector
+
+        # Resource limits
+        resources:
+            requests:
+                cpu: 100m
+                memory: 256Mi
+            limits:
+                memory: 1Gi
+
+        # Vector configuration
+        customConfig:
+            data_dir: /vector-data-dir
+
+            # WHEN Vector starts, SHALL discover all pod logs via Kubernetes API
+            # AC-prs-003-01
+            sources:
+                kubernetes_logs:
+                    type: kubernetes_logs
+                    auto_partial_merge: true
+                    pod_annotation_fields:
+                        container_image: "container_image"
+                        container_name: "container_name"
+                        pod_ip: "pod_ip"
+                        pod_labels: "pod_labels"
+                        pod_name: "pod_name"
+                        pod_namespace: "pod_namespace"
+                        pod_node_name: "pod_node_name"
+                        pod_uid: "pod_uid"
+
+            # WHEN Vector processes logs, SHALL add Kubernetes metadata
+            # AC-prs-003-05
+            transforms:
+                add_k8s_metadata:
+                    type: remap
+                    inputs:
+                        - kubernetes_logs
+                    source: |
+                        .k8s.namespace = .pod_namespace
+                        .k8s.pod_name = .pod_name
+                        .k8s.container_name = .container_name
+                        .k8s.node_name = .pod_node_name
+
+            # WHILE pods emit logs, Vector SHALL forward to Parseable within 5 seconds
+            # AC-prs-003-02
+            # IF Parseable is unavailable, Vector SHALL buffer logs locally up to 1GB
+            # AC-prs-003-04
+            sinks:
+                parseable:
+                    type: http
+                    inputs:
+                        - add_k8s_metadata
+                    uri: "http://parseable.monitoring.svc.cluster.local:8000/api/v1/ingest"
+                    encoding:
+                        codec: json
+                    batch:
+                        max_bytes: 1048576 # 1MB batches
+                        timeout_secs: 5 # AC-prs-003-02 (5 second batching)
+                    buffer:
+                        type: disk
+                        max_size: 1073741824 # 1GB buffer (AC-prs-003-04)
+                        when_full: block # Backpressure (AC-prs-003-03)
+                    request:
+                        retry_attempts: 5
+                        retry_initial_backoff_secs: 1
+                        retry_max_duration_secs: 10
+
+        # Volume mounts for log access
+        podVolumes:
+            - name: var-log
+              hostPath:
+                  path: /var/log
+            - name: var-lib
+              hostPath:
+                  path: /var/lib
+
+        podVolumeMounts:
+            - name: var-log
+              mountPath: /var/log
+              readOnly: true
+            - name: var-lib
+              mountPath: /var/lib
+              readOnly: true
 ```
 
-**Verification**:
-```bash
-# Verify RBAC resources exist
-kubectl get serviceaccount -n monitoring vector
-kubectl get clusterrole vector
-kubectl get clusterrolebinding vector
+**Validation Checklist:**
 
-# After Vector deployment, test permissions
-kubectl auth can-i list pods --as=system:serviceaccount:monitoring:vector
-# Should return: yes
-```
-
-**Risk**: Low (RBAC only, non-blocking)
+- [ ] HelmRelease references correct chart source (vector from https://helm.vector.dev)
+- [ ] Role set to "Agent" (DaemonSet deployment)
+- [ ] ServiceAccount name is "vector" (uses existing RBAC)
+- [ ] kubernetes_logs source configured with auto_partial_merge
+- [ ] add_k8s_metadata transform enriches logs with k8s.namespace, k8s.pod_name, etc. (AC-prs-003-05)
+- [ ] parseable sink configured with correct URL (http://parseable.monitoring.svc.cluster.local:8000/api/v1/ingest)
+- [ ] Batch timeout set to 5 seconds (AC-prs-003-02)
+- [ ] Disk buffer configured with 1GB max_size (AC-prs-003-04)
+- [ ] Buffer when_full set to "block" for backpressure (AC-prs-003-03)
+- [ ] Volume mounts for /var/log and /var/lib configured
+- [ ] Memory limit set to 1Gi
 
 ---
 
-## TASK-008: Create Vector ConfigMap
+### TASK-prs-011: Create Vector HelmRepository Source
 
-**Traceability**: REQ-prs-d8f3-003, Component-002, ADR-002
+Trace: REQ-prs-d8f3-003 | Design: FluxCD deployment | AC: Helm chart availability
+ADR: ADR-005 (FluxCD pattern) | Approach: Add HelmRepository to flux-system namespace
+DoD (EARS Format): WHEN HelmRepository created, SHALL point to https://helm.vector.dev AND WHERE FluxCD reconciles, SHALL successfully fetch chart metadata
+Risk: Low | Effort: 1pt
+Test Strategy: Manual validation (HelmRepository status, chart availability) | Dependencies: None
 
-**Description**: Create Vector pipeline configuration with Kubernetes log source, metadata enrichment, and Parseable HTTP sink.
+**Implementation Details:**
 
-**Definition of Done (EARS)**:
-- DoD-008-01: WHEN Vector processes logs, it SHALL collect from all pods via Kubernetes API {confidence: 95%}
-- DoD-008-02: WHEN logs are enriched, system SHALL add namespace, pod_name, container_name, node_name metadata {confidence: 95%}
-- DoD-008-03: WHEN sending to Parseable, Vector SHALL use HTTP POST with JSON encoding and 1GB disk buffer {confidence: 90%}
-
-**Files to Create**:
-1. `kubernetes/apps/monitoring/vector/app/configmap.yaml`
-
-**Implementation Content**:
-
-**File: `kubernetes/apps/monitoring/vector/app/configmap.yaml`**
 ```yaml
----
-apiVersion: v1
-kind: ConfigMap
+# File: kubernetes/flux/repositories/helm/vector.yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
 metadata:
-  name: vector-config
-  namespace: monitoring
-data:
-  vector.yaml: |
-    sources:
-      kubernetes_logs:
-        type: kubernetes_logs
-        auto_partial_merge: true
-        exclude_paths_glob_patterns:
-          - "**/var/log/pods/monitoring_vector-*/**"
-
-    transforms:
-      add_k8s_metadata:
-        type: remap
-        inputs:
-          - kubernetes_logs
-        source: |
-          .k8s.namespace = .kubernetes.pod_namespace
-          .k8s.pod_name = .kubernetes.pod_name
-          .k8s.container_name = .kubernetes.container_name
-          .k8s.node_name = .kubernetes.pod_node_name
-          .k8s.labels = .kubernetes.pod_labels
-
-    sinks:
-      parseable:
-        type: http
-        inputs:
-          - add_k8s_metadata
-        uri: http://parseable.monitoring.svc.cluster.local:8000/api/v1/ingest
-        encoding:
-          codec: json
-        batch:
-          timeout_secs: 5
-          max_bytes: 1048576
-        buffer:
-          type: disk
-          max_size: 1073741824
-        request:
-          retry_attempts: 3
-          retry_max_duration_secs: 30
+    name: vector
+    namespace: flux-system
+spec:
+    interval: 1h
+    url: https://helm.vector.dev
 ```
 
-**Verification**:
-```bash
-# Verify ConfigMap exists
-kubectl get configmap -n monitoring vector-config
+**Validation Checklist:**
 
-# Check ConfigMap content
-kubectl get configmap -n monitoring vector-config -o yaml | grep -A5 "vector.yaml"
-```
-
-**Risk**: Medium (configuration must be correct for log ingestion)
+- [ ] HelmRepository created in flux-system namespace
+- [ ] URL points to https://helm.vector.dev
+- [ ] FluxCD successfully reconciles repository (check status)
 
 ---
 
-## TASK-009: Create Vector HelmRelease
+### TASK-prs-012: Create Vector Kustomization Files
 
-**Traceability**: REQ-prs-d8f3-003, ADR-002, Component-002
+Trace: REQ-prs-d8f3-003 | Design: FluxCD deployment | AC: GitOps deployment pattern
+ADR: ADR-005 (FluxCD pattern) | Approach: Follow established kustomization pattern
+DoD (EARS Format): WHEN kustomization files created, SHALL list all resources AND WHERE ks.yaml deployed, SHALL reference parseable kustomization as dependency
+Risk: Low | Effort: 2pts
+Test Strategy: Manual validation (kustomization syntax, resource list completeness) | Dependencies: TASK-prs-008, TASK-prs-009, TASK-prs-010
 
-**Description**: Create Vector HelmRelease as DaemonSet with ConfigMap and RBAC references.
+**Implementation Details:**
 
-**Definition of Done (EARS)**:
-- DoD-009-01: WHEN Vector is deployed, it SHALL run as DaemonSet with one pod per node {confidence: 100%}
-- DoD-009-02: WHEN Vector starts, it SHALL use `vector-config` ConfigMap and `vector` ServiceAccount {confidence: 100%}
-- DoD-009-03: WHEN logs are collected, Vector SHALL send to Parseable at `http://parseable.monitoring.svc.cluster.local:8000` {confidence: 95%}
-
-**Files to Create**:
-1. `kubernetes/apps/monitoring/vector/ks.yaml`
-2. `kubernetes/apps/monitoring/vector/app/kustomization.yaml`
-3. `kubernetes/apps/monitoring/vector/app/helmrelease.yaml`
-
-**Implementation Content**:
-
-**File: `kubernetes/apps/monitoring/vector/ks.yaml`**
 ```yaml
----
+# File: kubernetes/apps/monitoring/vector/ks.yaml
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app vector
-  namespace: flux-system
+    name: vector
+    namespace: flux-system
 spec:
-  targetNamespace: monitoring
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/monitoring/vector/app
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: home-kubernetes
-  wait: false
-  interval: 30m
-  retryInterval: 1m
-  timeout: 5m
+    interval: 10m
+    path: ./kubernetes/apps/monitoring/vector/app
+    prune: true
+    sourceRef:
+        kind: GitRepository
+        name: home-kubernetes
+    wait: true
+    dependsOn:
+        - name: monitoring-namespace
+        - name: parseable # Ensure Parseable is deployed first
 ```
 
-**File: `kubernetes/apps/monitoring/vector/app/kustomization.yaml`**
 ```yaml
----
+# File: kubernetes/apps/monitoring/vector/app/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: monitoring
 resources:
-  - ./rbac.yaml
-  - ./configmap.yaml
-  - ./helmrelease.yaml
+    - ./rbac.yaml
+    - ./helmrelease.yaml
 ```
 
-**File: `kubernetes/apps/monitoring/vector/app/helmrelease.yaml`**
-```yaml
+**Validation Checklist:**
+
+- [ ] ks.yaml references correct path (./kubernetes/apps/monitoring/vector/app)
+- [ ] ks.yaml has dependsOn: monitoring-namespace AND parseable
+- [ ] app/kustomization.yaml lists all resources (rbac, helmrelease)
+- [ ] Namespace set to monitoring
+
 ---
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: vector
+
+### TASK-prs-013: Deploy Vector and Validate Phase 2
+
+Trace: REQ-prs-d8f3-003 | Design: VectorPipeline component | AC: AC-prs-003-01,02,03,04,05
+ADR: ADR-002 (Vector over Promtail) | Approach: GitOps deployment via FluxCD, manual validation
+DoD (EARS Format): WHEN Vector deployed, SHALL collect logs from all pods AND WHILE pods emit logs, SHALL forward to Parseable within 5 seconds AND IF Parseable unavailable, SHALL buffer logs up to 1GB
+Risk: High (first end-to-end log flow, Vector config complexity) | Effort: 4pts
+Test Strategy: Manual validation (EARS acceptance criteria checklist, log flow E2E) | Dependencies: TASK-prs-008,009,010,011,012
+
+**Deployment Steps:**
+
+1. Commit all Vector files to Git repository
+2. Push to remote (FluxCD will reconcile)
+3. Monitor FluxCD reconciliation: `flux get kustomizations -n flux-system`
+4. Monitor Vector DaemonSet: `kubectl get daemonset -n monitoring vector`
+5. Verify Vector pods running on all nodes: `kubectl get pods -n monitoring -l app.kubernetes.io/name=vector -o wide`
+
+**Manual Validation Checklist (EARS Acceptance Criteria):**
+
+**AC-prs-003-01 (Pod Log Discovery):**
+
+- [ ] WHEN Vector starts, system SHALL discover all pod logs via Kubernetes API
+- Validation: Check Vector pod logs for Kubernetes source initialization
+- Command: `kubectl logs -n monitoring <vector-pod> | grep -i kubernetes_logs`
+
+**AC-prs-003-02 (Log Forwarding Latency):**
+
+- [ ] WHILE pods emit logs, Vector SHALL forward to Parseable HTTP endpoint within 5 seconds
+- Validation: Generate test log, check Parseable receives within 5s
+- Test: `kubectl run test-pod --image=busybox --restart=Never -- sh -c "echo 'TEST_LOG_$(date +%s)' && sleep 1"`
+- Check Parseable for log appearance (query via Grafana or API)
+
+**AC-prs-003-03 (Backpressure):**
+
+- [ ] WHERE log rate exceeds threshold, Vector SHALL apply backpressure without dropping logs
+- Validation: Check Vector config (when_full: block in buffer settings)
+- Verify no dropped logs in Vector metrics: `kubectl exec -n monitoring <vector-pod> -- curl -s http://localhost:9090/metrics | grep vector_buffer_discarded_events_total`
+
+**AC-prs-003-04 (Buffer Capacity):**
+
+- [ ] IF Parseable is unavailable, Vector SHALL buffer logs locally up to 1GB
+- Validation: Check Vector config (max_size: 1073741824)
+- Test (optional): Scale Parseable to 0, generate logs, verify buffering
+- Command: `kubectl scale deployment -n monitoring parseable --replicas=0`
+
+**AC-prs-003-05 (Kubernetes Metadata):**
+
+- [ ] WHEN Vector processes logs, system SHALL add Kubernetes metadata (namespace, pod, container)
+- Validation: Query Parseable logs via Grafana, verify k8s.namespace, k8s.pod_name labels present
+- Check add_k8s_metadata transform in Vector logs
+
+**Health Check:**
+
+- [ ] Vector DaemonSet has pods running on all nodes
+- [ ] Vector pods status is Running
+- [ ] FluxCD Kustomization status is Ready
+- [ ] No error logs in Vector pods
+- [ ] Parseable receives logs from Vector (check Parseable metrics: parseable_logs_ingested_total)
+
+**End-to-End Log Flow Test:**
+
+1. Generate test log: `kubectl run test-pod --image=busybox --rm -it --restart=Never -- echo "E2E_TEST_$(date +%s)"`
+2. Wait 10 seconds (allow Vector batching + Parseable ingestion)
+3. Query Parseable (via API or Grafana Explore)
+4. Verify test log appears with k8s.namespace="default" and k8s.pod_name="test-pod"
+
+**🚨 STOP: Do not proceed to Phase 3 until all Phase 2 validations pass!**
+
+---
+
+## Phase 3: Visualization - Grafana Integration
+
+### TASK-prs-014: Modify Grafana HelmRelease for Parseable Datasource
+
+Trace: REQ-prs-d8f3-004 | Design: Grafana datasource integration | AC: AC-prs-004-01,02,03,04,05
+ADR: ADR-003 (Grafana plugin) | Approach: Add parseable-datasource plugin and datasource config to existing Grafana HelmRelease
+DoD (EARS Format): WHEN Grafana starts, SHALL install parseable-parseable-datasource plugin AND WHERE datasource configured, SHALL connect to http://parseable.monitoring.svc:8000
+Risk: Medium (plugin compatibility, Grafana version) | Effort: 4pts
+Test Strategy: Manual validation (plugin installation, datasource configuration) | Dependencies: TASK-prs-013 (Phase 2 complete)
+
+**Implementation Details:**
+
+```yaml
+# File: kubernetes/apps/monitoring/grafana/app/helmrelease.yaml
+# MODIFY existing Grafana HelmRelease by adding to values section
+
 spec:
-  interval: 30m
-  chart:
-    spec:
-      chart: vector
-      version: 0.35.0
-      sourceRef:
-        kind: HelmRepository
-        name: vector
-        namespace: flux-system
-  install:
-    remediation:
-      retries: 3
-  upgrade:
-    cleanupOnFail: true
-    remediation:
-      strategy: rollback
-      retries: 3
-  values:
-    role: Agent
+    values:
+        # ADD to existing plugins list
+        plugins:
+            - grafana-clock-panel
+            - grafana-piechart-panel
+            # ... existing plugins ...
+            # WHEN Grafana starts, SHALL install parseable-parseable-datasource plugin
+            # AC-prs-004-01
+            - parseable-parseable-datasource
 
-    serviceAccount:
-      create: false
-      name: vector
+        # ADD to existing datasources section
+        datasources:
+            datasources.yaml:
+                apiVersion: 1
+                datasources:
+                    # ... existing datasources (Mimir, Tempo, Alertmanager, Loki) ...
 
-    customConfig:
-      data_dir: /vector-data-dir
-      api:
-        enabled: false
-      sources:
-        kubernetes_logs:
-          type: kubernetes_logs
-          auto_partial_merge: true
-          exclude_paths_glob_patterns:
-            - "**/var/log/pods/monitoring_vector-*/**"
-
-      transforms:
-        add_k8s_metadata:
-          type: remap
-          inputs:
-            - kubernetes_logs
-          source: |
-            .k8s.namespace = .kubernetes.pod_namespace
-            .k8s.pod_name = .kubernetes.pod_name
-            .k8s.container_name = .kubernetes.container_name
-            .k8s.node_name = .kubernetes.pod_node_name
-            .k8s.labels = .kubernetes.pod_labels
-
-      sinks:
-        parseable:
-          type: http
-          inputs:
-            - add_k8s_metadata
-          uri: http://parseable.monitoring.svc.cluster.local:8000/api/v1/ingest
-          encoding:
-            codec: json
-          batch:
-            timeout_secs: 5
-            max_bytes: 1048576
-          buffer:
-            type: disk
-            max_size: 1073741824
-          request:
-            retry_attempts: 3
-            retry_max_duration_secs: 30
-
-    resources:
-      requests:
-        cpu: 100m
-        memory: 256Mi
-      limits:
-        memory: 512Mi
-
-    tolerations:
-      - effect: NoSchedule
-        operator: Exists
+                    # WHERE datasource is configured, SHALL connect to parseable service
+                    # AC-prs-004-02
+                    - name: Parseable
+                      type: parseable-parseable-datasource
+                      uid: parseable
+                      access: proxy
+                      url: http://parseable.monitoring.svc.cluster.local:8000
+                      jsonData:
+                          timeout: 30
+                      editable: false
+                      isDefault: false
 ```
 
-**Verification**:
-```bash
-# Verify HelmRelease exists
-kubectl get helmrelease -n monitoring vector
+**Validation Checklist:**
 
-# Check DaemonSet status
-kubectl get daemonset -n monitoring vector
-
-# Verify one pod per node
-kubectl get pods -n monitoring -l app.kubernetes.io/name=vector -o wide
-
-# Check Vector logs for Parseable connection
-kubectl logs -n monitoring -l app.kubernetes.io/name=vector | grep parseable
-```
-
-**Risk**: High (log collection depends on correct configuration, blocked by TASK-003 for Parseable availability)
+- [ ] Plugin added to plugins list: parseable-parseable-datasource
+- [ ] Datasource name is "Parseable"
+- [ ] Datasource type is "parseable-parseable-datasource" (AC-prs-004-01)
+- [ ] URL is http://parseable.monitoring.svc.cluster.local:8000 (AC-prs-004-02)
+- [ ] Access mode is "proxy" (Grafana backend queries Parseable)
+- [ ] Timeout set to 30 seconds
+- [ ] editable: false (prevent accidental modification)
 
 ---
 
-## TASK-010: Update Grafana HelmRelease with Parseable plugin
+### TASK-prs-015: Deploy Grafana Changes and Validate Phase 3
 
-**Traceability**: REQ-prs-d8f3-004, ADR-003, Component-003
+Trace: REQ-prs-d8f3-004 | Design: GrafanaParseableDatasource component | AC: AC-prs-004-01,02,03,04,05
+ADR: ADR-003 (Grafana plugin) | Approach: GitOps deployment via FluxCD, manual E2E validation
+DoD (EARS Format): WHEN user queries logs, Grafana SHALL return results within 5 seconds for last 15 minutes AND WHILE datasource active, SHALL support filtering by namespace and pod
+Risk: High (full E2E validation, plugin compatibility) | Effort: 4pts
+Test Strategy: Manual validation (EARS acceptance criteria checklist, E2E query flow) | Dependencies: TASK-prs-014
 
-**Description**: Add Parseable datasource plugin to Grafana and configure datasource pointing to Parseable server.
+**Deployment Steps:**
 
-**Definition of Done (EARS)**:
-- DoD-010-01: WHEN Grafana starts, it SHALL download and install `parseable-parseable-datasource` plugin {confidence: 90%}
-- DoD-010-02: WHEN datasource is configured, Grafana SHALL connect to `http://parseable.monitoring.svc.cluster.local:8000` {confidence: 95%}
-- DoD-010-03: WHEN user queries logs, Grafana SHALL return results within 5 seconds for last 15 minutes {confidence: 80%}
+1. Commit modified Grafana HelmRelease to Git repository
+2. Push to remote (FluxCD will reconcile)
+3. Monitor FluxCD reconciliation: `flux get helmreleases -n monitoring grafana`
+4. Wait for Grafana pod restart (plugin installation)
+5. Verify Grafana pod running: `kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana`
 
-**Files to Modify**:
-1. `kubernetes/apps/monitoring/grafana/app/helmrelease.yaml`
+**Manual Validation Checklist (EARS Acceptance Criteria):**
 
-**Implementation Changes**:
+**AC-prs-004-01 (Plugin Installation):**
 
-Add to `spec.values.grafana` section:
+- [ ] WHEN Grafana starts, system SHALL install parseable-parseable-datasource plugin
+- Validation: Check Grafana pod logs for plugin installation
+- Command: `kubectl logs -n monitoring <grafana-pod> | grep -i parseable`
+- Grafana UI: Navigate to Configuration → Plugins, verify "Parseable" plugin installed
 
-```yaml
-    plugins:
-      - https://github.com/parseablehq/parseable-datasource-plugin/releases/download/v1.0.0/parseable-parseable-datasource-1.0.0.zip;parseable-datasource
-```
+**AC-prs-004-02 (Datasource Configuration):**
 
-Add to `spec.values.grafana.datasources.datasources.yaml.datasources` array:
+- [ ] WHERE datasource is configured, system SHALL connect to http://parseable.monitoring.svc:8000
+- Validation: Check Grafana datasource configuration
+- Grafana UI: Configuration → Data Sources → Parseable
+- Verify URL is http://parseable.monitoring.svc.cluster.local:8000
 
-```yaml
-      - name: Parseable
-        type: parseable-parseable-datasource
-        uid: parseable
-        access: proxy
-        url: http://parseable.monitoring.svc.cluster.local:8000
-        jsonData:
-          timeout: 30
-        editable: false
-```
+**AC-prs-004-03 (Query Performance):**
 
-**Verification**:
-```bash
-# Verify Grafana pod restarted
-kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana
+- [ ] WHEN user queries logs, Grafana SHALL return results within 5 seconds for last 15 minutes
+- Validation: Execute query in Grafana Explore, measure response time
+- Grafana UI: Explore → Parseable datasource
+- Query: Select "Last 15 minutes" time range, run query
+- Verify results appear within 5 seconds (NFR-prs-d8f3-PERF-001)
 
-# Check Grafana logs for plugin installation
-kubectl logs -n monitoring -l app.kubernetes.io/name=grafana | grep parseable
+**AC-prs-004-04 (Connection Error Handling):**
 
-# Access Grafana UI and verify:
-# 1. Connections > Data sources > Parseable exists
-# 2. Test connection succeeds
-# 3. Explore > Parseable > Run query returns logs
-```
+- [ ] IF Parseable is unreachable, Grafana SHALL display connection error with clear message
+- Validation: Test datasource connection
+- Grafana UI: Configuration → Data Sources → Parseable → "Test" button
+- Should show "Data source is working" (green) when Parseable is healthy
+- Test failure scenario (optional): Scale Parseable to 0, verify clear error message
 
-**Risk**: Medium (plugin installation may fail, but Grafana continues functioning)
+**AC-prs-004-05 (Log Filtering):**
 
----
+- [ ] WHILE datasource active, system SHALL support log stream filtering by namespace and pod
+- Validation: Query logs with filters
+- Grafana UI: Explore → Parseable
+- Test filters: k8s.namespace="default", k8s.pod_name="test-pod"
+- Verify filtered results returned
 
-## TASK-011: Update monitoring kustomization and verify deployment
+**End-to-End Validation (Complete Log Pipeline):**
 
-**Traceability**: ADR-005 (FluxCD HelmRelease Pattern)
+1. **Generate Test Log:**
 
-**Description**: Add Parseable and Vector to monitoring kustomization, commit changes, and verify full deployment.
+    ```bash
+    kubectl run e2e-test-pod --image=busybox --rm -it --restart=Never -- sh -c "echo 'E2E_FINAL_TEST_$(date +%s)'; sleep 5"
+    ```
 
-**Definition of Done (EARS)**:
-- DoD-011-01: WHEN kustomization is updated, FluxCD SHALL reconcile Parseable and Vector resources {confidence: 100%}
-- DoD-011-02: WHEN deployment completes, all pods SHALL be in Running state {confidence: 95%}
-- DoD-011-03: WHEN logs are queried in Grafana, system SHALL return recent logs from all namespaces {confidence: 90%}
-- DoD-011-04: WHEN integration is verified, Vector SHALL be ingesting logs to Parseable at >1000 events/sec {confidence: 85%}
+2. **Wait for Log Propagation:** 10-15 seconds (Vector batching + Parseable ingestion + S3 write)
 
-**Files to Modify**:
-1. `kubernetes/apps/monitoring/kustomization.yaml`
+3. **Query in Grafana:**
+    - Navigate to Grafana → Explore → Parseable datasource
+    - Time range: Last 15 minutes
+    - Filter: k8s.pod_name="e2e-test-pod"
+    - Search for "E2E_FINAL_TEST"
 
-**Implementation Changes**:
+4. **Verify Results:**
+    - [ ] Log entry appears in Grafana within 15 seconds
+    - [ ] Log contains k8s.namespace label (e.g., "default")
+    - [ ] Log contains k8s.pod_name label ("e2e-test-pod")
+    - [ ] Log contains k8s.container_name label
+    - [ ] Log message includes "E2E_FINAL_TEST" text
+    - [ ] Query response time <5 seconds (for 15min window)
 
-Add to `resources` array:
-```yaml
-  - ./parseable/ks.yaml
-  - ./vector/ks.yaml
-```
+**Performance Validation (NFR-prs-d8f3-PERF-001):**
 
-Add HelmRepository for Parseable and Vector:
+- [ ] Query last 15 minutes: Response time <5 seconds (95th percentile)
+- [ ] Query last 1 hour: Response time <10 seconds
+- [ ] Query last 24 hours: Initial response <10 seconds (progressive streaming)
 
-**Create File: `kubernetes/flux/meta/repos/parseable.yaml`**
-```yaml
----
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-  name: parseable
-  namespace: flux-system
-spec:
-  interval: 1h
-  url: https://charts.parseable.com
-```
+**Health Check:**
 
-**Create File: `kubernetes/flux/meta/repos/vector.yaml`**
-```yaml
----
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-  name: vector
-  namespace: flux-system
-spec:
-  interval: 1h
-  url: https://helm.vector.dev
-```
+- [ ] Grafana pod status is Running
+- [ ] Parseable datasource shows "Connected" status
+- [ ] No error logs in Grafana pod related to Parseable plugin
+- [ ] Prometheus metrics show parseable_queries_total increasing
+- [ ] ServiceMonitor scraping Parseable metrics successfully
 
-**Modify File: `kubernetes/flux/meta/repos/kustomization.yaml`**
-Add:
-```yaml
-  - ./parseable.yaml
-  - ./vector.yaml
-```
-
-**Commit and Push**:
-```bash
-git add .
-git commit -m "feat(monitoring): deploy Parseable log aggregation with Vector
-
-- Add Parseable HelmRelease with S3 backend (Minio)
-- Add Vector DaemonSet for log collection
-- Configure Grafana Parseable datasource plugin
-- Encrypt S3 credentials with SOPS
-- Add ServiceMonitor for Parseable metrics
-
-Implements: specs/parseable-deployment/
-Closes: #<issue-number>"
-
-git push
-```
-
-**Comprehensive Verification**:
-
-```bash
-# 1. Verify FluxCD reconciliation
-flux get kustomizations -n flux-system | grep -E "parseable|vector"
-
-# 2. Verify HelmRepositories
-kubectl get helmrepository -n flux-system parseable
-kubectl get helmrepository -n flux-system vector
-
-# 3. Verify HelmReleases
-kubectl get helmrelease -n monitoring parseable
-kubectl get helmrelease -n monitoring vector
-
-# 4. Verify all pods running
-kubectl get pods -n monitoring | grep -E "parseable|vector"
-
-# 5. Verify Parseable S3 connectivity
-kubectl logs -n monitoring -l app.kubernetes.io/name=parseable | grep -i "s3\|storage"
-
-# 6. Verify Vector log collection
-kubectl logs -n monitoring -l app.kubernetes.io/name=vector | tail -20
-
-# 7. Verify Grafana datasource
-kubectl port-forward -n monitoring svc/grafana 3000:3000
-# Open browser: http://localhost:3000
-# Login > Connections > Data sources > Parseable
-# Click "Test" button - should succeed
-
-# 8. Query logs in Grafana
-# Explore > Parseable datasource
-# Query: { k8s.namespace="monitoring" }
-# Time range: Last 15 minutes
-# Should return logs with <5s latency
-
-# 9. Check ingestion rate in Parseable metrics
-kubectl port-forward -n monitoring svc/parseable 8000:8000
-curl http://localhost:8000/metrics | grep parseable_events_ingested_total
-```
-
-**Success Criteria**:
-- ✅ All pods in Running state
-- ✅ Parseable connects to S3 (check logs)
-- ✅ Vector collects logs from all nodes
-- ✅ Grafana datasource test succeeds
-- ✅ Log queries return results <5s
-- ✅ No errors in pod logs
-
-**Rollback Plan** (if verification fails):
-```bash
-# Remove Parseable and Vector from kustomization
-git revert HEAD
-git push
-
-# Or manually remove resources
-kubectl delete kustomization -n flux-system parseable
-kubectl delete kustomization -n flux-system vector
-```
-
-**Risk**: High (final integration test, all components must work together)
+**🎉 Phase 3 Complete - Full Parseable Deployment Validated!**
 
 ---
 
-## Task Dependencies Graph
+## Dependency Graph
 
 ```
-TASK-001 (S3 bucket)
-    ↓
-TASK-002 (Parseable namespace) ──→ TASK-003 (Parseable HelmRelease)
-                                        ↓
-                                   TASK-004 (S3 secret)
-                                        ↓
-                                   TASK-005 (ServiceMonitor)
-                                        ↓
-TASK-006 (Vector namespace) ──→ TASK-007 (Vector RBAC)
-                                        ↓
-                                   TASK-008 (Vector ConfigMap)
-                                        ↓
-                                   TASK-009 (Vector HelmRelease)
-                                        ↓
-                                   TASK-010 (Grafana plugin)
-                                        ↓
-                                   TASK-011 (Verify deployment)
+Phase 1: Foundation
+TASK-001 (Directory)
+  └─> TASK-002 (S3 Secret)
+      └─> TASK-003 (HelmRelease)
+          └─> TASK-005 (Kustomization)
+TASK-004 (HelmRepo) ────┘
+TASK-006 (ServiceMonitor)
+  └─> TASK-007 (Deploy Phase 1)
+
+Phase 2: Integration
+TASK-008 (Directory)
+  └─> TASK-009 (RBAC)
+      └─> TASK-010 (HelmRelease)
+          └─> TASK-012 (Kustomization)
+TASK-011 (HelmRepo) ────┘
+  └─> TASK-013 (Deploy Phase 2)
+
+Phase 3: Visualization
+TASK-014 (Grafana Modify)
+  └─> TASK-015 (Deploy Phase 3)
 ```
 
 ---
 
-## Risk Assessment Summary
+## Implementation Context
 
-| Task | Risk Level | Impact | Mitigation |
-|------|-----------|--------|------------|
-| TASK-001 | Low | High | Manual verification, reversible |
-| TASK-002 | None | Low | Directory creation only |
-| TASK-003 | Medium | High | S3 config validation before deployment |
-| TASK-004 | High | High | SOPS encryption verification, credential testing |
-| TASK-005 | Low | Low | Observability only, non-blocking |
-| TASK-006 | None | Low | Directory creation only |
-| TASK-007 | Low | Medium | RBAC verification before Vector deployment |
-| TASK-008 | Medium | High | ConfigMap syntax validation |
-| TASK-009 | High | High | Vector logs monitoring, incremental rollout |
-| TASK-010 | Medium | Medium | Grafana continues without plugin if fails |
-| TASK-011 | High | Critical | Comprehensive verification, rollback plan ready |
+### Critical Path
+
+1. **S3 Configuration** (TASK-002) → Blocks Parseable deployment
+2. **Parseable Deployment** (TASK-007) → Blocks Vector sink configuration
+3. **Vector Deployment** (TASK-013) → Blocks E2E log flow
+4. **Grafana Integration** (TASK-015) → Completes visualization layer
+
+### Risk Mitigation Strategies
+
+**Medium Risk - S3 Compatibility (TASK-003):**
+
+- Verify force_path_style=true setting
+- Test S3 connectivity in Parseable pod logs
+- Fallback: Check Minio console for API compatibility
+
+**High Risk - Vector Configuration Complexity (TASK-010):**
+
+- Reference official Parseable documentation for Vector sink configuration
+- Test log metadata enrichment thoroughly
+- Fallback: Start with minimal config, add complexity incrementally
+
+**High Risk - End-to-End Integration (TASK-013, TASK-015):**
+
+- Incremental validation at each phase gate
+- Test individual components before full pipeline
+- Fallback: Use Parseable API directly for debugging before Grafana integration
+
+**Medium Risk - Grafana Plugin Compatibility (TASK-014):**
+
+- Verify plugin version compatible with Grafana 10.x
+- Check plugin installation logs
+- Fallback: Use Loki datasource with Loki-compatible API if plugin fails
+
+### Context Compression
+
+**Architecture Summary:**
+
+- **Write Path**: Pod logs → Vector DaemonSet → Parseable HTTP API → S3 (Minio)
+- **Read Path**: Grafana Explore → Parseable datasource plugin → Parseable query engine → S3 objects
+- **Deployment**: FluxCD GitOps with HelmRelease pattern, SOPS-encrypted secrets
+- **Observability**: ServiceMonitor for Prometheus metrics, Grafana dashboards
+
+**Key Configuration Points:**
+
+- Parseable: S3 endpoint (https://s3.68cc.io), force_path_style=true, 30-day retention
+- Vector: kubernetes_logs source, add_k8s_metadata transform, 1GB disk buffer
+- Grafana: parseable-parseable-datasource plugin, proxy access mode
+
+**Validation Strategy:**
+
+- Phase 1: S3 connectivity, pod health, metrics exposure
+- Phase 2: Log discovery, forwarding latency, metadata enrichment
+- Phase 3: Plugin installation, datasource connection, query performance, E2E log flow
 
 ---
 
-## Traceability Matrix
+## Verification Checklist (EARS Compliance)
 
-| Requirement | Design Component | Tasks |
-|-------------|-----------------|-------|
-| REQ-prs-d8f3-001 | Component-001 (Parseable) | TASK-003, TASK-005 |
-| REQ-prs-d8f3-002 | S3 Configuration | TASK-001, TASK-004 |
-| REQ-prs-d8f3-003 | Component-002 (Vector) | TASK-007, TASK-008, TASK-009 |
-| REQ-prs-d8f3-004 | Component-003 (Grafana) | TASK-010 |
-| ADR-001 | S3-Native Storage | TASK-001, TASK-003, TASK-004 |
-| ADR-002 | Vector DaemonSet | TASK-006, TASK-007, TASK-008, TASK-009 |
-| ADR-003 | Parseable Plugin | TASK-010 |
-| ADR-004 | Single Replica | TASK-003 |
-| ADR-005 | FluxCD Pattern | All tasks |
-| NFR-prs-d8f3-PERF-001 | Performance | TASK-011 (verification) |
-| NFR-prs-d8f3-SEC-001 | Security | TASK-004 (SOPS encryption) |
-| NFR-prs-d8f3-OBS-001 | Observability | TASK-005 (ServiceMonitor) |
+### Requirements Traceability
+
+- [x] REQ-prs-d8f3-001 → TASK-003,007 (Parseable deployment, 5 EARS AC)
+- [x] REQ-prs-d8f3-002 → TASK-002,003,007 (S3 configuration, 5 EARS AC)
+- [x] REQ-prs-d8f3-003 → TASK-010,013 (Vector deployment, 5 EARS AC)
+- [x] REQ-prs-d8f3-004 → TASK-014,015 (Grafana integration, 5 EARS AC)
+
+### EARS Acceptance Criteria Coverage
+
+- [x] All 20 EARS AC → manual validation tasks with BDD-style checklists
+- [x] EARS triggers (WHEN/WHILE/IF/WHERE) → specific validation commands
+- [x] EARS SHALL assertions → measurable success criteria
+
+### EARS NFR Validation
+
+- [x] NFR-prs-d8f3-PERF-001 → TASK-015 (query performance <5s)
+- [x] NFR-prs-d8f3-SEC-001 → TASK-002 (SOPS encryption)
+- [x] NFR-prs-d8f3-SCALE-001 → TASK-003,007 (resource limits <2Gi)
+- [x] NFR-prs-d8f3-OPS-001 → TASK-006,007 (Prometheus metrics)
+- [x] NFR-prs-d8f3-DATA-001 → TASK-003 (30-day retention)
+
+### ADR Implementation
+
+- [x] ADR-001 (S3-Native Storage) → TASK-002,003
+- [x] ADR-002 (Vector Over Promtail) → TASK-010
+- [x] ADR-003 (Grafana Plugin) → TASK-014
+- [x] ADR-004 (Single-Replica) → TASK-003
+- [x] ADR-005 (FluxCD Pattern) → All tasks
+
+### Behavioral Contract Consistency
+
+- [x] ParseableAPI interface → TASK-003 (HelmRelease env vars)
+- [x] VectorPipeline interface → TASK-010 (Vector customConfig)
+- [x] GrafanaParseableDatasource interface → TASK-014 (datasource config)
+
+### Quality Gate Completeness
+
+- [x] Phase 1 validation gate → TASK-007 (13 EARS criteria)
+- [x] Phase 2 validation gate → TASK-013 (5 EARS criteria + E2E)
+- [x] Phase 3 validation gate → TASK-015 (5 EARS criteria + performance)
 
 ---
 
-## Notes
+## Change Log
 
-- **Execution Order**: Tasks must be executed in dependency order (see graph above)
-- **Approval Gate**: Request user approval after presenting this tasks.md
-- **Implementation**: User can request specific task execution: "Please implement TASK-003"
-- **Testing**: Each task includes verification steps before proceeding
-- **Rollback**: TASK-011 includes comprehensive rollback plan if verification fails
-- **Documentation**: All specs archived to `specs/done/` after successful deployment
+| Version | Date       | Author                    | Changes                                                        |
+| ------- | ---------- | ------------------------- | -------------------------------------------------------------- |
+| 0.1.0   | 2025-11-14 | Claude (Kiro Implementer) | Initial tasks.md generated from approved requirements + design |
