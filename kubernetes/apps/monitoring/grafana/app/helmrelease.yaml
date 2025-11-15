@@ -266,7 +266,7 @@ spec:
       - vonage-status-panel
       - camptocamp-prometheus-alertmanager-datasource
       - https://github.com/netdata/netdata-grafana-datasource-plugin/releases/download/v3.0.2/netdatacloud-netdata-datasource-3.0.2.zip;netdata-datasource
-      - https://github.com/parseablehq/parseable-datasource-plugin/releases/download/v1.0.0/parseable-parseable-datasource-1.0.0.zip;parseable-datasource
+      - https://github.com/parseablehq/parseable-datasource-plugin/releases/download/v1.2.1/parseable-parseable-datasource-1.2.1.zip;parseable-datasource
     serviceMonitor:
       enabled: true
     route:
