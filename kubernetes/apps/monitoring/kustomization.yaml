@@ -6,7 +6,7 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  # - ./grafana/ks.yaml
+  - ./grafana/ks.yaml
   # - ./netdata/ks.yaml
   - ./parseable/ks.yaml
   - ./unpoller/ks.yaml
