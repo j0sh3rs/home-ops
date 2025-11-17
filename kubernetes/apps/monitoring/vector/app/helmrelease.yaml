@@ -29,7 +29,7 @@ spec:
 
     image:
       repository: timberio/vector
-      tag: 0.41.1-alpine
+      tag: 0.51.1-alpine
       pullPolicy: IfNotPresent
 
     # Use existing ServiceAccount created in rbac.yaml
