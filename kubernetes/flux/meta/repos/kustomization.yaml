@@ -19,4 +19,4 @@ resources:
   - ./tailscale.yaml
   - ./toolhive-operator-crds.yaml
   - ./toolhive-operator.yaml
-  # - ./vector.yaml
+  - ./vector.yaml
