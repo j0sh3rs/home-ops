@@ -10,15 +10,14 @@ kind: ClusterRole
 metadata:
   name: vector
 rules:
+  # Pod log discovery - allows Vector to discover pods across all namespaces
   - apiGroups: [""]
-    resources:
-      - namespaces
-      - nodes
-      - pods
-    verbs:
-      - get
-      - list
-      - watch
+    resources: ["pods", "namespaces", "nodes"]
+    verbs: ["get", "list", "watch"]
+  # Pod log access - allows Vector to read logs from pods
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

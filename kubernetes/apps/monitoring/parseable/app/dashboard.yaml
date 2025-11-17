@@ -1,0 +1,290 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: parseable-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "Parseable"
+data:
+  parseable-logs.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "parseable-parseable-datasource",
+            "uid": "parseable"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          },
+          "pluginVersion": "10.1.4",
+          "targets": [
+            {
+              "datasource": {
+                "type": "parseable-parseable-datasource",
+                "uid": "parseable"
+              },
+              "refId": "A",
+              "query": "SELECT * FROM logs ORDER BY p_timestamp DESC LIMIT 100"
+            }
+          ],
+          "title": "Recent Logs",
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "parseable-parseable-datasource",
+            "uid": "parseable"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "barAlignment": 0,
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "spanNulls": false,
+                "showPoints": "never",
+                "pointSize": 5
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 8
+          },
+          "id": 2,
+          "options": {
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            },
+            "legend": {
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
+            }
+          },
+          "pluginVersion": "10.1.4",
+          "targets": [
+            {
+              "datasource": {
+                "type": "parseable-parseable-datasource",
+                "uid": "parseable"
+              },
+              "refId": "A",
+              "query": "SELECT COUNT(*) as count FROM logs GROUP BY p_timestamp"
+            }
+          ],
+          "title": "Log Volume Over Time",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "parseable-parseable-datasource",
+            "uid": "parseable"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                }
+              },
+              "mappings": []
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 8
+          },
+          "id": 3,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "right",
+              "showLegend": true,
+              "values": ["value"]
+            },
+            "pieType": "pie",
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "10.1.4",
+          "targets": [
+            {
+              "datasource": {
+                "type": "parseable-parseable-datasource",
+                "uid": "parseable"
+              },
+              "refId": "A",
+              "query": "SELECT k8s.namespace as namespace, COUNT(*) as count FROM logs WHERE k8s.namespace IS NOT NULL GROUP BY k8s.namespace ORDER BY count DESC"
+            }
+          ],
+          "title": "Logs by Namespace",
+          "type": "piechart"
+        },
+        {
+          "datasource": {
+            "type": "parseable-parseable-datasource",
+            "uid": "parseable"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 16
+          },
+          "id": 4,
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          },
+          "pluginVersion": "10.1.4",
+          "targets": [
+            {
+              "datasource": {
+                "type": "parseable-parseable-datasource",
+                "uid": "parseable"
+              },
+              "refId": "A",
+              "query": "SELECT p_timestamp, k8s.namespace, k8s.pod_name, message FROM logs WHERE message ILIKE '%error%' OR message ILIKE '%fail%' ORDER BY p_timestamp DESC LIMIT 50"
+            }
+          ],
+          "title": "Recent Errors",
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "parseable-parseable-datasource",
+            "uid": "parseable"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                }
+              },
+              "mappings": []
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 16
+          },
+          "id": 5,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "right",
+              "showLegend": true,
+              "values": ["value"]
+            },
+            "pieType": "pie",
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "10.1.4",
+          "targets": [
+            {
+              "datasource": {
+                "type": "parseable-parseable-datasource",
+                "uid": "parseable"
+              },
+              "refId": "A",
+              "query": "SELECT k8s.pod_name as pod, COUNT(*) as count FROM logs WHERE k8s.pod_name IS NOT NULL GROUP BY k8s.pod_name ORDER BY count DESC LIMIT 10"
+            }
+          ],
+          "title": "Top 10 Pods by Log Volume",
+          "type": "piechart"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["parseable", "logs", "kubernetes"],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-15m",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Parseable Kubernetes Logs",
+      "uid": "parseable-k8s-logs",
+      "version": 1,
+      "weekStart": ""
+    }

@@ -3,83 +3,136 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: vector
+  namespace: monitoring
 spec:
-  interval: 30m
+  interval: 15m
   chart:
     spec:
       chart: vector
-      version: 0.35.0
+      version: 0.36.x
       sourceRef:
         kind: HelmRepository
         name: vector
         namespace: flux-system
+      interval: 15m
   install:
+    createNamespace: false
     remediation:
       retries: 3
   upgrade:
     cleanupOnFail: true
     remediation:
-      strategy: rollback
       retries: 3
   values:
-    role: Agent
+    # DaemonSet deployment (one Vector pod per node)
+    role: "Agent"
 
-    # Disable service for Agent role (DaemonSet doesn't need exposed service)
-    service:
-      enabled: false
+    image:
+      repository: timberio/vector
+      tag: 0.41.1-alpine
+      pullPolicy: IfNotPresent
 
+    # Use existing ServiceAccount created in rbac.yaml
     serviceAccount:
       create: false
       name: vector
 
+    # Resource limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+
+    # Vector configuration pipeline
     customConfig:
       data_dir: /vector-data-dir
-      api:
-        enabled: false
+
+      # Source: Collect logs from all Kubernetes pods
       sources:
         kubernetes_logs:
           type: kubernetes_logs
           auto_partial_merge: true
-          exclude_paths_glob_patterns:
-            - "**/var/log/pods/monitoring_vector-*/**"
+          # Automatically enrich with Kubernetes metadata
+          self_node_name_env_var: VECTOR_SELF_NODE_NAME
 
+      # Transform: Add custom Kubernetes metadata fields
       transforms:
         add_k8s_metadata:
           type: remap
           inputs:
             - kubernetes_logs
           source: |
+            # Add k8s metadata with proper field names
             .k8s.namespace = .kubernetes.pod_namespace
             .k8s.pod_name = .kubernetes.pod_name
             .k8s.container_name = .kubernetes.container_name
             .k8s.node_name = .kubernetes.pod_node_name
-            .k8s.labels = .kubernetes.pod_labels
 
+            # Add timestamp if not present
+            if !exists(.timestamp) {
+              .timestamp = now()
+            }
+
+      # Sink: Send logs to Parseable via HTTP
       sinks:
         parseable:
           type: http
           inputs:
             - add_k8s_metadata
-          uri: http://parseable.monitoring.svc.cluster.local/api/v1/ingest
+          # Parseable ingest endpoint
+          uri: "http://parseable.monitoring.svc.cluster.local:8000/api/v1/ingest"
+          method: post
           encoding:
             codec: json
+          # Batching configuration
           batch:
-            timeout_secs: 5
-            max_bytes: 1048576
+            max_bytes: 1048576 # 1MB batches
+            timeout_secs: 5 # Send every 5 seconds
+          # Buffer configuration for reliability
           buffer:
             type: disk
-            max_size: 1073741824
+            max_size: 1073741824 # 1GB buffer
+            when_full: block # Apply backpressure
+          # Retry configuration
           request:
-            retry_attempts: 3
-            retry_max_duration_secs: 30
+            retry_attempts: 5
+            retry_initial_backoff_secs: 1
+            retry_max_duration_secs: 10
+            timeout_secs: 60
 
-    resources:
-      requests:
-        cpu: 100m
-        memory: 512Mi
-      limits:
-        memory: 1Gi
+    # Environment variables
+    env:
+      - name: VECTOR_SELF_NODE_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: spec.nodeName
 
+    # Volume mounts for log access
+    extraVolumeMounts:
+      - name: var-log
+        mountPath: /var/log
+        readOnly: true
+      - name: var-lib
+        mountPath: /var/lib
+        readOnly: true
+
+    extraVolumes:
+      - name: var-log
+        hostPath:
+          path: /var/log
+      - name: var-lib
+        hostPath:
+          path: /var/lib
+
+    # Pod security context
+    podSecurityContext:
+      runAsNonRoot: false # Need root for log access
+
+    # Tolerations to run on all nodes including control plane
     tolerations:
       - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
         operator: Exists

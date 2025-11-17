@@ -4,5 +4,4 @@ kind: Kustomization
 namespace: monitoring
 resources:
   - ./rbac.yaml
-  - ./configmap.yaml
   - ./helmrelease.yaml
