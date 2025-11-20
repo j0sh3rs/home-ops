@@ -1,22 +1,36 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app grafana
-  namespace: &namespace monitoring
+  name: grafana
 spec:
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
   interval: 1h
-  path: ./kubernetes/apps/monitoring/grafana/app
+  path: ./kubernetes/apps/monitoring/grafana/operator
   prune: true
-  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: *namespace
-  timeout: 5m
+  targetNamespace: monitoring
+  wait: true
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: grafana-instance
+spec:
+  dependsOn:
+    - name: grafana
+    - name: openebs
+      namespace: kube-system
+  interval: 1h
+  path: ./kubernetes/apps/monitoring/grafana/instance
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: monitoring
   wait: false
