@@ -67,7 +67,7 @@ spec:
         hostnames: ["links.bth.wtf"]
         parentRefs:
           - name: external
-            namespace: network
+            namespace: kube-system
             sectionName: https
         rules:
           - backendRefs:

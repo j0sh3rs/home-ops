@@ -90,7 +90,7 @@ spec:
         hostnames: ["cd.bth.wtf"]
         parentRefs:
           - name: external
-            namespace: network
+            namespace: kube-system
             sectionName: https
         rules:
           - backendRefs:
