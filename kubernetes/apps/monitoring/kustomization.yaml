@@ -7,6 +7,6 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./grafana/ks.yaml
-  # - ./netdata/ks.yaml
+  - ./fluent-bit/ks.yaml
   - ./unpoller/ks.yaml
   - ./victoria-logs/ks.yaml
