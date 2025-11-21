@@ -20,6 +20,7 @@ spec:
           parentRefs:
             - name: internal
               namespace: kube-system
+              sectionName: https
       alertmanagerSpec:
         alertmanagerConfiguration:
           name: alertmanager
@@ -46,6 +47,7 @@ spec:
           parentRefs:
             - name: internal
               namespace: kube-system
+              sectionName: https
       prometheusSpec:
         externalUrl: https://prometheus.68cc.io
         version: v2.55.1 # override 'unsupported Prometheus version' error
