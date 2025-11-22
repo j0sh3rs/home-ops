@@ -1,0 +1,34 @@
+{
+    "feature_name": "fluentbit-to-otel-migration",
+    "created_at": "2025-11-22T21:11:25Z",
+    "updated_at": "2025-11-22T22:30:00Z",
+    "status": "tasks-generated",
+    "phase": "tasks-generated",
+    "language": "en",
+    "description": "Convert usage of fluent-bit for logs over to the opentelemetry collector, including full configuration of oci repository, deployment, and migration of existing logs being consumed to proper otel collector formats. Augment existing VictoriaLogs helm chart to support receiving logs via OTLP. Research all configuration requirements thoroughly first before implementing",
+    "approval": {
+        "requirements": {
+            "generated": true,
+            "approved": true
+        },
+        "gap_analysis": {
+            "generated": true,
+            "ready_for_design": true
+        },
+        "design": {
+            "generated": true,
+            "approved": false
+        },
+        "tasks": {
+            "generated": true,
+            "approved": true
+        }
+    },
+    "progress": {
+        "requirements_complete": true,
+        "gap_analysis_complete": true,
+        "design_complete": true,
+        "tasks_complete": false,
+        "implementation_complete": false
+    }
+}
