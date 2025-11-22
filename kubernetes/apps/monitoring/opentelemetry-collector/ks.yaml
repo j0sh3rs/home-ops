@@ -21,4 +21,3 @@ spec:
   wait: true
   dependsOn:
     - name: victoria-logs
-    - name: kube-prometheus-stack
