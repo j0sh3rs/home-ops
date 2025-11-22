@@ -68,7 +68,7 @@ spec:
         scrapeConfigSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
         retention: 14d
-        retentionSize: 30GB
+        retentionSize: 50GB
         resources:
           requests:
             cpu: 100m
@@ -80,7 +80,7 @@ spec:
               storageClassName: openebs-hostpath
               resources:
                 requests:
-                  storage: 30Gi
+                  storage: 60Gi
     prometheus-node-exporter:
       fullnameOverride: node-exporter
     kube-state-metrics:
