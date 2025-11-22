@@ -9,6 +9,6 @@ resources:
   - ./grafana/ks.yaml
   # - ./fluent-bit/ks.yaml
   # - ./kube-prometheus-stack/ks.yaml
-  # - ./opentelemetry-collector/ks.yaml
+  - ./opentelemetry/ks.yaml
   - ./unpoller/ks.yaml
   - ./victoria-logs/ks.yaml

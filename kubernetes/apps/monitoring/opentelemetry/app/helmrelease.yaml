@@ -1,0 +1,157 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: opentelemetry-kube-stack
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: opentelemetry-kube-stack
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    fullnameOverride: otel
+    clusterName: home-ops
+
+    # OpenTelemetry Operator - manages OpenTelemetryCollector CRDs
+    opentelemetry-operator:
+      enabled: true
+      manager:
+        collectorImage:
+          repository: otel/opentelemetry-collector-k8s
+      admissionWebhooks:
+        failurePolicy: Ignore
+      # CRDs should be managed separately via Flux
+      crds:
+        create: false
+
+    # DaemonSet collector for log and host metrics collection
+    collectors:
+      daemon:
+        enabled: true
+        mode: daemonset
+        suffix: daemon
+
+        resources:
+          limits:
+            cpu: 750m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+
+        # Enable log collection preset
+        presets:
+          logsCollection:
+            enabled: true
+            includeCollectorLogs: false
+            storeCheckpoints: false
+          # Enable host metrics collection
+          hostMetrics:
+            enabled: true
+          # Enable kubelet metrics collection
+          kubeletMetrics:
+            enabled: true
+          # Enable Kubernetes attributes processor
+          kubernetesAttributes:
+            enabled: true
+
+        # Collector configuration
+        config:
+          receivers:
+            # Filelog receiver (added by logsCollection preset)
+            # Host metrics receiver (added by hostMetrics preset)
+            # Kubelet metrics receiver (added by kubeletMetrics preset)
+
+          processors:
+            # Batch processor for logs
+            batch:
+              send_batch_size: 10000
+              timeout: 10s
+
+            # K8s attributes processor (enabled by preset)
+            # Adds namespace, pod, deployment metadata
+
+            # Resource processor for VictoriaLogs field mapping
+            resource:
+              attributes:
+                # Map k8s attributes to VictoriaLogs stream fields
+                - key: k_namespace_name
+                  from_attribute: k8s.namespace.name
+                  action: insert
+                - key: k_pod_name
+                  from_attribute: k8s.pod.name
+                  action: insert
+                - key: stream
+                  from_attribute: stream
+                  action: upsert
+
+          exporters:
+            # OTLP HTTP exporter for logs to VictoriaLogs
+            otlphttp/logs:
+              endpoint: http://victoria-logs-server.monitoring.svc.cluster.local:9428/otlp/v1/logs
+              compression: gzip
+              retry_on_failure:
+                enabled: true
+                max_elapsed_time: 300s
+              sending_queue:
+                enabled: true
+                num_consumers: 10
+                queue_size: 5000
+
+            # Debug exporter for metrics (placeholder for future Mimir)
+            # Replace with otlphttp/metrics pointing to Mimir when ready
+            debug/metrics:
+              verbosity: detailed
+
+          service:
+            pipelines:
+              # Logs pipeline: filelog -> k8sattributes -> resource -> batch -> VictoriaLogs
+              logs:
+                receivers: [filelog]
+                processors: [k8sattributes, resource, batch]
+                exporters: [otlphttp/logs]
+
+              # Metrics pipeline: host/kubelet metrics -> batch -> debug (future: Mimir)
+              metrics:
+                receivers: [hostmetrics, kubeletstats]
+                processors: [k8sattributes, batch]
+                exporters: [debug/metrics]
+
+              # Tracing disabled - remove traces pipeline
+
+        # ServiceMonitor for Prometheus scraping of collector metrics
+        podMonitor:
+          enabled: true
+          metricsEndpoints:
+            - port: metrics
+              interval: 30s
+
+    # Disable default collector (we only use the daemon collector)
+    defaultCRConfig:
+      enabled: false
+
+    # Disable cluster-wide metrics collection (not needed for log-focused deployment)
+    presets:
+      clusterMetrics:
+        enabled: false
+
+    # Disable Kubernetes service monitors (use collector's own metrics)
+    kubernetesServiceMonitors:
+      enabled: false
+
+    # Disable instrumentation (not using auto-instrumentation)
+    instrumentation:
+      enabled: false
+
+    # Disable OpAMP bridge (not using centralized management)
+    opAMPBridge:
+      enabled: false

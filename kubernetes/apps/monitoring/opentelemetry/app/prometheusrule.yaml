@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: opentelemetry-kube-stack
+  namespace: monitoring
+spec:
+  groups:
+    - name: opentelemetry-collector
+      interval: 30s
+      rules:
+        - alert: OTelCollectorHighFailureRate
+          expr: rate(otelcol_exporter_send_failed_log_records{exporter="otlphttp/logs"}[5m]) > 100
+          for: 5m
+          labels:
+            severity: critical
+            component: opentelemetry-collector
+          annotations:
+            summary: "OpenTelemetry Collector failing to export logs to VictoriaLogs"
+            description: "OpenTelemetry Collector on {{ $labels.pod }} is experiencing high failure rate ({{ $value | humanizePercentage }} failed records/sec) when exporting logs to VictoriaLogs. This indicates potential connectivity issues or VictoriaLogs capacity problems."
+
+        - alert: OTelCollectorQueueFull
+          expr: otelcol_exporter_queue_size{exporter="otlphttp/logs"} > 4500
+          for: 2m
+          labels:
+            severity: warning
+            component: opentelemetry-collector
+          annotations:
+            summary: "OpenTelemetry Collector export queue nearing capacity"
+            description: "OpenTelemetry Collector on {{ $labels.pod }} export queue is at {{ $value }} items (90% of 5000 capacity). This indicates the collector is receiving logs faster than it can export them to VictoriaLogs."
+
+        - alert: OTelCollectorHighMemory
+          expr: container_memory_usage_bytes{pod=~"otel-daemon.*", namespace="monitoring", container="otc-container"} > 471859200
+          for: 5m
+          labels:
+            severity: warning
+            component: opentelemetry-collector
+          annotations:
+            summary: "OpenTelemetry Collector memory usage approaching limit"
+            description: "OpenTelemetry Collector on {{ $labels.pod }} memory usage is at {{ $value | humanize }} (approaching 512Mi limit). Consider adjusting batch size or increasing memory limits."
