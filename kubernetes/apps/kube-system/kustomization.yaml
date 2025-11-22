@@ -16,5 +16,5 @@ resources:
   - ./nfs-external-provisioner/ks.yaml
   - ./openebs/ks.yaml
   - ./reloader/ks.yaml
+  - ./reflector/ks.yaml
   - ./spegel/ks.yaml
-  # - ./synology-csi/ks.yaml

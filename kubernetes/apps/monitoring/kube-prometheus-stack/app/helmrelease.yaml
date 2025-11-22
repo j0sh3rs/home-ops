@@ -19,7 +19,7 @@ spec:
             - alertmanager.68cc.io
           parentRefs:
             - name: internal
-              namespace: kube-system
+              namespace: network
               sectionName: https
       alertmanagerSpec:
         alertmanagerConfiguration:
@@ -46,7 +46,7 @@ spec:
             - prometheus.68cc.io
           parentRefs:
             - name: internal
-              namespace: kube-system
+              namespace: network
               sectionName: https
       prometheusSpec:
         externalUrl: https://prometheus.68cc.io

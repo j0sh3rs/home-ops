@@ -23,7 +23,7 @@ spec:
           - logs.68cc.io
         parentRefs:
           - name: internal
-            namespace: kube-system
+            namespace: network
             sectionName: https
         extraRules:
           - filters:

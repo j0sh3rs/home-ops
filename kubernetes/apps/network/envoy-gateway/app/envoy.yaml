@@ -47,7 +47,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: envoy-external
+  name: external
   annotations:
     external-dns.alpha.kubernetes.io/target: &hostname external.bth.wtf
 spec:
@@ -78,16 +78,16 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyPatchPolicy
 metadata:
-  name: envoy-external
+  name: external
 spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: Gateway
-    name: envoy-external
+    name: external
   type: JSONPatch
   jsonPatches:
     - type: type.googleapis.com/envoy.config.listener.v3.Listener
-      name: network/envoy-external/https
+      name: network/external/https
       operation: &operation
         op: add
         jsonPath: ..filters[*].typed_config.http_filters[?(@.name=="envoy.filters.http.compressor.zstd")].typed_config
@@ -101,14 +101,14 @@ spec:
           response_direction_config:
             remove_accept_encoding_header: true
     - type: type.googleapis.com/envoy.config.listener.v3.Listener
-      name: network/envoy-external/https-quic
+      name: network/external/https-quic
       operation: *operation
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: envoy-internal
+  name: internal
   annotations:
     external-dns.alpha.kubernetes.io/target: &hostname internal.68cc.io
     gatus.home-operations.com/endpoint: |-
@@ -145,16 +145,16 @@ spec:
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyPatchPolicy
 metadata:
-  name: envoy-internal
+  name: internal
 spec:
   targetRef:
     group: gateway.networking.k8s.io
     kind: Gateway
-    name: envoy-internal
+    name: internal
   type: JSONPatch
   jsonPatches:
     - type: type.googleapis.com/envoy.config.listener.v3.Listener
-      name: network/envoy-internal/https
+      name: network/internal/https
       operation: &operation
         op: add
         jsonPath: ..filters[*].typed_config.http_filters[?(@.name=="envoy.filters.http.compressor.zstd")].typed_config
@@ -168,7 +168,7 @@ spec:
           response_direction_config:
             remove_accept_encoding_header: true
     - type: type.googleapis.com/envoy.config.listener.v3.Listener
-      name: network/envoy-internal/https-quic
+      name: network/internal/https-quic
       operation: *operation
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/backendtrafficpolicy_v1alpha1.json
@@ -230,10 +230,10 @@ metadata:
     external-dns.alpha.kubernetes.io/controller: none
 spec:
   parentRefs:
-    - name: envoy-external
+    - name: external
       namespace: network
       sectionName: http
-    - name: envoy-internal
+    - name: internal
       namespace: network
       sectionName: http
   rules:
