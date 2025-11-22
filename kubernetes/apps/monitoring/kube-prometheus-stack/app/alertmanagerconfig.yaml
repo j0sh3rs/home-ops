@@ -48,6 +48,6 @@ spec:
 
   receivers:
     - name: blackhole
-    - name: discord
-      discord_configs:
-        - webhook_url: ${DISCORD_WEBHOOK_URL}
+    # - name: discord
+    #   discord_configs:
+    #     - webhook_url: ${DISCORD_WEBHOOK_URL}

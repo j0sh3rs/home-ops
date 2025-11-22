@@ -15,8 +15,8 @@ spec:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
-      - name: alertmanager-secret
-        kind: Secret
+      # - name: alertmanager-secret
+      #   kind: Secret
   prune: true
   retryInterval: 2m
   sourceRef:
