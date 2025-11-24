@@ -20,8 +20,6 @@ spec:
   values:
     fullnameOverride: otel
     clusterName: home-ops
-
-    # OpenTelemetry Operator - manages OpenTelemetryCollector CRDs
     opentelemetry-operator:
       enabled: true
       manager:
@@ -29,11 +27,8 @@ spec:
           repository: otel/opentelemetry-collector-k8s
       admissionWebhooks:
         failurePolicy: Ignore
-      # CRDs should be managed separately via Flux
       crds:
         create: false
-
-    # DaemonSet collector for log and host metrics collection
     collectors:
       daemon:
         enabled: true
@@ -47,9 +42,14 @@ spec:
             memory: 256Mi
         targetAllocator:
           enabled: true
+          image: ghcr.io/open-telemetry/opentelemetry-operator/target-allocator:main
           serviceAccount: opentelemetry-targetallocator-sa
-          prometheusCR: enabled
-        # Enable log collection preset
+          allocationStrategy: per-node
+          prometheusCR:
+            enabled: true
+            podMonitorSelector: {}
+            scrapeInterval: "30s"
+            serviceMonitorSelector: {}
         presets:
           logsCollection:
             enabled: true
@@ -120,10 +120,12 @@ spec:
                 receivers: [filelog]
                 processors: [k8sattributes, resource, batch]
                 exporters: [otlphttp/logs]
+
+              # Updated metrics pipeline with Prometheus + Mimir
               metrics:
-                receivers: [hostmetrics, kubeletstats]
+                receivers: [prometheus, hostmetrics, kubeletstats, otlp]
                 processors: [k8sattributes, batch]
-                exporters: [debug/metrics]
+                exporters: [otlphttp/metrics]
         podMonitor:
           enabled: true
           metricsEndpoints:
@@ -140,3 +142,13 @@ spec:
       enabled: false
     opAMPBridge:
       enabled: false
+    kubeControllerManager:
+      enabled: true
+    kubeScheduler:
+      enabled: true
+    kubeProxy:
+      enabled: true
+    nodeExporter:
+      enabled: true
+    kubeStateMetrics:
+      enabled: true
