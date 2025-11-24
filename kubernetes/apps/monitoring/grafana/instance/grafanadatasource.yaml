@@ -12,8 +12,38 @@ spec:
     type: prometheus
     name: prometheus
     access: proxy
-    isDefault: true
+    isDefault: false
     url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+    jsonData:
+      timeInterval: 30s
+      httpMethod: POST
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadatasource_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: mimir
+spec:
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  datasource:
+    type: prometheus
+    name: mimir
+    access: proxy
+    isDefault: true
+    url: http://mimir.monitoring.svc.cluster.local:8080/prometheus
+    jsonData:
+      # Identify this as a Mimir datasource for optimal query handling
+      prometheusType: Mimir
+      prometheusVersion: "2.9.0"
+      httpMethod: POST
+      timeInterval: 30s
+      # Enable query splitting for better performance with large time ranges
+      queryTimeout: 60s
+      # Mimir-specific optimizations
+      incrementalQuerying: true
+      incrementalQueryOverlapWindow: 10m
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadatasource_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
@@ -42,7 +72,13 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   datasource:
-    type: victoria-logs-datasource
+    # Correct plugin ID for VictoriaLogs (updated in recent versions)
+    type: victoriametrics-logs-datasource
     name: victoria-logs
     access: proxy
     url: http://victoria-logs-server.monitoring.svc.cluster.local:9428
+    jsonData:
+      # VictoriaLogs-specific settings
+      maxLines: 1000
+      # Enable LogsQL query language
+      logsqlEnabled: true
