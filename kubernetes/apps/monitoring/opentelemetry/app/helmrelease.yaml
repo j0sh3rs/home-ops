@@ -67,20 +67,17 @@ spec:
         # Collector configuration
         config:
           receivers:
-            # Filelog receiver (added by logsCollection preset)
-            # Host metrics receiver (added by hostMetrics preset)
-            # Kubelet metrics receiver (added by kubeletMetrics preset)
-
+            otlp:
+              protocols:
+                grpc:
+                  endpoint: ${env:MY_POD_IP}:4317
+                http:
+                  endpoint: ${env:MY_POD_IP}:4318
           processors:
-            # Batch processor for logs
             batch:
               send_batch_size: 10000
+              send_batch_max_size: 11000
               timeout: 10s
-
-            # K8s attributes processor (enabled by preset)
-            # Adds namespace, pod, deployment metadata
-
-            # Resource processor for VictoriaLogs field mapping
             resource:
               attributes:
                 # Map k8s attributes to VictoriaLogs stream fields
@@ -114,13 +111,10 @@ spec:
 
           service:
             pipelines:
-              # Logs pipeline: filelog -> k8sattributes -> resource -> batch -> VictoriaLogs
               logs:
                 receivers: [filelog]
                 processors: [k8sattributes, resource, batch]
                 exporters: [otlphttp/logs]
-
-              # Metrics pipeline: host/kubelet metrics -> batch -> debug (future: Mimir)
               metrics:
                 receivers: [hostmetrics, kubeletstats]
                 processors: [k8sattributes, batch]
