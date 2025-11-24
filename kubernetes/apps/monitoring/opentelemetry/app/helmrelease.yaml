@@ -37,9 +37,7 @@ spec:
     collectors:
       daemon:
         enabled: true
-        mode: daemonset
-        suffix: daemon
-
+        mode: statefulset
         resources:
           limits:
             cpu: 750m
@@ -47,26 +45,27 @@ spec:
           requests:
             cpu: 100m
             memory: 256Mi
-
+        targetAllocator:
+          enabled: true
+          serviceAccount: opentelemetry-targetallocator-sa
+          prometheusCR: enabled
         # Enable log collection preset
         presets:
           logsCollection:
             enabled: true
             includeCollectorLogs: false
             storeCheckpoints: false
-          # Enable host metrics collection
           hostMetrics:
             enabled: true
-          # Enable kubelet metrics collection
           kubeletMetrics:
             enabled: true
-          # Enable Kubernetes attributes processor
           kubernetesAttributes:
             enabled: true
-
-        # Collector configuration
         config:
           receivers:
+            prometheus:
+              config:
+                scrape_configs: []
             otlp:
               protocols:
                 grpc:
@@ -103,12 +102,18 @@ spec:
                 enabled: true
                 num_consumers: 10
                 queue_size: 5000
-
-            # Debug exporter for metrics (placeholder for future Mimir)
-            # Replace with otlphttp/metrics pointing to Mimir when ready
-            debug/metrics:
-              verbosity: detailed
-
+            otlphttp/metrics:
+              endpoint: http://mimir.monitoring.svc.cluster.local:8080/otlp/v1/metrics
+              tls:
+                insecure: true # Internal cluster communication
+              compression: gzip
+              retry_on_failure:
+                enabled: true
+                max_elapsed_time: 300s
+              sending_queue:
+                enabled: true
+                num_consumers: 10
+                queue_size: 5000
           service:
             pipelines:
               logs:
@@ -129,15 +134,9 @@ spec:
     presets:
       clusterMetrics:
         enabled: true
-
-    # Disable Kubernetes service monitors (use collector's own metrics)
     kubernetesServiceMonitors:
       enabled: true
-
-    # Disable instrumentation (not using auto-instrumentation)
     instrumentation:
       enabled: false
-
-    # Disable OpAMP bridge (not using centralized management)
     opAMPBridge:
       enabled: false

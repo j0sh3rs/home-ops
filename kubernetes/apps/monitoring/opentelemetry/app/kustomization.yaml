@@ -5,6 +5,7 @@ kind: Kustomization
 namespace: monitoring
 resources:
   - ./ocirepository.yaml
+  - ./serviceaccount.yaml
   - ./helmrelease.yaml
   - ./prometheusrule.yaml
   - ./dashboard-configmap.yaml
