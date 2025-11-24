@@ -9,23 +9,19 @@ spec:
     kind: OCIRepository
     name: mimir-single
   interval: 1h
+  valuesFrom:
+    - kind: Secret
+      name: mimir-secrets
+      valuesKey: access-key
+      targetPath: config.common.storage.s3.access_key_id
+    - kind: Secret
+      name: mimir-secrets
+      valuesKey: secret-key
+      targetPath: config.common.storage.s3.secret_access_key
   values:
     fullnameOverride: mimir
     nameOverride: mimir
     replicaCount: 2
-    securityContext:
-      readOnlyRootFilesystem: false
-    serviceAccount:
-      automount: true
-    rbac:
-      create: true
-      rules:
-        - apiGroups: [""]
-          resources: ["pods"]
-          verbs: ["get", "list", "watch"]
-        - apiGroups: [""]
-          resources: ["configmaps"]
-          verbs: ["get"]
     gateway:
       enabled: true
       parentRefs:
@@ -50,7 +46,6 @@ spec:
         log_level: info
         http_listen_port: 8080
         grpc_listen_port: 9095
-
       common:
         storage:
           backend: s3
@@ -58,21 +53,16 @@ spec:
             endpoint: s3.68cc.io
             region: us-east-1
             insecure: false
-            access_key_id: "${MINIO_ACCESS_KEY}"
-            secret_access_key: "${MINIO_SECRET_KEY}"
-
       blocks_storage:
         backend: s3
         s3:
           bucket_name: mimir-blocks
         tsdb:
           dir: /data/tsdb
-
       alertmanager_storage:
         backend: s3
         s3:
           bucket_name: mimir-alertmanager
-
       ruler_storage:
         backend: s3
         s3:
@@ -88,12 +78,9 @@ spec:
           secretKeyRef:
             name: mimir-secrets
             key: secret-key
-
-    # Volume configuration for TSDB directory
     volumes:
       - name: data
         emptyDir: {}
-
     volumeMounts:
       - name: data
         mountPath: /data
