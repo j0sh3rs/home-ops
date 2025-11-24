@@ -26,8 +26,6 @@ spec:
     plugins:
       plugin_admin_enabled: "true"
       allow_loading_unsigned_plugins: "victoriametrics-logs-datasource"
-    install_plugins:
-      - victoriametrics-logs-datasource
     security:
       angular_support_enabled: "true"
     server:
