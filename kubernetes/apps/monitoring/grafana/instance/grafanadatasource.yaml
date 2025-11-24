@@ -82,3 +82,6 @@ spec:
       maxLines: 1000
       # Enable LogsQL query language
       logsqlEnabled: true
+  plugins:
+    - name: victoriametrics-logs-datasource
+      version: 0.22.0
