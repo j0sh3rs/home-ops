@@ -8,7 +8,7 @@ components:
 resources:
   - ./grafana/ks.yaml
   # - ./fluent-bit/ks.yaml
-  - ./mimir/ks.yaml
+  # - ./mimir/ks.yaml
   - ./opentelemetry/ks.yaml
   - ./unpoller/ks.yaml
   - ./victoria-logs/ks.yaml
