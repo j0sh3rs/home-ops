@@ -1,0 +1,96 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: mimir
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: mimir-single
+  interval: 1h
+  values:
+    fullnameOverride: mimir
+    nameOverride: mimir
+    serviceAccount:
+      automount: true
+    rbac:
+      create: true
+      rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "list", "watch"]
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          verbs: ["get"]
+    gateway:
+      enabled: true
+      parentRefs:
+        - name: internal
+          namespace: network
+          sectionName: https
+      hostnames:
+        - mimir.68cc.io
+    metrics:
+      serviceMonitor:
+        enabled: true
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 500m
+      limits:
+        memory: 4Gi
+        cpu: 2
+    config:
+      # Server configuration
+      server:
+        log_level: info
+        http_listen_port: 8080
+        grpc_listen_port: 9095
+
+      common:
+        storage:
+          backend: s3
+          s3:
+            endpoint: https://s3.68cc.io
+            region: us-east-1
+            insecure: false
+            access_key_id: "${MINIO_ACCESS_KEY}"
+            secret_access_key: "${MINIO_SECRET_KEY}"
+
+      blocks_storage:
+        backend: s3
+        s3:
+          bucket_name: mimir-blocks
+        tsdb:
+          dir: /data/tsdb
+
+      alertmanager_storage:
+        backend: s3
+        s3:
+          bucket_name: mimir-alertmanager
+
+      ruler_storage:
+        backend: s3
+        s3:
+          bucket_name: mimir-ruler
+    extraEnv:
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: mimir-secrets
+            key: access-key
+      - name: MINIO_SECRET_KEY
+        valueFrom:
+          secretKeyRef:
+            name: mimir-secrets
+            key: secret-key
+
+    # Volume configuration for TSDB directory
+    volumes:
+      - name: data
+        emptyDir: {}
+
+    volumeMounts:
+      - name: data
+        mountPath: /data
