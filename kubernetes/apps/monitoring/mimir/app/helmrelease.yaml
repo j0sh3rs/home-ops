@@ -13,6 +13,8 @@ spec:
     fullnameOverride: mimir
     nameOverride: mimir
     replicaCount: 2
+    securityContext:
+      readOnlyRootFilesystem: false
     serviceAccount:
       automount: true
     rbac:
