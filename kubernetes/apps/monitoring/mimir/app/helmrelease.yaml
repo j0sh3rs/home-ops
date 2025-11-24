@@ -41,9 +41,6 @@ spec:
         memory: 4Gi
         cpu: 2
     config:
-      ruler:
-        extraArgs:
-          auth.multitenancy-enabled: false
       server:
         log_level: info
         http_listen_port: 8080
@@ -69,17 +66,6 @@ spec:
         backend: s3
         s3:
           bucket_name: mimir-ruler
-    extraEnv:
-      - name: MINIO_ACCESS_KEY
-        valueFrom:
-          secretKeyRef:
-            name: mimir-secrets
-            key: access-key
-      - name: MINIO_SECRET_KEY
-        valueFrom:
-          secretKeyRef:
-            name: mimir-secrets
-            key: secret-key
     volumes:
       - name: data
         emptyDir: {}
