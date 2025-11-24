@@ -41,7 +41,9 @@ spec:
         memory: 4Gi
         cpu: 2
     config:
-      # Server configuration
+      ruler:
+        extraArgs:
+          auth.multitenancy-enabled: false
       server:
         log_level: info
         http_listen_port: 8080
