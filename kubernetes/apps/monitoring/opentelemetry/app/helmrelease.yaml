@@ -119,28 +119,20 @@ spec:
                 receivers: [hostmetrics, kubeletstats]
                 processors: [k8sattributes, batch]
                 exporters: [debug/metrics]
-
-              # Tracing disabled - remove traces pipeline
-
-        # ServiceMonitor for Prometheus scraping of collector metrics
         podMonitor:
           enabled: true
           metricsEndpoints:
             - port: metrics
               interval: 30s
-
-    # Disable default collector (we only use the daemon collector)
     defaultCRConfig:
       enabled: false
-
-    # Disable cluster-wide metrics collection (not needed for log-focused deployment)
     presets:
       clusterMetrics:
-        enabled: false
+        enabled: true
 
     # Disable Kubernetes service monitors (use collector's own metrics)
     kubernetesServiceMonitors:
-      enabled: false
+      enabled: true
 
     # Disable instrumentation (not using auto-instrumentation)
     instrumentation:
