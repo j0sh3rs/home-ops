@@ -102,9 +102,7 @@ spec:
                 enabled: true
                 num_consumers: 10
                 queue_size: 5000
-              metrics_endpoint: http://mimir.monitoring.svc.cluster.local:8080/otlp
-              tls:
-                insecure: true # Internal cluster communication
+              metrics_endpoint: http://mimir.monitoring.svc.cluster.local:8080/otlp/v1/metrics
           service:
             pipelines:
               logs:
