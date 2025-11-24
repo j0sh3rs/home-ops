@@ -32,7 +32,7 @@ spec:
     collectors:
       daemon:
         enabled: true
-        mode: statefulset
+        mode: daemonset
         resources:
           limits:
             cpu: 750m
