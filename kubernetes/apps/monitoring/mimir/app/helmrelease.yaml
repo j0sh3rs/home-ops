@@ -12,6 +12,7 @@ spec:
   values:
     fullnameOverride: mimir
     nameOverride: mimir
+    replicaCount: 2
     serviceAccount:
       automount: true
     rbac:
