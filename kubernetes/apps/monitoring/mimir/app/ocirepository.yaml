@@ -11,4 +11,4 @@ spec:
     operation: copy
   ref:
     tag: 0.3.0
-  url: oci://j0sh3rs.github.io/charts/mimir-single
+  url: oci://ghcr.io/j0sh3rs/charts/mimir-single
