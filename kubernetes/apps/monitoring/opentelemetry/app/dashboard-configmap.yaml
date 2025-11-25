@@ -32,7 +32,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "mimir"
           },
           "description": "Rate of log records accepted by the filelog receiver",
           "fieldConfig": {
@@ -109,7 +109,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "mimir"
               },
               "editorMode": "code",
               "expr": "rate(otelcol_receiver_accepted_log_records{receiver=\"filelog\",pod=~\"otel-daemon.*\"}[5m])",
@@ -124,7 +124,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "mimir"
           },
           "description": "Rate of logs successfully exported to VictoriaLogs",
           "fieldConfig": {
@@ -201,7 +201,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "mimir"
               },
               "editorMode": "code",
               "expr": "rate(otelcol_exporter_sent_log_records{exporter=\"otlphttp/logs\",pod=~\"otel-daemon.*\"}[5m])",
@@ -216,7 +216,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "mimir"
           },
           "description": "Rate of failed log exports to VictoriaLogs",
           "fieldConfig": {
@@ -297,7 +297,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "mimir"
               },
               "editorMode": "code",
               "expr": "rate(otelcol_exporter_send_failed_log_records{exporter=\"otlphttp/logs\",pod=~\"otel-daemon.*\"}[5m])",
@@ -312,7 +312,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "mimir"
           },
           "description": "Current size of the export queue",
           "fieldConfig": {
@@ -398,7 +398,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "mimir"
               },
               "editorMode": "code",
               "expr": "otelcol_exporter_queue_size{exporter=\"otlphttp/logs\",pod=~\"otel-daemon.*\"}",
@@ -413,7 +413,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "mimir"
           },
           "description": "Batch processor statistics showing batch sizes being sent",
           "fieldConfig": {
@@ -490,7 +490,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "mimir"
               },
               "editorMode": "code",
               "expr": "otelcol_processor_batch_batch_send_size_sum{processor=\"batch\",pod=~\"otel-daemon.*\"} / otelcol_processor_batch_batch_send_size_count{processor=\"batch\",pod=~\"otel-daemon.*\"}",
@@ -505,7 +505,7 @@ data:
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "mimir"
           },
           "description": "Memory usage of OpenTelemetry Collector pods",
           "fieldConfig": {
@@ -591,7 +591,7 @@ data:
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "mimir"
               },
               "editorMode": "code",
               "expr": "container_memory_usage_bytes{pod=~\"otel-daemon.*\", namespace=\"monitoring\", container=\"otc-container\"}",
