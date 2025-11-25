@@ -1,0 +1,15 @@
+machine:
+  features:
+    kubernetesTalosAPIAccess:
+      allowedKubernetesNamespaces:
+        - system-upgrade # or the namespace the controller will be installed to
+        - action-runner-system
+      allowedRoles:
+        - os:admin
+      enabled: true
+    rbac: true
+    stableHostname: true
+    hostDNS:
+      enabled: true
+      forwardKubeDNSToHost: true # Requires Cilium socketLB features
+      resolveMemberNames: true
