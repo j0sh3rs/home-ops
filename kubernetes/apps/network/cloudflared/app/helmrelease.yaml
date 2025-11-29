@@ -28,7 +28,7 @@ spec:
               TUNNEL_TRANSPORT_PROTOCOL: quic # http2
             envFrom:
               - secretRef:
-                  name: "{{ .Release.Name }}-secret"
+                  name: "cloudflared-secret"
             args:
               - tunnel
               - run
