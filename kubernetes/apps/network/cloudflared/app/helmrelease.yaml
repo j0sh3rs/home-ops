@@ -14,7 +14,7 @@ spec:
       version: 0.3.2
       sourceRef:
         kind: HelmRepository
-        name: cloudflare-tunnel
+        name: cloudflare
       interval: 15m
   valuesFrom:
     - kind: Secret
