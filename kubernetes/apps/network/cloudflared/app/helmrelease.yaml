@@ -15,6 +15,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: cloudflare
+        namespace: flux-system
       interval: 15m
   valuesFrom:
     - kind: Secret
