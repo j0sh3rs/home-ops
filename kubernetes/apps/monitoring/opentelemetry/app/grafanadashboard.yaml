@@ -12,7 +12,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
+      inputName: mimir
   configMapRef:
     name: opentelemetry-collector-dashboard
     key: opentelemetry-collector.json

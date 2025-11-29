@@ -11,5 +11,5 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
+      inputName: mimir
   url: https://grafana.com/api/dashboards/17457/revisions/6/download

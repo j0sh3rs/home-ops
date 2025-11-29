@@ -11,7 +11,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
+      inputName: mimir
   configMapRef:
     name: fluent-bit-dashboard-fluent-bit
     key: fluent-bit-fluent-bit.json

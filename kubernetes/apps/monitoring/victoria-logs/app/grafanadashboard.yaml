@@ -11,7 +11,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
+      inputName: mimir
   configMapRef:
     name: victoria-logs-victorialogs-single-node
     key: victorialogs-single-node.json
