@@ -47,4 +47,3 @@ spec:
             http2Origin: true
             originServerName: external.bth.wtf
           service: https://external.network.svc.cluster.local:443
-        - service: http_status:404
