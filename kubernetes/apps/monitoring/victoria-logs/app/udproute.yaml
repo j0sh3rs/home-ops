@@ -1,0 +1,15 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tcproute_v1alpha2.json
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: victoria-logs-syslog
+spec:
+  parentRefs:
+    - name: internal
+      namespace: network
+      sectionName: syslog-udp
+  rules:
+    - backendRefs:
+        - name: victoria-logs
+          port: 514
