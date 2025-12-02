@@ -10,6 +10,7 @@ resources:
   - ./descheduler.yaml
   - ./dragonflydb.yaml
   - ./external-dns.yaml
+  - ./falco.yaml
   - ./grafana.yaml
   - ./ingress-nginx.yaml
   - ./jetstack.yaml
