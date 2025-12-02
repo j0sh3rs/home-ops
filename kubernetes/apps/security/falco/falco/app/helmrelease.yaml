@@ -17,16 +17,24 @@ spec:
         name: falco
         namespace: flux-system
       interval: 15m
+  valuesFrom:
+    - kind: Secret
+      name: falco-secrets
+      valuesKey: DISCORD_WEBHOOK_URL
+      targetPath: falcosidekick.config.discord.webhookURL
   values:
     metrics:
       enabled: true
     falcosidekick:
       enabled: true
+      prometheusRules:
+        enabled: true
+      grafana:
+        dashboards:
+          enabled: true
       config:
         discord:
-          enabled: true
-        alertmanager:
-          enabled: true
+          webhookURL:
     grafana:
       dashboards:
         enabled: true
