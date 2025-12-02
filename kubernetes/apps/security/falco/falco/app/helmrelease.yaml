@@ -32,9 +32,6 @@ spec:
       grafana:
         dashboards:
           enabled: true
-      config:
-        discord:
-          webhookURL:
     grafana:
       dashboards:
         enabled: true
