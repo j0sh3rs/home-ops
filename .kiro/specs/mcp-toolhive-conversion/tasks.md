@@ -2,7 +2,7 @@
 
 **Feature**: mcp-toolhive-conversion
 **Status**: Tasks Defined
-**Progress**: 0/47 tasks completed (0%)
+**Progress**: 17/47 tasks completed (36%)
 **Estimated Time**: 2 hours 15 minutes
 **Implementation Strategy**: Phased rollout with validation gates
 
@@ -56,7 +56,7 @@ kubectl apply --dry-run=client -f kubernetes/apps/toolhive/mcp_servers/github.ya
 
 ### Task 0.3: Commit Template Bug Fix
 
-- [ ] Commit github.yaml fix with descriptive message and push to Git
+- [x] Commit github.yaml fix with descriptive message and push to Git
 
 **Definition of Done (EARS)**:
 
@@ -80,7 +80,7 @@ git log -1 --oneline
 
 ### Task 0.4: Verify FluxCD Reconciliation
 
-- [ ] Monitor FluxCD reconciliation and confirm github pod restarts successfully
+- [x] Monitor FluxCD reconciliation and confirm github pod restarts successfully
 
 **Definition of Done (EARS)**:
 
@@ -105,7 +105,7 @@ kubectl describe pod -n toolhive-system <github-pod-name> | grep -A 5 "Limits:"
 
 ### Task 0.5: Test End-to-End GitHub Server Connectivity
 
-- [ ] Validate that corrected github MCPServer is accessible and functional
+- [x] Validate that corrected github MCPServer is accessible and functional
 
 **Definition of Done (EARS)**:
 
@@ -134,7 +134,7 @@ kubectl logs -n toolhive-system <github-pod-name> --tail=20
 
 ### Task 1.1: Create context7.yaml MCPServer
 
-- [ ] Create `kubernetes/apps/toolhive/mcp_servers/context7.yaml` following template pattern
+- [x] Create `kubernetes/apps/toolhive/mcp_servers/context7.yaml` following template pattern
 
 **Definition of Done (EARS)**:
 
@@ -180,7 +180,7 @@ spec:
 
 ### Task 1.2: Create sequential-thinking.yaml MCPServer
 
-- [ ] Create `kubernetes/apps/toolhive/mcp_servers/sequential-thinking.yaml` with "none" permission profile
+- [x] Create `kubernetes/apps/toolhive/mcp_servers/sequential-thinking.yaml` with "none" permission profile
 
 **Definition of Done (EARS)**:
 
@@ -198,7 +198,7 @@ spec:
 
 ### Task 1.3: Create serena.yaml MCPServer
 
-- [ ] Create `kubernetes/apps/toolhive/mcp_servers/serena.yaml` with "filesystem" permission profile
+- [x] Create `kubernetes/apps/toolhive/mcp_servers/serena.yaml` with "filesystem" permission profile
 
 **Definition of Done (EARS)**:
 
@@ -216,7 +216,7 @@ spec:
 
 ### Task 1.4: Update secret.sops.yaml with CONTEXT7_API_KEY
 
-- [ ] Add CONTEXT7_API_KEY to shared secret before encryption
+- [x] Add CONTEXT7_API_KEY to shared secret before encryption
 
 **Definition of Done (EARS)**:
 
@@ -241,7 +241,7 @@ stringData:
 
 ### Task 1.5: Encrypt secret.sops.yaml
 
-- [ ] Run SOPS encryption on updated secret.sops.yaml
+- [x] Run SOPS encryption on updated secret.sops.yaml
 
 **Definition of Done (EARS)**:
 
@@ -265,7 +265,7 @@ grep "CONTEXT7_API_KEY" kubernetes/apps/toolhive/mcp_servers/secret.sops.yaml
 
 ### Task 1.6: Update kustomization.yaml Resources List
 
-- [ ] Add context7.yaml, sequential-thinking.yaml, serena.yaml to kustomization.yaml resources array
+- [x] Add context7.yaml, sequential-thinking.yaml, serena.yaml to kustomization.yaml resources array
 
 **Definition of Done (EARS)**:
 
@@ -294,7 +294,7 @@ resources:
 
 ### Task 1.7: Validate Kustomization Build
 
-- [ ] Run Flux kustomize build validation before Git commit
+- [x] Run Flux kustomize build validation before Git commit
 
 **Definition of Done (EARS)**:
 
@@ -316,7 +316,7 @@ flux build kustomize kubernetes/apps/toolhive/mcp_servers
 
 ### Task 1.8: Commit and Push Batch 1 Changes
 
-- [ ] Commit all Batch 1 files with descriptive message and push to Git
+- [x] Commit all Batch 1 files with descriptive message and push to Git
 
 **Definition of Done (EARS)**:
 
@@ -339,7 +339,7 @@ git log -1 --oneline
 
 ### Task 1.9: Monitor FluxCD Reconciliation for Batch 1
 
-- [ ] Watch FluxCD reconcile Batch 1 changes within 2 minutes
+- [x] Watch FluxCD reconcile Batch 1 changes within 2 minutes
 
 **Definition of Done (EARS)**:
 
@@ -360,7 +360,7 @@ flux get kustomization mcp-servers --watch
 
 ### Task 1.10: Verify All Batch 1 Pods Running
 
-- [ ] Confirm 4 pods total (github + 3 new servers) are in Running status
+- [x] Confirm 4 pods total (github + 3 new servers) are in Running status
 
 **Definition of Done (EARS)**:
 
@@ -384,7 +384,7 @@ kubectl get mcpserver -n toolhive-system
 
 ### Task 1.11: Test Secret Injection for context7
 
-- [ ] Verify CONTEXT7_API_KEY environment variable is injected into context7 pod
+- [x] Verify CONTEXT7_API_KEY environment variable is injected into context7 pod
 
 **Definition of Done (EARS)**:
 
@@ -405,7 +405,7 @@ kubectl exec -it -n toolhive-system <context7-pod-name> -- env | grep CONTEXT7_A
 
 ### Task 1.12: Test Permission Profile Enforcement
 
-- [ ] Validate "none" permission profile blocks network access for sequential-thinking pod
+- [x] Validate "none" permission profile blocks network access for sequential-thinking pod
 
 **Definition of Done (EARS)**:
 
