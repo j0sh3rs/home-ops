@@ -9,4 +9,4 @@ spec:
   interval: 30m0s
   url: oci://ghcr.io/stacklok/toolhive/toolhive-operator
   ref:
-    tag: 0.5.8
+    tag: 0.5.9
