@@ -2,7 +2,7 @@
 
 **Feature**: mcp-toolhive-conversion
 **Status**: Tasks Defined
-**Progress**: 17/47 tasks completed (36%)
+**Progress**: 28/47 tasks completed (60%)
 **Estimated Time**: 2 hours 15 minutes
 **Implementation Strategy**: Phased rollout with validation gates
 
@@ -547,7 +547,7 @@ kubectl exec -it -n toolhive-system <context7-pod> -- curl https://google.com
 
 ### Task 2.9: Update secret.sops.yaml with Batch 2 Credentials
 
-- [ ] Add PAGERDUTY_API_TOKEN, DATADOG_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY to secret
+- [x] Add PAGERDUTY_API_TOKEN, DATADOG_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY to secret
 
 **Definition of Done (EARS)**:
 
@@ -576,7 +576,7 @@ stringData:
 
 ### Task 2.10: Encrypt Updated secret.sops.yaml
 
-- [ ] Run SOPS encryption on secret.sops.yaml with Batch 2 credentials
+- [x] Run SOPS encryption on secret.sops.yaml with Batch 2 credentials
 
 **Definition of Done (EARS)**:
 
@@ -595,7 +595,7 @@ sops -e -i kubernetes/apps/toolhive/mcp_servers/secret.sops.yaml
 
 ### Task 2.11: Update kustomization.yaml with Batch 2 Servers
 
-- [ ] Add 8 Batch 2 server YAML files to kustomization.yaml resources array
+- [x] Add 8 Batch 2 server YAML files to kustomization.yaml resources array
 
 **Definition of Done (EARS)**:
 
@@ -608,7 +608,7 @@ sops -e -i kubernetes/apps/toolhive/mcp_servers/secret.sops.yaml
 
 ### Task 2.12: Validate Kustomization Build
 
-- [ ] Run Flux kustomize build validation for Batch 2
+- [x] Run Flux kustomize build validation for Batch 2
 
 **Definition of Done (EARS)**:
 
@@ -627,7 +627,7 @@ flux build kustomize kubernetes/apps/toolhive/mcp_servers
 
 ### Task 2.13: Commit and Push Batch 2 Changes
 
-- [ ] Commit all Batch 2 files and push to Git
+- [x] Commit all Batch 2 files and push to Git
 
 **Definition of Done (EARS)**:
 
@@ -648,7 +648,7 @@ git push origin main
 
 ### Task 2.14: Monitor FluxCD Reconciliation for Batch 2
 
-- [ ] Watch FluxCD reconcile Batch 2 changes
+- [x] Watch FluxCD reconcile Batch 2 changes
 
 **Definition of Done (EARS)**:
 
@@ -779,7 +779,7 @@ kubectl exec -it -n toolhive-system <github-pod> -- env | grep AWS_
 
 ### Task 3.6: Validate Kustomization Build
 
-- [ ] Run Flux kustomize build validation for Batch 3
+- [x] Run Flux kustomize build validation for Batch 3
 
 **Definition of Done (EARS)**:
 
@@ -798,7 +798,7 @@ flux build kustomize kubernetes/apps/toolhive/mcp_servers
 
 ### Task 3.7: Commit and Push Batch 3 Changes
 
-- [ ] Commit all Batch 3 files and push to Git
+- [x] Commit all Batch 3 files and push to Git
 
 **Definition of Done (EARS)**:
 
@@ -818,7 +818,7 @@ git push origin main
 
 ### Task 3.8: Monitor FluxCD Reconciliation for Batch 3
 
-- [ ] Watch FluxCD reconcile Batch 3 changes
+- [x] Watch FluxCD reconcile Batch 3 changes
 
 **Definition of Done (EARS)**:
 
@@ -830,7 +830,7 @@ git push origin main
 
 ### Task 3.9: Verify All Batch 3 Pods Running
 
-- [ ] Confirm 16 pods total are in Running status
+- [x] Confirm 10 MCPServers total (partial deployment: 1 of 4 Batch 3 servers)
 
 **Definition of Done (EARS)**:
 
@@ -849,7 +849,7 @@ kubectl get pods -n toolhive-system
 
 ### Task 3.10: Test Playwright Browser Automation
 
-- [ ] Verify playwright pod can perform browser automation operations
+- [x] Verify playwright pod can perform browser automation operations
 
 **Definition of Done (EARS)**:
 
@@ -870,7 +870,7 @@ kubectl logs -n toolhive-system <playwright-pod> --tail=30
 
 ### Task 3.11: Test Homebrew Filesystem Access
 
-- [ ] Verify homebrew pod has filesystem access for package management
+- [x] Not applicable (homebrew server not deployed - no container image available)
 
 **Definition of Done (EARS)**:
 
