@@ -21,7 +21,7 @@ resources:
   - ./aws-pricing.yaml
   - ./aws-iam.yaml
 
-  # Batch 3: Development Tools (partial - 2 of 4 servers)
+  # Batch 3: Development Tools (partial - 1 of 4 servers)
   # Removed: morphllm, homebrew (no container images available)
+  # Removed: magic (requires paid TWENTY_FIRST_API_KEY)
   - ./playwright.yaml
-  - ./magic.yaml
