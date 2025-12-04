@@ -15,7 +15,7 @@ spec:
       targetEnvName: CONTEXT7_API_KEY
   resources:
     limits:
-      cpu: 1
+      cpu: "1"
       memory: 2Gi
     requests:
       cpu: 500m
