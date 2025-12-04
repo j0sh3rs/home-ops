@@ -12,3 +12,13 @@ resources:
   - ./context7.yaml
   - ./sequential-thinking.yaml
   - ./serena.yaml
+
+  # Batch 2: Cloud Infrastructure
+  - ./pagerduty-mcp.yaml
+  - ./datadog.yaml
+  - ./terraform.yaml
+  - ./aws-terraform.yaml
+  - ./aws-diagrams.yaml
+  - ./aws-pricing.yaml
+  - ./aws-iam.yaml
+  - ./aws-ecs.yaml

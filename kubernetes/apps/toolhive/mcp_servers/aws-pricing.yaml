@@ -1,0 +1,18 @@
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: aws-pricing
+  namespace: toolhive-system
+spec:
+  image: ghcr.io/awslabs/aws-pricing-mcp-server
+  transport: stdio
+  permissionProfile:
+    type: builtin
+    name: network
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 256Mi
