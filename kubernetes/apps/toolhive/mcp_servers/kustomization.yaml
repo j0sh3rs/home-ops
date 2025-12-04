@@ -13,12 +13,10 @@ resources:
   - ./sequential-thinking.yaml
   - ./serena.yaml
 
-  # Batch 2: Cloud Infrastructure
-  - ./pagerduty-mcp.yaml
-  - ./datadog.yaml
+  # Batch 2: Cloud Infrastructure (partial - 5 of 8 servers)
+  # Removed: pagerduty-mcp, datadog, aws-ecs (no container images available)
   - ./terraform.yaml
   - ./aws-terraform.yaml
   - ./aws-diagrams.yaml
   - ./aws-pricing.yaml
   - ./aws-iam.yaml
-  - ./aws-ecs.yaml

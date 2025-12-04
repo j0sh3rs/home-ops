@@ -4,7 +4,7 @@ metadata:
   name: aws-pricing
   namespace: toolhive-system
 spec:
-  image: ghcr.io/awslabs/aws-pricing-mcp-server
+  image: mcp/aws-pricing-mcp-server:latest
   transport: stdio
   permissionProfile:
     type: builtin

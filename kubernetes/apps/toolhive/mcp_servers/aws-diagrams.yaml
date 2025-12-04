@@ -4,7 +4,7 @@ metadata:
   name: aws-diagrams
   namespace: toolhive-system
 spec:
-  image: ghcr.io/awslabs/aws-diagrams-mcp
+  image: mcp/aws-diagram:latest
   transport: stdio
   permissionProfile:
     type: builtin

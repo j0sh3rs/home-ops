@@ -4,7 +4,7 @@ metadata:
   name: terraform
   namespace: toolhive-system
 spec:
-  image: ghcr.io/terraform/terraform-mcp
+  image: hashicorp/terraform-mcp-server:latest
   transport: stdio
   permissionProfile:
     type: builtin

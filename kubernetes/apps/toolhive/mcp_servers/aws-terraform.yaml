@@ -4,7 +4,7 @@ metadata:
   name: aws-terraform
   namespace: toolhive-system
 spec:
-  image: ghcr.io/awslabs/aws-terraform-mcp
+  image: mcp/aws-terraform:latest
   transport: stdio
   permissionProfile:
     type: builtin
