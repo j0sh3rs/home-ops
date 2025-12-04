@@ -25,3 +25,7 @@ resources:
   # Removed: morphllm, homebrew (no container images available)
   # Removed: magic (requires paid TWENTY_FIRST_API_KEY)
   - ./playwright.yaml
+
+  # Batch 4: Specialized Servers (partial - 1 of 2 servers)
+  # Removed: chrome-devtools (no container image available - NPM package only)
+  - ./tavily.yaml

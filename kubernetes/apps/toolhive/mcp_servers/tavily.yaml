@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/StackLok/toolhive/main/deploy/crds/toolhive.stacklok.dev_mcpservers.yaml
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: tavily
+  namespace: toolhive-system
+spec:
+  image: mcp/tavily:latest
+  transport: sse
+  port: 8080  # Required for SSE transport
+  permissionProfile:
+    type: builtin
+    name: network
+  secrets:
+    - name: mcp-server-secrets
+      key: TAVILY_API_KEY
+      targetEnvName: TAVILY_API_KEY
+  env:
+    - name: SSE_ENDPOINT
+      value: /events
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
