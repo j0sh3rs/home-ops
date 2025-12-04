@@ -1,0 +1,22 @@
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: context7
+  namespace: toolhive-system
+spec:
+  image: mcp/context7:latest
+  transport: stdio
+  permissionProfile:
+    type: builtin
+    name: network
+  secrets:
+    - name: mcp-server-secrets
+      key: CONTEXT7_API_KEY
+      targetEnvName: CONTEXT7_API_KEY
+  resources:
+    limits:
+      cpu: 1
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 256Mi

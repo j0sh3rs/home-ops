@@ -1,0 +1,18 @@
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: serena
+  namespace: toolhive-system
+spec:
+  image: ghcr.io/oraios/serena:latest
+  transport: stdio
+  permissionProfile:
+    type: builtin
+    name: filesystem
+  resources:
+    limits:
+      cpu: 1
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 256Mi
