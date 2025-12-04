@@ -1,0 +1,17 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/StackLok/toolhive/main/deploy/crds/toolhive.stacklok.dev_mcpservers.yaml
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: playwright
+  namespace: toolhive-system
+spec:
+  image: mcp/playwright:latest
+  transport: stdio
+  permissionProfile:
+    type: builtin
+    name: network
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi

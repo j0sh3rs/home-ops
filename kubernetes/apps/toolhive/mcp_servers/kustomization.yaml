@@ -20,3 +20,8 @@ resources:
   - ./aws-diagrams.yaml
   - ./aws-pricing.yaml
   - ./aws-iam.yaml
+
+  # Batch 3: Development Tools (partial - 2 of 4 servers)
+  # Removed: morphllm, homebrew (no container images available)
+  - ./playwright.yaml
+  - ./magic.yaml
