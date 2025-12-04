@@ -9,6 +9,13 @@ spec:
   permissionProfile:
     type: builtin
     name: network
+  secrets:
+    - name: mcp-server-secrets
+      key: AWS_ACCESS_KEY_ID
+      targetEnvName: AWS_ACCESS_KEY_ID
+    - name: mcp-server-secrets
+      key: AWS_SECRET_ACCESS_KEY
+      targetEnvName: AWS_SECRET_ACCESS_KEY
   resources:
     limits:
       cpu: "1"
