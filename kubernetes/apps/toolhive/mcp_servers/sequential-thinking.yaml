@@ -6,6 +6,7 @@ metadata:
 spec:
   image: mcp/sequentialthinking:latest
   transport: stdio
+  groupRef: work-mcp-servers
   permissionProfile:
     type: builtin
     name: none

@@ -8,6 +8,7 @@ metadata:
 spec:
   image: mcp/playwright:latest
   transport: stdio
+  groupRef: work-mcp-servers
   permissionProfile:
     type: builtin
     name: network
