@@ -10,4 +10,4 @@ spec:
     operation: copy
   url: oci://ghcr.io/open-telemetry/opentelemetry-helm-charts/opentelemetry-kube-stack
   ref:
-    tag: 0.12.4
+    tag: 0.12.5
