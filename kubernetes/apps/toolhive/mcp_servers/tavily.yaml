@@ -7,8 +7,7 @@ metadata:
   namespace: toolhive-system
 spec:
   image: mcp/tavily:latest
-  transport: sse
-  port: 8080  # Required for SSE transport
+  transport: stdio
   permissionProfile:
     type: builtin
     name: network
@@ -16,9 +15,6 @@ spec:
     - name: mcp-server-secrets
       key: TAVILY_API_KEY
       targetEnvName: TAVILY_API_KEY
-  env:
-    - name: SSE_ENDPOINT
-      value: /events
   resources:
     limits:
       cpu: "1"
