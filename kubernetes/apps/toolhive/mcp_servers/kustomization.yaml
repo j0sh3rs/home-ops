@@ -6,26 +6,15 @@ namespace: toolhive-system
 resources:
   # Secret must be listed first (dependency order)
   - ./secret.sops.yaml
-
-  # Batch 1: Core MCP Servers
+  - ./mcpgroup.yaml
+  - ./vmcp.yaml
   - ./github.yaml
   - ./context7.yaml
   - ./sequential-thinking.yaml
   - ./serena.yaml
-
-  # Batch 2: Cloud Infrastructure (partial - 5 of 8 servers)
-  # Removed: pagerduty-mcp, datadog, aws-ecs (no container images available)
   - ./terraform.yaml
   - ./aws-terraform.yaml
   - ./aws-diagrams.yaml
   - ./aws-pricing.yaml
   - ./aws-iam.yaml
-
-  # Batch 3: Development Tools (partial - 1 of 4 servers)
-  # Removed: morphllm, homebrew (no container images available)
-  # Removed: magic (requires paid TWENTY_FIRST_API_KEY)
-  - ./playwright.yaml
-
-  # Batch 4: Specialized Servers (partial - 1 of 2 servers)
-  # Removed: chrome-devtools (no container image available - NPM package only)
   - ./tavily.yaml

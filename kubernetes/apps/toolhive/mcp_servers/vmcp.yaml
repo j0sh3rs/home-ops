@@ -1,0 +1,10 @@
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
+  name: work-vmcp
+  namespace: toolhive-system
+spec:
+  groupRef:
+    name: work-mcp-servers
+  incomingAuth:
+    type: anonymous
