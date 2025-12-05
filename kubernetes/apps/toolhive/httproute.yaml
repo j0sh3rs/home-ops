@@ -9,13 +9,8 @@ spec:
   parentRefs:
     - name: internal
       namespace: network
-      sectionName: https
   rules:
     - backendRefs:
         - name: vmcp-work-vmcp
           namespace: toolhive-system
           port: 4483
-      matches:
-        - path:
-            type: PathPrefix
-            value: /
