@@ -25,6 +25,23 @@ mise install
 - `SOPS_AGE_KEY_FILE`: `./age.key` - SOPS decryption key
 - `TALOSCONFIG`: `./talos/clusterconfig/talosconfig` - Talos cluster config
 
+## Kubectl Context Requirement
+
+**CRITICAL**: This cluster uses the `home` kubectl context. All kubectl, helm, and flux commands MUST explicitly use `--context home` to ensure correct cluster targeting.
+
+```bash
+# Correct - always specify context
+kubectl get pods -n toolhive-system --context home
+helm list -A --kube-context home
+flux get kustomizations -A --context home
+
+# Incorrect - missing context specification
+kubectl get pods -n toolhive-system  # ❌ Wrong cluster
+helm list -A                          # ❌ Wrong cluster
+```
+
+**Repository Configuration**: This cluster uses `github.com/j0sh3rs/home-ops` as the GitOps source repository.
+
 ## Common Commands
 
 ### Cluster Operations
@@ -72,19 +89,19 @@ task talos:reset
 
 ```bash
 # View pods across all namespaces
-kubectl get pods -A --watch
+kubectl get pods -A --watch --context home
 
 # Check namespace-specific resources
-kubectl -n <namespace> get pods -o wide
-kubectl -n <namespace> logs <pod-name> -f
-kubectl -n <namespace> describe <resource> <name>
-kubectl -n <namespace> get events --sort-by='.metadata.creationTimestamp'
+kubectl -n <namespace> get pods -o wide --context home
+kubectl -n <namespace> logs <pod-name> -f --context home
+kubectl -n <namespace> describe <resource> <name> --context home
+kubectl -n <namespace> get events --sort-by='.metadata.creationTimestamp' --context home
 
 # Check HelmRelease status for an app
-kubectl -n <namespace> describe helmrelease <app-name>
+kubectl -n <namespace> describe helmrelease <app-name> --context home
 
 # View Flux reconciliation logs
-kubectl -n flux-system logs -l app=flux --tail=100 -f
+kubectl -n flux-system logs -l app=flux --tail=100 -f --context home
 ```
 
 ### Secret Management
@@ -341,20 +358,20 @@ mv secret.yaml secret.sops.yaml
 2. Check Kubernetes resources:
 
     ```bash
-    kubectl -n {namespace} get pods
-    kubectl -n {namespace} logs {pod-name}
-    kubectl -n {namespace} describe pod {pod-name}
+    kubectl -n {namespace} get pods --context home
+    kubectl -n {namespace} logs {pod-name} --context home
+    kubectl -n {namespace} describe pod {pod-name} --context home
     ```
 
 3. Check events:
 
     ```bash
-    kubectl -n {namespace} get events --sort-by='.metadata.creationTimestamp'
+    kubectl -n {namespace} get events --sort-by='.metadata.creationTimestamp' --context home
     ```
 
 4. Verify secrets are decrypted (Flux handles this automatically via SOPS):
     ```bash
-    kubectl -n {namespace} get secret {secret-name} -o yaml
+    kubectl -n {namespace} get secret {secret-name} -o yaml --context home
     ```
 
 ## Development Best Practices
