@@ -12,9 +12,9 @@ spec:
       sectionName: https
   rules:
     - backendRefs:
-        - name: mcp-github-proxy
+        - name: vmcp-work-vmcp
           namespace: toolhive-system
-          port: 8080
+          port: 4483
       matches:
         - path:
             type: PathPrefix

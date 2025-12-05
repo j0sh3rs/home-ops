@@ -9,3 +9,4 @@ resources:
   - ./crds
   - ./operator
   - ./mcp_servers
+  - ./httproute.yaml
