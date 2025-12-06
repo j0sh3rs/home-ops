@@ -55,15 +55,16 @@ spec:
         port: 9100
         protocol: TCP
         exposedPort: 9100
-    # Service Configuration
+      dashboard:
+        port: 8000
+        protocol: TCP
+        exposedPort: 8000
     service:
       type: LoadBalancer
       annotations:
         io.cilium/lb-ipam-ips: "192.168.35.16"
       spec:
-        externalTrafficPolicy: Local # Preserve client IP
-
-    # Metrics Configuration
+        externalTrafficPolicy: Local
     metrics:
       prometheus:
         enabled: true
@@ -71,8 +72,6 @@ spec:
         addEntryPointsLabels: true
         addRoutersLabels: true
         addServicesLabels: true
-
-    # Logging Configuration
     logs:
       general:
         level: INFO
