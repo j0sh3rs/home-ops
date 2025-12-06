@@ -33,6 +33,11 @@ spec:
       daemon:
         enabled: true
         mode: statefulset
+        image:
+          repository: otel/opentelemetry-collector-k8s
+          pullPolicy: Always
+          # renovate: datasource=docker depName=otel/opentelemetry-collector-k8s
+          tag: "0.141.0"
         resources:
           limits:
             cpu: 750m
