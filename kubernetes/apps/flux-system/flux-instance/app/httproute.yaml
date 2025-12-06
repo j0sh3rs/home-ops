@@ -8,10 +8,21 @@ spec:
   hostnames:
     - flux-webhook.68cc.io
   parentRefs:
-    - name: envoy
+    - name: traefik
       namespace: network
+      sectionName: websecure
   rules:
-    - backendRefs:
+    - filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: security-headers
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: compression
+      backendRefs:
         - name: webhook-receiver
-          namespace: flux-system
           port: 80
