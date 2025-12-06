@@ -33,6 +33,8 @@ spec:
       daemon:
         enabled: true
         mode: statefulset
+        clusterRoleBinding:
+          enabled: true
         image:
           repository: otel/opentelemetry-collector-k8s
           pullPolicy: Always
