@@ -24,6 +24,6 @@ spec:
             kind: Middleware
             name: compression
       backendRefs:
-        - name: grafana
+        - name: grafana-service
           namespace: monitoring
           port: 3000
