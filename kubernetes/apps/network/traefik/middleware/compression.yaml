@@ -1,0 +1,10 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: compression
+  namespace: network
+spec:
+  compress:
+    excludedContentTypes:
+      - text/event-stream

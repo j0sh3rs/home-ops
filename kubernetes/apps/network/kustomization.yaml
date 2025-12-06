@@ -11,3 +11,4 @@ resources:
   - ./envoy-gateway/ks.yaml
   - ./traefik/ks.yaml
   - ./traefik/gateway/ks.yaml
+  - ./traefik/middleware/ks.yaml
