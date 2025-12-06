@@ -12,21 +12,37 @@ spec:
     namespace: network
   interval: 1h
   values:
-    gateway:
-      enabled: true
-    providers:
+    experimental:
       kubernetesGateway:
         enabled: true
-        experimentalChannel: false
-      kubernetesCRD:
-        enabled: true
-        allowCrossNamespace: true
+    ocsp:
+      enabled: true
+    ports:
+      websecure:
+        http3:
+          enabled: true
+    gateway:
+      enabled: true
+      listeners:
+        web:
+          port: 80
+        websecure:
+          port: 443
+          certificateRefs:
+            - name: 68cc-io-tls
+              kind: Secret
+    ingressClass:
+      enabled: false
+      isDefaultClass: false
+    deployment:
+      kind: DaemonSet
+      revisionHistoryLimit: 3
+    providers:
       kubernetesIngress:
         enabled: false
-    deployment:
-      replicas: 1
-      kind: Deployment
-      revisionHistoryLimit: 3
+      kubernetesGateway:
+        enabled: true
+        experimentalChannel: true
     resources:
       requests:
         cpu: 100m
@@ -34,33 +50,6 @@ spec:
       limits:
         cpu: 500m
         memory: 512Mi
-    ports:
-      web:
-        port: 80
-        protocol: TCP
-        exposedPort: 80
-      websecure:
-        port: 443
-        protocol: TCP
-        exposedPort: 443
-        tls:
-          enabled: true
-      tcp-514:
-        port: 514
-        protocol: TCP
-        exposedPort: 514
-      udp-514:
-        port: 514
-        protocol: UDP
-        exposedPort: 514
-      metrics:
-        port: 9100
-        protocol: TCP
-        exposedPort: 9100
-      dashboard:
-        port: 8000
-        protocol: TCP
-        exposedPort: 8000
     service:
       type: LoadBalancer
       annotations:
@@ -74,12 +63,26 @@ spec:
         addEntryPointsLabels: true
         addRoutersLabels: true
         addServicesLabels: true
+        serviceMonitor:
+          enabled: true
+          enableHttp2: true
+        prometheusRule:
+          enabled: true
+      otlp:
+        enabled: true
+        http:
+          enabled: true
+
     logs:
       general:
         level: INFO
+        otlp:
+          enabled: true
       access:
         enabled: true
         format: json
+        otlp:
+          enabled: true
         fields:
           defaultMode: keep
           headers:
