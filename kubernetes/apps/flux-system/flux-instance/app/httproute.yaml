@@ -6,9 +6,9 @@ metadata:
   name: github-webhook
 spec:
   hostnames:
-    - flux-webhook.bth.wtf
+    - flux-webhook.68cc.io
   parentRefs:
-    - name: external
+    - name: envoy
       namespace: network
   rules:
     - backendRefs:

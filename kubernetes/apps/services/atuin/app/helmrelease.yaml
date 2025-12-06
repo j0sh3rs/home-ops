@@ -84,9 +84,9 @@ spec:
             scrapeTimeout: 10s
     route:
       app:
-        hostnames: ["sh.bth.wtf"]
+        hostnames: ["sh.68cc.io"]
         parentRefs:
-          - name: external
+          - name: envoy
             namespace: network
             sectionName: https
         rules:

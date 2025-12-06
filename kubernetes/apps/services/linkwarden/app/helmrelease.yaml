@@ -64,9 +64,9 @@ spec:
             port: &port 3000
     route:
       app:
-        hostnames: ["links.bth.wtf"]
+        hostnames: ["links.68cc.io"]
         parentRefs:
-          - name: external
+          - name: envoy
             namespace: network
             sectionName: https
         rules:

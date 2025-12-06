@@ -42,8 +42,8 @@ spec:
     nameOverride: cloudflared
     cloudflare:
       ingress:
-        - hostname: "*.bth.wtf"
+        - hostname: "*.68cc.io"
           originRequest:
             http2Origin: true
-            originServerName: external.bth.wtf
+            originServerName: external.68cc.io
           service: https://external.network.svc.cluster.local:443

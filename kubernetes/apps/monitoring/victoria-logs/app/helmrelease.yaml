@@ -36,7 +36,7 @@ spec:
         hostnames:
           - logs.68cc.io
         parentRefs:
-          - name: internal
+          - name: envoy
             namespace: network
             sectionName: https
         extraRules:

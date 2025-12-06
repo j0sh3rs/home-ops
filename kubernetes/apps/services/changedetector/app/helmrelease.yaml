@@ -44,7 +44,7 @@ spec:
               - name: DISABLE_VERSION_CHECK
                 value: true
               - name: BASE_URL
-                value: https://cd.bth.wtf
+                value: https://cd.68cc.io
               - name: PLAYWRIGHT_DRIVER_URL
                 value: ws://localhost:3000
           browser-chrome:
@@ -87,9 +87,9 @@ spec:
             port: &port 5000
     route:
       app:
-        hostnames: ["cd.bth.wtf"]
+        hostnames: ["cd.68cc.io"]
         parentRefs:
-          - name: external
+          - name: envoy
             namespace: network
             sectionName: https
         rules:

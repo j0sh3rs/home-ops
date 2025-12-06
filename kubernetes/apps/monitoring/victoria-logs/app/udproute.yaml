@@ -6,7 +6,7 @@ metadata:
   name: victoria-logs-syslog
 spec:
   parentRefs:
-    - name: internal
+    - name: envoy
       namespace: network
       sectionName: syslog-udp
   rules:

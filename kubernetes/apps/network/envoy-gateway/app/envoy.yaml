@@ -47,9 +47,9 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: external
+  name: envoy
   annotations:
-    external-dns.alpha.kubernetes.io/target: &hostname external.bth.wtf
+    external-dns.alpha.kubernetes.io/target: &hostname external.68cc.io
 spec:
   gatewayClassName: envoy
   infrastructure:
@@ -72,7 +72,7 @@ spec:
       tls:
         certificateRefs:
           - kind: Secret
-            name: bth-wtf-tls
+            name: 68cc-io-tls
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/envoypatchpolicy_v1alpha1.json
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -103,79 +103,7 @@ spec:
     - type: type.googleapis.com/envoy.config.listener.v3.Listener
       name: network/external/https-quic
       operation: *operation
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: internal
-  annotations:
-    external-dns.alpha.kubernetes.io/target: &hostname internal.68cc.io
-spec:
-  gatewayClassName: envoy
-  infrastructure:
-    annotations:
-      external-dns.alpha.kubernetes.io/hostname: *hostname
-      lbipam.cilium.io/ips: 192.168.35.15
-  listeners:
-    - name: http
-      protocol: HTTP
-      port: 80
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https
-      protocol: HTTPS
-      port: 443
-      allowedRoutes:
-        namespaces:
-          from: All
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: 68cc-io-tls
-    - name: syslog-tcp
-      protocol: TCP
-      port: 514
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: syslog-udp
-      protocol: UDP
-      port: 514
-      allowedRoutes:
-        namespaces:
-          from: All
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/envoypatchpolicy_v1alpha1.json
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: EnvoyPatchPolicy
-metadata:
-  name: internal
-spec:
-  targetRef:
-    group: gateway.networking.k8s.io
-    kind: Gateway
-    name: internal
-  type: JSONPatch
-  jsonPatches:
-    - type: type.googleapis.com/envoy.config.listener.v3.Listener
-      name: network/internal/https
-      operation: &operation
-        op: add
-        jsonPath: ..filters[*].typed_config.http_filters[?(@.name=="envoy.filters.http.compressor.zstd")].typed_config
-        value:
-          "@type": type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor
-          choose_first: true
-          compressor_library:
-            name: envoy.compression.zstd.compressor
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.compression.zstd.compressor.v3.Zstd
-          response_direction_config:
-            remove_accept_encoding_header: true
-    - type: type.googleapis.com/envoy.config.listener.v3.Listener
-      name: network/internal/https-quic
-      operation: *operation
+
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/backendtrafficpolicy_v1alpha1.json
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -236,10 +164,7 @@ metadata:
     external-dns.alpha.kubernetes.io/controller: none
 spec:
   parentRefs:
-    - name: external
-      namespace: network
-      sectionName: http
-    - name: internal
+    - name: envoy
       namespace: network
       sectionName: http
   rules:

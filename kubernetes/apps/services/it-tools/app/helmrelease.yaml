@@ -36,9 +36,9 @@ spec:
             port: &port 80
     route:
       app:
-        hostnames: ["tools.bth.wtf"]
+        hostnames: ["tools.68cc.io"]
         parentRefs:
-          - name: external
+          - name: envoy
             namespace: network
             sectionName: https
         rules:

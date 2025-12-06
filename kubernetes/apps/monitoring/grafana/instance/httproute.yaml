@@ -6,9 +6,9 @@ metadata:
   name: grafana
 spec:
   hostnames:
-    - grafana.bth.wtf
+    - grafana.68cc.io
   parentRefs:
-    - name: external
+    - name: envoy
       namespace: network
       sectionName: https
   rules:
