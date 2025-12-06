@@ -6,7 +6,6 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  - ./cloudflare-dns/ks.yaml
-  - ./cloudflared/ks.yaml
-  - ./envoy-gateway/ks.yaml
-  - ./traefik/
+  - ./app
+  - ./gateway
+  - ./middleware
