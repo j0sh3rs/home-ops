@@ -14,5 +14,6 @@ spec:
     namespace: flux-system
   dependsOn:
     - name: traefik
+      namespace: network
   wait: true
   timeout: 5m
