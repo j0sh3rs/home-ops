@@ -2,7 +2,7 @@
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: toolhive-system-compression
+  name: compression
   namespace: toolhive-system
 spec:
   compress:
@@ -12,7 +12,7 @@ spec:
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: toolhive-system-security-headers
+  name: security-headers
   namespace: toolhive-system
 spec:
   headers:

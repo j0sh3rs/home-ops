@@ -17,12 +17,12 @@ spec:
           extensionRef:
             group: traefik.io
             kind: Middleware
-            name: toolhive-system-security-headers
+            name: security-headers
         - type: ExtensionRef
           extensionRef:
             group: traefik.io
             kind: Middleware
-            name: toolhive-system-compression
+            name: compression
       backendRefs:
         - name: vmcp-work-vmcp
           port: 4483

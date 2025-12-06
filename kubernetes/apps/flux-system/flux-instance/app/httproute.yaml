@@ -17,12 +17,12 @@ spec:
           extensionRef:
             group: traefik.io
             kind: Middleware
-            name: flux-system-security-headers
+            name: security-headers
         - type: ExtensionRef
           extensionRef:
             group: traefik.io
             kind: Middleware
-            name: flux-system-compression
+            name: compression
       backendRefs:
         - name: webhook-receiver
           port: 80
