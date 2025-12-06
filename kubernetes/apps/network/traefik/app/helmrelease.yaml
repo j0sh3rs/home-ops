@@ -12,6 +12,8 @@ spec:
     namespace: network
   interval: 1h
   values:
+    gateway:
+      enabled: false
     providers:
       kubernetesGateway:
         enabled: true
