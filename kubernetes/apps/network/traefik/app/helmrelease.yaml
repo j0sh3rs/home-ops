@@ -64,7 +64,7 @@ spec:
     service:
       type: LoadBalancer
       annotations:
-        io.cilium/lb-ipam-ips: "192.168.35.16"
+        io.cilium/lb-ipam-ips: "192.168.35.17"
       spec:
         externalTrafficPolicy: Local
     metrics:
