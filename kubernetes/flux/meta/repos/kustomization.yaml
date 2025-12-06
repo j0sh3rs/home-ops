@@ -19,6 +19,7 @@ resources:
   - ./parseable.yaml
   - ./prometheus-community.yaml
   - ./tailscale.yaml
+  - ./traefik.yaml
   - ./toolhive-operator-crds.yaml
   - ./toolhive-operator.yaml
   - ./vector.yaml
