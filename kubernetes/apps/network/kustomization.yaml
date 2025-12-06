@@ -12,3 +12,4 @@ resources:
   - ./traefik/ks.yaml
   - ./traefik/gateway/ks.yaml
   - ./traefik/middleware/ks.yaml
+  - ./traefik/test/ks.yaml
