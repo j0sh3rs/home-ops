@@ -38,6 +38,7 @@ spec:
           pullPolicy: Always
           # renovate: datasource=docker depName=otel/opentelemetry-collector-k8s
           tag: "0.141.0"
+          digest: "sha256:a632bb31297610fd55aad37dcb78cc364a034ef47e55a691f228784b499e6220"
         resources:
           limits:
             cpu: 750m
