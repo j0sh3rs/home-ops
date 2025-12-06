@@ -6,6 +6,7 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
+  - ./referencegrant.yaml
   - ./grafana/ks.yaml
   - ./mimir/ks.yaml
   - ./opentelemetry/ks.yaml
