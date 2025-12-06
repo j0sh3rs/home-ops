@@ -23,20 +23,4 @@ spec:
         mode: Terminate
         certificateRefs:
           - kind: Secret
-            name: wildcard-tls
-    - name: tcp-514
-      port: 514
-      protocol: TCP
-      allowedRoutes:
-        kinds:
-          - kind: TCPRoute
-        namespaces:
-          from: All
-    - name: udp-514
-      port: 514
-      protocol: UDP
-      allowedRoutes:
-        kinds:
-          - kind: UDPRoute
-        namespaces:
-          from: All
+            name: 68cc-io-tls
