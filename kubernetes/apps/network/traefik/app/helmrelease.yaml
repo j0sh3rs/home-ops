@@ -58,8 +58,7 @@ spec:
       metrics:
         port: 9100
         protocol: TCP
-        expose: true # Expose for Prometheus
-
+        exposedPort: 9100
     # Service Configuration
     service:
       type: LoadBalancer
