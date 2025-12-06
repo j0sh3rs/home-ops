@@ -13,7 +13,7 @@ spec:
   interval: 1h
   values:
     gateway:
-      enabled: false
+      enabled: true
     providers:
       kubernetesGateway:
         enabled: true
@@ -64,7 +64,7 @@ spec:
     service:
       type: LoadBalancer
       annotations:
-        io.cilium/lb-ipam-ips: "192.168.35.17"
+        io.cilium/lb-ipam-ips: "192.168.35.16"
       spec:
         externalTrafficPolicy: Local
     metrics:

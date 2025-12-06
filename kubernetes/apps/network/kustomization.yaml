@@ -8,5 +8,4 @@ components:
 resources:
   - ./cloudflare-dns/ks.yaml
   - ./cloudflared/ks.yaml
-  - ./envoy-gateway/ks.yaml
-  - ./traefik/
+  - ./traefik/ks.yaml
