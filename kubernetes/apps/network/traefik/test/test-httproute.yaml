@@ -8,7 +8,7 @@ spec:
   hostnames:
     - traefik-test.68cc.io
   parentRefs:
-    - name: traefik-gateway
+    - name: traefik
       namespace: network
       sectionName: websecure
   rules:
