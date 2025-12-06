@@ -20,13 +20,9 @@ spec:
         allowCrossNamespace: true # Cross-namespace middleware references
       kubernetesIngress:
         enabled: false # Disable Ingress API
-
-    # Deployment Configuration
     deployment:
       replicas: 1 # Single replica for home-lab
       kind: Deployment
-
-    # Resource Limits (home-lab constraints)
     resources:
       requests:
         cpu: 100m
