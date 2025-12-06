@@ -15,8 +15,7 @@ spec:
     experimental:
       kubernetesGateway:
         enabled: true
-      otlpLogs:
-        enabled: true
+      otlpLogs: true
     ocsp:
       enabled: true
     ports:
