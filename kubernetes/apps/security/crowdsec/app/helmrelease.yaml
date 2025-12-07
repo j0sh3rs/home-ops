@@ -38,12 +38,11 @@ spec:
       persistentVolume:
         data:
           enabled: true
-          storageClassName: openebs-hostpath
+          storageClassName: nfs-client
           size: 10Gi
-          subPath: ""
         config:
           enabled: true
-          storageClassName: openebs-hostpath
+          storageClassName: nfs-client
           size: 250Mi
       service:
         type: ClusterIP
@@ -90,7 +89,7 @@ spec:
       persistentVolume:
         config:
           enabled: true
-          storageClassName: openebs-hostpath
+          storageClassName: nfs-client
           size: 100Mi
       metrics:
         enabled: true
