@@ -1,0 +1,13 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: coraza
+  namespace: network
+spec:
+  plugin:
+    coraza-http-wasm-traefik:
+      directives:
+        - SecRuleEngine On
+        - SecDebugLog /dev/stdout
+        - SecDebugLogLevel 9
+        - SecRule REQUEST_URI "@streq /admin" "id:101,phase:1,log,deny,status:403"
