@@ -23,6 +23,13 @@ spec:
       replicas: 1
       strategy:
         type: Recreate
+      persistentVolume:
+        data:
+          enabled: false
+          size: 10Gi
+        config:
+          enabled: false
+          size: 250Mi
       service:
         type: ClusterIP
         port: 8080
