@@ -227,7 +227,7 @@ mv secret.yaml secret.sops.yaml
 
 **Primary Storage**: OpenEBS LocalPV Provisioner
 
-- Storage class: `openebs-localpv-hostpath` (default)
+- Storage class: `openebs-hostpath` (default)
 - Dynamic provisioning for persistent volumes
 - Local node storage for performance
 

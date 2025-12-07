@@ -38,11 +38,11 @@ spec:
       persistentVolume:
         data:
           enabled: true
-          storageClassName: openebs-localpv-hostpath
+          storageClassName: openebs-hostpath
           size: 10Gi
         config:
           enabled: true
-          storageClassName: openebs-localpv-hostpath
+          storageClassName: openebs-hostpath
           size: 250Mi
       service:
         type: ClusterIP
