@@ -6,6 +6,5 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  # - ./cloudflare-dns/ks.yaml
-  # - ./cloudflared/ks.yaml
+  - ./cloudflare-dns/ks.yaml
   - ./traefik/ks.yaml
