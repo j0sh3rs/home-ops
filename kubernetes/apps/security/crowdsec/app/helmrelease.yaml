@@ -18,6 +18,18 @@ spec:
       retries: 3
   values:
     container_runtime: containerd
+    config:
+      config.yaml.local: |
+        api:
+          server:
+            auto_registration: # Activate if not using TLS for authentication
+              enabled: true
+              token: "${REGISTRATION_TOKEN}" # /!\ Do not modify this variable (auto-generated and handled by the chart)
+              allowed_ranges: # /!\ Make sure to adapt to the pod IP ranges used by your cluster
+                - "127.0.0.1/32"
+                - "192.168.0.0/16"
+                - "10.0.0.0/8"
+                - "172.16.0.0/12"
     lapi:
       enabled: true
       replicas: 1
@@ -25,10 +37,12 @@ spec:
         type: Recreate
       persistentVolume:
         data:
-          enabled: false
+          enabled: true
+          storageClassName: openebs-localpv-hostpath
           size: 10Gi
         config:
-          enabled: false
+          enabled: true
+          storageClassName: openebs-localpv-hostpath
           size: 250Mi
       service:
         type: ClusterIP
@@ -75,6 +89,7 @@ spec:
       persistentVolume:
         config:
           enabled: true
+          storageClassName: openebs-localpv-hostpath
           size: 100Mi
       metrics:
         enabled: true
