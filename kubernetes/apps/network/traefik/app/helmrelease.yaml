@@ -19,9 +19,25 @@ spec:
     ocsp:
       enabled: true
     ports:
+      web:
+        port: 80
+        expose:
+          default: true
+        protocol: TCP
       websecure:
+        port: 443
+        expose:
+          default: true
+        protocol: TCP
         http3:
           enabled: true
+        tls:
+          enabled: true
+      metrics:
+        port: 9100
+        expose:
+          default: false
+        protocol: TCP
     gateway:
       enabled: true
       listeners:
@@ -46,11 +62,11 @@ spec:
         experimentalChannel: true
     resources:
       requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
+        cpu: 200
         memory: 512Mi
+      limits:
+        cpu: 2
+        memory: 2Gi
     service:
       type: LoadBalancer
       annotations:
@@ -73,7 +89,6 @@ spec:
         enabled: true
         http:
           enabled: true
-
     logs:
       general:
         level: INFO
@@ -86,5 +101,9 @@ spec:
           enabled: true
         fields:
           defaultMode: keep
-          headers:
-            defaultMode: drop # Drop sensitive headers
+    ingressRoute:
+      dashboard:
+        enabled: true
+        matchRule: Host(`dash.68cc.io`)
+        entryPoints:
+          - websecure
