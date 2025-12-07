@@ -3,6 +3,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ./crds.yaml
+  - https://raw.githubusercontent.com/traefik/traefik/refs/heads/master/docs/content/reference/dynamic-configuration/kubernetes-crd-rbac.yml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./http-redirect.yaml
