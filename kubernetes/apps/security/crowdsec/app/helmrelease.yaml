@@ -52,16 +52,17 @@ spec:
         serviceMonitor:
           enabled: true
       # Environment variables
-      env:
-        - name: ENROLL_KEY
-          valueFrom:
-            secretKeyRef:
-              name: crowdsec-lapi-secrets
-              key: enroll-key
-        - name: ENROLL_INSTANCE_NAME
-          value: "home-cluster"
-        - name: ENROLL_TAGS
-          value: "kubernetes homelab"
+      # Console enrollment disabled - can be re-enabled with valid key from https://app.crowdsec.net/
+      # env:
+      #   - name: ENROLL_KEY
+      #     valueFrom:
+      #       secretKeyRef:
+      #         name: crowdsec-lapi-secrets
+      #         key: enroll-key
+      #   - name: ENROLL_INSTANCE_NAME
+      #     value: "home-cluster"
+      #   - name: ENROLL_TAGS
+      #     value: "kubernetes homelab"
       resources:
         limits:
           memory: 2Gi
