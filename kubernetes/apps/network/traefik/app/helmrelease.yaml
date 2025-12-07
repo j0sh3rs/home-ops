@@ -57,6 +57,8 @@ spec:
       kind: DaemonSet
       revisionHistoryLimit: 3
     providers:
+      kubernetesCRD:
+        enabled: true
       kubernetesIngress:
         enabled: false
       kubernetesGateway:
