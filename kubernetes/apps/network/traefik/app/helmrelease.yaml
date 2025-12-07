@@ -43,8 +43,10 @@ spec:
       listeners:
         web:
           port: 80
+          protocol: HTTP
         websecure:
           port: 443
+          protocol: HTTPS
           certificateRefs:
             - name: 68cc-io-tls
               kind: Secret
