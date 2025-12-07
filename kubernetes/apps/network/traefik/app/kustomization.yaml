@@ -8,5 +8,3 @@ resources:
   - ./helmrelease.yaml
   - ./http-redirect.yaml
   - ./middleware/
-patchesStrategicMerge:
-  - ./gateway-patch.yaml
