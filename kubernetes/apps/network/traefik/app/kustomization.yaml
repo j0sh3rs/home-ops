@@ -2,7 +2,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://raw.githubusercontent.com/traefik/traefik-helm-chart/refs/heads/master/traefik-crds/kustomization.yaml
+  - ./crds.yaml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./http-redirect.yaml
