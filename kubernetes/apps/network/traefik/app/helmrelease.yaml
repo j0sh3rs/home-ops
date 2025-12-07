@@ -31,10 +31,10 @@ spec:
       otlpLogs: true
     ocsp:
       enabled: true
-    additionalArguments:
-      # Apply CrowdSec bouncer middleware globally to web and websecure entrypoints
-      - "--entrypoints.web.http.middlewares=network-https-redirect@kubernetescrd,network-crowdsec-bouncer@kubernetescrd"
-      - "--entrypoints.websecure.http.middlewares=network-crowdsec-bouncer@kubernetescrd"
+    # additionalArguments:
+    #   # Apply CrowdSec bouncer middleware globally to web and websecure entrypoints
+    #   - "--entrypoints.web.http.middlewares=network-https-redirect@kubernetescrd,network-crowdsec-bouncer@kubernetescrd"
+    #   - "--entrypoints.websecure.http.middlewares=network-crowdsec-bouncer@kubernetescrd"
     ports:
       web:
         port: 80

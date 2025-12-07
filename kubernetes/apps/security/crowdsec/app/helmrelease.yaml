@@ -19,7 +19,7 @@ spec:
   values:
     image:
       # renovate: datasource=docker depName=crowdsecurity/crowdsec
-      tag: v1.9.4
+      tag: v1.9.3
     container_runtime: containerd
     config:
       config.yaml.local: |
