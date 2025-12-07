@@ -12,6 +12,9 @@ spec:
     namespace: network
   interval: 1h
   values:
+    image:
+      # renovate: datasource=docker depName=traefik
+      tag: v3.6.4
     experimental:
       kubernetesGateway:
         enabled: true
