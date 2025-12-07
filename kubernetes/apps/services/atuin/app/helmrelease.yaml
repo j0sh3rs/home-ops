@@ -98,11 +98,13 @@ spec:
                   group: traefik.io
                   kind: Middleware
                   name: security-headers
+                  namespace: network
               - type: ExtensionRef
                 extensionRef:
                   group: traefik.io
                   kind: Middleware
                   name: compression
+                  namespace: network
     persistence:
       config:
         type: emptyDir
