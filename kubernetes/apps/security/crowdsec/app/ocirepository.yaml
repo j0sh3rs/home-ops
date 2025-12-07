@@ -13,5 +13,3 @@ spec:
   ref:
     tag: 0.21.0
   url: oci://ghcr.io/crowdsecurity/helm-charts/crowdsec
-  verify:
-    provider: cosign
