@@ -39,7 +39,6 @@ spec:
         enabled: true
         serviceMonitor:
           enabled: true
-
       # Environment variables
       env:
         - name: ENROLL_KEY
@@ -58,9 +57,7 @@ spec:
           cpu: 150m
           memory: 256Mi
     agent:
-      # Use DaemonSet to collect logs from all nodes
       acquisition:
-        # Acquire Traefik logs from network namespace
         - namespace: network
           podName: traefik-*
           program: traefik
@@ -71,7 +68,6 @@ spec:
         # Parsers to install
         - name: PARSERS
           value: "crowdsecurity/cri-logs crowdsecurity/whitelists"
-
       resources:
         limits:
           memory: 2Gi
@@ -83,13 +79,12 @@ spec:
           enabled: true
           storageClassName: openebs-localpv-hostpath
           size: 100Mi
-
       metrics:
         enabled: true
         serviceMonitor:
           enabled: false
     secrets:
-      csLapiSecret:
+      externalSecret:
         name: crowdsec-lapi-secrets
-      bouncerSecret:
-        name: crowdsec-bouncer-secrets
+        csLapiSecretKey: csLapiSecret
+        registrationTokenKey: registrationToken
