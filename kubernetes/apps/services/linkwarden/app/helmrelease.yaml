@@ -66,10 +66,20 @@ spec:
       app:
         hostnames: ["links.68cc.io"]
         parentRefs:
-          - name: envoy
+          - name: traefik-gateway
             namespace: network
-            sectionName: https
         rules:
           - backendRefs:
               - name: *app
                 port: *port
+            filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: security-headers
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: compression

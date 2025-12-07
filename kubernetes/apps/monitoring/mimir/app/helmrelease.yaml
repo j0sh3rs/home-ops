@@ -25,9 +25,8 @@ spec:
     gateway:
       enabled: true
       parentRefs:
-        - name: internal
+        - name: traefik-gateway
           namespace: network
-          sectionName: https
       hostnames:
         - mimir.68cc.io
     metrics:

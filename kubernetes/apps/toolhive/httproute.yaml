@@ -10,7 +10,6 @@ spec:
   parentRefs:
     - name: traefik-gateway
       namespace: network
-      sectionName: websecure
   rules:
     - filters:
         - type: ExtensionRef

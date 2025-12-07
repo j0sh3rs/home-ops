@@ -6,7 +6,7 @@ metadata:
   name: victoria-logs-syslog
 spec:
   parentRefs:
-    - name: envoy
+    - name: traefik-gateway
       namespace: network
       sectionName: syslog-udp
   rules:

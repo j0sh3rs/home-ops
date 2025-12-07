@@ -8,9 +8,8 @@ spec:
   hostnames:
     - grafana.68cc.io
   parentRefs:
-    - name: traefik
+    - name: traefik-gateway
       namespace: network
-      sectionName: websecure
   rules:
     - filters:
         - type: ExtensionRef
