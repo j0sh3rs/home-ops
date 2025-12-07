@@ -7,5 +7,5 @@ resources:
   - ./security-headers.yaml
   - ./compression.yaml
   - ./https-redirect.yaml
-  - crowdsec-bouncer.yaml
-  - crowdsec-bouncer-secret.sops.yaml
+  - ./crowdsec-bouncer.yaml
+  - ./crowdsec-bouncer-secret.sops.yaml
