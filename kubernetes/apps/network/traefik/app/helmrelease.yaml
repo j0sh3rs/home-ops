@@ -84,7 +84,7 @@ spec:
           enabled: true
           enableHttp2: true
         prometheusRule:
-          enabled: true
+          enabled: false
       otlp:
         enabled: true
         http:
