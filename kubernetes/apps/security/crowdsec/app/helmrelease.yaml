@@ -17,6 +17,9 @@ spec:
     remediation:
       retries: 3
   values:
+    image:
+      # renovate: datasource=docker depName=crowdsecurity/crowdsec
+      tag: v1.9.4
     container_runtime: containerd
     config:
       config.yaml.local: |
