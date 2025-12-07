@@ -8,6 +8,7 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./falco
+  - ./crowdsec/ks.yaml
   # - ./kube-bench/ks.yaml
   # - ./kube-hunter/ks.yaml
   # - ./trivy-operator/ks.yaml
