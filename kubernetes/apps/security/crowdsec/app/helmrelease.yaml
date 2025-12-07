@@ -1,0 +1,95 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app crowdsec
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: crowdsec
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    container_runtime: containerd
+    lapi:
+      enabled: true
+      replicas: 1
+      strategy:
+        type: Recreate
+      persistentVolume:
+        data:
+          enabled: true
+          storageClassName: openebs-localpv-hostpath
+          size: 1Gi
+        config:
+          enabled: true
+          storageClassName: openebs-localpv-hostpath
+          size: 100Mi
+      service:
+        type: ClusterIP
+        port: 8080
+      metrics:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+
+      # Environment variables
+      env:
+        - name: ENROLL_KEY
+          valueFrom:
+            secretKeyRef:
+              name: crowdsec-lapi-secrets
+              key: enroll-key
+        - name: ENROLL_INSTANCE_NAME
+          value: "home-cluster"
+        - name: ENROLL_TAGS
+          value: "kubernetes homelab"
+      resources:
+        limits:
+          memory: 2Gi
+        requests:
+          cpu: 150m
+          memory: 256Mi
+    agent:
+      # Use DaemonSet to collect logs from all nodes
+      acquisition:
+        # Acquire Traefik logs from network namespace
+        - namespace: network
+          podName: traefik-*
+          program: traefik
+
+      env:
+        - name: COLLECTIONS
+          value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors"
+        # Parsers to install
+        - name: PARSERS
+          value: "crowdsecurity/cri-logs crowdsecurity/whitelists"
+
+      resources:
+        limits:
+          memory: 2Gi
+        requests:
+          cpu: 150m
+          memory: 128Mi
+      persistentVolume:
+        config:
+          enabled: true
+          storageClassName: openebs-localpv-hostpath
+          size: 100Mi
+
+      metrics:
+        enabled: true
+        serviceMonitor:
+          enabled: false
+    secrets:
+      csLapiSecret:
+        name: crowdsec-lapi-secrets
+      bouncerSecret:
+        name: crowdsec-bouncer-secrets

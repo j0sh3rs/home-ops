@@ -20,11 +20,21 @@ spec:
         coraza-http-wasm-traefik:
           moduleName: "github.com/jcchavezs/coraza-http-wasm-traefik"
           version: "v0.3.0"
+        crowdsec-bouncer-traefik-plugin:
+          moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
+          version: "v1.4.6"
+        traefikoidc:
+          moduleName: "github.com/lukaszraczylo/traefikoidc"
+          version: "v0.8.1"
       kubernetesGateway:
         enabled: true
       otlpLogs: true
     ocsp:
       enabled: true
+    additionalArguments:
+      # Apply CrowdSec bouncer middleware globally to web and websecure entrypoints
+      - "--entrypoints.web.http.middlewares=network-https-redirect@kubernetescrd,network-crowdsec-bouncer@kubernetescrd"
+      - "--entrypoints.websecure.http.middlewares=network-crowdsec-bouncer@kubernetescrd"
     ports:
       web:
         port: 80

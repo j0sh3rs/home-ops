@@ -1,0 +1,26 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: crowdsec-bouncer
+  namespace: network
+spec:
+  plugin:
+    crowdsec-bouncer-traefik-plugin:
+      Enabled: "true"
+      CrowdsecLapiHost: crowdsec-lapi.security.svc.cluster.local:8080
+      CrowdsecLapiScheme: http
+      CrowdsecLapiKeySecretName: crowdsec-bouncer-secret
+      CrowdsecLapiKeySecretKey: CROWDSEC_BOUNCER_KEY
+      CrowdsecMode: stream
+      UpdateIntervalSeconds: "60"
+      RemediationStatusCode: "403"
+      LogLevel: INFO
+      ForwardedHeadersTrustedIPs:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+      ClientTrustedIPs:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
