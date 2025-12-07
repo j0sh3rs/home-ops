@@ -43,7 +43,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: crowdsec-lapi-secrets
-              key: enroll-key
+              key: registrationToken
         - name: ENROLL_INSTANCE_NAME
           value: "home-cluster"
         - name: ENROLL_TAGS
