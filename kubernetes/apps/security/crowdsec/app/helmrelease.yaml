@@ -40,6 +40,7 @@ spec:
           enabled: true
           storageClassName: openebs-hostpath
           size: 10Gi
+          subPath: ""
         config:
           enabled: true
           storageClassName: openebs-hostpath
@@ -89,7 +90,7 @@ spec:
       persistentVolume:
         config:
           enabled: true
-          storageClassName: openebs-localpv-hostpath
+          storageClassName: openebs-hostpath
           size: 100Mi
       metrics:
         enabled: true
