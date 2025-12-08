@@ -26,8 +26,6 @@ spec:
         traefikoidc:
           moduleName: "github.com/lukaszraczylo/traefikoidc"
           version: "v0.8.1"
-      kubernetesGateway:
-        enabled: true
       otlpLogs: true
     ocsp:
       enabled: true
