@@ -81,16 +81,6 @@ spec:
           certificateRefs:
             - name: 68cc-io-tls
               kind: Secret
-        syslog-tcp:
-          port: 514
-          protocol: TCP
-          namespacePolicy:
-            from: All
-        syslog-udp:
-          port: 514
-          namespacePolicy:
-            from: All
-          protocol: UDP
     ingressClass:
       enabled: false
       isDefaultClass: false
@@ -157,4 +147,3 @@ spec:
         matchRule: Host(`logs.68cc.io`)
         entryPoints:
           - syslog-tcp
-          - syslog-udp
