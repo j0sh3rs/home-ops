@@ -116,9 +116,10 @@ spec:
         serviceMonitor:
           enabled: false
     secrets:
+      username: ""
+      password: ""
       externalSecret:
         name: crowdsec-lapi-secrets
-        # csLapiSecretKey: csLapiSecret  # Disabled - using TLS for authentication
         registrationTokenKey: registrationToken
     appsec:
       acquisitions:
