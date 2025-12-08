@@ -17,10 +17,6 @@ spec:
       tag: v3.6.4
     experimental:
       plugins:
-        coraza-http-wasm-traefik:
-          moduleName: "github.com/jcchavezs/coraza-http-wasm-traefik"
-          # renovate: datasource=github-releases depName=jcchavezs/coraza-http-wasm-traefik
-          version: "v0.3.0"
         crowdsec-bouncer-traefik-plugin:
           moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
           # renovate: datasource=github-releases depName=maxlerebourg/crowdsec-bouncer-traefik-plugin
