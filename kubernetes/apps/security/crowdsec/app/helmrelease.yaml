@@ -78,6 +78,13 @@ spec:
           cpu: 150m
           memory: 256Mi
     agent:
+      additionalAcquisition:
+        - source: victorialogs
+          mode: tail
+          url: http://victoria-logs-server.monitoring.svc.cluster.local:9428/
+          query: k8s.container.name:traefik
+          labels:
+            type: traefik
       env:
         - name: COLLECTIONS
           value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/appsec-virtual-patching crowdsecurity/base-http-scenarios"
