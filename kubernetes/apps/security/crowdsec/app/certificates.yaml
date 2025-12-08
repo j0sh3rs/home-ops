@@ -1,0 +1,43 @@
+---
+# LAPI Server Certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: crowdsec-lapi-tls
+  namespace: security
+spec:
+  secretName: crowdsec-lapi-tls
+  duration: 2160h # 90 days
+  renewBefore: 720h # 30 days
+  subject:
+    organizations:
+      - home-ops
+  commonName: crowdsec-lapi.68cc.io
+  dnsNames:
+    - crowdsec-lapi.68cc.io
+    - crowdsec-lapi.security.svc.cluster.local
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+    group: cert-manager.io
+---
+# Agent Certificate for mutual TLS
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: crowdsec-agent-tls
+  namespace: security
+spec:
+  secretName: crowdsec-agent-tls
+  duration: 2160h # 90 days
+  renewBefore: 720h # 30 days
+  subject:
+    organizations:
+      - home-ops
+  commonName: crowdsec-agent.68cc.io
+  dnsNames:
+    - crowdsec-agent.68cc.io
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+    group: cert-manager.io

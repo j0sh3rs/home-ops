@@ -23,16 +23,26 @@ spec:
       repository: crowdsecurity/crowdsec
       pullPolicy: Always
     container_runtime: containerd
+    tls:
+      enabled: true
+      certManager:
+        enabled: true
+        issuerRef:
+          name: letsencrypt-production
+          kind: ClusterIssuer
+        duration: 2160h
+        renewBefore: 720h
+      lapi:
+        secret: crowdsec-lapi-tls
+      agent:
+        tlsClientAuth: true
+        secret: crowdsec-agent-tls
     config:
       config.yaml.local: |
         api:
           server:
-            auto_registration: # Activate if not using TLS for authentication
-              enabled: true
-              token: "${REGISTRATION_TOKEN}" # /!\ Do not modify this variable (auto-generated and handled by the chart)
-              allowed_ranges:
-                - "127.0.0.1/32"
-                - "10.42.0.0/16"
+            auto_registration: # Disabled - using TLS for authentication
+              enabled: false
     lapi:
       enabled: true
       replicas: 1
