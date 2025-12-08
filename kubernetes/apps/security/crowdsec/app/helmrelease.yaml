@@ -112,12 +112,7 @@ spec:
         registrationTokenKey: registrationToken
     appsec:
       acquisitions:
-        - appsec_config:
-            - crowdsecurity/appsec-default
-            - crowdsecurity/crs
-            - crowdsecurity/crs-inband
-            - crowdsecurity/virtual-patching
-            - crowdsecurity/generic-rules
+        - appsec_config: crowdsecurity/appsec-default
           labels:
             type: appsec
           listen_addr: 0.0.0.0:7422
