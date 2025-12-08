@@ -64,6 +64,8 @@ spec:
           value: "home-cluster"
         - name: ENROLL_TAGS
           value: "kubernetes homelab"
+        - name: TZ
+          value: "America/New_York"
       resources:
         limits:
           memory: 2Gi
@@ -71,6 +73,10 @@ spec:
           cpu: 150m
           memory: 256Mi
     agent:
+      acquisition:
+        - namespace: "network"
+          podName: "traefik-*"
+          program: "traefik"
       additionalAcquisition:
         - source: victorialogs
           mode: tail
@@ -80,7 +86,7 @@ spec:
             type: traefik
       env:
         - name: COLLECTIONS
-          value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/appsec-virtual-patching crowdsecurity/base-http-scenarios"
+          value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/appsec-virtual-patching crowdsecurity/unifi"
         # Parsers to install
         - name: PARSERS
           value: "crowdsecurity/cri-logs crowdsecurity/whitelists"
@@ -104,3 +110,4 @@ spec:
         name: crowdsec-lapi-secrets
         csLapiSecretKey: csLapiSecret
         registrationTokenKey: registrationToken
+    appsec:
