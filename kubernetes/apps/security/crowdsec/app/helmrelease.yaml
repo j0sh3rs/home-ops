@@ -118,12 +118,12 @@ spec:
           listen_addr: 0.0.0.0:7422
           path: /
           source: appsec
-        - appsec_config: crowdsecurity/appsec-crs-inband
-          labels:
-            type: appsec
-          listen_addr: 0.0.0.0:7422
-          path: /
-          source: appsec
+        # - appsec_config: crowdsecurity/appsec-crs-inband
+        #   labels:
+        #     type: appsec
+        #   listen_addr: 0.0.0.0:7422
+        #   path: /
+        #   source: appsec
       enabled: true
       env:
         - name: COLLECTIONS
