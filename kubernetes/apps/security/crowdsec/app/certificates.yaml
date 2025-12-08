@@ -15,7 +15,6 @@ spec:
   commonName: crowdsec-lapi.68cc.io
   dnsNames:
     - crowdsec-lapi.68cc.io
-    - crowdsec-lapi.security.svc.cluster.local
   issuerRef:
     name: letsencrypt-production
     kind: ClusterIssuer
