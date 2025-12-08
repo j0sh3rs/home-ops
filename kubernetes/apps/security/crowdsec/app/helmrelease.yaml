@@ -33,6 +33,13 @@ spec:
               allowed_ranges: # /!\ Make sure to adapt to the pod IP ranges used by your cluster
                 - "127.0.0.1/32"
                 - "10.42.0.0/16"
+      acquis.yaml: |
+        source: victorialogs
+        mode: tail
+        url: http://victoria-logs-server.monitoring.svc.cluster.local:9428/
+        query: k8s.container.name:traefik
+        labels:
+          type: traefik
     lapi:
       enabled: true
       replicas: 1
@@ -71,14 +78,6 @@ spec:
           cpu: 150m
           memory: 256Mi
     agent:
-      acquisition:
-        - source: victorialogs
-          mode: tail
-          url: http://victoria-logs-server.monitoring.svc.cluster.local:9428/
-          query: k8s.container.name:traefik
-          labels:
-            type: traefik
-
       env:
         - name: COLLECTIONS
           value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/appsec-virtual-patching crowdsecurity/base-http-scenarios"
