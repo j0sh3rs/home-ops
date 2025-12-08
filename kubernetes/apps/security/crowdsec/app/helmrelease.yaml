@@ -23,15 +23,16 @@ spec:
       repository: crowdsecurity/crowdsec
       pullPolicy: Always
     container_runtime: containerd
-    tls:
-      enabled: true
-      certManager:
-        enabled: true
-        issuerRef:
-          name: letsencrypt-production
-          kind: ClusterIssuer
-        duration: 2160h
-        renewBefore: 720h
+    config:
+      config.yaml.local: |
+        api:
+          server:
+            auto_registration: # Activate if not using TLS for authentication
+              enabled: true
+              token: "${REGISTRATION_TOKEN}" # /!\ Do not modify this variable (auto-generated and handled by the chart)
+              allowed_ranges:
+                - "127.0.0.1/32"
+                - "10.42.0.0/16"
     lapi:
       enabled: true
       replicas: 1
@@ -76,16 +77,17 @@ spec:
         - namespace: "network"
           podName: "traefik-*"
           program: "traefik"
-      additionalAcquisition:
-        - source: victorialogs
-          mode: tail
-          url: http://victoria-logs-server.monitoring.svc.cluster.local:9428/
-          query: k8s.container.name:traefik
-          labels:
-            type: traefik
+      # additionalAcquisition:
+      #   - source: victorialogs
+      #     mode: tail
+      #     url: http://victoria-logs-server.monitoring.svc.cluster.local:9428/
+      #     query: k8s.container.name:traefik
+      #     labels:
+      #       type: traefik
       env:
         - name: COLLECTIONS
           value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/appsec-virtual-patching crowdsecurity/unifi"
+        # Parsers to install
         - name: PARSERS
           value: "crowdsecurity/cri-logs crowdsecurity/whitelists"
       resources:
@@ -103,9 +105,16 @@ spec:
         enabled: true
         serviceMonitor:
           enabled: false
+    secrets:
+      externalSecret:
+        name: crowdsec-lapi-secrets
+        csLapiSecretKey: csLapiSecret
+        registrationTokenKey: registrationToken
     appsec:
       acquisitions:
-        - appsec_config: crowdsecurity/appsec-default
+        - appsec_config:
+            - crowdsecurity/appsec-default
+            - crowdsecurity/crs-inband
           labels:
             type: appsec
           listen_addr: 0.0.0.0:7422
