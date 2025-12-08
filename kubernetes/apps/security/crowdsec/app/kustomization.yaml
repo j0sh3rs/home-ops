@@ -5,9 +5,5 @@ kind: Kustomization
 resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
-  - ./certificates.yaml
   - ./secret.sops.yaml
   - ./grafanadashboard.yaml
-# Temporarily disabled - will re-enable after HelmRelease deploys
-# patchesStrategicMerge:
-#   - ./deployment-patch.yaml
