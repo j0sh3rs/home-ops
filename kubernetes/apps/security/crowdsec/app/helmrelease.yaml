@@ -110,4 +110,20 @@ spec:
         name: crowdsec-lapi-secrets
         csLapiSecretKey: csLapiSecret
         registrationTokenKey: registrationToken
-    # appsec:
+    appsec:
+      acquisitions:
+        - appsec_config:
+            - crowdsecurity/appsec-default
+            - crowdsecurity/crs
+            - crowdsecurity/crs-inband
+            - crowdsecurity/virtual-patching
+            - crowdsecurity/generic-rules
+          labels:
+            type: appsec
+          listen_addr: 0.0.0.0:7422
+          path: /
+          source: appsec
+      enabled: true
+      env:
+        - name: COLLECTIONS
+          value: crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules

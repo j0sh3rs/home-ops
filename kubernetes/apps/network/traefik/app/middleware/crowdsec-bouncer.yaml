@@ -7,20 +7,22 @@ metadata:
 spec:
   plugin:
     crowdsec-bouncer-traefik-plugin:
-      Enabled: "true"
-      CrowdsecLapiHost: crowdsec-lapi.security.svc.cluster.local:8080
-      CrowdsecLapiScheme: http
-      CrowdsecLapiKeySecretName: crowdsec-bouncer-secret
-      CrowdsecLapiKeySecretKey: CROWDSEC_BOUNCER_KEY
-      CrowdsecMode: stream
-      UpdateIntervalSeconds: "60"
-      RemediationStatusCode: "403"
-      LogLevel: INFO
-      ForwardedHeadersTrustedIPs:
-        - 10.0.0.0/8
-        - 172.16.0.0/12
-        - 192.168.0.0/16
-      ClientTrustedIPs:
-        - 10.0.0.0/8
-        - 172.16.0.0/12
-        - 192.168.0.0/16
+      enabled: "true"
+      crowdsecLapiHost: crowdsec-lapi.security.svc.cluster.local:8080
+      crowdsecLapiScheme: http
+      crowdsecLapiKeySecretName: crowdsec-bouncer-secret
+      crowdsecLapiKeySecretKey: CROWDSEC_BOUNCER_KEY
+      crowdsecMode: stream
+      updateIntervalSeconds: "60"
+      remediationStatusCode: "403"
+      crowdsecAppsecEnabled: true
+      crowdsecAppsecHost: crowdsec-appsec-service.security.svc.cluster.local:7422
+      crowdsecAppsecFailureBlock: true
+      crowdsecAppsecUnreachableBlock: true
+      logLevel: INFO
+      forwardedHeadersTrustedIPs:
+        - 10.42.0.0/16
+        - 192.168.35.0/24
+      clientTrustedIPs:
+        - 10.42.0.0/16
+        - 192.168.35.0/25

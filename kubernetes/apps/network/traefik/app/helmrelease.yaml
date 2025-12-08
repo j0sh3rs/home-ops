@@ -19,11 +19,14 @@ spec:
       plugins:
         coraza-http-wasm-traefik:
           moduleName: "github.com/jcchavezs/coraza-http-wasm-traefik"
+          # renovate: datasource=github-releases depName=jcchavezs/coraza-http-wasm-traefik
           version: "v0.3.0"
         crowdsec-bouncer-traefik-plugin:
           moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
+          # renovate: datasource=github-releases depName=maxlerebourg/crowdsec-bouncer-traefik-plugin
           version: "v1.4.6"
         traefikoidc:
+          # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
           moduleName: "github.com/lukaszraczylo/traefikoidc"
           version: "v0.8.1"
       otlpLogs: true
@@ -68,6 +71,13 @@ spec:
     ingressClass:
       enabled: false
       isDefaultClass: false
+    additionalArguments:
+      - --accesslog=true
+      - --accesslog.format=json
+      - --entrypoints.web.proxyProtocol=true
+      - --entrypoints.websecure.proxyProtocol=true
+      - --entrypoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entrypoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
@@ -90,6 +100,7 @@ spec:
       type: LoadBalancer
       annotations:
         io.cilium/lb-ipam-ips: "192.168.35.15"
+        service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
       spec:
         externalTrafficPolicy: Local
     metrics:
@@ -113,6 +124,7 @@ spec:
         level: INFO
         otlp:
           enabled: true
+        format: json
       access:
         enabled: true
         format: json
@@ -120,6 +132,8 @@ spec:
           enabled: true
         fields:
           defaultMode: keep
+          names:
+            ServiceName: keep
     ingressRoute:
       dashboard:
         enabled: true
