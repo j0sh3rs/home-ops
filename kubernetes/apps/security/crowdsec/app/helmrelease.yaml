@@ -32,18 +32,6 @@ spec:
           kind: ClusterIssuer
         duration: 2160h
         renewBefore: 720h
-      lapi:
-        secret: crowdsec-lapi-tls
-      agent:
-        tlsClientAuth: true
-        secret: crowdsec-agent-tls
-      appsec:
-        tlsClientAuth: true
-        secret: "crowdsec-agent-tls"
-    secrets:
-      username: ""
-      password: ""
-      csLapiSecretKey: "" # Explicitly disable to prevent default "csLapiSecret" key lookup
     lapi:
       enabled: true
       replicas: 1
@@ -88,17 +76,16 @@ spec:
         - namespace: "network"
           podName: "traefik-*"
           program: "traefik"
-      # additionalAcquisition:
-      #   - source: victorialogs
-      #     mode: tail
-      #     url: http://victoria-logs-server.monitoring.svc.cluster.local:9428/
-      #     query: k8s.container.name:traefik
-      #     labels:
-      #       type: traefik
+      additionalAcquisition:
+        - source: victorialogs
+          mode: tail
+          url: http://victoria-logs-server.monitoring.svc.cluster.local:9428/
+          query: k8s.container.name:traefik
+          labels:
+            type: traefik
       env:
         - name: COLLECTIONS
           value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/appsec-virtual-patching crowdsecurity/unifi"
-        # Parsers to install
         - name: PARSERS
           value: "crowdsecurity/cri-logs crowdsecurity/whitelists"
       resources:
