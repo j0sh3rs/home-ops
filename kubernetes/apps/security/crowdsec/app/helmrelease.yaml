@@ -19,7 +19,7 @@ spec:
   values:
     image:
       # renovate: datasource=docker depName=crowdsecurity/crowdsec
-      tag: v1.7.4
+      tag: v1.7.3
       repository: crowdsecurity/crowdsec
       pullPolicy: Always
     container_runtime: containerd
@@ -32,9 +32,12 @@ spec:
               token: "${REGISTRATION_TOKEN}" # /!\ Do not modify this variable (auto-generated and handled by the chart)
               allowed_ranges: # /!\ Make sure to adapt to the pod IP ranges used by your cluster
                 - "127.0.0.1/32"
-                - "192.168.0.0/16"
-                - "10.0.0.0/8"
-                - "172.16.0.0/12"
+                - "10.42.0.0/16" # Pod CIDR
+         prometheus:
+           enabled: true
+           level: full
+           listen_addr: "0.0.0.0"
+           listen_port: "9100"
     lapi:
       enabled: true
       replicas: 1
