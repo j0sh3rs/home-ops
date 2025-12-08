@@ -110,4 +110,4 @@ spec:
         name: crowdsec-lapi-secrets
         csLapiSecretKey: csLapiSecret
         registrationTokenKey: registrationToken
-    appsec:
+    # appsec:
