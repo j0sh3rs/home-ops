@@ -8,3 +8,5 @@ resources:
   - ./certificates.yaml
   - ./secret.sops.yaml
   - ./grafanadashboard.yaml
+patchesStrategicMerge:
+  - ./deployment-patch.yaml

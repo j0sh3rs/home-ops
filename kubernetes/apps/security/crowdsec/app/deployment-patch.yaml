@@ -1,0 +1,14 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowdsec-lapi
+spec:
+  template:
+    spec:
+      containers:
+        - name: crowdsec-lapi
+          env:
+            # Remove CS_LAPI_SECRET for TLS-only authentication
+            - name: CS_LAPI_SECRET
+              $patch: delete
