@@ -72,9 +72,12 @@ spec:
           memory: 256Mi
     agent:
       acquisition:
-        - namespace: network
-          podName: traefik-*
-          program: traefik
+        - source: victorialogs
+          mode: tail
+          url: http://victoria-logs-server.monitoring.svc.cluster.local:9428/
+          query: k8s.container.name:traefik
+          labels:
+            type: traefik
 
       env:
         - name: COLLECTIONS
