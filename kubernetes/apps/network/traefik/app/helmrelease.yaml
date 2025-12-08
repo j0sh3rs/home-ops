@@ -128,8 +128,3 @@ spec:
         matchRule: Host(`dash.68cc.io`)
         entryPoints:
           - websecure
-      # syslog-tcp:
-      #   enabled: true
-      #   matchRule: Host(`logs.68cc.io`)
-      #   entryPoints:
-      #     - syslog-tcp
