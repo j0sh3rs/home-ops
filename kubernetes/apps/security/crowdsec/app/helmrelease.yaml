@@ -20,6 +20,8 @@ spec:
     image:
       # renovate: datasource=docker depName=crowdsecurity/crowdsec
       tag: v1.9.3
+      repository: crowdsecurity/crowdsec
+      pullPolicy: Always
     container_runtime: containerd
     config:
       config.yaml.local: |
