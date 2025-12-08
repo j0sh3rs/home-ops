@@ -35,8 +35,6 @@ spec:
     lapi:
       enabled: true
       replicas: 1
-      secrets:
-        csLapiSecret: ""
       strategy:
         type: Recreate
       persistentVolume:
