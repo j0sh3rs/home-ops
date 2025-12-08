@@ -40,6 +40,10 @@ spec:
       appsec:
         tlsClientAuth: true
         secret: "crowdsec-agent-tls"
+    secrets:
+      username: ""
+      password: ""
+      csLapiSecretKey: "" # Explicitly disable to prevent default "csLapiSecret" key lookup
     lapi:
       enabled: true
       replicas: 1
