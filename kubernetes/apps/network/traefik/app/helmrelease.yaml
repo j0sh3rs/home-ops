@@ -78,6 +78,10 @@ spec:
       - --entrypoints.websecure.proxyProtocol=true
       - --entrypoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
       - --entrypoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entrypoints.web.reuseport=true
+      - --entrypoints.websecure.reuseport=true
+      - --entrypoints.web.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-compression@kubernetescrd
+      - --entrypoints.websecure.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-compression@kubernetescrd
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
