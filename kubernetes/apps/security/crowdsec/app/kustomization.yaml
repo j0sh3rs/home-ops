@@ -8,5 +8,6 @@ resources:
   - ./certificates.yaml
   - ./secret.sops.yaml
   - ./grafanadashboard.yaml
-patchesStrategicMerge:
-  - ./deployment-patch.yaml
+# Temporarily disabled - will re-enable after HelmRelease deploys
+# patchesStrategicMerge:
+#   - ./deployment-patch.yaml
