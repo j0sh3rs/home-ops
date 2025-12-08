@@ -118,6 +118,7 @@ spec:
     secrets:
       username: ""
       password: ""
+      csLapiSecretKey: "" # Explicitly disable to prevent default "csLapiSecret" key lookup
       externalSecret:
         name: crowdsec-lapi-secrets
         registrationTokenKey: registrationToken
