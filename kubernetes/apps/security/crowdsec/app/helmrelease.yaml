@@ -118,7 +118,7 @@ spec:
     secrets:
       externalSecret:
         name: crowdsec-lapi-secrets
-        csLapiSecretKey: csLapiSecret
+        # csLapiSecretKey: csLapiSecret  # Disabled - using TLS for authentication
         registrationTokenKey: registrationToken
     appsec:
       acquisitions:
