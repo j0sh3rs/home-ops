@@ -33,11 +33,6 @@ spec:
               allowed_ranges: # /!\ Make sure to adapt to the pod IP ranges used by your cluster
                 - "127.0.0.1/32"
                 - "10.42.0.0/16"
-         prometheus:
-           enabled: true
-           level: full
-           listen_addr: "0.0.0.0"
-           listen_port: "9100"
     lapi:
       enabled: true
       replicas: 1
