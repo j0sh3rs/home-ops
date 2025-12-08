@@ -37,12 +37,9 @@ spec:
       agent:
         tlsClientAuth: true
         secret: crowdsec-agent-tls
-    config:
-      config.yaml.local: |
-        api:
-          server:
-            auto_registration: # Disabled - using TLS for authentication
-              enabled: false
+      appsec:
+        tlsClientAuth: true
+        secret: "crowdsec-agent-tls"
     lapi:
       enabled: true
       replicas: 1
@@ -115,13 +112,6 @@ spec:
         enabled: true
         serviceMonitor:
           enabled: false
-    secrets:
-      username: ""
-      password: ""
-      csLapiSecretKey: "" # Explicitly disable to prevent default "csLapiSecret" key lookup
-      externalSecret:
-        name: crowdsec-lapi-secrets
-        registrationTokenKey: registrationToken
     appsec:
       acquisitions:
         - appsec_config: crowdsecurity/appsec-default
