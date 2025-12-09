@@ -80,18 +80,18 @@ spec:
     additionalArguments:
       - --accesslog=true
       - --accesslog.format=json
-      - --entrypoints.web.http.redirections.to=websecure
-      - --entrypoints.web.http.redirections.scheme=https
-      - --entrypoints.web.http.redirections.permanent=true
+      - --entryPoints.web.http.redirections.entryPoint.to=websecure
+      - --entryPoints.web.http.redirections.entryPoint.scheme=https
+      - --entrypoints.web.http.redirections.entryPoint.permanent=true
       - --entryPoints.web.observability.accessLogs=false
       - --entryPoints.web.observability.metrics=false
       - --entryPoints.web.observability.tracing=false
-      - --entrypoints.web.reuseport=true
-      - --entrypoints.web.proxyProtocol=true
-      - --entrypoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
-      - --entrypoints.websecure.proxyProtocol=true
-      - --entrypoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
-      - --entrypoints.websecure.reuseport=true
+      - --entryPoints.web.reuseport=true
+      - --entryPoints.web.proxyProtocol=true
+      - --entryPoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entryPoints.websecure.proxyProtocol=true
+      - --entryPoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entryPoints.websecure.reuseport=true
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
