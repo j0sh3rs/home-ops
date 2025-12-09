@@ -11,16 +11,6 @@ spec:
   interval: 1h
   values:
     fullnameOverride: victoria-logs
-    service:
-      extraPorts:
-        - name: syslog-tcp
-          port: 514
-          targetPort: syslog-tcp
-          protocol: TCP
-        - name: syslog-udp
-          port: 514
-          targetPort: syslog-udp
-          protocol: UDP
     server:
       extraArgs:
         envflag.enable: true
@@ -36,6 +26,16 @@ spec:
         storageClassName: openebs-hostpath
         size: 50Gi
       retentionPeriod: 14d
+      service:
+        extraPorts:
+          - name: syslog-tcp
+            port: 514
+            targetPort: syslog-tcp
+            protocol: TCP
+          - name: syslog-udp
+            port: 514
+            targetPort: syslog-udp
+            protocol: UDP
       route:
         enabled: true
         hostnames:
