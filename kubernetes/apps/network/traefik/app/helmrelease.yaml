@@ -12,6 +12,8 @@ spec:
     namespace: network
   interval: 1h
   values:
+    global:
+      checkNewVersion: false
     image:
       # renovate: datasource=docker depName=traefik
       tag: v3.6.4
@@ -48,11 +50,11 @@ spec:
         expose:
           default: false
         protocol: TCP
-      syslog-udp:
-        port: 514
-        expose:
-          default: true
-        protocol: UDP
+      # syslog-udp:
+      #   port: 514
+      #   expose:
+      #     default: true
+      #   protocol: UDP
       syslog-tcp:
         port: 514
         expose:
