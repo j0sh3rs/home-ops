@@ -80,14 +80,18 @@ spec:
     additionalArguments:
       - --accesslog=true
       - --accesslog.format=json
-      - --entrypoints.web.proxyProtocol=true
-      - --entrypoints.websecure.proxyProtocol=true
-      - --entrypoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
-      - --entrypoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entrypoints.web.http.redirections.to=websecure
+      - --entrypoints.web.http.redirections.scheme=https
+      - --entrypoints.web.http.redirections.permanent=true
+      - --entryPoints.web.observability.accessLogs=false
+      - --entryPoints.web.observability.metrics=false
+      - --entryPoints.web.observability.tracing=false
       - --entrypoints.web.reuseport=true
+      - --entrypoints.web.proxyProtocol=true
+      - --entrypoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entrypoints.websecure.proxyProtocol=true
+      - --entrypoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
       - --entrypoints.websecure.reuseport=true
-      # - --entrypoints.web.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-compression@kubernetescrd
-      # - --entrypoints.websecure.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-compression@kubernetescrd
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
