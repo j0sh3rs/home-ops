@@ -82,7 +82,7 @@ spec:
       - --accesslog.format=json
       - --entryPoints.web.http.redirections.entryPoint.to=websecure
       - --entryPoints.web.http.redirections.entryPoint.scheme=https
-      - --entrypoints.web.http.redirections.entryPoint.permanent=true
+      - --entryPoints.web.http.redirections.entryPoint.permanent=true
       - --entryPoints.web.observability.accessLogs=false
       - --entryPoints.web.observability.metrics=false
       - --entryPoints.web.observability.tracing=false
