@@ -51,12 +51,12 @@ spec:
       syslog-udp:
         port: 514
         expose:
-          default: false
+          default: true
         protocol: UDP
       syslog-tcp:
         port: 514
         expose:
-          default: false
+          default: true
         protocol: TCP
     gateway:
       enabled: true
@@ -74,18 +74,13 @@ spec:
           certificateRefs:
             - name: 68cc-io-tls
               kind: Secret
-        syslog-udp:
-          port: 514
-          namespacePolicy:
-            from: All
-          protocol: UDP
         syslog-tcp:
           port: 514
           namespacePolicy:
             from: All
           protocol: TCP
     ingressClass:
-      enabled: false
+      enabled: true
       isDefaultClass: false
     additionalArguments:
       - --accesslog=true

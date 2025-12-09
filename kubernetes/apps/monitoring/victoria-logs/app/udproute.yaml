@@ -11,4 +11,4 @@ spec:
         - name: victoria-logs-server
           port: 514
           weight: 10
-          nativeLB: false
+          nativeLB: true
