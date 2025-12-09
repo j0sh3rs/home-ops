@@ -48,6 +48,16 @@ spec:
         expose:
           default: false
         protocol: TCP
+      syslog-udp:
+        port: 514
+        expose:
+          default: false
+        protocol: UDP
+      syslog-tcp:
+        port: 514
+        expose:
+          default: false
+        protocol: TCP
     gateway:
       enabled: true
       listeners:
