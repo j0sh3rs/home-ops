@@ -1,17 +1,14 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tcproute_v1alpha2.json
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: UDPRoute
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteUDP
 metadata:
   name: victoria-logs-syslog-udp
 spec:
-  parentRefs:
-    - name: traefik-gateway
-      namespace: network
-      sectionName: syslog-udp
-      kind: Gateway
-  rules:
-    - backendRefs:
-        - name: victoria-logs
+  entryPoints:
+    - syslog-udp
+  routes:
+    - services:
+        - name: victoria-logs-server
           port: 514
-          namespace: monitoring
+          weight: 10
+          nativeLB: false
