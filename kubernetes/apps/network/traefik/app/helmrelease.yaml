@@ -22,7 +22,7 @@ spec:
         crowdsec-bouncer-traefik-plugin:
           moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
           # renovate: datasource=github-releases depName=maxlerebourg/crowdsec-bouncer-traefik-plugin
-          version: "v1.4.6"
+          version: v1.4.7
         traefikoidc:
           # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
           moduleName: "github.com/lukaszraczylo/traefikoidc"
