@@ -9,6 +9,7 @@ components:
 resources:
   - ./falco
   - ./crowdsec/ks.yaml
+  - ./wazuh/ks.yaml
   # - ./kube-bench/ks.yaml
   # - ./kube-hunter/ks.yaml
   # - ./trivy-operator/ks.yaml
