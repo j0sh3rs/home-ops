@@ -61,6 +61,8 @@ spec:
           default: true
         protocol: TCP
     gateway:
+      annotations:
+        external-dns.alpha.kubernetes.io/target: home.68cc.io
       enabled: true
       listeners:
         web:
