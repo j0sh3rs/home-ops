@@ -5,7 +5,6 @@ kind: HTTPRoute
 metadata:
   name: github-webhook
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: "flux-webhook.68cc.io"
     external-dns.alpha.kubernetes.io/target: "home.68cc.io"
 spec:
   hostnames:
