@@ -35,6 +35,11 @@ spec:
       valuesKey: CHILD_CLAIMING_ROOMS
       targetPath: child.claiming.rooms
   values:
+    image:
+      repository: netdata/netdata
+      # renovate: datasource=docker depName=netdata/netdata
+      tag: v2.8.2
+      pullPolicy: Always
     ingress:
       enabled: false
     parent:
