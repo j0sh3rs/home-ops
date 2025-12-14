@@ -39,11 +39,8 @@ spec:
       name: wazuh
       spec:
         version: "4.14.1"
-        dashboard:
-          tls:
-            enabled: false
-      tls:
-        enabled: false
+        tls:
+          enabled: false
     opensearchRepository:
       enabled: true
       name: minio-backups
