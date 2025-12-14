@@ -9,6 +9,7 @@ resources:
   - ./referencegrant.yaml
   - ./grafana/ks.yaml
   - ./mimir/ks.yaml
+  - ./netdata/ks.yaml
   - ./opentelemetry/ks.yaml
   - ./unpoller/ks.yaml
   - ./victoria-logs/ks.yaml

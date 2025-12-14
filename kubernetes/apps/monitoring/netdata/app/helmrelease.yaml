@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: netdata
+  namespace: monitoring
+spec:
+  interval: 5m
+  chart:
+    spec:
+      # renovate: registryUrl=https://netdata.github.io/helmchart/
+      chart: netdata
+      version: 3.7.151
+      sourceRef:
+        kind: HelmRepository
+        name: netdata
+        namespace: flux-system
+      interval: 5m
+  valuesFrom:
+    - kind: Secret
+      name: netdata-secrets
+      valuesKey: PARENT_CLAIMING_TOKEN
+      targetPath: parent.claiming.token
+    - kind: Secret
+      name: netdata-secrets
+      valuesKey: PARENT_CLAIMING_ROOMS
+      targetPath: parent.claiming.rooms
+    - kind: Secret
+      name: netdata-secrets
+      valuesKey: CHILD_CLAIMING_TOKEN
+      targetPath: child.claiming.token
+    - kind: Secret
+      name: netdata-secrets
+      valuesKey: CHILD_CLAIMING_ROOMS
+      targetPath: child.claiming.rooms
+  values:
+    ingress:
+      enabled: false
+    parent:
+      claiming:
+        enabled: true
+    child:
+      claiming:
+        enabled: true
