@@ -9,4 +9,4 @@ components:
 resources:
   # - ./falco
   - ./crowdsec/ks.yaml
-  - ./wazuh/ks.yaml
+  # - ./wazuh/ks.yaml
