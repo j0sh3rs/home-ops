@@ -39,20 +39,6 @@ spec:
       name: wazuh
       spec:
         version: "4.14.1"
-      tls:
-        enabled: true
-        certConfig:
-          organization: "BTH Home"
-          organizationalUnit: "Security"
-          country: "US"
-          state: "Massachusetts"
-          locality: "GBA"
-          validityDays: 365
-          renewalThresholdDays: 30
-          caValidityDays: 730
-          caRenewalThresholdDays: 60
-        hotReload:
-          enabled: true
     opensearchRepository:
       enabled: true
       name: minio-backups
