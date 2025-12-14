@@ -41,7 +41,7 @@ spec:
       - --zone-id-filter=$(CF_ZONE_ID)
     triggerLoopOnEvent: true
     policy: sync
-    sources: ["gateway-httproute", "crd"]
+    sources: ["crd"]
     txtOwnerId: default
     txtPrefix: k8s.
     domainFilters: ["68cc.io", "*.68cc.io"]
