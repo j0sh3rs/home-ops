@@ -27,6 +27,9 @@ spec:
           # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
           moduleName: "github.com/lukaszraczylo/traefikoidc"
           version: "v0.8.1"
+        clusterRatelimit:
+          moduleName: "github.com/nzin/traefik-cluster-ratelimit"
+          version: "v1.1.2"
       otlpLogs: true
     ocsp:
       enabled: true

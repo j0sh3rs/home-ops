@@ -7,3 +7,4 @@ resources:
   - ./compression.yaml
   - ./crowdsec-bouncer.yaml
   - ./crowdsec-bouncer-secret.sops.yaml
+  - ./ratelimiter.yaml
