@@ -166,3 +166,8 @@ spec:
         matchRule: Host(`dash.68cc.io`)
         entryPoints:
           - websecure
+    tlsOptions:
+      default:
+        sniStrict: true
+        preferServerCipherSuites: true
+        minVersion: VersionTLS13
