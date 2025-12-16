@@ -71,6 +71,9 @@ spec:
         enable_passkey_login: true
         display_name: "68cc.io Authenticator"
       session:
+        cookies:
+          - subdomain: "auth"
+            domain: "68cc.io"
         redis:
           enabled: true
           host: "dragonflydb.databases.svc.cluster.local"
