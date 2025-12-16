@@ -19,7 +19,7 @@ spec:
   values:
     image:
       # renovate: datasource=github-releases depName=authelia/authelia
-      tag: v4.39.15
+      tag: 4.39.15
       pullPolicy: Always
     ingress:
       enabled: true
