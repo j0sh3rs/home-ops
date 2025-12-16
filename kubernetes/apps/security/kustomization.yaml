@@ -8,5 +8,6 @@ components:
   - ../../components/repos/app-template
 resources:
   # - ./falco
+  - ./authelia/ks.yaml
   - ./crowdsec/ks.yaml
   # - ./wazuh/ks.yaml
