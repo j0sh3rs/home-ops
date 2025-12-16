@@ -39,7 +39,7 @@ spec:
             tag: 16
           envFrom:
             - secretRef:
-                name: linkwarden-secrets
+                name: authelia-secrets
       replicas: 2
       autoscaling:
         enabled: true
@@ -54,8 +54,8 @@ spec:
       telemetry:
         metrics:
           enabled: true
-        serviceMonitor:
-          enabled: true
+          serviceMonitor:
+            enabled: true
       default_2fa_method: "webauthn"
       totp:
         secret_size: 48
@@ -70,11 +70,12 @@ spec:
       webauthn:
         enable_passkey_login: true
         display_name: "68cc.io Authenticator"
-      redis:
-        enabled: true
-        host: "dragonflydb.databases.svc.cluster.local"
-        port: 6379
-        database_index: 4
+      session:
+        redis:
+          enabled: true
+          host: "dragonflydb.databases.svc.cluster.local"
+          port: 6379
+          database_index: 4
       storage:
         postgres:
           enabled: true
@@ -95,7 +96,7 @@ spec:
             path: "/app/authelia-secrets/SMTP_PASSWORD"
       identity_providers:
         oidc:
-          enabeld: true
+          enabled: true
     secret:
       existingSecret: authelia-secrets
       mountPath: /app/authelia-secrets
