@@ -94,6 +94,8 @@ spec:
           username: authelia
           password:
             path: "INIT_POSTGRES_PASS"
+        encryption_key:
+          path: "STORAGE_ENCRYPTION_KEY"
       notifier:
         smtp:
           enabled: true
