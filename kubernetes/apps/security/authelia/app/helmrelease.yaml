@@ -107,6 +107,8 @@ spec:
       identity_providers:
         oidc:
           enabled: true
+          hmac_secret:
+            path: "OIDC_HMAC_SECRET"
     secret:
       existingSecret: authelia-secrets
       mountPath: /secrets
