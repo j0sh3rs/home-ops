@@ -55,6 +55,11 @@ spec:
           serviceMonitor:
             enabled: true
       default_2fa_method: "webauthn"
+      identity_validation:
+        reset_password:
+          jwt_algorithm: "HS512"
+          secret:
+            path: "IDENTITY_VERIFICATION_JWT_HMAC_KEY"
       totp:
         secret_size: 48
         digits: 8
