@@ -82,6 +82,8 @@ spec:
           host: "dragonflydb.databases.svc.cluster.local"
           port: 6379
           database_index: 4
+        encryption_key:
+          path: "SESSION_ENCRYPTION_KEY"
       storage:
         postgres:
           enabled: true
