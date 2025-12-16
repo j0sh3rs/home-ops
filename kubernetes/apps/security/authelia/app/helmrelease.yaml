@@ -83,8 +83,7 @@ spec:
           database: authelia
           username: authelia
           password:
-            secret_name: authelia-secrets
-            path: "/app/authelia-secrets/INIT_POSTGRES_PASS"
+            path: "/secrets/INIT_POSTGRES_PASS"
       notifier:
         smtp:
           enabled: true
@@ -92,11 +91,9 @@ spec:
           sender: "Authelia <auth@bth.wtf>"
           username:
           password:
-            secret_name: authelia-secrets
-            path: "/app/authelia-secrets/SMTP_PASSWORD"
+            path: "/secrets/SMTP_PASSWORD"
       identity_providers:
         oidc:
           enabled: true
     secret:
       existingSecret: authelia-secrets
-      mountPath: /app/authelia-secrets
