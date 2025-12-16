@@ -1,0 +1,21 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cluster-rate-limiter
+  namespace: network
+spec:
+  plugin:
+    clusterRatelimit:
+      average: 20
+      burst: 10
+      period: 10
+      sourceCriterion:
+        ipStrategy:
+          depth: 2
+          excludedIPs:
+            - 127.0.0.1/32
+            - 192.168.35.0/24
+      redisAddress: dragonflydb.databases.svc.cluster.local:6379
+      redisDb: 3
+      redisConnectionTimeout: 2

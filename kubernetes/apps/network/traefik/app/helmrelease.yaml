@@ -27,6 +27,9 @@ spec:
           # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
           moduleName: "github.com/lukaszraczylo/traefikoidc"
           version: "v0.8.1"
+        clusterRatelimit:
+          moduleName: "github.com/nzin/traefik-cluster-ratelimit"
+          version: "v1.1.2"
       otlpLogs: true
     ocsp:
       enabled: true
@@ -61,6 +64,8 @@ spec:
           default: true
         protocol: TCP
     gateway:
+      annotations:
+        external-dns.alpha.kubernetes.io/target: home.68cc.io
       enabled: true
       listeners:
         web:
@@ -161,3 +166,8 @@ spec:
         matchRule: Host(`dash.68cc.io`)
         entryPoints:
           - websecure
+    tlsOptions:
+      default:
+        sniStrict: true
+        preferServerCipherSuites: true
+        minVersion: VersionTLS13

@@ -1,0 +1,11 @@
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: flux-webhook
+spec:
+  endpoints:
+    - dnsName: flux-webhook.68cc.io
+      recordTTL: 300
+      recordType: CNAME
+      targets:
+        - home.68cc.io
