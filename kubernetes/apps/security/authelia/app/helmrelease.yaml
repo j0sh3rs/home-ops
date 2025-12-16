@@ -33,10 +33,8 @@ spec:
     pod:
       kind: Deployment
       initContainers:
-        init-db:
-          image:
-            repository: ghcr.io/onedr0p/postgres-init
-            tag: 16
+        - name: init-db
+          image: ghcr.io/onedr0p/postgres-init:16
           envFrom:
             - secretRef:
                 name: authelia-secrets
