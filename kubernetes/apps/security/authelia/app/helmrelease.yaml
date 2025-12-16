@@ -109,6 +109,28 @@ spec:
           enabled: true
           hmac_secret:
             path: "OIDC_HMAC_SECRET"
+      authentication_backend:
+        file:
+          enabled: true
+          watch: true
+          search:
+            email: true
+            case_insensitive: true
+          password:
+            algorithm: "argon2"
+            argon2:
+              variant: "argon2id"
+              iterations: 10
+      password_policy:
+        standard:
+          enabled: true
+          min_length: 12
+          require_uppercase: true
+          require lowercase: true
+          require_number: true
+          require_special: true
+        zxcvbn:
+          enabled: true
     secret:
       existingSecret: authelia-secrets
       mountPath: /secrets
