@@ -3,28 +3,17 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDatasource
 metadata:
-  name: mimir
+  name: prometheus
 spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
   datasource:
     type: prometheus
-    name: mimir
+    name: prometheus
     access: proxy
     isDefault: true
-    url: http://mimir.monitoring.svc.cluster.local:8080/prometheus
-    jsonData:
-      # Identify this as a Mimir datasource for optimal query handling
-      prometheusType: Mimir
-      prometheusVersion: "2.9.0"
-      httpMethod: POST
-      timeInterval: 30s
-      # Enable query splitting for better performance with large time ranges
-      queryTimeout: 60s
-      # Mimir-specific optimizations
-      incrementalQuerying: true
-      incrementalQueryOverlapWindow: 10m
+    url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadatasource_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
