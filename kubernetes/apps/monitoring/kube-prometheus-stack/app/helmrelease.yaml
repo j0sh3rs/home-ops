@@ -54,6 +54,13 @@ spec:
             - name: traefik-gateway
               namespace: network
       prometheusSpec:
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 2000
+          fsGroup: 2000
+          seccompProfile:
+            type: RuntimeDefault
         externalUrl: https://prometheus.68cc.io
         version: v2.55.1 # override 'unsupported Prometheus version' error
         image:
