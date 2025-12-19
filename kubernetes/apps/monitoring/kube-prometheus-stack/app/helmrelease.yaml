@@ -10,6 +10,11 @@ spec:
     name: kube-prometheus-stack
   interval: 1h
   values:
+    crds:
+      enabled: true
+      upgradeJob:
+        enabeld: true
+        forceConflicts: true
     fullnameOverride: prometheus
     nameOverride: prometheus
     cleanPrometheusOperatorObjectNames: true
