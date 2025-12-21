@@ -22,7 +22,7 @@ spec:
   values:
     objstoreConfig:
       create: false
-      existingSecret: thanos-objstore-config
+      name: thanos-objstore-config
       key: objstore.yml
 
     # Query component - provides PromQL interface for Thanos
