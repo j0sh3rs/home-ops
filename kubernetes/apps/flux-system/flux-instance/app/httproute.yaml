@@ -18,12 +18,7 @@ spec:
           extensionRef:
             group: traefik.io
             kind: Middleware
-            name: security-headers
-        - type: ExtensionRef
-          extensionRef:
-            group: traefik.io
-            kind: Middleware
-            name: compression
+            name: gh-allow-list
       backendRefs:
         - name: webhook-receiver
           port: 80
