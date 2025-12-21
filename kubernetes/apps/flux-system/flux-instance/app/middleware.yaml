@@ -5,7 +5,7 @@ metadata:
   name: gh-allow-list
   namespace: flux-system
 spec:
-  ipAllowlist:
+  ipAllowList:
     sourceRange:
       # GH Webhooks
       - "192.30.252.0/22"
