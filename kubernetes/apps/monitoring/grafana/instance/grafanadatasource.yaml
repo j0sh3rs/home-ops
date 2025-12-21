@@ -19,6 +19,25 @@ spec:
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDatasource
 metadata:
+  name: thanos
+spec:
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  datasource:
+    type: prometheus
+    name: thanos
+    access: proxy
+    isDefault: false
+    url: http://thanos-query.monitoring.svc.cluster.local:9090
+    jsonData:
+      timeInterval: 5m
+      queryTimeout: 300s
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadatasource_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
   name: alertmanager
 spec:
   instanceSelector:
