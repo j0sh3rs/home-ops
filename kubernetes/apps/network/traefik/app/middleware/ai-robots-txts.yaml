@@ -2,10 +2,11 @@
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: ai-robots-txt
+  name: bot-wrangler
   namespace: network
 spec:
   plugin:
-    robots-txt:
-      aiRobotsTxt: true
-      overwrite: true
+    wrangler:
+      robotsTxtFilePath: /etc/traefik/bot-wrangler/robots.txt
+      botAction: "BLOCK"
+      robotsTxtDisallowAll: true

@@ -12,6 +12,10 @@ spec:
     namespace: network
   interval: 1h
   values:
+    volumes:
+      - name: botwrangler-robots-template
+        mountPath: /etc/traefik/bot-wrangler/
+        type: configMap
     global:
       checkNewVersion: false
     image:
@@ -30,9 +34,9 @@ spec:
         clusterRatelimit:
           moduleName: "github.com/nzin/traefik-cluster-ratelimit"
           version: "v1.1.2"
-        robots-txt:
-          moduleName: github.com/solution-libre/traefik-plugin-robots-txt
-          version: v0.2.2
+        wrangler:
+          moduleName: "github.com/holysoles/bot-wrangler-traefik-plugin"
+          version: v0.10.1
       otlpLogs: true
     ocsp:
       enabled: true
@@ -98,14 +102,14 @@ spec:
       - --entryPoints.web.http.redirections.entryPoint.to=websecure
       - --entryPoints.web.http.redirections.entryPoint.scheme=https
       - --entryPoints.web.http.redirections.entryPoint.permanent=true
-      - --entryPoints.web.http.middlewares=network-cluster-rate-limiter@kubernetescrd,network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-ai-robots-txt@kubernetescrd
+      - --entryPoints.web.http.middlewares=network-cluster-rate-limiter@kubernetescrd,network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd
       - --entryPoints.web.observability.accessLogs=false
       - --entryPoints.web.observability.metrics=false
       - --entryPoints.web.observability.tracing=false
       - --entryPoints.web.reuseport=true
       - --entryPoints.web.proxyProtocol=true
       - --entryPoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
-      - --entryPoints.websecure.http.middlewares=network-cluster-rate-limiter@kubernetescrd,network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-ai-robots-txt@kubernetescrd
+      - --entryPoints.websecure.http.middlewares=network-cluster-rate-limiter@kubernetescrd,network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd
       - --entryPoints.websecure.proxyProtocol=true
       - --entryPoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
       - --entryPoints.websecure.reuseport=true
