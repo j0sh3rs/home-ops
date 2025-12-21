@@ -171,10 +171,7 @@ spec:
             ServiceName: keep
     ingressRoute:
       dashboard:
-        enabled: true
-        matchRule: Host(`dash.68cc.io`)
-        entryPoints:
-          - websecure
+        enabled: false
     tlsOptions:
       default:
         sniStrict: true

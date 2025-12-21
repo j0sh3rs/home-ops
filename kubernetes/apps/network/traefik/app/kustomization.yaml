@@ -6,4 +6,5 @@ resources:
   - https://raw.githubusercontent.com/traefik/traefik/refs/heads/master/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
+  - ./httproute.yaml
   - ./middleware/
