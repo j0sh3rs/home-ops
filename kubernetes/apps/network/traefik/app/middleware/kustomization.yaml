@@ -3,8 +3,11 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: network
 resources:
+  - ./ai-robots-txts.yaml
   - ./security-headers.yaml
   - ./compression.yaml
   - ./crowdsec-bouncer.yaml
   - ./crowdsec-bouncer-secret.sops.yaml
   - ./ratelimiter.yaml
+  - ./oidc.yaml
+  - ./secret.sops.yaml

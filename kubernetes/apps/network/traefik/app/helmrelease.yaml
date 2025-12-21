@@ -30,6 +30,9 @@ spec:
         clusterRatelimit:
           moduleName: "github.com/nzin/traefik-cluster-ratelimit"
           version: "v1.1.2"
+        robots-txt:
+          moduleName: github.com/solution-libre/traefik-plugin-robots-txt
+          version: v0.2.2
       otlpLogs: true
     ocsp:
       enabled: true
@@ -95,12 +98,14 @@ spec:
       - --entryPoints.web.http.redirections.entryPoint.to=websecure
       - --entryPoints.web.http.redirections.entryPoint.scheme=https
       - --entryPoints.web.http.redirections.entryPoint.permanent=true
+      - --entryPoints.web.http.middlewares=network-ai-robots-txt@kubernetescrd
       - --entryPoints.web.observability.accessLogs=false
       - --entryPoints.web.observability.metrics=false
       - --entryPoints.web.observability.tracing=false
       - --entryPoints.web.reuseport=true
       - --entryPoints.web.proxyProtocol=true
       - --entryPoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entryPoints.websecure.http.middlewares=network-ai-robots-txt@kubernetescrd
       - --entryPoints.websecure.proxyProtocol=true
       - --entryPoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
       - --entryPoints.websecure.reuseport=true
@@ -140,7 +145,7 @@ spec:
           enabled: true
           enableHttp2: true
         prometheusRule:
-          enabled: false
+          enabled: true
       otlp:
         enabled: true
         http:

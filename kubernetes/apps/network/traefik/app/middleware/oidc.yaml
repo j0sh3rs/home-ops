@@ -1,0 +1,93 @@
+---
+# Auth0 OIDC Middleware Configuration
+# This middleware provides authentication using Auth0 with Google and GitHub social logins
+# Supports strict user allowlisting for enhanced security
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: oidc-auth0-secure
+  namespace: network
+spec:
+  plugin:
+    traefikoidc:
+      # Auth0 Configuration
+      providerURL: https://68ccio.us.auth0.com
+      clientID: "${AUTH0_CLIENT_ID}"
+      clientSecret: "${AUTH0_CLIENT_SECRET}"
+
+      # Session Configuration
+      sessionEncryptionKey: "${SESSION_ENCRYPTION_KEY}"
+      sessionMaxAge: 28800  # 8 hours
+
+      # OAuth2 Callback Configuration
+      callbackURL: /oauth2/callback
+
+      # Security Settings
+      forceHTTPS: true
+
+      # Scopes to request from Auth0
+      # openid: Required for OIDC
+      # profile: User profile information
+      # email: User email address
+      scopes:
+        - openid
+        - profile
+        - email
+
+      # User Allowlist Configuration
+      # This section controls who can access protected resources
+      # Users must match at least one of these criteria
+      allowedUsersAndGroups:
+        # Email-based allowlist (most common for homelab)
+        # Add your authorized email addresses here
+        - "email:your-email@gmail.com"              # Replace with your Gmail
+        - "email:your-github-email@users.noreply.github.com"  # Replace with your GitHub email
+
+        # You can also use email domains to allow all users from a domain
+        # - "email_domain:68cc.io"
+
+        # Or use Auth0 roles if configured (requires custom claims in Auth0)
+        # - "role:admin"
+        # - "role:homelab_user"
+
+      # Token Claims Configuration
+      # Extract user information from JWT tokens
+      claimMapping:
+        user: email
+        groups: "https://68cc.io/roles"  # Custom namespace for roles
+
+      # Redis Session Store Configuration
+      # Uses DragonflyDB for distributed session management
+      redis:
+        enabled: true
+        address: "dragonflydb.databases.svc.cluster.local:6379"
+        db: 0
+        keyPrefix: "traefikoidc:auth0:"
+
+        # Caching Strategy
+        # Hybrid mode: Fast local cache + shared Redis for multi-replica deployments
+        cacheMode: "hybrid"
+
+        # Connection Pool Configuration
+        poolSize: 20
+        connectTimeout: 5
+        readTimeout: 3
+        writeTimeout: 3
+
+        # Reliability Features
+        enableCircuitBreaker: true
+        circuitBreakerThreshold: 5
+        circuitBreakerTimeout: 60
+        enableHealthCheck: true
+        healthCheckInterval: 30
+
+      # Logging Configuration
+      logLevel: "info"  # Options: debug, info, warn, error
+
+      # Token Validation
+      # Validate JWT tokens with Auth0's public keys
+      enableTokenValidation: true
+
+      # Redirect Configuration
+      # Where to send users after successful authentication
+      redirectURL: "/"  # Return to original requested URL
