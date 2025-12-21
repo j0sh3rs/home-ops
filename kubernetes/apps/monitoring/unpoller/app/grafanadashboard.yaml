@@ -11,7 +11,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: thanos
+      inputName: DS_PROMETHEUS
   url: https://grafana.com/api/dashboards/23027/revisions/1/download
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
@@ -26,7 +26,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: thanos
+      inputName: DS_PROMETHEUS
   url: https://grafana.com/api/dashboards/11315/revisions/9/download
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
@@ -41,7 +41,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: thanos
+      inputName: DS_PROMETHEUS
   url: https://grafana.com/api/dashboards/11311/revisions/5/download
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
@@ -56,7 +56,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: thanos
+      inputName: DS_PROMETHEUS
   url: https://grafana.com/api/dashboards/11314/revisions/10/download
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
@@ -71,5 +71,5 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: thanos
+      inputName: DS_PROMETHEUS
   url: https://grafana.com/api/dashboards/11312/revisions/9/download
