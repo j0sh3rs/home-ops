@@ -80,6 +80,7 @@ spec:
           limits:
             memory: 2000Mi
         storageSpec:
+          disableMountSubPath: true
           volumeClaimTemplate:
             spec:
               storageClassName: openebs-hostpath
