@@ -10,3 +10,15 @@ spec:
       robotsTxtFilePath: /etc/traefik/bot-wrangler/robots.txt
       botAction: "BLOCK"
       robotsTxtDisallowAll: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: botwrangler-robots-template
+  namespace: network
+data:
+  robots.txt: |
+    {{ range $agent := .UserAgentList }}
+    User-agent: {{ $agent }}
+    {{- end }}
+    Disallow: /
