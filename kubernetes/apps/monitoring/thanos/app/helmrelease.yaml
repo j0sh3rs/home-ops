@@ -1,0 +1,96 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: thanos
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: thanos
+      version: 1.19.1
+      sourceRef:
+        kind: HelmRepository
+        name: stevehipwell
+        namespace: flux-system
+  install:
+    crds: Skip
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    crds: Skip
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    objstoreConfig:
+      create: false
+      existingSecret: thanos-objstore-config
+      key: objstore.yml
+
+    # Query component - provides PromQL interface for Thanos
+    query:
+      enabled: true
+      replicas: 2
+      podLabels:
+        grafana.internal/instance: grafana
+      dnsDiscovery:
+        enabled: true
+        sidecarsService: prometheus-operated
+        sidecarsNamespace: monitoring
+      stores:
+        - dnssrv+_grpc._tcp.thanos-store-gateway.monitoring.svc.cluster.local
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+      ingress:
+        enabled: false
+      service:
+        type: ClusterIP
+
+    # Store Gateway - provides access to historical data from object storage
+    storeGateway:
+      enabled: true
+      replicas: 1
+      podLabels:
+        grafana.internal/instance: grafana
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
+      persistence:
+        enabled: true
+        storageClass: openebs-hostpath
+        size: 10Gi
+
+    # Compactor - compacts, downsamples, and applies retention to data in object storage
+    compact:
+      enabled: true
+      replicas: 1
+      podLabels:
+        grafana.internal/instance: grafana
+      retentionResolutionRaw: 120d # 120 days retention for raw data
+      retentionResolution5m: 365d # 1 year retention for 5m downsampled data
+      retentionResolution1h: 730d # 2 years retention for 1h downsampled data
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
+      persistence:
+        enabled: true
+        storageClass: openebs-hostpath
+        size: 10Gi
+
+    # Metrics for monitoring Thanos components
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true

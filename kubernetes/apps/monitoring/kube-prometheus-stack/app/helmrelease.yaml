@@ -67,12 +67,20 @@ spec:
           registry: docker.io
           repository: prompp/prompp
           tag: 0.7.2
+        # Thanos sidecar configuration for long-term storage
+        disableCompaction: true # Let Thanos Compactor handle this
+        thanos:
+          image: quay.io/thanos/thanos:v0.37.2
+          objectStorageConfig:
+            existingSecret:
+              name: thanos-objstore-config
+              key: objstore.yml
         podMonitorSelectorNilUsesHelmValues: false
         probeSelectorNilUsesHelmValues: false
         ruleSelectorNilUsesHelmValues: false
         scrapeConfigSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
-        retention: 14d
+        retention: 6h # Reduced to 6h (3x 2h block) since Thanos handles long-term storage
         retentionSize: 50GB
         resources:
           requests:
@@ -87,6 +95,10 @@ spec:
               resources:
                 requests:
                   storage: 60Gi
+      thanosService:
+        enabled: true
+      thanosServiceMonitor:
+        enabled: true
     prometheus-node-exporter:
       fullnameOverride: node-exporter
     kube-state-metrics:
