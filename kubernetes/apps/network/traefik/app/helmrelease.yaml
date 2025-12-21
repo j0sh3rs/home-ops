@@ -46,6 +46,11 @@ spec:
         expose:
           default: true
         protocol: TCP
+      dashboard:
+        port: 8080
+        expose:
+          default: true
+        protocol: TCP
       websecure:
         port: 443
         expose:
@@ -80,6 +85,11 @@ spec:
           protocol: HTTP
           namespacePolicy:
             from: All
+        dashboard:
+          port: 8080
+          protocol: HTTP
+          namespacePolicy:
+            from: All
         websecure:
           port: 443
           protocol: HTTPS
@@ -94,7 +104,7 @@ spec:
             from: All
           protocol: TCP
     ingressClass:
-      enabled: true
+      enabled: false
       isDefaultClass: false
     additionalArguments:
       - --accesslog=true

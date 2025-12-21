@@ -8,10 +8,9 @@ spec:
   parentRefs:
     - name: traefik
       namespace: network
-      sectionName: websecure
   hostnames:
     - dash.68cc.io
   rules:
     - backendRefs:
         - name: traefik
-          port: 9000
+          port: 8080
