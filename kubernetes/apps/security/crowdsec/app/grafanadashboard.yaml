@@ -11,7 +11,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: mimir
+      inputName: thanos
   url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/LAPI%20Metrics.json
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
@@ -26,7 +26,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: mimir
+      inputName: thanos
   url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Overview.json
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
@@ -41,7 +41,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: mimir
+      inputName: thanos
   url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Insight.json
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
@@ -56,5 +56,5 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: mimir
+      inputName: thanos
   url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Details%20per%20Machine.json

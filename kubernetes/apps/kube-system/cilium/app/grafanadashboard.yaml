@@ -11,7 +11,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: mimir
+      inputName: thanos
   configMapRef:
     name: cilium-dashboard
     key: cilium-dashboard.json
@@ -28,7 +28,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
-      inputName: mimir
+      inputName: thanos
   configMapRef:
     name: cilium-operator-dashboard
     key: cilium-operator-dashboard.json

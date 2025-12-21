@@ -8,3 +8,4 @@ resources:
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./middleware/
+  - ./grafanadashboard.yaml

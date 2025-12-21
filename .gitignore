@@ -22,3 +22,6 @@ talosconfig
 Thumbs.db
 .atmos
 .claude
+kubernetes/apps/**/*.sh
+kubernetes/apps/**/*.md
+kubernetes/apps/**/*.txt
