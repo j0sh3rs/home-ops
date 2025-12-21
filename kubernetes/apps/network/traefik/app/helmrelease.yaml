@@ -94,7 +94,7 @@ spec:
             from: All
           protocol: TCP
     ingressClass:
-      enabled: false
+      enabled: true
       isDefaultClass: false
     additionalArguments:
       - --accesslog=true
@@ -109,7 +109,7 @@ spec:
       - --entryPoints.web.reuseport=true
       - --entryPoints.web.proxyProtocol=true
       - --entryPoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
-      - --entryPoints.websecure.http.middlewares=,network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd
+      - --entryPoints.websecure.http.middlewares=network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd
       - --entryPoints.websecure.proxyProtocol=true
       - --entryPoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
       - --entryPoints.websecure.reuseport=true
@@ -171,7 +171,10 @@ spec:
             ServiceName: keep
     ingressRoute:
       dashboard:
-        enabled: false
+        enabled: true
+        matchRule: Host(`dash.68cc.io`)
+        entryPoints:
+          - websecure
     tlsOptions:
       default:
         sniStrict: true
