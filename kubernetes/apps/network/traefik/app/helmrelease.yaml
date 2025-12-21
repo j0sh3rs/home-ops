@@ -46,11 +46,6 @@ spec:
         expose:
           default: true
         protocol: TCP
-      dashboard:
-        port: 8080
-        expose:
-          default: true
-        protocol: TCP
       websecure:
         port: 443
         expose:
@@ -82,11 +77,6 @@ spec:
       listeners:
         web:
           port: 80
-          protocol: HTTP
-          namespacePolicy:
-            from: All
-        dashboard:
-          port: 8080
           protocol: HTTP
           namespacePolicy:
             from: All
