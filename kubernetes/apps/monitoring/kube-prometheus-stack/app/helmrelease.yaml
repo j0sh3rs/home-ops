@@ -70,7 +70,7 @@ spec:
         # Thanos sidecar configuration for long-term storage
         disableCompaction: true # Let Thanos Compactor handle this
         thanos:
-          image: quay.io/thanos/thanos:v0.37.2
+          image: quay.io/thanos/thanos:v0.40.1
           objectStorageConfig:
             existingSecret:
               name: thanos-objstore-config
