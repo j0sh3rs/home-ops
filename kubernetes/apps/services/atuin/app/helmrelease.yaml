@@ -92,19 +92,13 @@ spec:
           - backendRefs:
               - name: *app
                 port: *port
-            filters:
-              - type: ExtensionRef
-                extensionRef:
-                  group: traefik.io
-                  kind: Middleware
-                  name: security-headers
-                  namespace: network
-              - type: ExtensionRef
-                extensionRef:
-                  group: traefik.io
-                  kind: Middleware
-                  name: compression
-                  namespace: network
+            # filters:
+            #   - type: ExtensionRef
+            #     extensionRef:
+            #       group: traefik.io
+            #       kind: Middleware
+            #       name: security-headers
+            #       namespace: network
     persistence:
       config:
         type: emptyDir

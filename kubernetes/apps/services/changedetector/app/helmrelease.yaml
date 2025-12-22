@@ -95,17 +95,12 @@ spec:
           - backendRefs:
               - name: *app
                 port: *port
-            filters:
-              - type: ExtensionRef
-                extensionRef:
-                  group: traefik.io
-                  kind: Middleware
-                  name: security-headers
-              - type: ExtensionRef
-                extensionRef:
-                  group: traefik.io
-                  kind: Middleware
-                  name: compression
+            # filters:
+            #   - type: ExtensionRef
+            #     extensionRef:
+            #       group: traefik.io
+            #       kind: Middleware
+            #       name: security-headers
     persistence:
       localtime:
         enabled: true
