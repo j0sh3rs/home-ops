@@ -18,3 +18,4 @@ resources:
   - ./reloader/ks.yaml
   - ./reflector/ks.yaml
   - ./spegel/ks.yaml
+  - ./talos-backups
