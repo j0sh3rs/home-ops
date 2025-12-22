@@ -10,4 +10,3 @@ resources:
   - ./operator
   - ./mcp_servers
   - ./httproute.yaml
-  - ./middleware.yaml
