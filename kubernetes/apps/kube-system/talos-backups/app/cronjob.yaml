@@ -21,10 +21,10 @@ spec:
                 - secretRef:
                     name: talos-s3-secret
               securityContext:
-                runAsUser: 0
-                runAsGroup: 0
+                runAsUser: 1000
+                runAsGroup: 1000
                 allowPrivilegeEscalation: false
-                runAsNonRoot: false
+                runAsNonRoot: true
                 capabilities:
                   drop: [ALL]
                 seccompProfile:
@@ -45,4 +45,4 @@ spec:
               name: tmp
             - name: talos-secrets
               secret:
-                secretName: talos-s3-secret
+                secretName: talos-backup-secrets
