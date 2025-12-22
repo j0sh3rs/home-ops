@@ -19,7 +19,7 @@ spec:
               imagePullPolicy: Always
               envFrom:
                 - secretRef:
-                    name: talos-s3-backup
+                    name: talos-s3-secret
               securityContext:
                 runAsUser: 1000
                 runAsGroup: 1000
@@ -45,4 +45,4 @@ spec:
               name: tmp
             - name: talos-secrets
               secret:
-                secretName: talos-s3-backup
+                secretName: talos-s3-secret
