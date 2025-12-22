@@ -21,10 +21,10 @@ spec:
                 - secretRef:
                     name: talos-s3-secret
               securityContext:
-                runAsUser: 1000
-                runAsGroup: 1000
+                runAsUser: 0
+                runAsGroup: 0
                 allowPrivilegeEscalation: false
-                runAsNonRoot: true
+                runAsNonRoot: false
                 capabilities:
                   drop: [ALL]
                 seccompProfile:
