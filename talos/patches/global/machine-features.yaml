@@ -4,8 +4,10 @@ machine:
       allowedKubernetesNamespaces:
         - system-upgrade # or the namespace the controller will be installed to
         - action-runner-system
+        - kube-system
       allowedRoles:
         - os:admin
+        - os:etcd:backup
       enabled: true
     rbac: true
     stableHostname: true
