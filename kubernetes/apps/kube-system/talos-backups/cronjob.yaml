@@ -5,6 +5,9 @@ metadata:
   name: talos-s3-backup
 spec:
   schedule: "10 0/12 * * *"
+  timeZone: "America/New_York"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
       template:
