@@ -13,11 +13,11 @@ spec:
       sourceCriterion:
         ipStrategy:
           depth: 2
-          excludedIPs:
-            - 127.0.0.1/32
-            - 10.42.0.0/16
-            - 10.43.0.0/16
-            - 192.168.35.0/24
-      redisAddress: dragonflydb.databases.svc.cluster.local:6379
+      redisAddress: "dragonflydb.databases.svc.cluster.local:6379"
       redisDb: 3
       redisConnectionTimeout: 2
+      whitelistIPs:
+        - "127.0.0.1/32"
+        - "10.42.0.0/16"
+        - "10.43.0.0/16"
+        - "192.168.35.0/24"
