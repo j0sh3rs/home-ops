@@ -16,10 +16,6 @@ spec:
       - name: botwrangler-robots-template
         mountPath: /etc/traefik/bot-wrangler/
         type: configMap
-      - name: crowdsec-bouncer-key
-        mountPath: /etc/traefik/crowdsec/
-        type: secret
-        secretName: traefik-secrets
     global:
       checkNewVersion: false
     image:
