@@ -8,7 +8,5 @@ resources:
   - ./security-headers.yaml
   - ./compression.yaml
   - ./crowdsec-bouncer.yaml
-  - ./crowdsec-bouncer-secret.sops.yaml
   - ./ratelimiter.yaml
   - ./oidc.yaml
-  - ./secret.sops.yaml

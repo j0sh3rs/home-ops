@@ -19,7 +19,7 @@ spec:
       - name: crowdsec-bouncer-key
         mountPath: /etc/traefik/crowdsec/
         type: secret
-        secretName: crowdsec-bouncer-secret
+        secretName: traefik-secrets
     global:
       checkNewVersion: false
     image:
