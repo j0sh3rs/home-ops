@@ -32,10 +32,6 @@ spec:
             port: 514
             targetPort: syslog-tcp
             protocol: TCP
-          - name: syslog-udp
-            port: 514
-            targetPort: syslog-udp
-            protocol: UDP
       route:
         enabled: true
         hostnames:
