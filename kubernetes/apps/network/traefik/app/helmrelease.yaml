@@ -11,6 +11,7 @@ spec:
     name: traefik
     namespace: network
   interval: 1h
+  timeout: 2m
   values:
     volumes:
       - name: botwrangler-robots-template
