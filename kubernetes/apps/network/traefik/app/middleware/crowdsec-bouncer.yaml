@@ -10,9 +10,7 @@ spec:
       enabled: true
       crowdsecLapiHost: crowdsec-service.security.svc.cluster.local:8080
       crowdsecLapiScheme: http
-      crowdsecLapiKeyFile: /etc/traefik/secrets/CROWDSEC_LAPI_KEY
-      crowdsecLapiKeySecretName: traefik-secrets
-      crowdsecLapiKeySecretKey: CROWDSEC_LAPI_KEY
+      crowdsecLapiKeyFile: /etc/traefik/secrets/CROWDSEC_LAPI_KEY_B64
       crowdsecMode: stream
       MetricsUpdateIntervalSeconds: 60
       remediationStatusCode: 403
