@@ -17,6 +17,10 @@ spec:
       - name: botwrangler-robots-template
         mountPath: /etc/traefik/bot-wrangler/
         type: configMap
+      - name: traefik-secrets
+        mountPath: /etc/traefik/secrets
+        type: secret
+        secretName: traefik-secrets
     global:
       checkNewVersion: false
     image:
@@ -44,6 +48,9 @@ spec:
       otlpLogs: false
     ocsp:
       enabled: true
+      envFrom:
+        - secretRef:
+            name: traefik-secrets
     ports:
       web:
         port: 80
