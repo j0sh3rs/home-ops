@@ -128,11 +128,9 @@ spec:
         allowCrossNamespace: true
       kubernetesIngress:
         enabled: true
-        allowCrossNamespace: true
       kubernetesGateway:
         enabled: true
         experimentalChannel: true
-        allowCrossNamespace: true
     resources:
       requests:
         cpu: 200m
