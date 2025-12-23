@@ -51,16 +51,11 @@ spec:
                     type: ReplaceFullPath
                     replaceFullPath: /select/vmui/
                   statusCode: 302
-              - type: ExtensionRef
-                extensionRef:
-                  group: traefik.io
-                  kind: Middleware
-                  name: security-headers
-              - type: ExtensionRef
-                extensionRef:
-                  group: traefik.io
-                  kind: Middleware
-                  name: compression
+              # - type: ExtensionRef
+              #   extensionRef:
+              #     group: traefik.io
+              #     kind: Middleware
+              #     name: security-headers
             matches:
               - path:
                   type: Exact
