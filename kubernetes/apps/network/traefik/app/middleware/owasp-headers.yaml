@@ -1,0 +1,19 @@
+---
+# Auth0 OIDC Middleware Configuration
+# This middleware provides authentication using Auth0 with Google and GitHub social logins
+# Supports strict user allowlisting for enhanced security
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: owasp-headers
+  namespace: network
+spec:
+  plugin:
+    owasp-security-headers:
+      plugin:
+        traefik-owasp-security:
+          # Optional configuration
+          disableCookieHTTPOnly: false
+          disableCookieSecure: false
+          disableCookieSameSite: false
+          skipCookieSecurity: false

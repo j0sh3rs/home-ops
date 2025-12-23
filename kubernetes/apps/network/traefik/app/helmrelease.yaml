@@ -38,6 +38,9 @@ spec:
         wrangler:
           moduleName: "github.com/holysoles/bot-wrangler-traefik-plugin"
           version: v0.10.1
+        traefik-owasp-security:
+          moduleName: "github.com/Netsocs-Team/traefik-owasp-security"
+          version: "v1.3.8"
       otlpLogs: false
     ocsp:
       enabled: true
