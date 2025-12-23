@@ -13,8 +13,9 @@ spec:
       crowdsecLapiKeySecretName: crowdsec-bouncer-secret
       crowdsecLapiKeySecretKey: CROWDSEC_BOUNCER_KEY
       crowdsecMode: stream
-      updateIntervalSeconds: "60"
-      remediationStatusCode: "403"
+      MetricsUpdateIntervalSeconds: 60
+      remediationStatusCode: 403
+      updateIntervalSecond: 60
       crowdsecAppsecEnabled: true
       crowdsecAppsecHost: crowdsec-appsec-service.security.svc.cluster.local:7422
       crowdsecAppsecFailureBlock: true
