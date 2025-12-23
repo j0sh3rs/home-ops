@@ -9,11 +9,9 @@ metadata:
   namespace: network
 spec:
   plugin:
-    owasp-security-headers:
-      plugin:
-        traefik-owasp-security:
-          # Optional configuration
-          disableCookieHTTPOnly: false
-          disableCookieSecure: false
-          disableCookieSameSite: false
-          skipCookieSecurity: false
+    traefik-owasp-security:
+      # Optional configuration
+      disableCookieHTTPOnly: false
+      disableCookieSecure: false
+      disableCookieSameSite: false
+      skipCookieSecurity: false
