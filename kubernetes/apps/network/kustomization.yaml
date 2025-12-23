@@ -7,4 +7,4 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./cloudflare-dns/ks.yaml
-  # - ./traefik/ks.yaml
+  - ./traefik/ks.yaml
