@@ -33,7 +33,7 @@ spec:
           version: "v0.8.1"
         clusterRatelimit:
           moduleName: "github.com/nzin/traefik-cluster-ratelimit"
-          version: "v1.1.2"
+          version: "v1.2.0"
         wrangler:
           moduleName: "github.com/holysoles/bot-wrangler-traefik-plugin"
           version: v0.10.1

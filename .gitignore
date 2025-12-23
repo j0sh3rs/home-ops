@@ -25,3 +25,4 @@ Thumbs.db
 kubernetes/apps/**/*.sh
 kubernetes/apps/**/*.md
 kubernetes/apps/**/*.txt
+.playwright-mcp/
