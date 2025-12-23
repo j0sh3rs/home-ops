@@ -5,7 +5,8 @@ metadata:
   name: bot-wrangler
   namespace: network
 spec:
-  wrangler:
-    robotsTxtFilePath: /etc/traefik/bot-wrangler/robots.txt
-    botAction: "BLOCK"
-    robotsTxtDisallowAll: true
+  plugin:
+    wrangler:
+      robotsTxtFilePath: /etc/traefik/bot-wrangler/robots.txt
+      botAction: "BLOCK"
+      robotsTxtDisallowAll: true
