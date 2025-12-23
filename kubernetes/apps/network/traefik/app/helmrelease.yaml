@@ -125,11 +125,14 @@ spec:
     providers:
       kubernetesCRD:
         enabled: true
+        allowCrossNamespace: true
       kubernetesIngress:
-        enabled: false
+        enabled: true
+        allowCrossNamespace: true
       kubernetesGateway:
         enabled: true
         experimentalChannel: true
+        allowCrossNamespace: true
     resources:
       requests:
         cpu: 200m
