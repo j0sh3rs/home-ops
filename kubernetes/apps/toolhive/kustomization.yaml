@@ -7,6 +7,6 @@ components:
   - ../../components/common
 resources:
   - ./crds
-  - ./operator
-  - ./mcp_servers
-  - ./httproute.yaml
+  # - ./operator
+  # - ./mcp_servers
+  # - ./httproute.yaml
