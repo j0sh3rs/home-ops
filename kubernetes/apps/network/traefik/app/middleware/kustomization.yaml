@@ -10,4 +10,3 @@ resources:
   - ./crowdsec-bouncer.yaml
   - ./ratelimiter.yaml
   - ./oidc.yaml
-  - ./owasp-headers.yaml
