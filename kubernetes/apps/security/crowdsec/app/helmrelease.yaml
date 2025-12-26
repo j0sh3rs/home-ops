@@ -100,7 +100,7 @@ spec:
       #       type: traefik
       env:
         - name: COLLECTIONS
-          value: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/appsec-virtual-patching crowdsecurity/unifi"
+          value: "crowdsecurity/traefik crowdsecurity/appsec-crs crowdsecurity/http-cve crowdsecurity/unifi"
         # Parsers to install
         - name: PARSERS
           value: "crowdsecurity/cri-logs crowdsecurity/whitelists"
