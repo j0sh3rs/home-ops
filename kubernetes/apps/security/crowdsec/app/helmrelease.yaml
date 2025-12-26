@@ -23,25 +23,31 @@ spec:
       repository: crowdsecurity/crowdsec
       pullPolicy: Always
     container_runtime: containerd
-    tls:
-      enabled: true
-      insecureSkipVerify: true
-      agent:
-        tlsClientAuth: true
-      appsec:
-        tlsClientAuth: true
-      certManager:
-        enabled: true
+    # tls:
+    #   enabled: false
+    #   insecureSkipVerify: true
+    #   agent:
+    #     tlsClientAuth: true
+    #   appsec:
+    #     tlsClientAuth: true
+    #   certManager:
+    #     enabled: true
+    #   lapi:
+    #     reflector:
+    #       namespaces:
+    #         - network
     config:
       config.yaml.local: |
         api:
           server:
-            auto_registration: # Disabled - using TLS for authentication instead
-              enabled: false
+            auto_registration: # Enabled - using token-based authentication
+              enabled: true
               token: "${REGISTRATION_TOKEN}" # /!\ Do not modify this variable (auto-generated and handled by the chart)
               allowed_ranges:
                 - "127.0.0.1/32"
                 - "10.42.0.0/16"
+                - "10.43.0.0/16"
+                - "192.168.35.0/24"
     lapi:
       enabled: true
       replicas: 1
@@ -58,7 +64,6 @@ spec:
           size: 250Mi
       service:
         type: ClusterIP
-        port: 8080
       metrics:
         enabled: true
         serviceMonitor:

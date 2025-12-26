@@ -8,11 +8,12 @@ spec:
   plugin:
     crowdsec-bouncer-traefik-plugin:
       enabled: true
-      crowdsecLapiHost: crowdsec-service.security.svc.cluster.local:8443
-      crowdsecLapiScheme: https
-      crowdsecLapiTlsCertificateAuthorityFile: /etc/traefik/secrets/crowdsec-ca.crt
-      crowdsecLapiTlsCertificateBouncerFile: /etc/traefik/secrets/crowdsec-tls.crt
-      crowdsecLapiTlsCertificateBouncerKeyFile: /etc/traefik/secrets/crowdsec-tls.key
+      crowdsecLapiHost: crowdsec-service.security.svc.cluster.local:8080
+      crowdsecLapiScheme: http
+      crowdsecLapiKey: ${CROWDSEC_BOUNCER_KEY}
+      # crowdsecLapiTlsCertificateAuthorityFile: /etc/traefik/secrets/crowdsec-ca.crt
+      # crowdsecLapiTlsCertificateBouncerFile: /etc/traefik/secrets/crowdsec-tls.crt
+      # crowdsecLapiTlsCertificateBouncerKeyFile: /etc/traefik/secrets/crowdsec-tls.key
       crowdsecMode: stream
       MetricsUpdateIntervalSeconds: 60
       remediationStatusCode: 403
