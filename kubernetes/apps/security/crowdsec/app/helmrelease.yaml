@@ -91,6 +91,7 @@ spec:
         - namespace: "network"
           podName: "traefik-*"
           program: "traefik"
+          poll_without_inotify: true
       # additionalAcquisition:
       #   - source: victorialogs
       #     mode: tail
