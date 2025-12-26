@@ -20,8 +20,8 @@ spec:
       updateIntervalSecond: 60
       crowdsecAppsecEnabled: true
       crowdsecAppsecHost: crowdsec-appsec-service.security.svc.cluster.local:7422
-      crowdsecAppsecFailureBlock: true
-      crowdsecAppsecUnreachableBlock: true
+      crowdsecAppsecFailureBlock: false
+      crowdsecAppsecUnreachableBlock: false
       logLevel: INFO
       forwardedHeadersTrustedIPs:
         - 10.42.0.0/16
