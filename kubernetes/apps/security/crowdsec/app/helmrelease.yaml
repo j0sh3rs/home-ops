@@ -92,6 +92,10 @@ spec:
           podName: "traefik-*"
           program: "traefik"
           poll_without_inotify: true
+        - namespace: "monitoring"
+          podName: "grafana-deployment-*"
+          program: "grafana"
+          poll_without_inotify: true
       # additionalAcquisition:
       #   - source: victorialogs
       #     mode: tail
@@ -101,10 +105,10 @@ spec:
       #       type: traefik
       env:
         - name: COLLECTIONS
-          value: "crowdsecurity/traefik crowdsecurity/appsec-crs crowdsecurity/http-cve"
+          value: "crowdsecurity/traefik crowdsecurity/appsec-crs crowdsecurity/http-cve crowdsecurity/appsec-crs-inband crowdsecurity/base-http-scenarios LePresidente/grafana crowdsecurity/unifi"
         # Parsers to install
-        # - name: PARSERS
-        #   value: "crowdsecurity/cri-logs"
+        - name: PARSERS
+          value: "crowdsecurity/cri-logs"
       resources:
         limits:
           memory: 2Gi
