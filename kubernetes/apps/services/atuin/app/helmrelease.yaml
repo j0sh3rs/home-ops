@@ -87,7 +87,6 @@ spec:
         hostnames: ["sh.68cc.io"]
         parentRefs:
           - name: traefik-gateway
-            namespace: network
         rules:
           - backendRefs:
               - name: *app
