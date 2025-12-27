@@ -6,7 +6,7 @@ resources:
   - ./helmrelease.yaml
   - ./httproute.yaml
   - ./middleware.yaml
-  - ./prometheusrule.yaml
+  # - ./prometheusrule.yaml
   - ./secret.sops.yaml
   - ./receiver.yaml
   - ./grafanadashboard.yaml
