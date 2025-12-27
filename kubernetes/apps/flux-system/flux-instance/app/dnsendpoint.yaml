@@ -7,5 +7,5 @@ spec:
     - dnsName: flux-webhook.68cc.io
       recordTTL: 300
       recordType: CNAME
-      targets:
-        - home.68cc.io
+      # targets:
+      #   - home.68cc.io
