@@ -15,7 +15,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: falco
-        namespace: flux-system
+        namespace: security
       interval: 15m
   valuesFrom:
     - kind: Secret
