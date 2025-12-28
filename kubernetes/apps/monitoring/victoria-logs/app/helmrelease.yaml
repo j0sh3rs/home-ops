@@ -37,7 +37,7 @@ spec:
         hostnames:
           - logs.68cc.io
         parentRefs:
-          - name: traefik-gateway
+          - name: envoy-internal
             namespace: network
         extraRules:
           - filters:
@@ -47,11 +47,6 @@ spec:
                     type: ReplaceFullPath
                     replaceFullPath: /select/vmui/
                   statusCode: 302
-              # - type: ExtensionRef
-              #   extensionRef:
-              #     group: traefik.io
-              #     kind: Middleware
-              #     name: security-headers
             matches:
               - path:
                   type: Exact

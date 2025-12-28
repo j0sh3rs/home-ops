@@ -37,7 +37,7 @@ spec:
       - --cloudflare-dns-records-per-page=1000
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
-      - --gateway-name=traefik-gateway
+      - --gateway-name=envoy-external
       - --zone-id-filter=$(CF_ZONE_ID)
     triggerLoopOnEvent: true
     policy: sync

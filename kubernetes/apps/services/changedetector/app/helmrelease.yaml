@@ -89,18 +89,12 @@ spec:
       app:
         hostnames: ["cd.68cc.io"]
         parentRefs:
-          - name: traefik-gateway
+          - name: envoy-external
             namespace: network
         rules:
           - backendRefs:
               - name: *app
                 port: *port
-            # filters:
-            #   - type: ExtensionRef
-            #     extensionRef:
-            #       group: traefik.io
-            #       kind: Middleware
-            #       name: security-headers
     persistence:
       localtime:
         enabled: true

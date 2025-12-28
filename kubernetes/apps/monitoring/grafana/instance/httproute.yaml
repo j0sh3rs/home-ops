@@ -8,15 +8,14 @@ spec:
   hostnames:
     - grafana.68cc.io
   parentRefs:
-    - name: traefik-gateway
+    - name: envoy-internal
       namespace: network
   rules:
     - backendRefs:
         - name: grafana-service
           port: 3000
-      # filters:
-      #   - type: ExtensionRef
-      #     extensionRef:
-      #       group: traefik.io
-      #       kind: Middleware
-      #       name: security-headers
+          namespace: monitoring
+      matches:
+        - path:
+            type: PathPrefix
+            value: /

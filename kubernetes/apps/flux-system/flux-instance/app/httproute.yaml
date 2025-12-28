@@ -4,21 +4,18 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: github-webhook
-  # annotations:
-  #   external-dns.alpha.kubernetes.io/target: "home.68cc.io"
 spec:
   hostnames:
     - flux-webhook.68cc.io
   parentRefs:
-    - name: traefik-gateway
+    - name: envoy-external
       namespace: network
   rules:
-    - filters:
-        - type: ExtensionRef
-          extensionRef:
-            group: traefik.io
-            kind: Middleware
-            name: gh-allow-list
-      backendRefs:
+    - backendRefs:
         - name: webhook-receiver
           port: 80
+          namespace: flux-system
+      matches:
+        - path:
+            type: PathPrefix
+            value: /hook/

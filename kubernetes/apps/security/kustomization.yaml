@@ -7,4 +7,4 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  - ./crowdsec/ks.yaml
+  - ./falco/ks.yaml
