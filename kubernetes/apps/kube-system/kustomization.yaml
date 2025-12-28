@@ -12,6 +12,7 @@ resources:
   - ./coredns/ks.yaml
   - ./descheduler/ks.yaml
   - ./irqbalance/ks.yaml
+  - ./k8tz/ks.yaml
   - ./metrics-server/ks.yaml
   - ./nfs-external-provisioner/ks.yaml
   - ./openebs/ks.yaml
