@@ -8,3 +8,4 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./falco
+  - ./wazuh/ks-operator.yaml

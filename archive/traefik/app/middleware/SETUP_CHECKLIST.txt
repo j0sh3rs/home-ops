@@ -1,0 +1,223 @@
+═══════════════════════════════════════════════════════════════
+                    AUTH0 OIDC SETUP CHECKLIST
+═══════════════════════════════════════════════════════════════
+
+📋 PREREQUISITES
+═══════════════════════════════════════════════════════════════
+[ ] SOPS installed and configured
+[ ] kubectl access to homelab cluster
+[ ] Age key present at ~/Documents/github/j0sh3rs/home-ops/age.key
+[ ] Auth0 account access (68ccio tenant)
+[ ] DragonflyDB running in cluster (namespace: databases)
+
+═══════════════════════════════════════════════════════════════
+🔐 AUTH0 DASHBOARD CONFIGURATION
+═══════════════════════════════════════════════════════════════
+
+1. GET CLIENT SECRET
+   [ ] Navigate to: https://manage.auth0.com/dashboard/us/68ccio/applications/IEAIPLfa9MizMMtrkdEPtFu3TswAPVA9/settings
+   [ ] Copy "Client Secret" value
+   [ ] Save securely (needed for next step)
+
+2. ENABLE GOOGLE SOCIAL CONNECTION
+   [ ] Navigate to: https://manage.auth0.com/dashboard/us/68ccio/connections/social
+   [ ] Click "Google"
+   [ ] Toggle "Enable" ON
+   [ ] Click "Applications" tab
+   [ ] Enable "HomeOps" application
+   [ ] Click "Save"
+
+3. ENABLE GITHUB SOCIAL CONNECTION
+   [ ] Navigate to: https://manage.auth0.com/dashboard/us/68ccio/connections/social
+   [ ] Click "GitHub"
+   [ ] Toggle "Enable" ON
+   [ ] Click "Applications" tab
+   [ ] Enable "HomeOps" application
+   [ ] Click "Save"
+
+4. VERIFY CALLBACK URLS (Should already be set)
+   [ ] Navigate to: https://manage.auth0.com/dashboard/us/68ccio/applications/IEAIPLfa9MizMMtrkdEPtFu3TswAPVA9/settings
+   [ ] Scroll to "Application URIs" section
+   [ ] Verify "Allowed Callback URLs" contains:
+       - https://dash.68cc.io/oauth2/callback
+       - https://*.68cc.io/oauth2/callback
+   [ ] Verify "Allowed Logout URLs" contains:
+       - https://dash.68cc.io
+       - https://68cc.io
+
+═══════════════════════════════════════════════════════════════
+📝 LOCAL FILE CONFIGURATION
+═══════════════════════════════════════════════════════════════
+
+5. UPDATE SECRET FILE
+   [ ] Open: kubernetes/apps/network/traefik/app/middleware/secret.sops.yaml
+   [ ] Replace "YOUR_CLIENT_SECRET_HERE_REPLACE_ME" with actual Auth0 Client Secret
+   [ ] Save file
+
+6. UPDATE USER ALLOWLIST
+   [ ] Open: kubernetes/apps/network/traefik/app/middleware/oidc.yaml
+   [ ] Find "allowedUsersAndGroups" section
+   [ ] Replace example emails with your actual emails:
+       - Your Gmail address
+       - Your GitHub email (may be @users.noreply.github.com)
+   [ ] Save file
+
+7. ENCRYPT SECRET
+   [ ] cd ~/Documents/github/j0sh3rs/home-ops
+   [ ] Run: sops -e -i kubernetes/apps/network/traefik/app/middleware/secret.sops.yaml
+   [ ] Verify file now contains encrypted data (look for "sops:" metadata)
+
+═══════════════════════════════════════════════════════════════
+🚀 DEPLOYMENT
+═══════════════════════════════════════════════════════════════
+
+8. VERIFY CLUSTER ACCESS
+   [ ] Run: kubectl cluster-info
+   [ ] Verify correct cluster is targeted
+   [ ] Run: kubectl get pods -n databases -l app.kubernetes.io/name=dragonfly
+   [ ] Verify DragonflyDB is running
+
+9. APPLY CONFIGURATION (Choose one method)
+
+   Option A - Helper Script (Recommended):
+   [ ] cd kubernetes/apps/network/traefik/app/middleware
+   [ ] chmod +x setup-auth0.sh
+   [ ] ./setup-auth0.sh
+   [ ] Follow interactive prompts
+
+   Option B - Flux Reconciliation:
+   [ ] flux reconcile kustomization traefik-middleware
+   [ ] Watch for successful reconciliation
+
+   Option C - Manual kubectl:
+   [ ] kubectl apply -k kubernetes/apps/network/traefik/app/middleware
+   [ ] Verify resources created
+
+10. VERIFY DEPLOYMENT
+    [ ] kubectl get middleware -n network oidc-auth0-secure
+    [ ] kubectl get secret -n network auth0-oidc-credentials
+    [ ] kubectl logs -n network -l app.kubernetes.io/name=traefik --tail=50
+
+═══════════════════════════════════════════════════════════════
+🧪 TESTING
+═══════════════════════════════════════════════════════════════
+
+11. CREATE TEST ROUTE
+    [ ] Create a test HTTPRoute using examples from example-routes.yaml
+    [ ] Apply test route to cluster
+    [ ] Verify route is configured
+
+12. TEST AUTHENTICATION FLOW
+    [ ] Open browser in incognito/private mode
+    [ ] Navigate to protected URL (e.g., https://test.68cc.io)
+    [ ] Verify redirect to Auth0 login page
+
+13. TEST GOOGLE LOGIN
+    [ ] Click "Continue with Google" on Auth0 page
+    [ ] Login with your Google account
+    [ ] Verify redirect back to your application
+    [ ] Verify you can access the protected resource
+
+14. TEST GITHUB LOGIN
+    [ ] Logout or open new incognito window
+    [ ] Navigate to protected URL
+    [ ] Click "Continue with GitHub" on Auth0 page
+    [ ] Login with your GitHub account
+    [ ] Verify redirect back to your application
+    [ ] Verify you can access the protected resource
+
+15. TEST UNAUTHORIZED ACCESS
+    [ ] Have someone else (or use different email) try to access
+    [ ] Verify they are denied after Auth0 authentication
+    [ ] Check Traefik logs for authorization failure
+
+16. TEST SESSION PERSISTENCE
+    [ ] Close browser
+    [ ] Reopen and navigate to protected URL
+    [ ] Verify session is still active (no re-authentication required)
+
+17. TEST LOGOUT
+    [ ] Navigate to logout URL: https://68ccio.us.auth0.com/v2/logout?returnTo=https://68cc.io
+    [ ] Verify logout successful
+    [ ] Try accessing protected URL again
+    [ ] Verify redirect to Auth0 login
+
+═══════════════════════════════════════════════════════════════
+📊 MONITORING & VALIDATION
+═══════════════════════════════════════════════════════════════
+
+18. MONITOR LOGS
+    [ ] kubectl logs -n network -l app.kubernetes.io/name=traefik -f
+    [ ] Look for OIDC-related log entries
+    [ ] Verify no errors during authentication
+
+19. CHECK REDIS SESSIONS
+    [ ] kubectl exec -n databases -it deploy/dragonfly -- redis-cli
+    [ ] Run: KEYS "traefikoidc:auth0:*"
+    [ ] Verify session keys exist
+    [ ] Exit: quit
+
+20. VERIFY METRICS (if enabled)
+    [ ] Check Prometheus metrics for authentication
+    [ ] Review Grafana dashboards for Traefik
+
+═══════════════════════════════════════════════════════════════
+📚 DOCUMENTATION & CLEANUP
+═══════════════════════════════════════════════════════════════
+
+21. DOCUMENT YOUR SETUP
+    [ ] Note which services use Auth0 authentication
+    [ ] Document any custom configurations
+    [ ] Update your homelab documentation
+
+22. SECURITY REVIEW
+    [ ] Verify secret.sops.yaml is encrypted
+    [ ] Verify placeholder emails removed from allowlist
+    [ ] Verify client secret is not in plain text anywhere
+    [ ] Add validate-sops.sh to git hooks if desired
+
+23. BACKUP
+    [ ] Backup your SOPS age key securely
+    [ ] Document Auth0 configuration
+    [ ] Export Auth0 tenant configuration (if needed)
+
+═══════════════════════════════════════════════════════════════
+✅ COMPLETION
+═══════════════════════════════════════════════════════════════
+
+Congratulations! Your Auth0 OIDC authentication is now configured.
+
+Next Steps:
+- Roll out auth to production services gradually
+- Monitor authentication metrics
+- Set up alerts for auth failures
+- Document any service-specific configurations
+- Consider adding MFA in Auth0 for enhanced security
+
+═══════════════════════════════════════════════════════════════
+🆘 NEED HELP?
+═══════════════════════════════════════════════════════════════
+
+Documentation Files:
+- IMPLEMENTATION_SUMMARY.md - Complete overview
+- AUTH0_README.md - Detailed guide
+- QUICK_REFERENCE.md - Quick commands
+- example-routes.yaml - Usage examples
+
+Useful Commands:
+- ./setup-auth0.sh - Interactive setup
+- ./validate-sops.sh - Validate encryption
+- kubectl logs -n network -l app.kubernetes.io/name=traefik -f
+
+Auth0 Dashboard:
+https://manage.auth0.com/dashboard/us/68ccio/
+
+═══════════════════════════════════════════════════════════════
+Date: ___________________
+Completed by: ___________________
+Notes:
+
+
+
+
+═══════════════════════════════════════════════════════════════
