@@ -35,14 +35,14 @@ spec:
     sizing:
       profile: "S"
       storageClassName: openebs-hostpath
-    indexer:
-      env:
-        - name: OPENSEARCH_PATH_CONF
-          value: /tmp/config
     cluster:
       name: wazuh
       spec:
         version: "4.14.1"
+        indexer:
+          env:
+            - name: OPENSEARCH_PATH_CONF
+              value: /tmp/config
         tls:
           hotReload:
             enabled: true
