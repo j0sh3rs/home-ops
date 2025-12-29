@@ -9,3 +9,4 @@ components:
 resources:
   - ./falco
   - ./wazuh/ks-operator.yaml
+  - ./wazuh/ks-cluster.yaml
