@@ -35,6 +35,10 @@ spec:
     sizing:
       profile: "S"
       storageClassName: openebs-hostpath
+    indexer:
+      env:
+        - name: OPENSEARCH_PATH_CONF
+          value: /tmp/config
     cluster:
       name: wazuh
       spec:
@@ -42,10 +46,6 @@ spec:
         tls:
           hotReload:
             enabled: true
-    indexer:
-      env:
-        - name: OPENSEARCH_PATH_CONF
-          value: /usr/share/wazuh-indexer
     opensearchRepository:
       enabled: true
       name: s3-backups
