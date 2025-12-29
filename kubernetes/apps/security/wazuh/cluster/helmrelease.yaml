@@ -41,22 +41,26 @@ spec:
         version: "4.14.1"
         indexer:
           initContainers:
-            - name: copy-operator-config
+            - name: copy-operator-certs
               image: busybox:stable
               command:
                 - sh
                 - -c
                 - |
                   set -e
-                  echo "Copying operator-mounted config and certs to expected location..."
-                  cp /usr/share/wazuh-indexer/opensearch.yml /usr/share/wazuh-indexer/config/opensearch.yml
-                  cp -r /usr/share/wazuh-indexer/certs/* /usr/share/wazuh-indexer/config/certs/
-                  echo "Config and certs copied successfully"
-                  ls -la /usr/share/wazuh-indexer/config/
-                  ls -la /usr/share/wazuh-indexer/config/certs/
+                  echo "Copying operator-mounted certs to config/certs directory..."
+                  mkdir -p /config/certs
+                  cp /certs/ca.crt /config/certs/root-ca.pem
+                  cp /certs/tls.crt /config/certs/indexer.pem
+                  cp /certs/tls.key /config/certs/indexer-key.pem
+                  echo "Certificates copied successfully"
+                  ls -la /config/certs/
               volumeMounts:
-                - name: wazuh-indexer
-                  mountPath: /usr/share/wazuh-indexer
+                - name: opensearch-certs
+                  mountPath: /certs
+                  readOnly: true
+                - name: config-processed
+                  mountPath: /config
         tls:
           hotReload:
             enabled: true
