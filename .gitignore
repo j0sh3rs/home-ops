@@ -26,3 +26,6 @@ kubernetes/apps/**/*.sh
 kubernetes/apps/**/*.md
 kubernetes/apps/**/*.txt
 .playwright-mcp/
+
+# Continuous Claude cache (local only)
+.claude/cache/

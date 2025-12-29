@@ -33,7 +33,7 @@ spec:
     namespace: security
     createNamespace: false
     sizing:
-      profile: "M"
+      profile: "S"
       storageClassName: openebs-hostpath
     cluster:
       name: wazuh
@@ -44,7 +44,7 @@ spec:
             enabled: true
     opensearchRepository:
       enabled: true
-      name: minio-backups
+      name: s3-backups
       spec:
         type: s3
         settings:
@@ -64,7 +64,7 @@ spec:
       spec:
         description: "Daily automated snapshots"
         repository:
-          name: minio-backups
+          name: s3-backups
         snapshotConfig:
           indices:
             - "wazuh-alerts-*"
