@@ -40,6 +40,7 @@ spec:
       spec:
         version: "4.14.1"
         indexer:
+          javaOpts: "-Xms1g -Xmx1g -Dlog4j2.formatMsgNoLookups=true -Dopensearch.path.conf=/usr/share/wazuh-indexer"
           env:
             - name: OPENSEARCH_PATH_CONF
               value: /usr/share/wazuh-indexer
