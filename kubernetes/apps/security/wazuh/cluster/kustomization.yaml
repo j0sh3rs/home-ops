@@ -6,3 +6,5 @@ resources:
   - ./ocirepository.yaml
   - ./secret.sops.yaml
   - ./helmrelease.yaml
+patchesStrategicMerge:
+  - ./indexer-config-path-patch.yaml

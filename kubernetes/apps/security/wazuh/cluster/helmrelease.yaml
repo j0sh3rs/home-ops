@@ -42,6 +42,10 @@ spec:
         tls:
           hotReload:
             enabled: true
+    indexer:
+      env:
+        - name: OPENSEARCH_PATH_CONF
+          value: /usr/share/wazuh-indexer
     opensearchRepository:
       enabled: true
       name: s3-backups
