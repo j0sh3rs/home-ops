@@ -42,7 +42,7 @@ spec:
         indexer:
           env:
             - name: OPENSEARCH_PATH_CONF
-              value: /tmp/config
+              value: /usr/share/wazuh-indexer
         tls:
           hotReload:
             enabled: true
