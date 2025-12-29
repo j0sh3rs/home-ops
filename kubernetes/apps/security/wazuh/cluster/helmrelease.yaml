@@ -40,10 +40,23 @@ spec:
       spec:
         version: "4.14.1"
         indexer:
-          javaOpts: "-Xms1g -Xmx1g -Dlog4j2.formatMsgNoLookups=true -Dopensearch.path.conf=/usr/share/wazuh-indexer"
-          env:
-            - name: OPENSEARCH_PATH_CONF
-              value: /usr/share/wazuh-indexer
+          initContainers:
+            - name: copy-operator-config
+              image: busybox:stable
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  echo "Copying operator-mounted config and certs to expected location..."
+                  cp /usr/share/wazuh-indexer/opensearch.yml /usr/share/wazuh-indexer/config/opensearch.yml
+                  cp -r /usr/share/wazuh-indexer/certs/* /usr/share/wazuh-indexer/config/certs/
+                  echo "Config and certs copied successfully"
+                  ls -la /usr/share/wazuh-indexer/config/
+                  ls -la /usr/share/wazuh-indexer/config/certs/
+              volumeMounts:
+                - name: wazuh-indexer
+                  mountPath: /usr/share/wazuh-indexer
         tls:
           hotReload:
             enabled: true
