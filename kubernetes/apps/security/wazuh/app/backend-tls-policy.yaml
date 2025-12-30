@@ -9,7 +9,7 @@ spec:
     - group: ""
       kind: Service
       name: wazuh-dashboard
-      sectionName: "443"
+      sectionName: "dashboard"
   validation:
     caCertificateRefs:
       - name: wazuh-dashboard-ca
