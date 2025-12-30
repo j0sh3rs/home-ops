@@ -40,8 +40,6 @@ servers:
       - name: prometheus
         parameters: 0.0.0.0:9153
       - name: log
-        configBlock: |-
-          class error
 affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
