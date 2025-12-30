@@ -34,3 +34,4 @@ compatibility.override_main_response_version: true
 s3.client.default.endpoint: s3.68cc.io
 s3.client.default.protocol: https
 s3.client.default.path_style_access: true
+s3.client.default.region: us-east-1
