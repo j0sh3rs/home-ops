@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-decoder
+  namespace: security
+data:
+  coredns_decoder.xml: |
+    <decoder name="coredns-k8s">
+      <prematch>^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z stdout F \[INFO\]</prematch>
+      <regex offset="after_prematch">^\s+(\S+:\d+) - (\d+) "(\S+) IN (\S+)\. (\w+)</regex>
+      <order>srcip, id, query_type, query_domain, protocol</order>
+    </decoder>

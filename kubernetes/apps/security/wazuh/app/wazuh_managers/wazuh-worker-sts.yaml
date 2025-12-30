@@ -41,6 +41,9 @@ spec:
         - name: config
           configMap:
             name: wazuh-conf
+        - name: coredns-decoder
+          configMap:
+            name: coredns-decoder
         - name: filebeat-certs
           secret:
             secretName: wazuh-secrets
@@ -86,6 +89,10 @@ spec:
             - name: config
               mountPath: /wazuh-config-mount/etc/rules/local_rules.xml
               subPath: local_rules.xml
+              readOnly: true
+            - name: coredns-decoder
+              mountPath: /var/ossec/etc/decoders/coredns_decoder.xml
+              subPath: coredns_decoder.xml
               readOnly: true
             - name: filebeat-certs
               mountPath: /etc/ssl/root-ca.pem
