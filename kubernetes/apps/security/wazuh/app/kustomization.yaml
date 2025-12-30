@@ -1,0 +1,30 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: security
+
+configMapGenerator:
+  - name: indexer-conf
+    files:
+      - indexer_stack/wazuh-indexer/indexer_conf/opensearch.yml
+      - indexer_stack/wazuh-indexer/indexer_conf/internal_users.yml
+  - name: wazuh-conf
+    files:
+      - wazuh_managers/wazuh_conf/master.conf
+      - wazuh_managers/wazuh_conf/worker.conf
+  - name: dashboard-conf
+    files:
+      - indexer_stack/wazuh-dashboard/dashboard_conf/opensearch_dashboards.yml
+
+resources:
+  - ./secret.sops.yaml
+  - ./wazuh_managers/wazuh-cluster-svc.yaml
+  - ./wazuh_managers/wazuh-master-svc.yaml
+  - ./wazuh_managers/wazuh-workers-svc.yaml
+  - ./wazuh_managers/wazuh-master-sts.yaml
+  - ./wazuh_managers/wazuh-worker-sts.yaml
+  - ./indexer_stack/wazuh-indexer/indexer-svc.yaml
+  - ./indexer_stack/wazuh-indexer/cluster/indexer-api-svc.yaml
+  - ./indexer_stack/wazuh-indexer/cluster/indexer-sts.yaml
+  - ./indexer_stack/wazuh-dashboard/dashboard-svc.yaml
+  - ./indexer_stack/wazuh-dashboard/dashboard-deploy.yaml

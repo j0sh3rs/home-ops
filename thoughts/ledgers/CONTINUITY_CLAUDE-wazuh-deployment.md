@@ -81,6 +81,11 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
 
 ## Agent Reports
 
+### onboard (2025-12-30T01:33:22.562Z)
+- Task:
+- Summary:
+- Output: `.claude/cache/agents/onboard/latest-output.md`
+
 ### onboard (2025-12-29T18:04:45.213Z)
 - Task:
 - Summary:
