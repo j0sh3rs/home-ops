@@ -89,11 +89,11 @@ spec:
               subPath: indexerRootCaPem
             - name: filebeat-certs
               mountPath: /etc/ssl/filebeat.pem
-              subPath: filebeatPem
+              subPath: indexerFilebeatPem
               readOnly: true
             - name: filebeat-certs
               mountPath: /etc/ssl/filebeat.key
-              subPath: filebeatKeyPem
+              subPath: indexerFilebeatKeyPem
               readOnly: true
             - name: wazuh-manager-worker
               mountPath: /var/ossec/api/configuration
