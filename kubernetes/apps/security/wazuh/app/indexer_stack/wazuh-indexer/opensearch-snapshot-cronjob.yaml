@@ -30,8 +30,9 @@ spec:
                   RETENTION_DAYS=30
 
                   echo "Creating snapshot: ${SNAPSHOT_NAME}"
-                  curl -sk -u "${CREDS}" -X PUT \
-                    "${OPENSEARCH_URL}/_snapshot/wazuh-s3-snapshots/${SNAPSHOT_NAME}?wait_for_completion=true" \
+                  # Start snapshot without waiting (avoids curl timeout issues)
+                  curl -sk --connect-timeout 30 -u "${CREDS}" -X PUT \
+                    "${OPENSEARCH_URL}/_snapshot/wazuh-s3-snapshots/${SNAPSHOT_NAME}" \
                     -H "Content-Type: application/json" \
                     -d '{
                       "indices": "wazuh-*",
@@ -40,14 +41,40 @@ spec:
                     }'
 
                   echo ""
-                  echo "Snapshot ${SNAPSHOT_NAME} completed"
+                  echo "Waiting for snapshot to complete..."
+
+                  # Poll for snapshot completion (max 5 minutes)
+                  TIMEOUT=300
+                  ELAPSED=0
+                  while [ $ELAPSED -lt $TIMEOUT ]; do
+                    STATE=$(curl -sk --connect-timeout 10 -u "${CREDS}" \
+                      "${OPENSEARCH_URL}/_snapshot/wazuh-s3-snapshots/${SNAPSHOT_NAME}" | \
+                      grep -oE '"state"\s*:\s*"[A-Z]+"' | head -1 | sed 's/.*"state"\s*:\s*"//;s/"$//')
+
+                    if [ "$STATE" = "SUCCESS" ]; then
+                      echo "Snapshot ${SNAPSHOT_NAME} completed successfully"
+                      break
+                    elif [ "$STATE" = "FAILED" ] || [ "$STATE" = "PARTIAL" ]; then
+                      echo "Snapshot ${SNAPSHOT_NAME} failed with state: ${STATE}"
+                      exit 1
+                    fi
+
+                    sleep 5
+                    ELAPSED=$((ELAPSED + 5))
+                    echo "Snapshot state: ${STATE:-IN_PROGRESS}, elapsed: ${ELAPSED}s"
+                  done
+
+                  if [ $ELAPSED -ge $TIMEOUT ]; then
+                    echo "Snapshot timed out after ${TIMEOUT}s"
+                    exit 1
+                  fi
 
                   # Cleanup old snapshots
                   echo "Cleaning up snapshots older than ${RETENTION_DAYS} days..."
                   CUTOFF_DATE=$(date -d "-${RETENTION_DAYS} days" +%Y%m%d 2>/dev/null || date -v-${RETENTION_DAYS}d +%Y%m%d)
 
                   # Get list of snapshots
-                  SNAPSHOTS=$(curl -sk -u "${CREDS}" \
+                  SNAPSHOTS=$(curl -sk --connect-timeout 30 -u "${CREDS}" \
                     "${OPENSEARCH_URL}/_snapshot/wazuh-s3-snapshots/_all" | \
                     grep -oE '"snapshot"\s*:\s*"daily-[0-9]+-[0-9]+"' | \
                     sed 's/"snapshot"\s*:\s*"//;s/"$//' || true)
@@ -57,7 +84,7 @@ spec:
                     SNAP_DATE=$(echo "${SNAP}" | grep -oE '[0-9]{8}' | head -1)
                     if [ -n "${SNAP_DATE}" ] && [ "${SNAP_DATE}" -lt "${CUTOFF_DATE}" ]; then
                       echo "Deleting old snapshot: ${SNAP}"
-                      curl -sk -u "${CREDS}" -X DELETE \
+                      curl -sk --connect-timeout 30 -u "${CREDS}" -X DELETE \
                         "${OPENSEARCH_URL}/_snapshot/wazuh-s3-snapshots/${SNAP}" || true
                     fi
                   done
