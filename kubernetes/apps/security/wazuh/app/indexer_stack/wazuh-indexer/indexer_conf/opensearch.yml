@@ -24,8 +24,13 @@ plugins.security.enable_snapshot_restore_privilege: true
 plugins.security.nodes_dn:
   - CN=indexer,O=Company,L=California,C=US
 plugins.security.restapi.roles_enabled:
-- "all_access"
-- "security_rest_api_access"
+  - "all_access"
+  - "security_rest_api_access"
 plugins.security.allow_default_init_securityindex: true
 cluster.routing.allocation.disk.threshold_enabled: false
 compatibility.override_main_response_version: true
+
+# S3 Repository Configuration (Minio at s3.68cc.io)
+s3.client.default.endpoint: s3.68cc.io
+s3.client.default.protocol: https
+s3.client.default.path_style_access: true
