@@ -132,7 +132,7 @@ spec:
               mountPath: /agent
             - name: wazuh-authd-pass
               mountPath: /secret/authd.pass
-              subPath: wazuhAuthdPassword
+              subPath: wazuhAuthdPass
               readOnly: true
       containers:
         - name: wazuh-agent
