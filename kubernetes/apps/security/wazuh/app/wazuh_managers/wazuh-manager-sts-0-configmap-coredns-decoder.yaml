@@ -9,7 +9,7 @@ data:
     <!-- CoreDNS decoder for Kubernetes pod log format -->
     <decoder name="coredns-k8s">
       <program_name>coredns</program_name>
-      <prematch>^[0-9]+-[0-9]+-[0-9]+T[0-9]+:[0-9]+:[0-9]+.[0-9]+Z stdout F \[INFO\]</prematch>
+      <prematch>stdout F \[INFO\]</prematch>
     </decoder>
 
     <decoder name="coredns-k8s-query">
