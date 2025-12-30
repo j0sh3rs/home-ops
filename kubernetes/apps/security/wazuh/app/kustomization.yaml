@@ -30,6 +30,7 @@ resources:
   - ./indexer_stack/wazuh-indexer/opensearch-snapshot-cronjob.yaml
   - ./indexer_stack/wazuh-dashboard/dashboard-svc.yaml
   - ./indexer_stack/wazuh-dashboard/dashboard-deploy.yaml
+  - ./wazuh-agent.yaml
   - ./httproute.yaml
   - ./backend-tls-ca.yaml
   - ./backend-tls-policy.yaml

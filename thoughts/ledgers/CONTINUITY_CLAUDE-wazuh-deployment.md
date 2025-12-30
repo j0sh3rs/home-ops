@@ -1,6 +1,6 @@
 # Session: wazuh-deployment
 
-Updated: 2025-12-29T19:30:00Z
+Updated: 2025-12-30T18:35:00Z
 
 ## Goal
 
@@ -19,7 +19,7 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
 
 ## Constraints
 
-- Must follow home-ops patterns: FluxCD + HelmRelease + OCIRepository
+- Must follow home-ops patterns: FluxCD + Kustomize flat manifests (converted from HelmRelease)
 - SOPS-encrypted secrets for S3 credentials
 - Use existing Minio S3 endpoint: https://s3.68cc.io
 - OpenEBS LocalPV storage for runtime data
@@ -30,68 +30,128 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
 ## Key Decisions
 
 - Using Wazuh v4.14.1 (current stable)
+- **Converted to Kustomize flat deployment** (from Helm) for better control
 - Dual backup strategy: OpenSearch snapshots (indices) + Wazuh manager backups (config/databases)
 - S3 bucket: wazuh-backups with separate prefixes for opensearch/ and manager/
-- Daily backup schedule: 02:00 EST for consistency with other backups
+- Daily backup schedule: 02:00 EST (07:00 UTC) for consistency with other backups
 - 30-day retention for OpenSearch snapshots, 14-day for manager backups
-- Hot-reload TLS enabled for certificate rotation
 
 ## State
 
 - Done:
-    - HelmRelease configuration with S3 backup setup
-    - OpenSearch snapshot repository and policy configured
-    - Wazuh manager backup configuration completed
-    - Verified wazuh-secrets exists (SOPS-encrypted with S3 credentials)
-    - Confirmed wazuh-backups bucket exists in RustFS at s3.68cc.io
-    - Validated S3 credentials are correct and working
-    - Created 2 commits: 46fbdd2 (gitignore) and 9f3bd38 (wazuh config)
-- Now: **Debug wazuh-dashboard TLS verification failure**
+    - [x] Wazuh Kustomize deployment configured and running
+    - [x] OpenSearch indexer cluster (3 replicas) - GREEN status
+    - [x] Wazuh manager master + 2 workers deployed and healthy
+    - [x] Wazuh dashboard accessible at wazuh.68cc.io
+    - [x] Verified wazuh-secrets exists (SOPS-encrypted with S3 credentials)
+    - [x] Confirmed wazuh-backups bucket exists in RustFS at s3.68cc.io
+    - [x] Validated DNS resolution and API connectivity
+    - [x] Data flowing: wazuh-alerts-4.x-2025.12.30
+    - [x] TLS issue resolved (was transient DNS caching during pod restarts)
+    - [x] Created S3 backup implementation plan
+    - [x] **Phase 1**: Install repository-s3 plugin via InitContainer on indexer StatefulSet
+    - [x] **Phase 2**: Register S3 snapshot repository via Job
+    - [x] **Phase 3**: Create OpenSearch snapshot CronJob (02:00 EST, 30-day retention)
+    - [x] **Phase 4**: Create Wazuh manager backup CronJob (02:05 EST, 14-day retention)
+    - [x] **Phase 5**: Verified backup functionality - both CronJobs tested successfully
+- Now: [→] **S3 Backup Implementation COMPLETE**
 - Next:
-    1. Complete Wazuh deployment (resolve TLS issue)
-    2. Validate backup functionality
-    3. **Monitoring/Alerting Refinement Phase**:
-        - Review available Grafana/Prometheus dashboards
-        - Identify monitoring gaps
-        - Ensure strong foundation for alerts
-        - Configure alerting for family safety use cases
+    - [ ] Monitoring/Alerting refinement phase
+    - [ ] Agent enrollment and log collection setup
+    - [ ] Dashboard customization for home security use cases
+
+## Backup System Verified (2025-12-30)
+
+### OpenSearch Snapshots
+
+- **CronJob**: `opensearch-snapshot` (daily at 02:00 EST / 07:00 UTC)
+- **Repository**: `wazuh-s3-snapshots` in S3 bucket `wazuh-backups/opensearch/`
+- **Retention**: 30 days
+- **Status**: 7 successful snapshots verified
+- **Key fixes applied**:
+    - Replaced `wait_for_completion=true` with polling loop (curl timeout issue)
+    - BusyBox-compatible date commands for epoch math
+
+### Manager Backups
+
+- **CronJob**: `wazuh-manager-backup` (daily at 02:05 EST / 07:05 UTC)
+- **Target**: S3 bucket `wazuh-backups/manager/`
+- **Retention**: 14 days
+- **Archive Size**: ~565KB (config, rules, decoders, databases)
+- **Key fixes applied**:
+    - Changed from amazon/aws-cli to alpine:3.21 (tar command missing)
+    - Fixed PVC mount path (raw PVC with `wazuh/var/ossec/` prefix)
+
+### CronJob Summary
+
+```
+NAME                   SCHEDULE    TIMEZONE           SUSPEND   ACTIVE
+opensearch-snapshot    0 7 * * *   America/New_York   False     0
+wazuh-manager-backup   5 7 * * *   America/New_York   False     0
+```
+
+## OpenSearch Cluster Status
+
+```
+Cluster: GREEN
+- Nodes: 3/3 active
+- Shards: 33 active (100%)
+- Indices: wazuh-alerts-*, wazuh-states-inventory-*, wazuh-monitoring-*
+- Snapshots: 7 successful in S3 repository
+```
+
+## Pods Status
+
+```
+All Running 1/1:
+- wazuh-dashboard-5bdfdb494-qq82q
+- wazuh-indexer-0, wazuh-indexer-1, wazuh-indexer-2
+- wazuh-manager-master-0
+- wazuh-manager-worker-0, wazuh-manager-worker-1
+```
 
 ## Open Questions
 
-- UNCONFIRMED: What specific TLS verification error is wazuh-dashboard showing?
-- UNCONFIRMED: Are certificates properly configured for dashboard ingress?
-- UNCONFIRMED: Does dashboard need custom CA trust for Minio S3 endpoint?
+- RESOLVED: TLS verification failure was transient DNS caching during restarts
+- CONFIRMED: Dashboard uses DNS name wazuh-manager-master-0.wazuh-cluster for API
+- CONFIRMED: S3 credentials available in wazuh-secrets (accessKeyId, secretAccessKey)
 
 ## Working Set
 
 - Branch: `main`
 - Key files:
-    - `kubernetes/apps/security/wazuh/cluster/helmrelease.yaml`
-    - `kubernetes/apps/security/wazuh/cluster/secret.sops.yaml`
-    - `.gitignore`
-- Debug commands:
-    - `kubectl get pods -n security --context home` (check pod status)
-    - `kubectl logs -n security -l app=wazuh-dashboard --context home` (dashboard logs)
-    - `kubectl describe pod -n security -l app=wazuh-dashboard --context home` (pod events)
-    - `kubectl get ingress -n security --context home` (ingress config)
-    - `kubectl get certificates -n security --context home` (cert-manager status)
+    - `kubernetes/apps/security/wazuh/app/` - Kustomize deployment
+    - `kubernetes/apps/security/wazuh/app/indexer_stack/wazuh-indexer/cluster/indexer-sts.yaml` - S3 plugin InitContainer
+    - `kubernetes/apps/security/wazuh/app/indexer_stack/wazuh-indexer/opensearch-snapshot-cronjob.yaml` - Snapshot CronJob
+    - `kubernetes/apps/security/wazuh/app/wazuh_managers/wazuh-backup-cronjob.yaml` - Manager backup CronJob
+    - `kubernetes/apps/security/wazuh/app/secret.sops.yaml`
+- **Implementation Plan**: `thoughts/shared/plans/2025-12-30-wazuh-s3-backups.md`
+- Verify commands:
+    - `kubectl get cronjobs -n security --context home`
+    - `kubectl exec -n security wazuh-indexer-0 --context home -- curl -sk -u admin:***REDACTED*** 'https://localhost:9200/_snapshot/wazuh-s3-snapshots/_all'`
+    - `kubectl logs -n security -l job-name=opensearch-snapshot-XXXXX --context home`
 - Deploy commands:
-    - `task reconcile` (force Flux sync)
-    - `flux reconcile ks wazuh-cluster --with-source --context home`
+    - `flux reconcile ks wazuh -n security --with-source --context home`
 
 ## Agent Reports
 
+### implementation-agent (2025-12-30T18:35:00Z)
+
+- Task: Implement S3 backup system (5 phases)
+- Summary: All phases completed successfully with bug fixes for:
+    - OpenSearch snapshot API timeout (polling instead of wait_for_completion)
+    - BusyBox date command compatibility (epoch math)
+    - Manager backup image missing tar (alpine:3.21)
+    - PVC mount path structure (wazuh/var/ossec/ prefix)
+- Output: Both CronJobs deployed and verified working
+
+### plan-agent (2025-12-30T16:30:00Z)
+
+- Task: Create S3 backup implementation plan
+- Summary: 5-phase plan for OpenSearch snapshots and manager backups
+- Output: `thoughts/shared/plans/2025-12-30-wazuh-s3-backups.md`
+
 ### onboard (2025-12-30T01:33:22.562Z)
-- Task:
-- Summary:
-- Output: `.claude/cache/agents/onboard/latest-output.md`
-
-### onboard (2025-12-29T18:04:45.213Z)
-- Task:
-- Summary:
-- Output: `.claude/cache/agents/onboard/latest-output.md`
-
-### onboard (2025-12-29T17:49:59.031Z)
 
 - Task: Initial project analysis
 - Summary: Tech stack detected, user goals documented
