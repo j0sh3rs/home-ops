@@ -65,3 +65,65 @@
   </rule>
 
 </group>
+
+<!--
+  Rule 2: Suspicious DNS Queries
+  - Detects queries to known malicious domains
+  - Detects cryptocurrency mining pool queries
+  - Maps to MITRE ATT&CK T1071.004 (C2: DNS)
+-->
+<group name="local,dns,">
+
+  <!-- Base rule: CoreDNS query log entry -->
+  <rule id="100010" level="3">
+    <match>coredns</match>
+    <match> IN </match>
+    <description>CoreDNS: DNS query detected</description>
+    <group>dns_query,</group>
+  </rule>
+
+  <!-- Malicious domain query (uses CDB list) -->
+  <rule id="100011" level="10">
+    <if_sid>100010</if_sid>
+    <list field="url" lookup="address_match_key">etc/lists/malicious_domains</list>
+    <description>DNS: Query to known malicious domain - $(url)</description>
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+    <group>dns_malicious,command_and_control,pci_dss_11.4,gdpr_IV_35.7.d,</group>
+  </rule>
+
+  <!-- Cryptocurrency mining pool query -->
+  <rule id="100012" level="8">
+    <if_sid>100010</if_sid>
+    <match>coinhive.com|coin-hive.com|crypto-loot.com|deepminer.net|webminepool|monerominer.rocks|ppoi.org|2giga.link|joyreactor.cc</match>
+    <description>DNS: Query to cryptocurrency mining pool - Potential cryptojacking</description>
+    <mitre>
+      <id>T1496</id>
+    </mitre>
+    <group>dns_cryptomining,resource_hijacking,</group>
+  </rule>
+
+  <!-- Suspicious long subdomain (potential DNS tunneling) -->
+  <rule id="100013" level="8">
+    <if_sid>100010</if_sid>
+    <regex type="pcre2">\w{50,}\.[\w\.-]+\s+IN</regex>
+    <description>DNS: Suspiciously long subdomain - Potential DNS tunneling</description>
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+    <group>dns_tunneling,data_exfiltration,</group>
+  </rule>
+
+  <!-- Multiple queries to same malicious domain (persistence check) -->
+  <rule id="100014" level="12" frequency="3" timeframe="300">
+    <if_matched_sid>100011</if_matched_sid>
+    <same_source_ip />
+    <description>DNS: Repeated queries to malicious domain - $(url) - Persistent C2 activity</description>
+    <mitre>
+      <id>T1071.004</id>
+    </mitre>
+    <group>dns_malicious,command_and_control,persistence,</group>
+  </rule>
+
+</group>

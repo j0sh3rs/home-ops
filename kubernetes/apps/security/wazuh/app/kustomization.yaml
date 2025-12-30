@@ -13,6 +13,7 @@ configMapGenerator:
       - wazuh_managers/wazuh_conf/master.conf
       - wazuh_managers/wazuh_conf/worker.conf
       - wazuh_managers/wazuh_conf/local_rules.xml
+      - wazuh_managers/wazuh_conf/malicious_domains
   - name: dashboard-conf
     files:
       - indexer_stack/wazuh-dashboard/dashboard_conf/opensearch_dashboards.yml
