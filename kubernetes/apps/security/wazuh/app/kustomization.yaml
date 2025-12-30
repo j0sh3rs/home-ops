@@ -25,6 +25,7 @@ resources:
   - ./wazuh_managers/wazuh-master-sts.yaml
   - ./wazuh_managers/wazuh-worker-sts.yaml
   - ./wazuh_managers/wazuh-backup-cronjob.yaml
+  - ./wazuh_managers/wazuh-manager-sts-0-configmap-coredns-decoder.yaml
   - ./indexer_stack/wazuh-indexer/indexer-svc.yaml
   - ./indexer_stack/wazuh-indexer/cluster/indexer-api-svc.yaml
   - ./indexer_stack/wazuh-indexer/cluster/indexer-sts.yaml
