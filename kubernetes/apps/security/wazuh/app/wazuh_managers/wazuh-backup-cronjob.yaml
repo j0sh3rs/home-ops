@@ -20,7 +20,7 @@ spec:
           containers:
             - name: backup
               # Use alpine with aws-cli - has tar built-in
-              image: alpine:3.21
+              image: alpine:3.23
               command:
                 - /bin/sh
                 - -c
