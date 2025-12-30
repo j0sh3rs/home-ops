@@ -89,6 +89,8 @@ spec:
               chmod 644 /keystore/opensearch.keystore
               echo "S3 plugin and keystore setup complete"
           env:
+            - name: OPENSEARCH_PATH_CONF
+              value: /usr/share/wazuh-indexer/config
             - name: S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
