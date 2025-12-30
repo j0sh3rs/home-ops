@@ -19,7 +19,7 @@ spec:
           serviceAccountName: default
           containers:
             - name: backup
-              image: amazon/aws-cli:2.22.35
+              image: amazon/aws-cli:2.32.25
               command:
                 - /bin/sh
                 - -c
