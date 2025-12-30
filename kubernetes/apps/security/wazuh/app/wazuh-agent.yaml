@@ -106,6 +106,53 @@ spec:
                     <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>
                   </enrollment>
                 </client>
+
+                <!-- Host system logs -->
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/syslog</location>
+                </localfile>
+
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/messages</location>
+                </localfile>
+
+                <!-- Authentication and authorization logs -->
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/auth.log</location>
+                </localfile>
+
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/secure</location>
+                </localfile>
+
+                <!-- Kernel logs -->
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/kern.log</location>
+                </localfile>
+
+                <!-- Audit logs -->
+                <localfile>
+                  <log_format>audit</log_format>
+                  <location>/var/log/audit/audit.log</location>
+                </localfile>
+
+                <!-- Kubernetes container logs -->
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/pods/*/*/*.log</location>
+                </localfile>
+
+                <!-- Containerd logs -->
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/containerd.log</location>
+                </localfile>
+
               </ossec_config>
               EOF
 
