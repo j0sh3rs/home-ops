@@ -17,7 +17,7 @@ spec:
       terminationGracePeriodSeconds: 20
       initContainers:
         - name: cleanup-ossec-stale
-          image: busybox:1.36
+          image: busybox:1.37
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-lc"]
           args:
@@ -48,7 +48,7 @@ spec:
             - name: ossec-data
               mountPath: /agent
         - name: fix-permissions
-          image: busybox:1.36
+          image: busybox:1.37
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-lc"]
           args:
@@ -64,7 +64,7 @@ spec:
             - name: ossec-data
               mountPath: /agent
         - name: write-ossec-config
-          image: busybox:1.36
+          image: busybox:1.37
           imagePullPolicy: IfNotPresent
           env:
             - name: WAZUH_MANAGER
@@ -115,7 +115,7 @@ spec:
             - name: ossec-data
               mountPath: /agent
         - name: fix-authd-pass-perms
-          image: busybox:1.36
+          image: busybox:1.37
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-lc"]
           args:
