@@ -6,8 +6,14 @@ metadata:
   namespace: security
 data:
   coredns_decoder.xml: |
+    <!-- CoreDNS decoder for Kubernetes pod log format -->
     <decoder name="coredns-k8s">
+      <program_name>coredns</program_name>
       <prematch>^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z stdout F \[INFO\]</prematch>
-      <regex offset="after_prematch">^\s+(\S+:\d+) - (\d+) "(\S+) IN (\S+)\. (\w+)</regex>
+    </decoder>
+
+    <decoder name="coredns-k8s-query">
+      <parent>coredns-k8s</parent>
+      <regex offset="after_parent">^\s*(\S+:\d+) - (\d+) "(\S+) IN (\S+)\. (\w+)</regex>
       <order>srcip, id, query_type, query_domain, protocol</order>
     </decoder>
