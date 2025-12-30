@@ -1,0 +1,72 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: opensearch-snapshot
+  namespace: security
+spec:
+  # 02:00 EST = 07:00 UTC
+  schedule: "0 7 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: snapshot
+              image: curlimages/curl:8.11.1
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  OPENSEARCH_URL="https://wazuh-indexer:9200"
+                  CREDS="admin:SecretPassword"
+                  SNAPSHOT_NAME="daily-$(date +%Y%m%d-%H%M%S)"
+                  RETENTION_DAYS=30
+
+                  echo "Creating snapshot: ${SNAPSHOT_NAME}"
+                  curl -sk -u "${CREDS}" -X PUT \
+                    "${OPENSEARCH_URL}/_snapshot/wazuh-s3-snapshots/${SNAPSHOT_NAME}?wait_for_completion=true" \
+                    -H "Content-Type: application/json" \
+                    -d '{
+                      "indices": "wazuh-*",
+                      "ignore_unavailable": true,
+                      "include_global_state": false
+                    }'
+
+                  echo ""
+                  echo "Snapshot ${SNAPSHOT_NAME} completed"
+
+                  # Cleanup old snapshots
+                  echo "Cleaning up snapshots older than ${RETENTION_DAYS} days..."
+                  CUTOFF_DATE=$(date -d "-${RETENTION_DAYS} days" +%Y%m%d 2>/dev/null || date -v-${RETENTION_DAYS}d +%Y%m%d)
+
+                  # Get list of snapshots
+                  SNAPSHOTS=$(curl -sk -u "${CREDS}" \
+                    "${OPENSEARCH_URL}/_snapshot/wazuh-s3-snapshots/_all" | \
+                    grep -oE '"snapshot"\s*:\s*"daily-[0-9]+-[0-9]+"' | \
+                    sed 's/"snapshot"\s*:\s*"//;s/"$//' || true)
+
+                  for SNAP in ${SNAPSHOTS}; do
+                    # Extract date from snapshot name (daily-YYYYMMDD-HHMMSS)
+                    SNAP_DATE=$(echo "${SNAP}" | grep -oE '[0-9]{8}' | head -1)
+                    if [ -n "${SNAP_DATE}" ] && [ "${SNAP_DATE}" -lt "${CUTOFF_DATE}" ]; then
+                      echo "Deleting old snapshot: ${SNAP}"
+                      curl -sk -u "${CREDS}" -X DELETE \
+                        "${OPENSEARCH_URL}/_snapshot/wazuh-s3-snapshots/${SNAP}" || true
+                    fi
+                  done
+
+                  echo "Snapshot job completed successfully"
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
