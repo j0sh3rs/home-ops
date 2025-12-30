@@ -6,13 +6,13 @@ metadata:
   namespace: security
 spec:
   targetRefs:
-  - group: ''
-    kind: Service
-    name: wazuh-dashboard
-    sectionName: "443"
+    - group: ""
+      kind: Service
+      name: wazuh-dashboard
+      sectionName: "443"
   validation:
     caCertificateRefs:
-    - name: wazuh-dashboard-ca
-      group: ''
-      kind: ConfigMap
-    hostname: wazuh-dashboard.security.svc.cluster.local
+      - name: wazuh-dashboard-ca
+        group: ""
+        kind: ConfigMap
+    hostname: dashboard
