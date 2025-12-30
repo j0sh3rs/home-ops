@@ -29,3 +29,5 @@ resources:
   - ./indexer_stack/wazuh-dashboard/dashboard-svc.yaml
   - ./indexer_stack/wazuh-dashboard/dashboard-deploy.yaml
   - ./httproute.yaml
+  - ./backend-tls-ca.yaml
+  - ./backend-tls-policy.yaml
