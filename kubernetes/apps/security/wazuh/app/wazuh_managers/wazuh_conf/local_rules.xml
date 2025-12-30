@@ -82,11 +82,11 @@
     <group>dns_query,</group>
   </rule>
 
-  <!-- Malicious domain query (uses CDB list) -->
+  <!-- Malicious domain query (pattern matching) -->
   <rule id="100011" level="10">
     <if_sid>100010</if_sid>
-    <list field="url" lookup="address_match_key">etc/lists/malicious_domains</list>
-    <description>DNS: Query to known malicious domain - $(url)</description>
+    <match>evil.com|badactor.net|malicious-c2.com|phishing-site.org|ransomware-c2.net|botnet-controller.com</match>
+    <description>DNS: Query to known malicious domain - Potential C2 communication</description>
     <mitre>
       <id>T1071.004</id>
     </mitre>
