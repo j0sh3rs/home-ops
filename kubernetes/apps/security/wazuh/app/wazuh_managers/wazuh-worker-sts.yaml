@@ -83,6 +83,10 @@ spec:
               mountPath: /wazuh-config-mount/etc/ossec.conf
               subPath: worker.conf
               readOnly: true
+            - name: config
+              mountPath: /wazuh-config-mount/etc/rules/local_rules.xml
+              subPath: local_rules.xml
+              readOnly: true
             - name: filebeat-certs
               mountPath: /etc/ssl/root-ca.pem
               readOnly: true
