@@ -54,11 +54,90 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
     - [x] **Phase 3**: Create OpenSearch snapshot CronJob (02:00 EST, 30-day retention)
     - [x] **Phase 4**: Create Wazuh manager backup CronJob (02:05 EST, 14-day retention)
     - [x] **Phase 5**: Verified backup functionality - both CronJobs tested successfully
-- Now: [→] **S3 Backup Implementation COMPLETE**
+    - [x] **Agent Deployment**: Wazuh agents running on all 3 nodes (bee-jms-01, bee-jms-02, bee-jms-03)
+    - [x] **Agent Registration**: All agents successfully registered with manager (Agent IDs 001-003)
+    - [x] **Agent Communication**: All agents connected to wazuh-workers (port 1514), data flowing
+    - [x] **Syslog TCP Listener**: Configured on port 514 for external device logs (UDM Pro)
+    - [x] **Agent Log Collection**: Comprehensive log collection configured (host logs, K8s pods, security events)
+- Now: [→] **AGENT LOG COLLECTION OPERATIONAL** - All agents collecting logs from pods and hosts
 - Next:
-    - [ ] Monitoring/Alerting refinement phase
-    - [ ] Agent enrollment and log collection setup
+    - [ ] Monitoring/Alerting rules for security events
     - [ ] Dashboard customization for home security use cases
+    - [ ] Integration with external tools (alerts, notifications)
+
+## Agent Deployment Complete (2025-12-30)
+
+### Agent DaemonSet Configuration
+
+- **Deployment**: DaemonSet running on all 3 Kubernetes nodes
+- **Image**: wazuh/wazuh-agent:4.14.1
+- **Registration**: Automatic via authd protocol (port 1515)
+- **Communication**: TCP connection to wazuh-workers (port 1514)
+- **Secret**: Uses `wazuh-secrets` SOPS-encrypted secret with `wazuhAuthdPass` key (8 chars)
+
+### Registered Agents
+
+```
+ID: 001, Name: bee-jms-03, IP: any, Status: Active
+ID: 002, Name: bee-jms-01, IP: any, Status: Active
+ID: 003, Name: bee-jms-02, IP: any, Status: Active
+```
+
+### Agent Components Running
+
+- **wazuh-agentd**: Main agent daemon - connected to manager
+- **wazuh-execd**: Active response module
+- **wazuh-logcollector**: Log collection (ready for configuration)
+- **wazuh-modulesd**: Module management (upgrade, control)
+
+### Key Configuration Fixes Applied
+
+1. **Secret Reference**: Changed from non-existent `wazuh-authd-pass` to existing `wazuh-secrets`
+2. **SubPath Correction**: Fixed `wazuhAuthdPassword` (30 chars) → `wazuhAuthdPass` (8 chars) to match manager
+3. **YAML Separator**: Added `---` document separator for proper Flux recognition
+4. **InitContainers**: 5-stage initialization (cleanup, seed, permissions, config, authd.pass)
+
+### Agent Logs Verification
+
+- ✅ "Valid key received" - successful registration
+- ✅ "Connected to the server ([wazuh-workers]:1514/tcp)" - communication established
+- ✅ All agent modules started successfully
+
+## Log Collection Configuration (2025-12-30)
+
+### Syslog TCP Listener
+
+- **Manager Configuration**: Added syslog listener on port 514 (both master.conf and worker.conf)
+- **Service Exposure**: wazuh-workers service exposes 514/TCP for external syslog
+- **Protocol**: TCP for reliable log delivery
+- **Access**: Open to all IPs (0.0.0.0/0) for UDM Pro and other network devices
+- **Queue Size**: 131072 messages
+
+### Agent Log Collection
+
+**Host System Logs**:
+
+- `/var/log/syslog` - General system logs
+- `/var/log/messages` - System messages
+- `/var/log/kern.log` - Kernel logs
+
+**Security Logs**:
+
+- `/var/log/auth.log` - Authentication events
+- `/var/log/secure` - Security-related logs
+- `/var/log/audit/audit.log` - Linux audit framework logs (audit format)
+
+**Kubernetes Logs**:
+
+- `/var/log/pods/*/*/*.log` - All Kubernetes pod logs (wildcard pattern)
+- `/var/log/containerd.log` - Container runtime logs
+
+### Log Collection Status
+
+- **wazuh-logcollector**: Running on all 3 agents
+- **Active Collection**: Confirmed analyzing pod logs from multiple namespaces
+- **Example Collected**: security/wazuh-indexer, security/wazuh-manager-worker, system-upgrade/tuppr
+- **Configuration**: Loaded successfully via InitContainer-generated ossec.conf
 
 ## Backup System Verified (2025-12-30)
 

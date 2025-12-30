@@ -7,5 +7,5 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  - ./falco
+  # - ./falco
   - ./wazuh/ks.yaml
