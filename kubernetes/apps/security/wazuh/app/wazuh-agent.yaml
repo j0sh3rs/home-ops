@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: wazuh-agent
+  namespace: security
+spec:
+  selector:
+    matchLabels:
+      app: wazuh-agent
+  template:
+    metadata:
+      labels:
+        app: wazuh-agent
+    spec:
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 20
+      initContainers:
+        - name: cleanup-ossec-stale
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Cleaning old locks..."
+              mkdir -p /agent/var/run /agent/queue/ossec
+              rm -f /agent/var/run/*.pid || true
+              rm -f /agent/queue/ossec/*.lock || true
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+        - name: seed-ossec-tree
+          image: wazuh/wazuh-agent:4.14.1
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Checking if seeding is required..."
+              if [ ! -d /agent/bin ]; then
+                echo "[init] Seeding /var/ossec to hostPath..."
+                tar -C /var/ossec -cf - . | tar -C /agent -xpf -
+              else
+                echo "[init] Existing data found, skipping seed"
+              fi
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+        - name: fix-permissions
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Fixing permissions..."
+              for d in etc logs queue var rids tmp "active-response"; do
+                [ -d "/agent/$d" ] && chown -R 999:999 "/agent/$d"
+              done
+              chown -R 0:0 /agent/bin /agent/lib || true
+              find /agent/bin -type f -exec chmod 0755 {} \; || true
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+        - name: write-ossec-config
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WAZUH_MANAGER
+              value: "wazuh-workers"
+            - name: WAZUH_PORT
+              value: "1514"
+            - name: WAZUH_PROTOCOL
+              value: "tcp"
+            - name: WAZUH_REGISTRATION_SERVER
+              value: "wazuh"
+            - name: WAZUH_REGISTRATION_PORT
+              value: "1515"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Writing ossec.conf..."
+              mkdir -p /agent/etc
+
+
+              cat > /agent/etc/ossec.conf <<EOF
+              <ossec_config>
+                <client>
+                  <server>
+                    <address>${WAZUH_MANAGER}</address>
+                    <port>${WAZUH_PORT}</port>
+                    <protocol>${WAZUH_PROTOCOL}</protocol>
+                  </server>
+
+                  <enrollment>
+                    <enabled>yes</enabled>
+                    <agent_name>${NODE_NAME}</agent_name>
+                    <manager_address>${WAZUH_REGISTRATION_SERVER}</manager_address>
+                    <port>${WAZUH_REGISTRATION_PORT}</port>
+                    <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>
+                  </enrollment>
+                </client>
+              </ossec_config>
+              EOF
+
+              chown 999:999 /agent/etc/ossec.conf
+              chmod 0640 /agent/etc/ossec.conf
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+        - name: fix-authd-pass-perms
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Copying authd.pass from Secret..."
+              mkdir -p /agent/etc
+              cp /secret/authd.pass /agent/etc/authd.pass
+              chown 0:999 /agent/etc/authd.pass
+              chmod 0640 /agent/etc/authd.pass
+              ls -l /agent/etc/authd.pass
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+            - name: wazuh-authd-pass
+              mountPath: /secret/authd.pass
+              subPath: wazuhAuthdPassword
+              readOnly: true
+      containers:
+        - name: wazuh-agent
+          image: wazuh/wazuh-agent:4.14.1
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              ln -sf /var/ossec/etc/ossec.conf /etc/ossec.conf || true
+              exec /init
+          env:
+            - name: WAZUH_MANAGER
+              value: "wazuh-workers"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: true
+            capabilities:
+              add: ["SETGID", "SETUID"]
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: containerdsock
+              mountPath: /run/containerd/containerd.sock
+              readOnly: true
+            - name: ossec-data
+              mountPath: /var/ossec
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: containerdsock
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+        - name: ossec-data
+          hostPath:
+            path: /var/lib/wazuh
+            type: DirectoryOrCreate
+        - name: wazuh-authd-pass
+          secret:
+            secretName: wazuh-secrets
