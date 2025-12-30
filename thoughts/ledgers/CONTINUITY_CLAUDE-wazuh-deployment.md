@@ -1,6 +1,6 @@
 # Session: wazuh-deployment
 
-Updated: 2025-12-30T18:35:00Z
+Updated: 2025-12-30T21:46:15.364Z
 
 ## Goal
 
@@ -59,7 +59,8 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
     - [x] **Agent Communication**: All agents connected to wazuh-workers (port 1514), data flowing
     - [x] **Syslog TCP Listener**: Configured on port 514 for external device logs (UDM Pro)
     - [x] **Agent Log Collection**: Comprehensive log collection configured (host logs, K8s pods, security events)
-- Now: [→] **AGENT LOG COLLECTION OPERATIONAL** - All agents collecting logs from pods and hosts
+    - [x] **Dashboard API Issue Resolved**: Fixed invalid queue_size configuration in syslog remote section
+- Now: [→] **WAZUH DEPLOYMENT COMPLETE** - All components operational, agents collecting logs, dashboard accessible
 - Next:
     - [ ] Monitoring/Alerting rules for security events
     - [ ] Dashboard customization for home security use cases
@@ -138,6 +139,54 @@ ID: 003, Name: bee-jms-02, IP: any, Status: Active
 - **Active Collection**: Confirmed analyzing pod logs from multiple namespaces
 - **Example Collected**: security/wazuh-indexer, security/wazuh-manager-worker, system-upgrade/tuppr
 - **Configuration**: Loaded successfully via InitContainer-generated ossec.conf
+
+## Dashboard API Issue Resolution (2025-12-30)
+
+### Issue
+
+- **Symptom**: Dashboard showing "ERROR3099 - Server not ready yet" at https://wazuh.68cc.io/app/server-apis
+- **Dashboard Logs**: `Error: connect ECONNREFUSED 10.43.244.128:55000`
+- **Root Cause**: Manager logs showed `wazuh-remoted: ERROR: Invalid option <queue_size> for Syslog remote connection`
+
+### Analysis
+
+During syslog TCP listener configuration, I incorrectly added `<queue_size>131072</queue_size>` to the syslog remote connection section. According to Wazuh documentation and error logs, the `queue_size` option is ONLY valid for `<connection>secure</connection>` (agent connections), NOT for `<connection>syslog</connection>` (external device logs). This caused wazuh-remoted to crash on startup with a CRITICAL configuration error, preventing the entire manager from functioning and causing the dashboard API to be unreachable.
+
+### Fix Applied
+
+- **Removed** invalid `<queue_size>131072</queue_size>` from syslog remote section in `master.conf`
+- **Removed** invalid `<queue_size>131072</queue_size>` from syslog remote section in `worker.conf`
+- **Kept** `<queue_size>131072</queue_size>` only in secure connection sections where it's valid
+- **Commit**: `fix(wazuh): remove invalid queue_size from syslog remote connection`
+
+### Verification
+
+- ✅ All 3 manager pods restarted successfully
+- ✅ wazuh-remoted now running (was crashing before)
+- ✅ wazuh-apid (manager API) running on port 55000
+- ✅ Dashboard logs show successful 200 responses to `/api/check-stored-api`
+- ✅ Dashboard accessible and functional at https://wazuh.68cc.io
+
+### Configuration Correction
+
+```xml
+<!-- BEFORE (INVALID) -->
+<remote>
+  <connection>syslog</connection>
+  <port>514</port>
+  <protocol>tcp</protocol>
+  <allowed-ips>0.0.0.0/0</allowed-ips>
+  <queue_size>131072</queue_size>  <!-- Invalid for syslog -->
+</remote>
+
+<!-- AFTER (FIXED) -->
+<remote>
+  <connection>syslog</connection>
+  <port>514</port>
+  <protocol>tcp</protocol>
+  <allowed-ips>0.0.0.0/0</allowed-ips>
+</remote>
+```
 
 ## Backup System Verified (2025-12-30)
 
