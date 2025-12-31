@@ -7,13 +7,13 @@ metadata:
 data:
   coredns_decoder.xml: |
     <!-- CoreDNS decoder for Kubernetes pod log format -->
-    <!-- No program_name - K8s pod logs don't have syslog program names -->
+    <!-- Uses prematch to identify CoreDNS logs - no program_name since K8s pod logs are not traditional syslog -->
     <decoder name="coredns-k8s">
-      <prematch type="pcre2">^\d+-\d+-\d+T\d+:\d+:\d+\.\d+Z stdout F \[INFO\] \S+:\d+ - \d+</prematch>
+      <prematch type="pcre2">^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z stdout F \[INFO\] \S+:\d+ - \d+ "</prematch>
     </decoder>
 
     <decoder name="coredns-k8s-query">
       <parent>coredns-k8s</parent>
-      <regex offset="after_parent">^ *(\S+:\d+) - (\d+) "(\S+) IN (\S+)\. (\w+)</regex>
-      <order>srcip, id, query_type, query_domain, protocol</order>
+      <regex offset="after_parent">^(\S+ IN \S+\.\s+\w+)</regex>
+      <order>url</order>
     </decoder>
