@@ -13,7 +13,7 @@ UDM_SSH_HOST="${UDM_SSH_HOST:-udm}"
 UDM_SSH_USER="${UDM_SSH_USER:-root}"
 
 # Wazuh Configuration
-WAZUH_MANAGER="192.168.35.17"
+WAZUH_MANAGER="192.168.35.18"
 WAZUH_AGENT_NAME="${WAZUH_AGENT_NAME:-udm-pro}"
 
 echo "==> Remote Wazuh Agent Installation for UDM Pro"

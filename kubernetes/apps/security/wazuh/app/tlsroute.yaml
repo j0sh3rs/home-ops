@@ -1,10 +1,12 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tcproute_v1alpha2.json
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tlsroute_v1alpha2.json
 apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
+kind: TLSRoute
 metadata:
   name: wazuh-agent
 spec:
+  hostnames:
+    - wazuh-agent.68cc.io
   parentRefs:
     - name: tcp-gateway
       namespace: network
@@ -15,12 +17,14 @@ spec:
           port: 1514
           namespace: security
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tcproute_v1alpha2.json
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tlsroute_v1alpha2.json
 apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
+kind: TLSRoute
 metadata:
   name: wazuh-enrollment
 spec:
+  hostnames:
+    - wazuh-enrollment.68cc.io
   parentRefs:
     - name: tcp-gateway
       namespace: network
