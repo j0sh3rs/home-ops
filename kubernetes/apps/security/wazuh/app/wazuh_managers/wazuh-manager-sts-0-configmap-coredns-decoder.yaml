@@ -9,8 +9,9 @@ data:
     <!-- CoreDNS decoder for Kubernetes pod log format -->
     <!-- Phase 1 strips timestamp and "stdout F " prefix -->
     <!-- Phase 2 sees log starting from [INFO] -->
+    <!-- Using simple prematch without pcre2 - pcre2 syntax causes matching issues -->
     <decoder name="coredns-k8s">
-      <prematch type="pcre2">^\[INFO\] \S+:\d+ - \d+ "</prematch>
+      <prematch>[INFO] </prematch>
     </decoder>
 
     <decoder name="coredns-k8s-query">
