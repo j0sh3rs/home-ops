@@ -142,25 +142,11 @@ spec:
                 </localfile>
 
                 <!-- Kubernetes container logs - pod-specific patterns only -->
-                <!-- CoreDNS logs only - reduced from all kube-system (21 pods) to prevent buffer overflow -->
+                <!-- CoreDNS logs only - all namespace wildcards removed to prevent buffer overflow -->
+                <!-- Monitoring ONLY CoreDNS (1 pod) for Rule 2 DNS query testing -->
                 <localfile>
                   <log_format>syslog</log_format>
                   <location>/var/log/pods/kube-system_coredns-*/*/*.log</location>
-                </localfile>
-
-                <localfile>
-                  <log_format>syslog</log_format>
-                  <location>/var/log/pods/security_*/*/*.log</location>
-                </localfile>
-
-                <localfile>
-                  <log_format>syslog</log_format>
-                  <location>/var/log/pods/network_*/*/*.log</location>
-                </localfile>
-
-                <localfile>
-                  <log_format>syslog</log_format>
-                  <location>/var/log/pods/cert-manager_*/*/*.log</location>
                 </localfile>
 
                 <!-- Containerd logs -->
