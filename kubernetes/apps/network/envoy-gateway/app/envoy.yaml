@@ -223,3 +223,9 @@ spec:
       allowedRoutes:
         kinds:
           - kind: TCPRoute
+    - name: wazuh-agent-enrollment
+      protocol: TCP
+      port: 55000
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
