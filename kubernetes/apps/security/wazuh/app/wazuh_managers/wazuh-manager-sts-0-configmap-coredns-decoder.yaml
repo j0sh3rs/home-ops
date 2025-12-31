@@ -7,9 +7,9 @@ metadata:
 data:
   coredns_decoder.xml: |
     <!-- CoreDNS decoder for Kubernetes pod log format -->
-    <!-- Uses prematch to identify CoreDNS logs - no program_name since K8s pod logs are not traditional syslog -->
+    <!-- Matches after Wazuh pre-decoding extracts timestamp -->
     <decoder name="coredns-k8s">
-      <prematch type="pcre2">^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z stdout F \[INFO\] \S+:\d+ - \d+ "</prematch>
+      <prematch type="pcre2">^stdout F \[INFO\] \S+:\d+ - \d+ "</prematch>
     </decoder>
 
     <decoder name="coredns-k8s-query">
