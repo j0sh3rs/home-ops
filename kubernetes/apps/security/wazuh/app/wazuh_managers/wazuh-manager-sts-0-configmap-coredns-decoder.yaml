@@ -7,18 +7,13 @@ metadata:
 data:
   coredns_decoder.xml: |
     <!-- CoreDNS decoder for Kubernetes pod log format -->
-    <!-- Parent decoder (kubernetes-container) strips K8s metadata -->
-    <!-- This decoder processes the extracted log field -->
+    <!-- Parent decoder (kubernetes-container) strips K8s metadata and extracts log field -->
+    <!-- This decoder processes the log field to extract DNS query domain -->
+    <!-- Wazuh only supports TWO-level hierarchy, cannot have grandchild decoders -->
 
     <decoder name="coredns-k8s">
       <parent>kubernetes-container</parent>
       <prematch>INFO</prematch>
-      <regex>INFO (.*)</regex>
-      <order>log</order>
-    </decoder>
-
-    <decoder name="coredns-k8s-domain">
-      <parent>coredns-k8s</parent>
-      <regex offset="after_parent">IN ([a-zA-Z0-9.-]*)\.</regex>
+      <regex>INFO.*IN ([a-zA-Z0-9.-]*)\.</regex>
       <order>dstdomain</order>
     </decoder>
