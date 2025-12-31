@@ -201,6 +201,7 @@ metadata:
 spec:
   infrastructure:
     annotations:
+      external-dns.alpha.kubernetes.io/hostname: wazuh-agent.68cc.io
       lbipam.cilium.io/ips: 192.168.35.18
   gatewayClassName: envoy
   listeners:
