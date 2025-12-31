@@ -105,9 +105,6 @@ spec:
                     <port>${WAZUH_REGISTRATION_PORT}</port>
                     <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>
                   </enrollment>
-
-                  <!-- Increase queue size for high-volume K8s pod log collection -->
-                  <queue_size>16384</queue_size>
                 </client>
 
                 <!-- Host system logs -->
@@ -162,6 +159,27 @@ spec:
 
               chown 999:999 /agent/etc/ossec.conf
               chmod 0640 /agent/etc/ossec.conf
+          volumeMounts:
+            - name: ossec-data
+              mountPath: /agent
+        - name: write-local-internal-options
+          image: busybox:1.37
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              echo "[init] Writing local_internal_options.conf..."
+              mkdir -p /agent/etc
+
+              cat > /agent/etc/local_internal_options.conf <<EOF
+              # Logcollector - Output queue size [128..220000]
+              # Increase from default 1024 to handle high-volume K8s pod log collection
+              logcollector.queue_size=16384
+              EOF
+
+              chown 999:999 /agent/etc/local_internal_options.conf
+              chmod 0640 /agent/etc/local_internal_options.conf
           volumeMounts:
             - name: ossec-data
               mountPath: /agent
