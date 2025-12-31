@@ -4,6 +4,7 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
   name: wazuh-agent-events
+  namespace: security
 spec:
   parentRefs:
     - name: tcp-gateway
@@ -11,7 +12,7 @@ spec:
       sectionName: wazuh-agent-events
   rules:
     - backendRefs:
-        - name: wazuh-manager
+        - name: wazuh-workers
           port: 1514
           namespace: security
 ---
@@ -19,20 +20,32 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
-  name: wazuh-manager
+  name: wazuh-registration
+  namespace: security
 spec:
   parentRefs:
     - name: tcp-gateway
-      namespace: security
+      namespace: network
       sectionName: wazuh-registration
-    - name: tcp-gateway
-      namespace: security
-      sectionName: wazuh-agent-enrollment
   rules:
     - backendRefs:
         - name: wazuh
           port: 1515
           namespace: security
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tcproute_v1alpha2.json
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: wazuh-api
+  namespace: security
+spec:
+  parentRefs:
+    - name: tcp-gateway
+      namespace: network
+      sectionName: wazuh-agent-enrollment
+  rules:
+    - backendRefs:
         - name: wazuh
           port: 55000
           namespace: security
