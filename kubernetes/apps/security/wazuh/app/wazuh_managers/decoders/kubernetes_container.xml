@@ -1,9 +1,10 @@
 <!-- Kubernetes container log format decoder -->
 <!-- Handles format: "2025-12-31T15:44:32.855676826Z stdout F [actual message]" -->
 <!-- Extracts only the message portion, discarding timestamp, stream, and flags -->
-
+<!-- prematch uses PCRE (\d supported), regex uses POSIX ([0-9] required) -->
 <decoder name="kubernetes-container">
-  <prematch type="pcre2">^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (stdout|stderr) [FP] </prematch>
-  <regex type="pcre2">^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (?:stdout|stderr) [FP] (.*)</regex>
+  <prematch>^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.</prematch>
+  <regex
+  >^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\..*Z .* [FP] (.*)</regex>
   <order>log</order>
 </decoder>

@@ -9,6 +9,11 @@ serviceAccount:
 service:
   name: kube-dns
   clusterIP: 10.43.0.10
+prometheus:
+  service:
+    enabled: true
+  monitor:
+    enabled: true
 servers:
   - zones:
       - zone: .
