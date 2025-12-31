@@ -11,7 +11,7 @@ data:
     <!-- Extracts only the message portion, discarding timestamp, stream, and flags -->
 
     <decoder name="kubernetes-container">
-      <prematch>^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (stdout|stderr) [FP] </prematch>
-      <regex>^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (?:stdout|stderr) [FP] (.*)</regex>
+      <prematch>^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\S+ (stdout|stderr) [FP] </prematch>
+      <regex type="pcre2">^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z (?:stdout|stderr) [FP] (.*)</regex>
       <order>log</order>
     </decoder>
