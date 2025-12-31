@@ -8,29 +8,17 @@ spec:
   hostnames:
     - wazuh-agent.68cc.io
   parentRefs:
-    - name: tcp-gateway
+    - name: envoy-internal
       namespace: network
       sectionName: wazuh-agent
+    - name: envoy-internal
+      namespace: security
+      sectionName: wazuh-enrollment
   rules:
     - backendRefs:
         - name: wazuh-manager
           port: 1514
           namespace: security
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tlsroute_v1alpha2.json
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TLSRoute
-metadata:
-  name: wazuh-enrollment
-spec:
-  hostnames:
-    - wazuh-enrollment.68cc.io
-  parentRefs:
-    - name: tcp-gateway
-      namespace: network
-      sectionName: wazuh-enrollment
-  rules:
-    - backendRefs:
         - name: wazuh
           port: 1515
           namespace: security
