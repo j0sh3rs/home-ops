@@ -12,6 +12,6 @@ data:
 
     <decoder name="kubernetes-container">
       <prematch>\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.</prematch>
-      <regex>^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\S+Z (stdout|stderr) [FP] (.*)</regex>
+      <regex>^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\..*Z .* [FP] (.*)</regex>
       <order>log</order>
     </decoder>
