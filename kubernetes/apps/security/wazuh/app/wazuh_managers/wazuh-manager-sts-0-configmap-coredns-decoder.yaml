@@ -12,7 +12,7 @@ data:
 
     <decoder name="coredns-k8s">
       <parent>kubernetes-container</parent>
-      <prematch>^\[INFO\] \S+:\d+ - \d+ "</prematch>
+      <prematch>^\[INFO\]</prematch>
     </decoder>
 
     <decoder name="coredns-k8s-query">
