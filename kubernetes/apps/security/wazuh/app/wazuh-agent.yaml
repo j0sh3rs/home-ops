@@ -141,11 +141,11 @@ spec:
                   <location>/var/log/audit/audit.log</location>
                 </localfile>
 
-                <!-- Kubernetes container logs - security-critical namespaces only -->
-                <!-- Reduced from wildcard to prevent agent buffer overflow -->
+                <!-- Kubernetes container logs - pod-specific patterns only -->
+                <!-- CoreDNS logs only - reduced from all kube-system (21 pods) to prevent buffer overflow -->
                 <localfile>
                   <log_format>syslog</log_format>
-                  <location>/var/log/pods/kube-system_*/*/*.log</location>
+                  <location>/var/log/pods/kube-system_coredns-*/*/*.log</location>
                 </localfile>
 
                 <localfile>
