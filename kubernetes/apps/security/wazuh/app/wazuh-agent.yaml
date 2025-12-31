@@ -176,6 +176,11 @@ spec:
               # Logcollector - Output queue size [128..220000]
               # Increase from default 1024 to handle high-volume K8s pod log collection
               logcollector.queue_size=16384
+
+              # Debug logging for troubleshooting log forwarding
+              agent.debug=2
+              logcollector.debug=2
+              wazuh_modules.debug=2
               EOF
 
               chown 999:999 /agent/etc/local_internal_options.conf
