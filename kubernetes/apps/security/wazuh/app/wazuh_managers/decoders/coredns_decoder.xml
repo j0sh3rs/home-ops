@@ -1,0 +1,24 @@
+<!-- CoreDNS decoder for Kubernetes pod log format -->
+<!-- Phase 1 strips timestamp and "stdout F " prefix -->
+<!-- Phase 2 sees log starting from [INFO] -->
+<decoder name="coredns-k8s">
+  <prematch type="pcre2">^\[INFO\] \S+:\d+ - \d+ "</prematch>
+</decoder>
+
+<decoder name="coredns-k8s-query">
+  <parent>coredns-k8s</parent>
+  <regex offset="after_parent">^(\S+ IN \S+\.\s+\w+)</regex>
+  <order>url</order>
+</decoder>
+
+<decoder name="coredns-k8s-querytype">
+  <parent>coredns-k8s</parent>
+  <regex offset="after_parent">^(\S+) IN</regex>
+  <order>protocol</order>
+</decoder>
+
+<decoder name="coredns-k8s-domain">
+  <parent>coredns-k8s</parent>
+  <regex offset="after_parent">IN (\S+)\.</regex>
+  <order>dstdomain</order>
+</decoder>
