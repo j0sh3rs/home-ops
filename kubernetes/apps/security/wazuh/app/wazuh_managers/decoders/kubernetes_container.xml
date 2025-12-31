@@ -7,6 +7,6 @@
 
 <decoder name="kubernetes-container-extract">
   <parent>kubernetes-container</parent>
-  <regex>^(?:stdout|stderr) [FP] (.*)</regex>
+  <regex>^[a-z]+ [FP] (.*)</regex>
   <order>log</order>
 </decoder>
