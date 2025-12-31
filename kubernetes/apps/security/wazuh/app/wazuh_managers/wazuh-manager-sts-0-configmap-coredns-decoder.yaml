@@ -13,22 +13,12 @@ data:
     <decoder name="coredns-k8s">
       <parent>kubernetes-container</parent>
       <prematch>INFO</prematch>
-    </decoder>
-
-    <decoder name="coredns-k8s-query">
-      <parent>coredns-k8s</parent>
-      <regex offset="after_parent">^(\S+ IN \S+\.\s+\w+)</regex>
-      <order>url</order>
-    </decoder>
-
-    <decoder name="coredns-k8s-querytype">
-      <parent>coredns-k8s</parent>
-      <regex offset="after_parent">^(\S+) IN</regex>
-      <order>protocol</order>
+      <regex>INFO (.*)</regex>
+      <order>log</order>
     </decoder>
 
     <decoder name="coredns-k8s-domain">
       <parent>coredns-k8s</parent>
-      <regex offset="after_parent">IN (\S+)\.</regex>
+      <regex offset="after_parent">IN ([a-zA-Z0-9.-]*)\.</regex>
       <order>dstdomain</order>
     </decoder>
