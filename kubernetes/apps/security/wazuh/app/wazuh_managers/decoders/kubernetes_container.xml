@@ -1,12 +1,12 @@
 <!-- Kubernetes container log format decoder -->
-<!-- After Wazuh pre-decoding extracts timestamp, remaining format is: "stdout F [actual message]" -->
-<!-- This decoder captures only the message portion, discarding stream type (stdout/stderr) and partial flag (F/P) -->
+<!-- Matches full Kubernetes container log format: timestamp stdout|stderr F|P [actual message] -->
+<!-- Pre-decoding extracts timestamp, but decoder still sees full log -->
 <decoder name="kubernetes-container">
-  <prematch>^stdout |^stderr </prematch>
+  <prematch>^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d+Z </prematch>
 </decoder>
 
 <decoder name="kubernetes-container-extract">
   <parent>kubernetes-container</parent>
-  <regex>^[a-z]+ [FP] (.*)</regex>
+  <regex>^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+Z [a-z]+ [FP] (.*)</regex>
   <order>log</order>
 </decoder>
