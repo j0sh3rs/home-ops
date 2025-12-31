@@ -105,6 +105,9 @@ spec:
                     <port>${WAZUH_REGISTRATION_PORT}</port>
                     <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>
                   </enrollment>
+
+                  <!-- Increase queue size for high-volume K8s pod log collection -->
+                  <queue_size>16384</queue_size>
                 </client>
 
                 <!-- Host system logs -->
@@ -142,6 +145,7 @@ spec:
                 </localfile>
 
                 <!-- Kubernetes container logs -->
+                <!-- Use syslog format for K8s pod logs (timestamped text logs) -->
                 <localfile>
                   <log_format>syslog</log_format>
                   <location>/var/log/pods/*/*/*.log</location>
