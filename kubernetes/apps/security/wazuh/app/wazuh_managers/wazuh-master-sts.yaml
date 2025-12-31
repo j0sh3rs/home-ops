@@ -84,7 +84,7 @@ spec:
               readOnly: true
             - name: kubernetes-container-decoder
               mountPath: /var/ossec/etc/decoders/00-kubernetes_container.xml
-              subPath: 00-kubernetes_container.xml
+              subPath: kubernetes_container.xml
               readOnly: true
             - name: filebeat-certs
               mountPath: /etc/ssl/root-ca.pem

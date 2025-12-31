@@ -16,6 +16,12 @@ configMapGenerator:
   - name: dashboard-conf
     files:
       - indexer_stack/wazuh-dashboard/dashboard_conf/opensearch_dashboards.yml
+  - name: kubernetes-container-decoder
+    files:
+      - wazuh_managers/decoders/kubernetes_container.xml
+  - name: coredns-decoder
+    files:
+      - wazuh_managers/decoders/coredns_decoder.xml
 
 resources:
   - ./secret.sops.yaml
