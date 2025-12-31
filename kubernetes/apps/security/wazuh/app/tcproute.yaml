@@ -6,7 +6,7 @@ metadata:
   name: wazuh-agent
 spec:
   parentRefs:
-    - name: envoy-internal
+    - name: tcp-gateway
       namespace: network
       sectionName: wazuh-agent
   rules:
@@ -22,7 +22,7 @@ metadata:
   name: wazuh-enrollment
 spec:
   parentRefs:
-    - name: envoy-internal
+    - name: tcp-gateway
       namespace: network
       sectionName: wazuh-enrollment
   rules:
