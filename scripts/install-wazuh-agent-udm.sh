@@ -122,20 +122,20 @@ set -euo pipefail
 # This restores the original password with special characters for agent registration
 WAZUH_REGISTRATION_PASSWORD=$(echo "$WAZUH_REGISTRATION_PASSWORD_B64" | base64 -d)
 
-echo "==> Installing prerequisites..."
-apt-get update
-apt-get install -y gnupg apt-transport-https
+# echo "==> Installing prerequisites..."
+# apt-get update
+# apt-get install -y gnupg apt-transport-https
 
-echo ""
-echo "==> Adding Wazuh GPG key..."
-curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | \
-    gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
-chmod 644 /usr/share/keyrings/wazuh.gpg
+# echo ""
+# echo "==> Adding Wazuh GPG key..."
+# curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | \
+#     gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
+# chmod 644 /usr/share/keyrings/wazuh.gpg
 
-echo ""
-echo "==> Adding Wazuh repository..."
-echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | \
-    tee -a /etc/apt/sources.list.d/wazuh.list
+# echo ""
+# echo "==> Adding Wazuh repository..."
+# echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main #" | \
+#    tee -a /etc/apt/sources.list.d/wazuh.list
 
 echo ""
 echo "==> Updating package lists..."
