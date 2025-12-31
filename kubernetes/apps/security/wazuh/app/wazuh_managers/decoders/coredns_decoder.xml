@@ -1,7 +1,9 @@
 <!-- CoreDNS decoder for Kubernetes pod log format -->
-<!-- Phase 1 strips timestamp and "stdout F " prefix -->
-<!-- Phase 2 sees log starting from [INFO] -->
+<!-- Parent decoder (kubernetes-container) strips K8s metadata -->
+<!-- This decoder processes the extracted log field -->
+
 <decoder name="coredns-k8s">
+  <parent>kubernetes-container</parent>
   <prematch type="pcre2">^\[INFO\] \S+:\d+ - \d+ "</prematch>
 </decoder>
 

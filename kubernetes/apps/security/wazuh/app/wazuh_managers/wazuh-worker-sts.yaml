@@ -44,6 +44,9 @@ spec:
         - name: coredns-decoder
           configMap:
             name: coredns-decoder
+        - name: kubernetes-container-decoder
+          configMap:
+            name: kubernetes-container-decoder
         - name: filebeat-certs
           secret:
             secretName: wazuh-secrets
@@ -93,6 +96,10 @@ spec:
             - name: coredns-decoder
               mountPath: /var/ossec/etc/decoders/coredns_decoder.xml
               subPath: coredns_decoder.xml
+              readOnly: true
+            - name: kubernetes-container-decoder
+              mountPath: /var/ossec/etc/decoders/kubernetes_container.xml
+              subPath: kubernetes_container.xml
               readOnly: true
             - name: filebeat-certs
               mountPath: /etc/ssl/root-ca.pem

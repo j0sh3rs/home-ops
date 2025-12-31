@@ -144,12 +144,11 @@ spec:
                 <!-- Kubernetes container logs - pod-specific patterns only -->
                 <!-- CoreDNS logs only - all namespace wildcards removed to prevent buffer overflow -->
                 <!-- Monitoring ONLY CoreDNS (1 pod) for Rule 2 DNS query testing -->
-                <!-- Use full_command to preprocess K8s log format: strip timestamp, stream, flags -->
-                <!-- K8s format: "2025-12-31T15:44:32.855676826Z stdout F [message]" -->
-                <!-- Extract only the message portion (field 4+) for proper syslog parsing -->
+                <!-- K8s format handled by manager-side decoder (kubernetes-container.xml) -->
+                <!-- Decoder strips timestamp, stream, flags and extracts message -->
                 <localfile>
-                  <log_format>full_command</log_format>
-                  <command>tail -F /var/log/pods/kube-system_coredns-*/*/*.log 2>/dev/null | sed -E 's/^[^ ]+ [^ ]+ [^ ]+ //g'</command>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/pods/kube-system_coredns-*/*/*.log</location>
                   <alias>coredns-k8s</alias>
                 </localfile>
 
