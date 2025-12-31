@@ -204,15 +204,21 @@ spec:
       lbipam.cilium.io/ips: 192.168.35.18
   gatewayClassName: envoy
   listeners:
-    - name: wazuh-agent
+    - name: wazuh-syslog
       protocol: TCP
-      port: 1514
+      port: 514
       allowedRoutes:
         kinds:
           - kind: TCPRoute
-    - name: wazuh-enrollment
+    - name: wazuh-registration
       protocol: TCP
       port: 1515
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
+    - name: wazuh-agent-events
+      protocol: TCP
+      port: 1514
       allowedRoutes:
         kinds:
           - kind: TCPRoute

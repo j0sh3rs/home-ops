@@ -39,6 +39,6 @@ resources:
   - ./indexer_stack/wazuh-dashboard/dashboard-deploy.yaml
   - ./wazuh-agent.yaml
   - ./httproute.yaml
-  - ./tlsroute.yaml
+  - ./tcproute.yaml
   - ./backend-tls-ca.yaml
   - ./backend-tls-policy.yaml
