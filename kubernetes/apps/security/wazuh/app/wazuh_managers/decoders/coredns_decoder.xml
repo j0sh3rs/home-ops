@@ -1,11 +1,10 @@
 <!-- CoreDNS decoder for Kubernetes pod log format -->
 <!-- Parent decoder (kubernetes-container) strips K8s metadata -->
 <!-- This decoder processes the extracted log field -->
-<!-- prematch uses simple pattern matching only -->
 
 <decoder name="coredns-k8s">
   <parent>kubernetes-container</parent>
-  <prematch>^\[INFO\] </prematch>
+  <prematch>[INFO]</prematch>
 </decoder>
 
 <decoder name="coredns-k8s-query">
