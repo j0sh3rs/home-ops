@@ -1,11 +1,10 @@
-<!-- Kubernetes container log format decoder -->
-<!-- Matches full Kubernetes container log format: timestamp stdout|stderr F|P [actual message] -->
+<!-- Test: Very simple kubernetes-container decoder -->
 <decoder name="kubernetes-container">
-  <prematch>^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\.[0-9]+Z </prematch>
+  <prematch>^[0-9]</prematch>
 </decoder>
 
 <decoder name="kubernetes-container-extract">
   <parent>kubernetes-container</parent>
-  <regex>^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+Z [a-z]+ [FP] (.*)</regex>
+  <regex>(.*)</regex>
   <order>log</order>
 </decoder>
