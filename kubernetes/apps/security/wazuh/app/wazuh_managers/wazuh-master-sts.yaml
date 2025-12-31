@@ -83,7 +83,7 @@ spec:
               subPath: coredns_decoder.xml
               readOnly: true
             - name: kubernetes-container-decoder
-              mountPath: /var/ossec/etc/decoders/kubernetes_container.xml
+              mountPath: /var/ossec/etc/decoders/00-kubernetes_container.xml
               subPath: 00-kubernetes_container.xml
               readOnly: true
             - name: filebeat-certs
