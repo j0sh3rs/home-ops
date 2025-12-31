@@ -141,11 +141,26 @@ spec:
                   <location>/var/log/audit/audit.log</location>
                 </localfile>
 
-                <!-- Kubernetes container logs -->
-                <!-- Use syslog format for K8s pod logs (timestamped text logs) -->
+                <!-- Kubernetes container logs - security-critical namespaces only -->
+                <!-- Reduced from wildcard to prevent agent buffer overflow -->
                 <localfile>
                   <log_format>syslog</log_format>
-                  <location>/var/log/pods/*/*/*.log</location>
+                  <location>/var/log/pods/kube-system_*/*/*.log</location>
+                </localfile>
+
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/pods/security_*/*/*.log</location>
+                </localfile>
+
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/pods/network_*/*/*.log</location>
+                </localfile>
+
+                <localfile>
+                  <log_format>syslog</log_format>
+                  <location>/var/log/pods/cert-manager_*/*/*.log</location>
                 </localfile>
 
                 <!-- Containerd logs -->
