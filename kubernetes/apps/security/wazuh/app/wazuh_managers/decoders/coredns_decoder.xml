@@ -1,26 +1,27 @@
 <!-- CoreDNS decoder for Kubernetes pod log format -->
 <!-- Parent decoder (kubernetes-container) strips K8s metadata -->
 <!-- This decoder processes the extracted log field -->
+<!-- All patterns use POSIX regex (no PCRE \S, \d, \w shortcuts) -->
 
 <decoder name="coredns-k8s">
   <parent>kubernetes-container</parent>
-  <prematch>^\[INFO\] \S+:\d+ - \d+ "</prematch>
+  <prematch>^\[INFO\] [^ ]+:[0-9][0-9]* - [0-9][0-9]* "</prematch>
 </decoder>
 
 <decoder name="coredns-k8s-query">
   <parent>coredns-k8s</parent>
-  <regex offset="after_parent">^(\S+ IN \S+\.\s+\w+)</regex>
+  <regex offset="after_parent">^([^ ]+ IN [^ ]+\. [A-Za-z0-9_][A-Za-z0-9_]*)</regex>
   <order>url</order>
 </decoder>
 
 <decoder name="coredns-k8s-querytype">
   <parent>coredns-k8s</parent>
-  <regex offset="after_parent">^(\S+) IN</regex>
+  <regex offset="after_parent">^([^ ]+) IN</regex>
   <order>protocol</order>
 </decoder>
 
 <decoder name="coredns-k8s-domain">
   <parent>coredns-k8s</parent>
-  <regex offset="after_parent">IN (\S+)\.</regex>
+  <regex offset="after_parent">IN ([^ ]+)\.</regex>
   <order>dstdomain</order>
 </decoder>
