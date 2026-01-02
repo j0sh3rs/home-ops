@@ -21,9 +21,8 @@
 -->
 
 <decoder name="udmpro-dpi">
-  <parent>syslog</parent>
   <prematch>[DPI]</prematch>
-  <regex offset="after_parent">src=(\S+):(\d+) dst=(\S+):(\d+) proto=(\S+) category="([^"]+)" action=(\S+) app="([^"]+)"</regex>
+  <regex offset="after_prematch">src=(\S+):(\d+) dst=(\S+):(\d+) proto=(\S+) category="([^"]+)" action=(\S+) app="([^"]+)"</regex>
   <order>srcip,srcport,dstip,dstport,protocol,dpi_category,dpi_action,dpi_app</order>
 </decoder>
 
@@ -32,8 +31,7 @@
   Use if DPI logs include traffic volume (bytes=XXX)
 -->
 <decoder name="udmpro-dpi-bytes">
-  <parent>syslog</parent>
   <prematch>[DPI]</prematch>
-  <regex offset="after_parent">src=(\S+):(\d+) dst=(\S+):(\d+) proto=(\S+) category="([^"]+)" action=(\S+) app="([^"]+)" bytes=(\d+)</regex>
+  <regex offset="after_prematch">src=(\S+):(\d+) dst=(\S+):(\d+) proto=(\S+) category="([^"]+)" action=(\S+) app="([^"]+)" bytes=(\d+)</regex>
   <order>srcip,srcport,dstip,dstport,protocol,dpi_category,dpi_action,dpi_app,dpi_bytes</order>
 </decoder>
