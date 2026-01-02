@@ -1,6 +1,6 @@
 # Session: wazuh-deployment
 
-Updated: 2026-01-02T17:01:56.609Z
+Updated: 2026-01-02T20:23:36.711Z
 
 ## Goal
 
@@ -72,15 +72,14 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
     - [x] **Deployment Guide Created**: claudedocs/wazuh-dpi-deployment-guide.md with complete instructions
     - [x] **Phase 2 Complete**: DPI decoder deployed and verified in all manager pods (commit 28af89a/f46291d)
     - [x] **Decoder Verification**: Confirmed local_decoder.xml exists with DPI content in all 3 manager pods
-- Now: [→] **UDM Pro DPI Configuration (Phase 1)** - Enable DPI and create Traffic Rules with logging
+    - [x] **Discord Integration Script Rewritten**: Changed from requests to urllib (commit a5d32ad) to fix ModuleNotFoundError
+    - [x] **Discord CloudFlare Protection Fixed**: Added User-Agent header (commit 98df0c2) to bypass 403 error code 1010
+    - [x] **Discord Integration Tested**: Manual test completed successfully, webhook accepting alerts
+- Now: [→] **UDM Pro DPI Configuration (USER ACTION)** - Enable DPI and create Traffic Rules with logging
 - Next:
-    - [ ] Enable Deep Packet Inspection on UDM Pro (Settings → Traffic Management → DPI)
-    - [ ] Create Traffic Rules with logging for: Social Networking, Streaming Media, Gaming, Adult Content
-    - [ ] Deploy Wazuh configuration: flux reconcile ks wazuh -n security --with-source --context home
+    - [ ] Enable Deep Packet Inspection on UDM Pro (Settings → Traffic Management → DPI) - **USER ACTION**
+    - [ ] Create Traffic Rules with logging for: Social Networking, Streaming Media, Gaming, Adult Content - **USER ACTION**
     - [ ] Test content filtering with real user traffic (Facebook, YouTube, gaming)
-    - [ ] Provide actual Discord webhook URL to replace PLACEHOLDER_DISCORD_WEBHOOK_URL in secret
-    - [ ] Deploy Discord integration via FluxCD
-    - [ ] Test Discord alert delivery
     - [ ] Monitoring/Alerting rules for security events
     - [ ] Dashboard customization for home security use cases
 
