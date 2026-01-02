@@ -47,15 +47,12 @@ spec:
                   secretKeyRef:
                     name: forgejo-runner-secret
                     key: FORGEJO_INSTANCE_URL
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
               - name: RUNNER_NAME
                 value: "forgejo-runner-$(POD_NAME)"
-            envFrom:
-              - fieldRef:
-                  fieldPath: metadata.name
-                  name: POD_NAME
-            volumeMounts:
-              - name: data
-                mountPath: /data
         containers:
           daemon:
             image:
@@ -66,11 +63,6 @@ spec:
             env:
               - name: DOCKER_TLS_CERTDIR
                 value: /certs
-            volumeMounts:
-              - name: docker-certs
-                mountPath: /certs
-              - name: daemon-data
-                mountPath: /var/lib/docker
             resources:
               limits:
                 memory: 1Gi
@@ -99,12 +91,6 @@ spec:
                 value: /certs/client
               - name: DOCKER_TLS_VERIFY
                 value: "1"
-            volumeMounts:
-              - name: data
-                mountPath: /data
-              - name: docker-certs
-                mountPath: /certs
-                readOnly: true
             resources:
               limits:
                 memory: 1Gi
@@ -119,13 +105,24 @@ spec:
     persistence:
       data:
         type: emptyDir
-        globalMounts:
-          - path: /data
+        advancedMounts:
+          forgejo-runner:
+            runner-register:
+              - path: /data
+            app:
+              - path: /data
       docker-certs:
         type: emptyDir
-        globalMounts:
-          - path: /certs
+        advancedMounts:
+          forgejo-runner:
+            daemon:
+              - path: /certs
+            app:
+              - path: /certs
+                readOnly: true
       daemon-data:
         type: emptyDir
-        globalMounts:
-          - path: /var/lib/docker
+        advancedMounts:
+          forgejo-runner:
+            daemon:
+              - path: /var/lib/docker
