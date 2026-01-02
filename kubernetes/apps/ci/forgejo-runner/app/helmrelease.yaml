@@ -52,7 +52,9 @@ spec:
                   fieldRef:
                     fieldPath: metadata.name
               - name: RUNNER_NAME
-                value: "forgejo-runner-$(POD_NAME)"
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
         containers:
           daemon:
             image:
