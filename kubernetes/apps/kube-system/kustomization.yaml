@@ -20,3 +20,4 @@ resources:
   - ./reflector/ks.yaml
   - ./spegel/ks.yaml
   - ./talos-backups/ks.yaml
+  - ./tetragon/ks.yaml
