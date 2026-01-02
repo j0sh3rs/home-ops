@@ -269,22 +269,22 @@
     <group>suspicious_network,reverse_shell,</group>
   </rule>
 
-  <!-- Base rule: Connection failure detection -->
-  <rule id="100040b" level="5">
-    <match>connection refused|No route to host|timeout</match>
-    <description>Network: Connection failure detected from $(srcip)</description>
-    <group>network_failure,</group>
-  </rule>
-
   <!-- Frequency rule: Multiple failed connection attempts (port scanning) -->
   <rule id="100041" level="8" frequency="10" timeframe="60">
-    <if_matched_sid>100040b</if_matched_sid>
+    <if_matched_sid>100044</if_matched_sid>
     <same_srcip />
     <description>Network: Multiple connection failures - Potential port scanning from $(srcip)</description>
     <mitre>
       <id>T1046</id>
     </mitre>
     <group>suspicious_network,port_scan,</group>
+  </rule>
+
+  <!-- Base rule: Connection failure detection (referenced by 100041) -->
+  <rule id="100044" level="5">
+    <match>connection refused|No route to host|timeout</match>
+    <description>Network: Connection failure detected from $(srcip)</description>
+    <group>network_failure,</group>
   </rule>
 
   <!-- Unusual outbound traffic volume -->
@@ -358,19 +358,19 @@
     <group>container_access,interactive_shell,</group>
   </rule>
 
-  <!-- Base rule: Pod error detection -->
-  <rule id="100053b" level="5">
+  <!-- Frequency rule: Multiple pod crashes (potential DoS or instability) -->
+  <rule id="100054" level="8" frequency="5" timeframe="300">
+    <if_matched_sid>100055</if_matched_sid>
+    <description>Kubernetes: Multiple pod crashes detected - Pod: $(pod) - Potential DoS or misconfiguration</description>
+    <group>kubernetes_stability,pod_crash,</group>
+  </rule>
+
+  <!-- Base rule: Pod error detection (referenced by 100054) -->
+  <rule id="100055" level="5">
     <match>CrashLoopBackOff|Error|Failed</match>
     <match>pod</match>
     <description>Kubernetes: Pod error detected - Pod: $(pod)</description>
     <group>pod_error,</group>
-  </rule>
-
-  <!-- Frequency rule: Multiple pod crashes (potential DoS or instability) -->
-  <rule id="100054" level="8" frequency="5" timeframe="300">
-    <if_matched_sid>100053b</if_matched_sid>
-    <description>Kubernetes: Multiple pod crashes detected - Pod: $(pod) - Potential DoS or misconfiguration</description>
-    <group>kubernetes_stability,pod_crash,</group>
   </rule>
 
 </group>
