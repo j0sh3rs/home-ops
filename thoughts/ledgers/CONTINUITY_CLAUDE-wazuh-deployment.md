@@ -1,6 +1,6 @@
 # Session: wazuh-deployment
 
-Updated: 2025-12-31T19:30:39.516Z
+Updated: 2025-12-31T23:07:28.205Z
 
 ## Goal
 
@@ -60,7 +60,9 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
     - [x] **Syslog TCP Listener**: Configured on port 514 for external device logs (UDM Pro)
     - [x] **Agent Log Collection**: Comprehensive log collection configured (host logs, K8s pods, security events)
     - [x] **Dashboard API Issue Resolved**: Fixed invalid queue_size configuration in syslog remote section
-- Now: [→] **WAZUH DEPLOYMENT COMPLETE** - All components operational, agents collecting logs, dashboard accessible
+    - [x] **Agent Connectivity Issue Resolved**: Fixed empty decoder file preventing wazuh-remoted from starting
+    - [x] **External Agent Integration**: UDM Pro agent (ID 006) successfully connected via Envoy Gateway
+- Now: [→] **WAZUH DEPLOYMENT COMPLETE** - All components operational, 4 agents (3 internal + 1 external) collecting logs, dashboard accessible
 - Next:
     - [ ] Monitoring/Alerting rules for security events
     - [ ] Dashboard customization for home security use cases
@@ -79,9 +81,11 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
 ### Registered Agents
 
 ```
-ID: 001, Name: bee-jms-03, IP: any, Status: Active
-ID: 002, Name: bee-jms-01, IP: any, Status: Active
-ID: 003, Name: bee-jms-02, IP: any, Status: Active
+ID: 000, Name: wazuh-manager-master-0 (server), IP: 127.0.0.1, Active/Local
+ID: 001, Name: bee-jms-03, IP: any, Active
+ID: 002, Name: bee-jms-01, IP: any, Active
+ID: 003, Name: bee-jms-02, IP: any, Active
+ID: 006, Name: udm-pro, IP: any, Active
 ```
 
 ### Agent Components Running
@@ -187,6 +191,181 @@ During syslog TCP listener configuration, I incorrectly added `<queue_size>13107
   <allowed-ips>0.0.0.0/0</allowed-ips>
 </remote>
 ```
+
+## Agent Connectivity Issue Resolution (2025-12-31)
+
+### Issue
+
+After applying TCPRoute fixes in previous session, ALL agents (both internal K8s and external UDM Pro) lost connectivity:
+
+- **Internal K8s Agents**: `ERROR: (1216): Unable to connect to '[10.43.13.116]:1514/tcp': 'Transport endpoint is not connected'`
+- **External UDM Pro Agent**: Successful registration on port 1515 but immediate disconnect from port 1514 in infinite auth loop
+- **Both internal and external agents**: Could register successfully but could not maintain data streaming connection
+
+### Root Cause Analysis
+
+Investigation revealed critical configuration error preventing Wazuh services from starting:
+
+1. **Decoder Configuration Error**: Empty `kubernetes_container.xml` decoder file (0 bytes) in `/var/ossec/etc/decoders/`
+2. **Service Crash**: wazuh-analysisd crashed on startup with `CRITICAL: (1202): Configuration error at 'etc/decoders/kubernetes_container.xml'`
+3. **Dependency Chain Failure**: s6-supervise dependency chain prevented other Wazuh services from starting when analysisd failed
+4. **No Port Listener**: wazuh-remoted never started, so nothing listened on port 1514
+5. **Impact**: Backend pods were Running but had no active Wazuh services, causing "transport endpoint not connected" errors
+
+### Investigation Process
+
+1. Verified service IP mappings (10.43.13.116 = wazuh-workers, 10.43.244.128 = wazuh)
+2. Checked service endpoints (2 healthy backends registered: 10.42.0.155, 10.42.1.84)
+3. Verified worker pods showing Running 1/1 status
+4. Verified TCPRoutes all showing "Accepted: True"
+5. Verified Envoy Gateway pods running
+6. **Breakthrough**: Checked manager logs and found critical decoder errors
+7. Listed running processes in manager pod - confirmed NO Wazuh services running (only s6-supervisor, filebeat, tail)
+8. Examined decoder directory - identified empty `kubernetes_container.xml` file (0 bytes)
+9. Read valid decoder file `00-kubernetes_container.xml` (276 bytes) to understand correct format
+
+### Fix Applied
+
+1. **Removed empty decoder file**:
+
+    ```bash
+    kubectl exec -n security wazuh-manager-worker-0 --context home -- \
+      rm -f /var/ossec/etc/decoders/kubernetes_container.xml
+    ```
+
+2. **Restarted manager pod** to reload configuration:
+
+    ```bash
+    kubectl delete pod -n security wazuh-manager-worker-0 --context home
+    ```
+
+3. **Verified Wazuh services started** including wazuh-remoted listening on port 1514
+
+4. **Tested agent connectivity**:
+    - Internal agents bee-jms-02 and bee-jms-03 reconnected immediately
+    - Internal agent bee-jms-01 required pod restart to exit retry backoff
+    - External UDM Pro agent reconnected successfully
+
+### Verification
+
+```
+All agents now Active:
+ID: 000, Name: wazuh-manager-master-0 (server), IP: 127.0.0.1, Active/Local
+ID: 001, Name: bee-jms-03, IP: any, Active
+ID: 002, Name: bee-jms-01, IP: any, Active
+ID: 003, Name: bee-jms-02, IP: any, Active
+ID: 006, Name: udm-pro, IP: any, Active
+```
+
+### External Agent Configuration
+
+Added UDM Pro as external agent:
+
+- **Location**: 192.168.35.1 (UDM Pro device)
+- **Connection**: Via Envoy Gateway at 192.168.35.18
+- **Ports**: Registration (1515), Events (1514)
+- **Authentication**: Uses same wazuhAuthdPass from wazuh-secrets
+- **Status**: Active (ID 006)
+- **TCPRoute**: External traffic routed through Envoy Gateway to wazuh-workers service
+
+### Lessons Learned
+
+1. **Check Backend Services**: Running pods don't guarantee listening processes - always verify services are actually running
+2. **Configuration Errors**: Empty or malformed configuration files can cause cascade failures in supervisor dependency chains
+3. **Decoder Files**: Valid decoder files in `/var/ossec/etc/decoders/` are critical - empty files cause analysisd to crash
+4. **External Agents**: Envoy Gateway TCPRoute configuration was correct - backend service failure was the root cause
+
+## Syslog TCP Infrastructure Validation (2025-12-31)
+
+### Objective
+
+Validate complete syslog TCP infrastructure for external device integration (UDM Pro and Synology NAS).
+
+### Key Discovery
+
+**Infrastructure Already Operational**: During testing, discovered UDM Pro (agent ID 006, 192.168.35.1) already sending syslog messages successfully through the infrastructure.
+
+### Validation Process
+
+1. **Decoder Library**: Verified `/var/ossec/ruleset/decoders/` contains 876 files (~200+ service-specific decoders)
+2. **Service Status**: Confirmed wazuh-remoted listening on port 514/TCP for syslog
+3. **Archives Config**: Confirmed `<logall>no</logall>` - raw log archiving disabled by design
+4. **OpenSearch Query**: Found active UDM Pro logs with recent timestamps
+5. **Format Analysis**: Confirmed BSD (RFC3164) format from actual message timestamps
+
+### Traffic Flow Validated
+
+```
+UDM Pro (192.168.35.1:514)
+  → Envoy Gateway (192.168.35.18:514)
+  → TCPRoute wazuh-syslog
+  → wazuh-workers Service (ClusterIP:514)
+  → wazuh-manager-worker-0/1
+  → wazuh-remoted → wazuh-analysisd
+  → OpenSearch (wazuh-alerts-4.x-*)
+```
+
+### Syslog Format Determination
+
+**Question**: BSD (RFC3164) or IETF (RFC5424)?
+
+**Answer**: **BSD (RFC3164)** - Confirmed from UDM Pro traffic
+
+**Sample Message**:
+
+```
+Dec 31 23:04:55 udm-jms-01 sudo[1296899]: ucs-update : PWD=/data/unifi-identity-update ; USER=root ; COMMAND=/sbin/ubnt-tools id
+```
+
+**Recommendation**: Use BSD (RFC3164) for Synology NAS for consistency and proven compatibility
+
+### Documentation Deliverables
+
+**Created**: `claudedocs/wazuh-external-syslog-setup.md` - Comprehensive setup guide including:
+
+- Complete traffic flow and architecture
+- UDM Pro working configuration
+- Synology NAS setup steps (DSM Log Center)
+- Syslog format comparison and recommendation
+- Troubleshooting guide with verification queries
+- Dashboard access instructions
+
+**Created**: `claudedocs/wazuh-syslog-validation-handoff.md` - Session handoff document with:
+
+- Complete investigation steps taken
+- All technical findings
+- Configuration references
+- User action items
+
+### Current Status
+
+**Infrastructure**: ✅ PRODUCTION-READY
+
+- UDM Pro actively sending logs (validated in OpenSearch)
+- Syslog TCP listener operational on port 514
+- Messages successfully decoded and indexed
+- Dashboard accessible for log review
+
+### User Action Items
+
+1. **Immediate** (Optional): Access dashboard at https://wazuh.68cc.io to view UDM Pro logs
+2. **Next Phase** (If desired): Configure Synology NAS using documentation in `claudedocs/wazuh-external-syslog-setup.md`
+
+### Technical Configuration
+
+**Syslog Listener**: `/var/ossec/etc/ossec.conf`
+
+```xml
+<remote>
+  <connection>syslog</connection>
+  <port>514</port>
+  <protocol>tcp</protocol>
+  <allowed-ips>0.0.0.0/0</allowed-ips>
+</remote>
+```
+
+**Service Exposure**: `wazuh-workers-svc.yaml` exposes port 514/TCP
+**Envoy Gateway**: `wazuh-syslog-tcproute.yaml` routes to wazuh-workers
 
 ## Backup System Verified (2025-12-30)
 

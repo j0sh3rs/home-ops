@@ -22,6 +22,9 @@ configMapGenerator:
   - name: coredns-decoder
     files:
       - wazuh_managers/decoders/coredns_decoder.xml
+  - name: wazuh-integrations
+    files:
+      - wazuh_managers/integrations/custom-discord.py
 
 resources:
   - ./secret.sops.yaml

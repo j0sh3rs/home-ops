@@ -47,6 +47,10 @@ spec:
         - name: kubernetes-container-decoder
           configMap:
             name: kubernetes-container-decoder
+        - name: wazuh-integrations
+          configMap:
+            name: wazuh-integrations
+            defaultMode: 0750
         - name: filebeat-certs
           secret:
             secretName: wazuh-secrets
@@ -72,6 +76,20 @@ spec:
               mkdir -p /data/filebeat/var/lib/filebeat
               chown -R 101:101 /data
           volumeMounts:
+            - name: wazuh-manager-worker
+              mountPath: /data
+        - name: install-integrations
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - |
+              cp /integrations-source/* /data/wazuh/var/ossec/integrations/
+              chown -R :101 /data/wazuh/var/ossec/integrations
+              chmod -R 750 /data/wazuh/var/ossec/integrations
+          volumeMounts:
+            - name: wazuh-integrations
+              mountPath: /integrations-source
             - name: wazuh-manager-worker
               mountPath: /data
       containers:
@@ -177,6 +195,11 @@ spec:
                 secretKeyRef:
                   name: wazuh-secrets
                   key: wazuhClusterKey
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: wazuh-secrets
+                  key: discordWebhookUrl
   volumeClaimTemplates:
     - metadata:
         name: wazuh-manager-worker
