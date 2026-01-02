@@ -16,10 +16,12 @@ Configuration in ossec.conf:
   </integration>
 """
 
-import sys
 import json
-import requests
+import sys
+import urllib.error
+import urllib.request
 from datetime import datetime
+
 
 def get_alert_color(level):
     """
@@ -38,6 +40,7 @@ def get_alert_color(level):
     else:
         return 16711680  # Red
 
+
 def format_alert(alert_json, dashboard_url):
     """
     Format Wazuh alert as Discord embed.
@@ -50,108 +53,99 @@ def format_alert(alert_json, dashboard_url):
         dict: Discord webhook payload with formatted embed
     """
     # Extract alert details with safe defaults
-    rule = alert_json.get('rule', {})
-    agent = alert_json.get('agent', {})
+    rule = alert_json.get("rule", {})
+    agent = alert_json.get("agent", {})
 
     # Basic alert information
-    rule_id = rule.get('id', 'N/A')
-    rule_level = rule.get('level', 0)
-    rule_description = rule.get('description', 'No description')
+    rule_id = rule.get("id", "N/A")
+    rule_level = rule.get("level", 0)
+    rule_description = rule.get("description", "No description")
 
     # Agent information
-    agent_id = agent.get('id', 'N/A')
-    agent_name = agent.get('name', 'N/A')
+    agent_id = agent.get("id", "N/A")
+    agent_name = agent.get("name", "N/A")
 
     # Timestamp
-    timestamp = alert_json.get('timestamp', datetime.utcnow().isoformat())
+    timestamp = alert_json.get("timestamp", datetime.utcnow().isoformat())
 
     # Build embed fields
     fields = [
-        {
-            "name": "🔍 Rule ID",
-            "value": f"`{rule_id}`",
-            "inline": True
-        },
-        {
-            "name": "⚠️ Severity Level",
-            "value": f"`{rule_level}`",
-            "inline": True
-        },
+        {"name": "🔍 Rule ID", "value": f"`{rule_id}`", "inline": True},
+        {"name": "⚠️ Severity Level", "value": f"`{rule_level}`", "inline": True},
         {
             "name": "🖥️ Agent",
             "value": f"`{agent_name}` (ID: {agent_id})",
-            "inline": False
-        }
+            "inline": False,
+        },
     ]
 
     # Add MITRE ATT&CK information if available
-    mitre = rule.get('mitre', {})
+    mitre = rule.get("mitre", {})
     if mitre:
-        techniques = mitre.get('technique', [])
-        tactics = mitre.get('tactic', [])
+        techniques = mitre.get("technique", [])
+        tactics = mitre.get("tactic", [])
 
         if techniques:
-            fields.append({
-                "name": "🎯 MITRE ATT&CK Techniques",
-                "value": ", ".join([f"`{t}`" for t in techniques]),
-                "inline": False
-            })
+            fields.append(
+                {
+                    "name": "🎯 MITRE ATT&CK Techniques",
+                    "value": ", ".join([f"`{t}`" for t in techniques]),
+                    "inline": False,
+                }
+            )
 
         if tactics:
-            fields.append({
-                "name": "🎯 MITRE ATT&CK Tactics",
-                "value": ", ".join([f"`{t}`" for t in tactics]),
-                "inline": False
-            })
+            fields.append(
+                {
+                    "name": "🎯 MITRE ATT&CK Tactics",
+                    "value": ", ".join([f"`{t}`" for t in tactics]),
+                    "inline": False,
+                }
+            )
 
     # Add compliance information if available
     compliance = {}
-    if 'gdpr' in rule:
-        compliance['GDPR'] = ', '.join(rule['gdpr'])
-    if 'pci_dss' in rule:
-        compliance['PCI DSS'] = ', '.join(rule['pci_dss'])
-    if 'hipaa' in rule:
-        compliance['HIPAA'] = ', '.join(rule['hipaa'])
-    if 'nist_800_53' in rule:
-        compliance['NIST 800-53'] = ', '.join(rule['nist_800_53'])
+    if "gdpr" in rule:
+        compliance["GDPR"] = ", ".join(rule["gdpr"])
+    if "pci_dss" in rule:
+        compliance["PCI DSS"] = ", ".join(rule["pci_dss"])
+    if "hipaa" in rule:
+        compliance["HIPAA"] = ", ".join(rule["hipaa"])
+    if "nist_800_53" in rule:
+        compliance["NIST 800-53"] = ", ".join(rule["nist_800_53"])
 
     if compliance:
         compliance_text = "\n".join([f"**{k}**: {v}" for k, v in compliance.items()])
-        fields.append({
-            "name": "📋 Compliance",
-            "value": compliance_text,
-            "inline": False
-        })
+        fields.append(
+            {"name": "📋 Compliance", "value": compliance_text, "inline": False}
+        )
 
     # Add full log if available
-    full_log = alert_json.get('full_log', '')
+    full_log = alert_json.get("full_log", "")
     if full_log:
         # Truncate if too long (Discord field limit is 1024 characters)
         if len(full_log) > 900:
             full_log = full_log[:900] + "..."
-        fields.append({
-            "name": "📝 Full Log",
-            "value": f"```\n{full_log}\n```",
-            "inline": False
-        })
+        fields.append(
+            {"name": "📝 Full Log", "value": f"```\n{full_log}\n```", "inline": False}
+        )
 
     # Dashboard link (if agent has events)
-    dashboard_link = f"{dashboard_url}/app/wazuh#/overview/?tab=general&agentId={agent_id}"
+    dashboard_link = (
+        f"{dashboard_url}/app/wazuh#/overview/?tab=general&agentId={agent_id}"
+    )
 
     # Build Discord embed
     embed = {
         "title": f"🚨 {rule_description}",
         "color": get_alert_color(rule_level),
         "fields": fields,
-        "footer": {
-            "text": f"Wazuh Security Alert • {timestamp}"
-        },
-        "url": dashboard_link
+        "footer": {"text": f"Wazuh Security Alert • {timestamp}"},
+        "url": dashboard_link,
     }
 
-    return {
-        "embeds": [embed]
-    }
+    return {"embeds": [embed]}
+
 
 def main():
     """
@@ -166,9 +160,11 @@ def main():
 
         # Extract integration configuration
         # These are passed by Wazuh from the <integration> config
-        integration = alert_json.get('integration', {})
-        dashboard_url = integration.get('api_key', 'https://wazuh.68cc.io')  # api_key field used for dashboard URL
-        webhook_url = integration.get('hook_url', '')
+        integration = alert_json.get("integration", {})
+        dashboard_url = integration.get(
+            "api_key", "https://wazuh.68cc.io"
+        )  # api_key field used for dashboard URL
+        webhook_url = integration.get("hook_url", "")
 
         if not webhook_url:
             sys.stderr.write("ERROR: Discord webhook URL not configured\n")
@@ -177,31 +173,46 @@ def main():
         # Format alert as Discord embed
         payload = format_alert(alert_json, dashboard_url)
 
-        # Send to Discord
-        response = requests.post(
+        # Prepare request
+        payload_bytes = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
             webhook_url,
-            json=payload,
-            headers={'Content-Type': 'application/json'},
-            timeout=10
+            data=payload_bytes,
+            headers={"Content-Type": "application/json"},
+            method="POST",
         )
 
-        # Check response
-        if response.status_code == 204:
-            # Success - Discord returns 204 No Content
-            sys.exit(0)
-        else:
-            sys.stderr.write(f"ERROR: Discord webhook returned {response.status_code}: {response.text}\n")
+        # Send to Discord
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                # Discord returns 204 No Content on success
+                if response.status in (200, 204):
+                    sys.exit(0)
+                else:
+                    response_text = response.read().decode("utf-8")
+                    sys.stderr.write(
+                        f"ERROR: Discord webhook returned {response.status}: {response_text}\n"
+                    )
+                    sys.exit(1)
+        except urllib.error.HTTPError as e:
+            # HTTP errors (4xx, 5xx)
+            error_body = e.read().decode("utf-8") if e.fp else "No error body"
+            sys.stderr.write(
+                f"ERROR: Discord webhook returned {e.code}: {error_body}\n"
+            )
+            sys.exit(1)
+        except urllib.error.URLError as e:
+            # Network errors (DNS, connection, timeout)
+            sys.stderr.write(f"ERROR: Failed to connect to Discord: {e.reason}\n")
             sys.exit(1)
 
     except json.JSONDecodeError as e:
         sys.stderr.write(f"ERROR: Failed to parse alert JSON: {e}\n")
         sys.exit(1)
-    except requests.RequestException as e:
-        sys.stderr.write(f"ERROR: Failed to send to Discord: {e}\n")
-        sys.exit(1)
     except Exception as e:
         sys.stderr.write(f"ERROR: Unexpected error: {e}\n")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
