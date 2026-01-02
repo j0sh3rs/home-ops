@@ -130,69 +130,96 @@
 
 <!--
   Rule Group 2: Content Filtering (Primary User Goal: Kids Protection)
+  - Uses UDM Pro Deep Packet Inspection (DPI) for traffic categorization
   - Detects YouTube, social media, gaming, adult content, streaming access
   - Monitors after-hours usage (bedtime enforcement: 22:00-06:00)
   - Escalating severity: access → playback → excessive usage
+
+  REQUIREMENTS:
+  1. UDM Pro DPI must be enabled (Settings → Traffic Management → Deep Packet Inspection)
+  2. Traffic Rules configured with logging for target categories
+  3. UDM Pro syslog forwarding to Wazuh (already configured on port 514/TCP)
+
+  DPI Categories Used:
+  - "Social Networking" (Facebook, Instagram, TikTok, Twitter, Snapchat)
+  - "Streaming Media" (YouTube, Netflix, Disney+, Hulu, Prime Video, HBO Max)
+  - "Gaming" (Roblox, Minecraft, Fortnite, Twitch, Steam)
+  - "Adult Content" (Pornhub, XVideos, etc. - if DPI detects this category)
 -->
 <group name="local,content_filtering,">
 
-  <!-- Base rule: YouTube access detection -->
+  <!-- Base rule: DPI traffic detection -->
   <rule id="100020" level="3">
-    <match>youtube.com|youtu.be|youtubei.googleapis.com</match>
-    <description>Content Filter: YouTube access detected</description>
-    <group>youtube_access,content_monitoring,</group>
+    <decoded_as>udmpro-dpi</decoded_as>
+    <description>Content Filter: DPI traffic detected - App: $(dpi_app) Category: $(dpi_category) Src: $(srcip)</description>
+    <group>dpi_traffic,content_monitoring,</group>
   </rule>
 
-  <!-- YouTube video playback (high severity for kids protection) -->
+  <!-- YouTube/Streaming Media access detection (DPI category) -->
   <rule id="100021" level="8">
     <if_sid>100020</if_sid>
-    <match>watch|/v/|/embed/|videoplayback</match>
-    <description>Content Filter: YouTube video playback detected - URL: $(url)</description>
-    <group>youtube_video,content_monitoring,</group>
+    <field name="dpi_category">^Streaming Media$</field>
+    <field name="dpi_app">^YouTube$|^YouTubeTV$</field>
+    <description>Content Filter: YouTube streaming detected - App: $(dpi_app) Src: $(srcip)</description>
+    <group>youtube_video,streaming_media,content_monitoring,</group>
   </rule>
 
-  <!-- Frequent YouTube access (potential binge watching) -->
+  <!-- Frequent YouTube/Streaming access (potential binge watching) -->
   <rule id="100022" level="10" frequency="10" timeframe="3600">
     <if_matched_sid>100021</if_matched_sid>
     <same_srcip />
-    <description>Content Filter: Excessive YouTube usage - $(srcip) - 10+ videos in 1 hour</description>
-    <group>youtube_excessive,content_monitoring,</group>
+    <description>Content Filter: Excessive YouTube streaming - $(srcip) - 10+ sessions in 1 hour</description>
+    <group>youtube_excessive,streaming_excessive,content_monitoring,</group>
   </rule>
 
-  <!-- Social media access detection -->
-  <rule id="100023" level="5">
-    <match>facebook.com|instagram.com|tiktok.com|snapchat.com|twitter.com|x.com</match>
-    <description>Content Filter: Social media access detected - $(url)</description>
+  <!-- Social media access detection (DPI category) -->
+  <rule id="100023" level="7">
+    <if_sid>100020</if_sid>
+    <field name="dpi_category">^Social Networking$</field>
+    <description>Content Filter: Social media access detected - App: $(dpi_app) Src: $(srcip)</description>
     <group>social_media_access,content_monitoring,</group>
   </rule>
 
-  <!-- Gaming site access -->
-  <rule id="100024" level="5">
-    <match>roblox.com|minecraft.net|fortnite.com|twitch.tv|steam</match>
-    <description>Content Filter: Gaming site access detected - $(url)</description>
+  <!-- Gaming site access (DPI category) -->
+  <rule id="100024" level="6">
+    <if_sid>100020</if_sid>
+    <field name="dpi_category">^Gaming$|^Online Games$</field>
+    <description>Content Filter: Gaming activity detected - App: $(dpi_app) Src: $(srcip)</description>
     <group>gaming_access,content_monitoring,</group>
   </rule>
 
-  <!-- Adult content sites (high priority blocking) -->
-  <rule id="100025" level="12">
-    <match>pornhub|xvideos|xnxx|redtube|youporn|porn</match>
-    <description>Content Filter: ADULT CONTENT ACCESS DETECTED - $(url) - IMMEDIATE ATTENTION</description>
-    <group>adult_content,content_monitoring,high_priority,</group>
+  <!-- Adult content detection (DPI category - CRITICAL PRIORITY) -->
+  <rule id="100025" level="15">
+    <if_sid>100020</if_sid>
+    <field name="dpi_category">^Adult Content$|^Pornography$</field>
+    <description>Content Filter: ADULT CONTENT ACCESS DETECTED - App: $(dpi_app) Src: $(srcip) - IMMEDIATE ATTENTION</description>
+    <group>adult_content,content_monitoring,critical_alert,</group>
   </rule>
 
-  <!-- Streaming services (Netflix, Disney+, etc.) -->
+  <!-- All streaming services detection (Netflix, Disney+, Hulu, etc.) -->
   <rule id="100026" level="5">
-    <match>netflix.com|disneyplus.com|hulu.com|primevideo.com|hbomax.com</match>
-    <description>Content Filter: Streaming service access detected - $(url)</description>
+    <if_sid>100020</if_sid>
+    <field name="dpi_category">^Streaming Media$</field>
+    <field name="dpi_app" negate="yes">^YouTube$|^YouTubeTV$</field>
+    <description>Content Filter: Streaming service access detected - App: $(dpi_app) Src: $(srcip)</description>
     <group>streaming_access,content_monitoring,</group>
   </rule>
 
-  <!-- Late night internet usage (configurable for kids' bedtime) -->
-  <rule id="100027" level="8">
-    <if_sid>100020,100023,100024,100026</if_sid>
+  <!-- Late night internet usage (configurable for kids' bedtime: 22:00-06:00) -->
+  <rule id="100027" level="10">
+    <if_sid>100021,100023,100024,100026</if_sid>
     <time>22:00-06:00</time>
-    <description>Content Filter: Internet usage during restricted hours (22:00-06:00) - $(url)</description>
-    <group>after_hours_usage,content_monitoring,</group>
+    <description>Content Filter: Internet usage during restricted hours (22:00-06:00) - App: $(dpi_app) Src: $(srcip)</description>
+    <group>after_hours_usage,content_monitoring,bedtime_violation,</group>
+  </rule>
+
+  <!-- High traffic volume detection (potential excessive streaming) -->
+  <rule id="100028" level="8">
+    <if_sid>100020</if_sid>
+    <decoded_as>udmpro-dpi-bytes</decoded_as>
+    <field name="dpi_bytes">^\d{9,}$</field>
+    <description>Content Filter: High traffic volume detected - App: $(dpi_app) Bytes: $(dpi_bytes) Src: $(srcip)</description>
+    <group>high_bandwidth,content_monitoring,</group>
   </rule>
 
 </group>

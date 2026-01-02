@@ -1,0 +1,39 @@
+<!--
+  Custom Wazuh Decoders for Home-Ops Security Monitoring
+
+  UDM Pro Deep Packet Inspection (DPI) Decoder
+  Purpose: Parse DPI traffic logs for content filtering
+  Log Source: UDM Pro syslog with DPI Traffic Rules enabled
+
+  Expected Log Format (based on UDM Pro DPI v2.x):
+  Jan 02 13:45:23 udm-jms-01 [DPI] src=192.168.35.100:54321 dst=142.250.80.78:443 proto=tcp category="Social Networking" action=allow app="Facebook" bytes=4567
+
+  Extracted Fields:
+  - srcip: Source IP address (user device)
+  - srcport: Source port
+  - dstip: Destination IP address
+  - dstport: Destination port
+  - protocol: Network protocol (tcp/udp)
+  - dpi_category: DPI traffic category (e.g., "Social Networking", "Streaming Media", "Gaming")
+  - dpi_action: Traffic action (allow/block)
+  - dpi_app: Identified application name
+  - dpi_bytes: Traffic volume in bytes
+-->
+
+<decoder name="udmpro-dpi">
+  <parent>syslog</parent>
+  <prematch>\[DPI\]</prematch>
+  <regex offset="after_parent">src=(\S+):(\d+) dst=(\S+):(\d+) proto=(\S+) category="([^"]+)" action=(\S+) app="([^"]+)"</regex>
+  <order>srcip,srcport,dstip,dstport,protocol,dpi_category,dpi_action,dpi_app</order>
+</decoder>
+
+<!--
+  Alternative UDM Pro DPI Decoder with Bytes Field
+  Use if DPI logs include traffic volume (bytes=XXX)
+-->
+<decoder name="udmpro-dpi-bytes">
+  <parent>syslog</parent>
+  <prematch>\[DPI\]</prematch>
+  <regex offset="after_parent">src=(\S+):(\d+) dst=(\S+):(\d+) proto=(\S+) category="([^"]+)" action=(\S+) app="([^"]+)" bytes=(\d+)</regex>
+  <order>srcip,srcport,dstip,dstport,protocol,dpi_category,dpi_action,dpi_app,dpi_bytes</order>
+</decoder>
