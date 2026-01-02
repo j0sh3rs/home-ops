@@ -19,6 +19,7 @@ spec:
     remediation:
       retries: 3
   upgrade:
+    crds: CreateReplace
     cleanupOnFail: true
     remediation:
       retries: 3
@@ -31,6 +32,13 @@ spec:
         serviceMonitor:
           enabled: true
     tetragon:
+      exportFilename: /dev/stdout
+      exportRateLimit: 1000
+      exportAllowList: "{}"
+      exportDenyList: "{}"
+      grpc:
+        enabled: true
+        address: "localhost:54321"
       cri:
         enabled: true
         socketHostPath: /run/containerd/containerd.sock
