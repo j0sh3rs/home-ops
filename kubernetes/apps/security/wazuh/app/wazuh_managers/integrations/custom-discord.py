@@ -178,7 +178,10 @@ def main():
         req = urllib.request.Request(
             webhook_url,
             data=payload_bytes,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "Wazuh-Discord-Integration/1.0",
+            },
             method="POST",
         )
 
