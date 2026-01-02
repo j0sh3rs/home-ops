@@ -1,0 +1,137 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: forgejo-runner
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.0
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    controllers:
+      forgejo-runner:
+        replicas: 2
+        strategy: RollingUpdate
+        initContainers:
+          runner-register:
+            image:
+              repository: code.forgejo.org/forgejo/runner
+              tag: 12.4.0
+            command:
+              - sh
+              - -c
+              - |
+                forgejo-runner register --no-interactive \
+                  --token $(RUNNER_TOKEN) \
+                  --name $(RUNNER_NAME) \
+                  --instance $(FORGEJO_INSTANCE_URL) \
+                  --labels docker:docker://ghcr.io/catthehacker/ubuntu:act-latest,ubuntu-latest:host
+                forgejo-runner generate-config > /data/config.yml
+                sed -i -e "s|network: .*|network: host|" /data/config.yml
+            env:
+              - name: RUNNER_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: forgejo-runner-secret
+                    key: RUNNER_TOKEN
+              - name: FORGEJO_INSTANCE_URL
+                valueFrom:
+                  secretKeyRef:
+                    name: forgejo-runner-secret
+                    key: FORGEJO_INSTANCE_URL
+              - name: RUNNER_NAME
+                value: "forgejo-runner-$(POD_NAME)"
+            envFrom:
+              - fieldRef:
+                  fieldPath: metadata.name
+                  name: POD_NAME
+            volumeMounts:
+              - name: data
+                mountPath: /data
+        containers:
+          daemon:
+            image:
+              repository: docker
+              tag: 29-dind-rootless
+            securityContext:
+              privileged: true
+            env:
+              - name: DOCKER_TLS_CERTDIR
+                value: /certs
+            volumeMounts:
+              - name: docker-certs
+                mountPath: /certs
+              - name: daemon-data
+                mountPath: /var/lib/docker
+            resources:
+              limits:
+                memory: 1Gi
+                cpu: 500m
+              requests:
+                memory: 256Mi
+                cpu: 100m
+          app:
+            image:
+              repository: code.forgejo.org/forgejo/runner
+              tag: 12.4.0
+            command:
+              - sh
+              - -c
+              - |
+                while ! nc -z localhost 2376; do
+                  echo "Waiting for Docker daemon..."
+                  sleep 5
+                done
+                echo "Docker daemon ready, starting runner..."
+                forgejo-runner --config /data/config.yml daemon
+            env:
+              - name: DOCKER_HOST
+                value: tcp://localhost:2376
+              - name: DOCKER_CERT_PATH
+                value: /certs/client
+              - name: DOCKER_TLS_VERIFY
+                value: "1"
+            volumeMounts:
+              - name: data
+                mountPath: /data
+              - name: docker-certs
+                mountPath: /certs
+                readOnly: true
+            resources:
+              limits:
+                memory: 1Gi
+                cpu: 500m
+              requests:
+                memory: 256Mi
+                cpu: 100m
+    service:
+      app:
+        controller: forgejo-runner
+        enabled: false
+    persistence:
+      data:
+        type: emptyDir
+        globalMounts:
+          - path: /data
+      docker-certs:
+        type: emptyDir
+        globalMounts:
+          - path: /certs
+      daemon-data:
+        type: emptyDir
+        globalMounts:
+          - path: /var/lib/docker
