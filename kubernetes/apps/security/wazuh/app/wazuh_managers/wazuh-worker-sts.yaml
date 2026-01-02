@@ -111,6 +111,10 @@ spec:
               mountPath: /wazuh-config-mount/etc/rules/local_rules.xml
               subPath: local_rules.xml
               readOnly: true
+            - name: config
+              mountPath: /var/ossec/etc/decoders/local_decoder.xml
+              subPath: local_decoder.xml
+              readOnly: true
             - name: coredns-decoder
               mountPath: /var/ossec/etc/decoders/coredns_decoder.xml
               subPath: coredns_decoder.xml
