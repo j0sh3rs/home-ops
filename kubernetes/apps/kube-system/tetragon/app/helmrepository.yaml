@@ -4,7 +4,7 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: tetragon
-  namespace: flux-system
+  namespace: kube-system
 spec:
   interval: 1h
   url: https://helm.cilium.io
