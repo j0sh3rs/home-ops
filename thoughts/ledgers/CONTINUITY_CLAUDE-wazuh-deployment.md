@@ -1,6 +1,6 @@
 # Session: wazuh-deployment
 
-Updated: 2025-12-31T23:07:28.205Z
+Updated: 2026-01-02T17:01:56.609Z
 
 ## Goal
 
@@ -63,8 +63,21 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
     - [x] **Agent Connectivity Issue Resolved**: Fixed empty decoder file preventing wazuh-remoted from starting
     - [x] **External Agent Integration**: UDM Pro agent (ID 006) successfully connected via Envoy Gateway
     - [x] **Discord Integration Configured**: Integration script, ConfigMaps, environment variables, and manager configs complete
-- Now: [→] **Discord Integration Ready for Deployment** - Awaiting webhook URL to replace placeholder
+    - [x] **Content Filtering Root Cause Analysis**: Identified why rules 100020-100027 have 0 alerts - missing user device network traffic logs
+    - [x] **Log Source Investigation**: Confirmed DNS cache logs only show K8s infrastructure, UDM Pro syslog only system events
+    - [x] **UDM Pro Logging Solution Research**: Created comprehensive guide (claudedocs/wazuh-udm-pro-logging-configuration.md)
+    - [x] **DPI Decoder Created**: UDM Pro DPI decoder in local_decoder.xml (parses DPI logs)
+    - [x] **Content Filtering Rules Updated**: Rules 100020-100028 rewritten for DPI field matching
+    - [x] **Configuration Committed**: Commit 39390e2 - DPI-based content filtering implementation
+    - [x] **Deployment Guide Created**: claudedocs/wazuh-dpi-deployment-guide.md with complete instructions
+    - [x] **Phase 2 Complete**: DPI decoder deployed and verified in all manager pods (commit 28af89a/f46291d)
+    - [x] **Decoder Verification**: Confirmed local_decoder.xml exists with DPI content in all 3 manager pods
+- Now: [→] **UDM Pro DPI Configuration (Phase 1)** - Enable DPI and create Traffic Rules with logging
 - Next:
+    - [ ] Enable Deep Packet Inspection on UDM Pro (Settings → Traffic Management → DPI)
+    - [ ] Create Traffic Rules with logging for: Social Networking, Streaming Media, Gaming, Adult Content
+    - [ ] Deploy Wazuh configuration: flux reconcile ks wazuh -n security --with-source --context home
+    - [ ] Test content filtering with real user traffic (Facebook, YouTube, gaming)
     - [ ] Provide actual Discord webhook URL to replace PLACEHOLDER_DISCORD_WEBHOOK_URL in secret
     - [ ] Deploy Discord integration via FluxCD
     - [ ] Test Discord alert delivery
