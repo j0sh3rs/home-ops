@@ -62,11 +62,14 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
     - [x] **Dashboard API Issue Resolved**: Fixed invalid queue_size configuration in syslog remote section
     - [x] **Agent Connectivity Issue Resolved**: Fixed empty decoder file preventing wazuh-remoted from starting
     - [x] **External Agent Integration**: UDM Pro agent (ID 006) successfully connected via Envoy Gateway
-- Now: [→] **WAZUH DEPLOYMENT COMPLETE** - All components operational, 4 agents (3 internal + 1 external) collecting logs, dashboard accessible
+    - [x] **Discord Integration Configured**: Integration script, ConfigMaps, environment variables, and manager configs complete
+- Now: [→] **Discord Integration Ready for Deployment** - Awaiting webhook URL to replace placeholder
 - Next:
+    - [ ] Provide actual Discord webhook URL to replace PLACEHOLDER_DISCORD_WEBHOOK_URL in secret
+    - [ ] Deploy Discord integration via FluxCD
+    - [ ] Test Discord alert delivery
     - [ ] Monitoring/Alerting rules for security events
     - [ ] Dashboard customization for home security use cases
-    - [ ] Integration with external tools (alerts, notifications)
 
 ## Agent Deployment Complete (2025-12-30)
 
@@ -274,6 +277,76 @@ Added UDM Pro as external agent:
 2. **Configuration Errors**: Empty or malformed configuration files can cause cascade failures in supervisor dependency chains
 3. **Decoder Files**: Valid decoder files in `/var/ossec/etc/decoders/` are critical - empty files cause analysisd to crash
 4. **External Agents**: Envoy Gateway TCPRoute configuration was correct - backend service failure was the root cause
+
+## Discord Integration Configuration (2026-01-02)
+
+### Objective
+
+Configure Wazuh to send security alerts to Discord via webhook using custom Python integration script.
+
+### Implementation Completed
+
+**Integration Script** (`custom-discord.py`):
+
+- Created Python script based on Wazuh integration template
+- Processes JSON alerts from Wazuh manager
+- Formats alerts with severity-based color coding (critical=red, high=orange, medium=yellow, low=green)
+- Sends formatted embeds to Discord webhook via HTTP POST
+- Added to wazuh-integrations ConfigMap via configMapGenerator
+
+**StatefulSet Configuration**:
+
+- Added integration script volume mount to both master and worker StatefulSets
+- Added InitContainer to copy script from ConfigMap to `/var/ossec/integrations/`
+- Set correct permissions (chmod 750, chown :wazuh) for Wazuh execution
+- Injected DISCORD_WEBHOOK_URL environment variable from wazuh-secrets
+
+**Manager Configuration**:
+
+- Added Discord integration XML block to master.conf and worker.conf
+- Integration name: `custom-discord`
+- Alert format: JSON
+- Hook URL: `$DISCORD_WEBHOOK_URL` (environment variable substitution)
+- API key field: Dashboard URL (https://wazuh.68cc.io) for alert context
+
+**Secret Management**:
+
+- Added `discordWebhookUrl` to SOPS-encrypted wazuh-secrets
+- Current value: PLACEHOLDER_DISCORD_WEBHOOK_URL
+- Environment variable injection via secretKeyRef in StatefulSets
+
+### Configuration Flow
+
+```
+Alert triggers in Wazuh
+  → Integration system calls custom-discord.py
+  → Script reads DISCORD_WEBHOOK_URL from environment
+  → Formats alert as Discord embed (color-coded by severity)
+  → HTTP POST to Discord webhook
+  → Alert appears in Discord channel
+```
+
+### Status
+
+**Configuration**: ✅ COMPLETE - All technical setup finished, committed (2cc516a), pushed to repository
+
+**Ready for Deployment**: Once actual Discord webhook URL replaces placeholder value:
+
+1. Update wazuh-secrets.discordWebhookUrl with actual webhook URL (use Python SOPS workflow)
+2. Deploy: `flux reconcile ks wazuh -n security --with-source --context home`
+3. Verify ConfigMap regeneration includes updated configs
+4. Verify environment variables injected correctly
+5. Generate test alert to verify Discord delivery
+
+### Files Modified
+
+- `kubernetes/apps/security/wazuh/app/kustomization.yaml` - Added wazuh-integrations ConfigMap
+- `kubernetes/apps/security/wazuh/app/wazuh_managers/integrations/custom-discord.py` - Integration script
+- `kubernetes/apps/security/wazuh/app/wazuh_managers/wazuh-master-sts.yaml` - Volume, InitContainer, env var
+- `kubernetes/apps/security/wazuh/app/wazuh_managers/wazuh-worker-sts.yaml` - Volume, InitContainer, env var
+- `kubernetes/apps/security/wazuh/app/wazuh_managers/wazuh_conf/master.conf` - Integration XML block
+- `kubernetes/apps/security/wazuh/app/wazuh_managers/wazuh_conf/worker.conf` - Integration XML block
+- `kubernetes/apps/security/wazuh/app/secret.sops.yaml` - Added discordWebhookUrl (placeholder)
 
 ## Syslog TCP Infrastructure Validation (2025-12-31)
 
