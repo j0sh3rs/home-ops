@@ -13,5 +13,5 @@ spec:
   rules:
     - backendRefs:
         - name: wazuh-workers
-          port: 5140
+          port: 514
           namespace: security

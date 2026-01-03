@@ -21,5 +21,5 @@ spec:
       port: 514
       targetPort: 514
     - name: syslog-tcp
-      port: 5140
-      targetPort: 5140
+      port: 514
+      targetPort: 514

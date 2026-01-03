@@ -28,22 +28,22 @@
 
 1. **Envoy Gateway Listeners** (`kubernetes/apps/network/envoy-gateway/app/envoy.yaml`)
     - UDP listener `wazuh-syslog-udp` on port 514 (standard RFC 3164)
-    - TCP listener `wazuh-syslog-tcp` on port 5140 (alternative)
+    - TCP listener `wazuh-syslog-tcp` on port 514 (RFC-compliant, same port)
     - Both allowedRoutes configured for respective protocol kinds
 
 2. **Wazuh Manager Configs** (`wazuh_conf/master.conf` and `wazuh_conf/worker.conf`)
     - UDP remote connection on port 514
-    - TCP remote connection on port 5140
+    - TCP remote connection on port 514
     - Both protocols configured with 0.0.0.0/0 allowed IPs
 
 3. **Routing Resources**:
     - `udproute.yaml`: UDPRoute for port 514 traffic
-    - `wazuh-syslog-tcproute.yaml`: TCPRoute for port 5140 traffic
-    - Both routes target wazuh-workers service on respective ports
+    - `wazuh-syslog-tcproute.yaml`: TCPRoute for port 514 traffic
+    - Both routes target wazuh-workers service on port 514
 
 4. **Service Configuration** (`wazuh-workers-svc.yaml`)
     - Port `syslog-udp` (514) for UDP traffic
-    - Port `syslog-tcp` (5140) for TCP traffic
+    - Port `syslog-tcp` (514) for TCP traffic
 
 **Traffic Flow** (Dual Protocol):
 
