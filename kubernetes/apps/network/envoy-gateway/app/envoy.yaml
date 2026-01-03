@@ -206,13 +206,13 @@ spec:
   gatewayClassName: envoy
   listeners:
     - name: wazuh-syslog
-      protocol: TCP
+      protocol: UDP
       port: 514
       allowedRoutes:
         namespaces:
           from: All
         kinds:
-          - kind: TCPRoute
+          - kind: UDPRoute
     - name: wazuh-registration
       protocol: TCP
       port: 1515
