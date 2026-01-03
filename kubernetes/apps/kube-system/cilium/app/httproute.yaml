@@ -13,7 +13,7 @@ spec:
   rules:
     - backendRefs:
         - name: hubble-ui
-          port: 80
+          port: 8001
           namespace: kube-system
       matches:
         - path:
