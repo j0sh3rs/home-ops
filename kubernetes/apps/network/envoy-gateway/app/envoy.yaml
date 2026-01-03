@@ -215,7 +215,7 @@ spec:
           - kind: UDPRoute
     - name: wazuh-syslog-tcp
       protocol: TCP
-      port: 5140
+      port: 514
       allowedRoutes:
         namespaces:
           from: All
