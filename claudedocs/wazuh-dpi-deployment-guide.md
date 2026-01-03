@@ -1,8 +1,8 @@
 # Wazuh DPI-Based Content Filtering Deployment Guide
 
 **Date**: 2026-01-03
-**Status**: Infrastructure Complete (UDP Protocol) - Phase 1 Pending (UDM Pro Configuration)
-**Commits**: 39390e2 (DPI decoder), 28af89a (decoder deployment), 12b006a (UDP conversion)
+**Status**: Infrastructure Complete (Dual Protocol UDP+TCP) - Phase 1 Pending (UDM Pro Configuration)
+**Commits**: 39390e2 (DPI decoder), 28af89a (decoder deployment), 12b006a (UDP conversion), 1d68fe4 (UDP guide update), 5b170df (dual protocol support)
 
 ## What Was Changed
 
@@ -20,33 +20,49 @@
     - Adult content: Level 15 severity, Adult Content/Pornography categories
     - High bandwidth: New rule for 1GB+ traffic detection
 
-### Phase 2: UDP Protocol Conversion (Commit 12b006a)
+### Phase 2: Dual Protocol Syslog Support (Commits 12b006a, 5b170df)
 
-**Root Cause**: UDM Pro CyberSecure Traffic Logging uses standard UDP syslog (RFC 3164). The entire Wazuh infrastructure was initially configured for TCP-only, preventing any syslog traffic from reaching Wazuh.
+**Evolution**: Initially converted from TCP-only to UDP-only (12b006a), then enhanced to support BOTH protocols simultaneously (5b170df) for maximum device compatibility.
 
 **Infrastructure Changes**:
 
-1. **Envoy Gateway Listener** (`kubernetes/apps/network/envoy-gateway/app/envoy.yaml`)
-    - Changed wazuh-syslog listener from TCP to UDP protocol
-    - Updated allowedRoutes to accept UDPRoute kind
+1. **Envoy Gateway Listeners** (`kubernetes/apps/network/envoy-gateway/app/envoy.yaml`)
+    - UDP listener `wazuh-syslog-udp` on port 514 (standard RFC 3164)
+    - TCP listener `wazuh-syslog-tcp` on port 5140 (alternative)
+    - Both allowedRoutes configured for respective protocol kinds
 
 2. **Wazuh Manager Configs** (`wazuh_conf/master.conf` and `wazuh_conf/worker.conf`)
-    - Changed syslog remote connection from TCP to UDP protocol
-    - Port 514 now configured for UDP syslog reception
+    - UDP remote connection on port 514
+    - TCP remote connection on port 5140
+    - Both protocols configured with 0.0.0.0/0 allowed IPs
 
 3. **Routing Resources**:
-    - Removed wazuh-syslog TCPRoute (incompatible with UDP listener)
-    - Created new `udproute.yaml` with UDPRoute resource
-    - Updated kustomization.yaml to include udproute.yaml
+    - `udproute.yaml`: UDPRoute for port 514 traffic
+    - `wazuh-syslog-tcproute.yaml`: TCPRoute for port 5140 traffic
+    - Both routes target wazuh-workers service on respective ports
 
-**Traffic Flow** (UDP):
+4. **Service Configuration** (`wazuh-workers-svc.yaml`)
+    - Port `syslog-udp` (514) for UDP traffic
+    - Port `syslog-tcp` (5140) for TCP traffic
+
+**Traffic Flow** (Dual Protocol):
 
 ```
-UDM Pro (192.168.35.1) → UDP/514
-  → Envoy Gateway (192.168.35.18:514) [UDP listener]
+UDP Flow (Standard):
+External Device → 192.168.35.18:514 (UDP)
+  → Envoy Gateway [wazuh-syslog-udp listener]
   → UDPRoute [wazuh-syslog]
-  → wazuh-workers Service (ClusterIP:514)
-  → wazuh-manager pods (UDP syslog listener)
+  → wazuh-workers Service (port 514)
+  → wazuh-manager pods (UDP syslog listener port 514)
+  → wazuh-remoted → wazuh-analysisd
+  → OpenSearch (wazuh-alerts-4.x-*)
+
+TCP Flow (Alternative):
+External Device → 192.168.35.18:5140 (TCP)
+  → Envoy Gateway [wazuh-syslog-tcp listener]
+  → TCPRoute [wazuh-syslog-tcp]
+  → wazuh-workers Service (port 5140)
+  → wazuh-manager pods (TCP syslog listener port 5140)
   → wazuh-remoted → wazuh-analysisd
   → OpenSearch (wazuh-alerts-4.x-*)
 ```
@@ -130,11 +146,17 @@ UnifiOS has **multiple logging features** that are often confused:
 2. Enable SIEM Server:
     - **Enable SIEM Server**: ✅ (toggle ON)
     - **Server Address**: `192.168.35.18`
-    - **Port**: `514`
-    - **Protocol**: **UDP** (standard syslog protocol per RFC 3164)
+    - **Port**: Choose one:
+        - `514` for UDP (recommended - standard RFC 3164)
+        - `5140` for TCP (alternative for devices requiring TCP)
+    - **Protocol**: **UDP** or **TCP** (both supported)
     - **Log Format**: CEF (optional - Wazuh decoder handles both formats)
 
-**Note**: UDM Pro CyberSecure Traffic Logging uses standard UDP syslog (RFC 3164) by default. The Wazuh infrastructure is configured to receive UDP syslog on port 514.
+**Protocol Recommendations**:
+
+- **UDP (port 514)**: Standard syslog protocol (RFC 3164), recommended for most devices
+- **TCP (port 5140)**: Alternative for devices that require reliable delivery or are incompatible with UDP
+- **Both Supported**: Wazuh infrastructure accepts both protocols simultaneously
 
 3. Enable Traffic Categories (select which DPI events to log):
     - **Security Detections**: ✅
