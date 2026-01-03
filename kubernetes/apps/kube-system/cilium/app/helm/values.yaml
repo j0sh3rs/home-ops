@@ -47,7 +47,7 @@ hubble:
     serviceMonitor:
       enabled: true
   ui:
-    enabled: true
+    enabled: false
     rollOutPods: true
 ipam:
   mode: kubernetes
