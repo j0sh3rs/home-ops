@@ -205,7 +205,7 @@ spec:
       lbipam.cilium.io/ips: 192.168.35.18
   gatewayClassName: envoy
   listeners:
-    - name: wazuh-syslog
+    - name: wazuh-syslog-udp
       protocol: UDP
       port: 514
       allowedRoutes:
@@ -213,6 +213,14 @@ spec:
           from: All
         kinds:
           - kind: UDPRoute
+    - name: wazuh-syslog-tcp
+      protocol: TCP
+      port: 5140
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - kind: TCPRoute
     - name: wazuh-registration
       protocol: TCP
       port: 1515

@@ -17,6 +17,9 @@ spec:
     - name: agents-events
       port: 1514
       targetPort: 1514
-    - name: syslog
+    - name: syslog-udp
       port: 514
       targetPort: 514
+    - name: syslog-tcp
+      port: 5140
+      targetPort: 5140

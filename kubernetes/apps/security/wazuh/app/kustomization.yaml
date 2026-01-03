@@ -45,5 +45,6 @@ resources:
   - ./httproute.yaml
   - ./tcproute.yaml
   - ./udproute.yaml
+  - ./wazuh-syslog-tcproute.yaml
   - ./backend-tls-ca.yaml
   - ./backend-tls-policy.yaml
