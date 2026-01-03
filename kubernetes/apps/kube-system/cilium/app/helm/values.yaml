@@ -34,7 +34,7 @@ gatewayAPI:
   enableAlpn: true
   xffNumTrustedHops: 1
 hubble:
-  enabled: true
+  enabled: false
   serviceMonitor:
     enabled: true
   dashboards:
