@@ -34,20 +34,20 @@ gatewayAPI:
   enableAlpn: true
   xffNumTrustedHops: 1
 hubble:
-  enabled: false
+  enabled: true
   serviceMonitor:
     enabled: true
   dashboards:
     enabled: true
   relay:
-    enabled: false
+    enabled: true
     rollOutPods: true
   prometheus:
     enabled: true
     serviceMonitor:
       enabled: true
   ui:
-    enabled: false
+    enabled: true
     rollOutPods: true
 ipam:
   mode: kubernetes
