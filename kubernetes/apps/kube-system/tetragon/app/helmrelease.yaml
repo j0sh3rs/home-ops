@@ -45,3 +45,20 @@ spec:
       prometheus:
         serviceMonitor:
           enabled: true
+      # Add volume mounts for Talos Linux eBPF support
+      extraVolumes:
+        - name: debugfs
+          hostPath:
+            path: /sys/kernel/debug
+            type: DirectoryOrCreate
+        - name: tracefs
+          hostPath:
+            path: /sys/kernel/tracing
+            type: DirectoryOrCreate
+      extraVolumeMounts:
+        - name: debugfs
+          mountPath: /sys/kernel/debug
+          readOnly: true
+        - name: tracefs
+          mountPath: /sys/kernel/tracing
+          readOnly: true
