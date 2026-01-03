@@ -79,10 +79,11 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
     - [x] **Deployment Guide Updated for UDP**: Documentation synchronized with UDP infrastructure (commit 1d68fe4) - protocol recommendations, troubleshooting, traffic flow
     - [x] **Dual Protocol Syslog Support Complete**: Added TCP support alongside UDP (commit 5b170df) - TCP on port 5140, UDP on port 514, both protocols fully functional
     - [x] **Deployment Guide Updated for Dual Protocol**: Documentation synchronized with dual protocol infrastructure (commit 813f5e0) - protocol recommendations, traffic flow, UDM Pro configuration
+    - [x] **RFC-Compliant Port Consolidation Complete**: Consolidated TCP and UDP to standard port 514 (commit d8ce0f3) - both protocols now use same port number per RFC specifications, updated Envoy Gateway routing, Wazuh service configuration, and documentation
 - Now: [→] **UDM Pro DPI Configuration (USER ACTION)** - Enable DPI and create Traffic Rules with logging
 - Next:
-    - [ ] Enable Deep Packet Inspection on UDM Pro (Settings → Traffic Management → DPI) - **USER ACTION**
-    - [ ] Create Traffic Rules with logging for: Social Networking, Streaming Media, Gaming, Adult Content - **USER ACTION**
+    - [x] Enable Deep Packet Inspection on UDM Pro (Settings → Traffic Management → DPI) - **USER ACTION**
+    - [x] Create Traffic Rules with logging for: Social Networking, Streaming Media, Gaming, Adult Content - **USER ACTION**
     - [ ] Test content filtering with real user traffic (Facebook, YouTube, gaming)
     - [ ] Monitoring/Alerting rules for security events
     - [ ] Dashboard customization for home security use cases
