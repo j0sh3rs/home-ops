@@ -1,6 +1,6 @@
 # Session: wazuh-deployment
 
-Updated: 2026-01-02T20:23:36.711Z
+Updated: 2026-01-03T10:45:00.000Z
 
 ## Goal
 
@@ -75,6 +75,10 @@ Complete Wazuh security monitoring deployment on home-ops Kubernetes cluster. Do
     - [x] **Discord Integration Script Rewritten**: Changed from requests to urllib (commit a5d32ad) to fix ModuleNotFoundError
     - [x] **Discord CloudFlare Protection Fixed**: Added User-Agent header (commit 98df0c2) to bypass 403 error code 1010
     - [x] **Discord Integration Tested**: Manual test completed successfully, webhook accepting alerts
+    - [x] **UDP Protocol Conversion Complete**: Converted entire syslog infrastructure from TCP to UDP (commit 12b006a) - Envoy Gateway, manager configs, UDPRoute
+    - [x] **Deployment Guide Updated for UDP**: Documentation synchronized with UDP infrastructure (commit 1d68fe4) - protocol recommendations, troubleshooting, traffic flow
+    - [x] **Dual Protocol Syslog Support Complete**: Added TCP support alongside UDP (commit 5b170df) - TCP on port 5140, UDP on port 514, both protocols fully functional
+    - [x] **Deployment Guide Updated for Dual Protocol**: Documentation synchronized with dual protocol infrastructure (commit 813f5e0) - protocol recommendations, traffic flow, UDM Pro configuration
 - Now: [→] **UDM Pro DPI Configuration (USER ACTION)** - Enable DPI and create Traffic Rules with logging
 - Next:
     - [ ] Enable Deep Packet Inspection on UDM Pro (Settings → Traffic Management → DPI) - **USER ACTION**
