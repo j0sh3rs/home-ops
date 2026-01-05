@@ -64,9 +64,9 @@ spec:
         - alert: VictoriaLogsNoRecentLogs
           expr: |
             (
-              rate(victoria_logs_rows_ingested_total[5m]) == 0
+              rate(vl_rows_ingested_total[5m]) == 0
               or
-              absent(victoria_logs_rows_ingested_total)
+              absent(vl_rows_ingested_total)
             )
           for: 10m
           labels:
