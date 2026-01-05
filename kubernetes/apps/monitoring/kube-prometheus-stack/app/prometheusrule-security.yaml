@@ -1,0 +1,230 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: security-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    # Wazuh Security Monitoring (Phase 5 deprecation pending)
+    - name: wazuh
+      interval: 30s
+      rules:
+        - alert: WazuhManagerDown
+          expr: |
+            kube_statefulset_status_replicas_ready{namespace="security", statefulset=~"wazuh-manager-.*"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Wazuh Manager {{ $labels.statefulset }} is unavailable"
+            description: "Wazuh Manager {{ $labels.statefulset }} has no ready replicas for more than 5 minutes. Security monitoring may be degraded."
+
+        - alert: WazuhIndexerDown
+          expr: |
+            kube_statefulset_status_replicas_ready{namespace="security", statefulset="wazuh-indexer"} < 2
+          for: 5m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Wazuh Indexer has degraded availability"
+            description: "Wazuh Indexer has less than 2 ready replicas. Expected: 3. Security event indexing may be impacted."
+
+        - alert: WazuhAgentDown
+          expr: |
+            kube_daemonset_status_number_ready{namespace="security", daemonset="wazuh-agent"} < kube_daemonset_status_desired_number_scheduled{namespace="security", daemonset="wazuh-agent"}
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Wazuh agents not running on all nodes"
+            description: "{{ $value }} Wazuh agent pods are not running. Expected: {{ $labels.desired }}. Some nodes lack security monitoring."
+
+        - alert: WazuhDashboardDown
+          expr: |
+            kube_deployment_status_replicas_available{namespace="security", deployment="wazuh-dashboard"} == 0
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Wazuh Dashboard is unavailable"
+            description: "Wazuh Dashboard has no available replicas for more than 10 minutes. Security event visualization is unavailable."
+
+    # Kubernetes RBAC and Authorization
+    - name: rbac-security
+      interval: 30s
+      rules:
+        - alert: UnauthorizedAPIAccessAttempts
+          expr: |
+            sum by (verb, resource) (rate(apiserver_audit_event_total{verb!~"get|list|watch"}[5m])) > 10
+          for: 5m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "High rate of {{ $labels.verb }} attempts on {{ $labels.resource }}"
+            description: "Detected {{ $value }} unauthorized API access attempts per second for {{ $labels.verb }} {{ $labels.resource }}."
+
+        - alert: ServiceAccountTokenLeaked
+          expr: |
+            increase(apiserver_audit_event_total{user=~"system:serviceaccount:.*", verb="create", objectRef_resource="secrets"}[10m]) > 5
+          for: 5m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Suspicious service account secret creation"
+            description: "Service account {{ $labels.user }} has created {{ $value }} secrets in the last 10 minutes. Possible token leak or compromise."
+
+    # Pod Security Standards
+    - name: pod-security
+      interval: 30s
+      rules:
+        - alert: PrivilegedContainerStarted
+          expr: |
+            kube_pod_container_status_running{container!~".*(cilium|wazuh).*"} == 1
+            and on(namespace, pod, container)
+            kube_pod_container_info{container_privileged="true"}
+          for: 5m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Privileged container running: {{ $labels.container }}"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace: {{ $labels.namespace }}) is running in privileged mode."
+
+        - alert: HostNetworkPodRunning
+          expr: |
+            kube_pod_spec_host_network{pod!~".*(cilium|wazuh|kube-proxy).*"} == 1
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Pod using host network: {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is using host network for more than 10 minutes."
+
+        - alert: HostPathVolumeUsed
+          expr: |
+            kube_pod_spec_volumes_persistentvolumeclaims_info == 0
+            and on(namespace, pod)
+            kube_pod_spec_volumes_hostpath_info{pod!~".*(cilium|wazuh|node-exporter).*"}
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Pod using hostPath volume: {{ $labels.pod }}"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is using a hostPath volume, which provides access to the host filesystem."
+
+    # Secret Access Monitoring
+    - name: secrets-security
+      interval: 30s
+      rules:
+        - alert: SecretAccessSpike
+          expr: |
+            sum by (namespace) (rate(apiserver_audit_event_total{objectRef_resource="secrets", verb=~"get|list"}[5m])) > 5
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "High secret access rate in namespace {{ $labels.namespace }}"
+            description: "Detected {{ $value }} secret access requests per second in namespace {{ $labels.namespace }}. Possible enumeration attack."
+
+        - alert: SecretDeletionAttempt
+          expr: |
+            increase(apiserver_audit_event_total{objectRef_resource="secrets", verb="delete"}[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Secret deletion detected"
+            description: "{{ $value }} secret(s) were deleted in the last 5 minutes. Verify if this is authorized."
+
+    # Image Security
+    - name: image-security
+      interval: 30s
+      rules:
+        - alert: ImagePullBackOff
+          expr: |
+            kube_pod_container_status_waiting_reason{reason="ImagePullBackOff"} == 1
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Container {{ $labels.container }} failing to pull image"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace: {{ $labels.namespace }}) has been unable to pull its image for 10 minutes. Possible registry authentication issue or malicious image blocking."
+
+        - alert: ContainerUsingLatestTag
+          expr: |
+            kube_pod_container_info{image=~".*:latest"}
+          for: 1h
+          labels:
+            severity: info
+            component: security
+          annotations:
+            summary: "Container using :latest tag: {{ $labels.container }}"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace: {{ $labels.namespace }}) is using the :latest image tag. This is not recommended for production."
+
+    # Network Security
+    - name: network-security
+      interval: 30s
+      rules:
+        - alert: ServiceExposedWithoutNetworkPolicy
+          expr: |
+            kube_service_info{type!="ClusterIP"}
+            unless on(namespace)
+            kube_networkpolicy_labels
+          for: 1h
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Service {{ $labels.service }} exposed without NetworkPolicy"
+            description: "Service {{ $labels.service }} in namespace {{ $labels.namespace }} is exposed ({{ $labels.type }}) but the namespace has no NetworkPolicies defined."
+
+        - alert: LoadBalancerServiceCreated
+          expr: |
+            increase(kube_service_created{type="LoadBalancer"}[5m]) > 0
+          for: 1m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "New LoadBalancer service created"
+            description: "A new LoadBalancer service was created. Verify this is authorized as it exposes services externally."
+
+    # Audit and Compliance
+    - name: compliance
+      interval: 30s
+      rules:
+        - alert: PodSecurityStandardViolation
+          expr: |
+            increase(pod_security_evaluations_total{decision="deny"}[10m]) > 0
+          for: 1m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Pod Security Standard violation detected"
+            description: "{{ $value }} pod(s) violated Pod Security Standards in the last 10 minutes. Review security policies."
+
+        - alert: AuditLogErrors
+          expr: |
+            rate(apiserver_audit_error_total[5m]) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Kubernetes audit logging errors"
+            description: "API server is experiencing audit log errors at {{ $value }} per second. Audit trail may be incomplete."
