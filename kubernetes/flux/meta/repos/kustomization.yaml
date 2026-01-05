@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - ./amd-gpu.yaml
   - ./bjw-s.yaml
+  - ./cilium.yaml
   - ./cloudnative-pg.yaml
   - ./cloudflare.yaml
   - ./descheduler.yaml

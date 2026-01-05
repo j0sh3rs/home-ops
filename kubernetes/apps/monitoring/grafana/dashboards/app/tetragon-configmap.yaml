@@ -1,0 +1,206 @@
+apiVersion: v1
+data:
+  tetragon-dashboard.json: "{\n\t\"annotations\": {\n\t\t\"list\": [\n\t\t\t{\n\t\t\t\t\"builtIn\":
+    1,\n\t\t\t\t\"datasource\": {\n\t\t\t\t\t\"type\": \"grafana\",\n\t\t\t\t\t\"uid\":
+    \"-- Grafana --\"\n\t\t\t\t},\n\t\t\t\t\"enable\": true,\n\t\t\t\t\"hide\": true,\n\t\t\t\t\"iconColor\":
+    \"rgba(0, 211, 255, 1)\",\n\t\t\t\t\"name\": \"Annotations & Alerts\",\n\t\t\t\t\"type\":
+    \"dashboard\"\n\t\t\t}\n\t\t]\n\t},\n\t\"editable\": true,\n\t\"fiscalYearStartMonth\":
+    0,\n\t\"graphTooltip\": 0,\n\t\"id\": null,\n\t\"links\": [],\n\t\"panels\": [\n\t\t{\n\t\t\t\"datasource\":
+    {\n\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t},\n\t\t\t\"fieldConfig\":
+    {\n\t\t\t\t\"defaults\": {\n\t\t\t\t\t\"color\": {\n\t\t\t\t\t\t\"mode\": \"palette-classic\"\n\t\t\t\t\t},\n\t\t\t\t\t\"custom\":
+    {\n\t\t\t\t\t\t\"axisBorderShow\": false,\n\t\t\t\t\t\t\"axisCenteredZero\": false,\n\t\t\t\t\t\t\"axisColorMode\":
+    \"text\",\n\t\t\t\t\t\t\"axisLabel\": \"\",\n\t\t\t\t\t\t\"axisPlacement\": \"auto\",\n\t\t\t\t\t\t\"barAlignment\":
+    0,\n\t\t\t\t\t\t\"barWidthFactor\": 0.6,\n\t\t\t\t\t\t\"drawStyle\": \"line\",\n\t\t\t\t\t\t\"fillOpacity\":
+    10,\n\t\t\t\t\t\t\"gradientMode\": \"none\",\n\t\t\t\t\t\t\"hideFrom\": {\n\t\t\t\t\t\t\t\"tooltip\":
+    false,\n\t\t\t\t\t\t\t\"viz\": false,\n\t\t\t\t\t\t\t\"legend\": false\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"insertNulls\":
+    false,\n\t\t\t\t\t\t\"lineInterpolation\": \"linear\",\n\t\t\t\t\t\t\"lineWidth\":
+    1,\n\t\t\t\t\t\t\"pointSize\": 5,\n\t\t\t\t\t\t\"scaleDistribution\": {\n\t\t\t\t\t\t\t\"type\":
+    \"linear\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"showPoints\": \"never\",\n\t\t\t\t\t\t\"spanNulls\":
+    false,\n\t\t\t\t\t\t\"stacking\": {\n\t\t\t\t\t\t\t\"group\": \"A\",\n\t\t\t\t\t\t\t\"mode\":
+    \"none\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"thresholdsStyle\": {\n\t\t\t\t\t\t\t\"mode\":
+    \"off\"\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\t\"mappings\": [],\n\t\t\t\t\t\"thresholds\":
+    {\n\t\t\t\t\t\t\"mode\": \"absolute\",\n\t\t\t\t\t\t\"steps\": [\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\":
+    \"green\",\n\t\t\t\t\t\t\t\t\"value\": null\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\":
+    \"red\",\n\t\t\t\t\t\t\t\t\"value\": 80\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t]\n\t\t\t\t\t},\n\t\t\t\t\t\"unit\":
+    \"short\"\n\t\t\t\t},\n\t\t\t\t\"overrides\": []\n\t\t\t},\n\t\t\t\"gridPos\":
+    {\n\t\t\t\t\"h\": 8,\n\t\t\t\t\"w\": 12,\n\t\t\t\t\"x\": 0,\n\t\t\t\t\"y\": 0\n\t\t\t},\n\t\t\t\"id\":
+    1,\n\t\t\t\"options\": {\n\t\t\t\t\"legend\": {\n\t\t\t\t\t\"calcs\": [],\n\t\t\t\t\t\"displayMode\":
+    \"list\",\n\t\t\t\t\t\"placement\": \"bottom\",\n\t\t\t\t\t\"showLegend\": true\n\t\t\t\t},\n\t\t\t\t\"tooltip\":
+    {\n\t\t\t\t\t\"mode\": \"multi\",\n\t\t\t\t\t\"sort\": \"none\"\n\t\t\t\t}\n\t\t\t},\n\t\t\t\"pluginVersion\":
+    \"11.0.0\",\n\t\t\t\"targets\": [\n\t\t\t\t{\n\t\t\t\t\t\"datasource\": {\n\t\t\t\t\t\t\"type\":
+    \"prometheus\",\n\t\t\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t\t\t},\n\t\t\t\t\t\"expr\":
+    \"sum(rate(tetragon_events_total[5m])) by (type)\",\n\t\t\t\t\t\"legendFormat\":
+    \"{{type}}\",\n\t\t\t\t\t\"refId\": \"A\"\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"title\":
+    \"Tetragon Events Rate by Type\",\n\t\t\t\"type\": \"timeseries\"\n\t\t},\n\t\t{\n\t\t\t\"datasource\":
+    {\n\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t},\n\t\t\t\"fieldConfig\":
+    {\n\t\t\t\t\"defaults\": {\n\t\t\t\t\t\"color\": {\n\t\t\t\t\t\t\"mode\": \"thresholds\"\n\t\t\t\t\t},\n\t\t\t\t\t\"mappings\":
+    [],\n\t\t\t\t\t\"thresholds\": {\n\t\t\t\t\t\t\"mode\": \"absolute\",\n\t\t\t\t\t\t\"steps\":
+    [\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\": \"green\",\n\t\t\t\t\t\t\t\t\"value\":
+    null\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\": \"yellow\",\n\t\t\t\t\t\t\t\t\"value\":
+    1\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\": \"red\",\n\t\t\t\t\t\t\t\t\"value\":
+    10\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t]\n\t\t\t\t\t},\n\t\t\t\t\t\"unit\": \"short\"\n\t\t\t\t},\n\t\t\t\t\"overrides\":
+    []\n\t\t\t},\n\t\t\t\"gridPos\": {\n\t\t\t\t\"h\": 4,\n\t\t\t\t\"w\": 6,\n\t\t\t\t\"x\":
+    12,\n\t\t\t\t\"y\": 0\n\t\t\t},\n\t\t\t\"id\": 2,\n\t\t\t\"options\": {\n\t\t\t\t\"colorMode\":
+    \"value\",\n\t\t\t\t\"graphMode\": \"area\",\n\t\t\t\t\"justifyMode\": \"auto\",\n\t\t\t\t\"orientation\":
+    \"auto\",\n\t\t\t\t\"percentChangeColorMode\": \"standard\",\n\t\t\t\t\"reduceOptions\":
+    {\n\t\t\t\t\t\"values\": false,\n\t\t\t\t\t\"calcs\": [\"lastNotNull\"],\n\t\t\t\t\t\"fields\":
+    \"\"\n\t\t\t\t},\n\t\t\t\t\"showPercentChange\": false,\n\t\t\t\t\"textMode\":
+    \"auto\",\n\t\t\t\t\"wideLayout\": true\n\t\t\t},\n\t\t\t\"pluginVersion\": \"11.0.0\",\n\t\t\t\"targets\":
+    [\n\t\t\t\t{\n\t\t\t\t\t\"datasource\": {\n\t\t\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\t\t\"uid\":
+    \"${DS_PROMETHEUS}\"\n\t\t\t\t\t},\n\t\t\t\t\t\"expr\": \"sum(rate(tetragon_errors_total[5m]))\",\n\t\t\t\t\t\"refId\":
+    \"A\"\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"title\": \"Error Rate\",\n\t\t\t\"type\":
+    \"stat\"\n\t\t},\n\t\t{\n\t\t\t\"datasource\": {\n\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\"uid\":
+    \"${DS_PROMETHEUS}\"\n\t\t\t},\n\t\t\t\"fieldConfig\": {\n\t\t\t\t\"defaults\":
+    {\n\t\t\t\t\t\"color\": {\n\t\t\t\t\t\t\"mode\": \"thresholds\"\n\t\t\t\t\t},\n\t\t\t\t\t\"mappings\":
+    [],\n\t\t\t\t\t\"thresholds\": {\n\t\t\t\t\t\t\"mode\": \"absolute\",\n\t\t\t\t\t\t\"steps\":
+    [\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\": \"green\",\n\t\t\t\t\t\t\t\t\"value\":
+    null\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t]\n\t\t\t\t\t},\n\t\t\t\t\t\"unit\": \"short\"\n\t\t\t\t},\n\t\t\t\t\"overrides\":
+    []\n\t\t\t},\n\t\t\t\"gridPos\": {\n\t\t\t\t\"h\": 4,\n\t\t\t\t\"w\": 6,\n\t\t\t\t\"x\":
+    18,\n\t\t\t\t\"y\": 0\n\t\t\t},\n\t\t\t\"id\": 3,\n\t\t\t\"options\": {\n\t\t\t\t\"colorMode\":
+    \"value\",\n\t\t\t\t\"graphMode\": \"area\",\n\t\t\t\t\"justifyMode\": \"auto\",\n\t\t\t\t\"orientation\":
+    \"auto\",\n\t\t\t\t\"percentChangeColorMode\": \"standard\",\n\t\t\t\t\"reduceOptions\":
+    {\n\t\t\t\t\t\"values\": false,\n\t\t\t\t\t\"calcs\": [\"lastNotNull\"],\n\t\t\t\t\t\"fields\":
+    \"\"\n\t\t\t\t},\n\t\t\t\t\"showPercentChange\": false,\n\t\t\t\t\"textMode\":
+    \"auto\",\n\t\t\t\t\"wideLayout\": true\n\t\t\t},\n\t\t\t\"pluginVersion\": \"11.0.0\",\n\t\t\t\"targets\":
+    [\n\t\t\t\t{\n\t\t\t\t\t\"datasource\": {\n\t\t\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\t\t\"uid\":
+    \"${DS_PROMETHEUS}\"\n\t\t\t\t\t},\n\t\t\t\t\t\"expr\": \"sum(tetragon_tracingpolicy_loaded{state=\\\"enabled\\\"})\",\n\t\t\t\t\t\"refId\":
+    \"A\"\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"title\": \"Active Tracing Policies\",\n\t\t\t\"type\":
+    \"stat\"\n\t\t},\n\t\t{\n\t\t\t\"datasource\": {\n\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\"uid\":
+    \"${DS_PROMETHEUS}\"\n\t\t\t},\n\t\t\t\"fieldConfig\": {\n\t\t\t\t\"defaults\":
+    {\n\t\t\t\t\t\"color\": {\n\t\t\t\t\t\t\"mode\": \"palette-classic\"\n\t\t\t\t\t},\n\t\t\t\t\t\"custom\":
+    {\n\t\t\t\t\t\t\"axisBorderShow\": false,\n\t\t\t\t\t\t\"axisCenteredZero\": false,\n\t\t\t\t\t\t\"axisColorMode\":
+    \"text\",\n\t\t\t\t\t\t\"axisLabel\": \"\",\n\t\t\t\t\t\t\"axisPlacement\": \"auto\",\n\t\t\t\t\t\t\"barAlignment\":
+    0,\n\t\t\t\t\t\t\"barWidthFactor\": 0.6,\n\t\t\t\t\t\t\"drawStyle\": \"line\",\n\t\t\t\t\t\t\"fillOpacity\":
+    10,\n\t\t\t\t\t\t\"gradientMode\": \"none\",\n\t\t\t\t\t\t\"hideFrom\": {\n\t\t\t\t\t\t\t\"tooltip\":
+    false,\n\t\t\t\t\t\t\t\"viz\": false,\n\t\t\t\t\t\t\t\"legend\": false\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"insertNulls\":
+    false,\n\t\t\t\t\t\t\"lineInterpolation\": \"linear\",\n\t\t\t\t\t\t\"lineWidth\":
+    1,\n\t\t\t\t\t\t\"pointSize\": 5,\n\t\t\t\t\t\t\"scaleDistribution\": {\n\t\t\t\t\t\t\t\"type\":
+    \"linear\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"showPoints\": \"never\",\n\t\t\t\t\t\t\"spanNulls\":
+    false,\n\t\t\t\t\t\t\"stacking\": {\n\t\t\t\t\t\t\t\"group\": \"A\",\n\t\t\t\t\t\t\t\"mode\":
+    \"none\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"thresholdsStyle\": {\n\t\t\t\t\t\t\t\"mode\":
+    \"off\"\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\t\"mappings\": [],\n\t\t\t\t\t\"thresholds\":
+    {\n\t\t\t\t\t\t\"mode\": \"absolute\",\n\t\t\t\t\t\t\"steps\": [\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\":
+    \"green\",\n\t\t\t\t\t\t\t\t\"value\": null\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t]\n\t\t\t\t\t},\n\t\t\t\t\t\"unit\":
+    \"short\"\n\t\t\t\t},\n\t\t\t\t\"overrides\": []\n\t\t\t},\n\t\t\t\"gridPos\":
+    {\n\t\t\t\t\"h\": 8,\n\t\t\t\t\"w\": 12,\n\t\t\t\t\"x\": 12,\n\t\t\t\t\"y\": 4\n\t\t\t},\n\t\t\t\"id\":
+    4,\n\t\t\t\"options\": {\n\t\t\t\t\"legend\": {\n\t\t\t\t\t\"calcs\": [],\n\t\t\t\t\t\"displayMode\":
+    \"list\",\n\t\t\t\t\t\"placement\": \"bottom\",\n\t\t\t\t\t\"showLegend\": true\n\t\t\t\t},\n\t\t\t\t\"tooltip\":
+    {\n\t\t\t\t\t\"mode\": \"multi\",\n\t\t\t\t\t\"sort\": \"none\"\n\t\t\t\t}\n\t\t\t},\n\t\t\t\"pluginVersion\":
+    \"11.0.0\",\n\t\t\t\"targets\": [\n\t\t\t\t{\n\t\t\t\t\t\"datasource\": {\n\t\t\t\t\t\t\"type\":
+    \"prometheus\",\n\t\t\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t\t\t},\n\t\t\t\t\t\"expr\":
+    \"sum(rate(tetragon_policy_events_total[5m])) by (policy)\",\n\t\t\t\t\t\"legendFormat\":
+    \"{{policy}}\",\n\t\t\t\t\t\"refId\": \"A\"\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"title\":
+    \"Policy Events Rate by Policy\",\n\t\t\t\"type\": \"timeseries\"\n\t\t},\n\t\t{\n\t\t\t\"datasource\":
+    {\n\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t},\n\t\t\t\"fieldConfig\":
+    {\n\t\t\t\t\"defaults\": {\n\t\t\t\t\t\"color\": {\n\t\t\t\t\t\t\"mode\": \"palette-classic\"\n\t\t\t\t\t},\n\t\t\t\t\t\"custom\":
+    {\n\t\t\t\t\t\t\"axisBorderShow\": false,\n\t\t\t\t\t\t\"axisCenteredZero\": false,\n\t\t\t\t\t\t\"axisColorMode\":
+    \"text\",\n\t\t\t\t\t\t\"axisLabel\": \"\",\n\t\t\t\t\t\t\"axisPlacement\": \"auto\",\n\t\t\t\t\t\t\"barAlignment\":
+    0,\n\t\t\t\t\t\t\"barWidthFactor\": 0.6,\n\t\t\t\t\t\t\"drawStyle\": \"line\",\n\t\t\t\t\t\t\"fillOpacity\":
+    10,\n\t\t\t\t\t\t\"gradientMode\": \"none\",\n\t\t\t\t\t\t\"hideFrom\": {\n\t\t\t\t\t\t\t\"tooltip\":
+    false,\n\t\t\t\t\t\t\t\"viz\": false,\n\t\t\t\t\t\t\t\"legend\": false\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"insertNulls\":
+    false,\n\t\t\t\t\t\t\"lineInterpolation\": \"linear\",\n\t\t\t\t\t\t\"lineWidth\":
+    1,\n\t\t\t\t\t\t\"pointSize\": 5,\n\t\t\t\t\t\t\"scaleDistribution\": {\n\t\t\t\t\t\t\t\"type\":
+    \"linear\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"showPoints\": \"never\",\n\t\t\t\t\t\t\"spanNulls\":
+    false,\n\t\t\t\t\t\t\"stacking\": {\n\t\t\t\t\t\t\t\"group\": \"A\",\n\t\t\t\t\t\t\t\"mode\":
+    \"none\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"thresholdsStyle\": {\n\t\t\t\t\t\t\t\"mode\":
+    \"off\"\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\t\"mappings\": [],\n\t\t\t\t\t\"thresholds\":
+    {\n\t\t\t\t\t\t\"mode\": \"absolute\",\n\t\t\t\t\t\t\"steps\": [\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\":
+    \"green\",\n\t\t\t\t\t\t\t\t\"value\": null\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t]\n\t\t\t\t\t},\n\t\t\t\t\t\"unit\":
+    \"bytes\"\n\t\t\t\t},\n\t\t\t\t\"overrides\": []\n\t\t\t},\n\t\t\t\"gridPos\":
+    {\n\t\t\t\t\"h\": 8,\n\t\t\t\t\"w\": 12,\n\t\t\t\t\"x\": 0,\n\t\t\t\t\"y\": 8\n\t\t\t},\n\t\t\t\"id\":
+    5,\n\t\t\t\"options\": {\n\t\t\t\t\"legend\": {\n\t\t\t\t\t\"calcs\": [],\n\t\t\t\t\t\"displayMode\":
+    \"list\",\n\t\t\t\t\t\"placement\": \"bottom\",\n\t\t\t\t\t\"showLegend\": true\n\t\t\t\t},\n\t\t\t\t\"tooltip\":
+    {\n\t\t\t\t\t\"mode\": \"multi\",\n\t\t\t\t\t\"sort\": \"none\"\n\t\t\t\t}\n\t\t\t},\n\t\t\t\"pluginVersion\":
+    \"11.0.0\",\n\t\t\t\"targets\": [\n\t\t\t\t{\n\t\t\t\t\t\"datasource\": {\n\t\t\t\t\t\t\"type\":
+    \"prometheus\",\n\t\t\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t\t\t},\n\t\t\t\t\t\"expr\":
+    \"process_resident_memory_bytes{job=\\\"tetragon\\\"}\",\n\t\t\t\t\t\"legendFormat\":
+    \"{{pod}}\",\n\t\t\t\t\t\"refId\": \"A\"\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"title\":
+    \"Memory Usage\",\n\t\t\t\"type\": \"timeseries\"\n\t\t},\n\t\t{\n\t\t\t\"datasource\":
+    {\n\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t},\n\t\t\t\"fieldConfig\":
+    {\n\t\t\t\t\"defaults\": {\n\t\t\t\t\t\"color\": {\n\t\t\t\t\t\t\"mode\": \"palette-classic\"\n\t\t\t\t\t},\n\t\t\t\t\t\"custom\":
+    {\n\t\t\t\t\t\t\"axisBorderShow\": false,\n\t\t\t\t\t\t\"axisCenteredZero\": false,\n\t\t\t\t\t\t\"axisColorMode\":
+    \"text\",\n\t\t\t\t\t\t\"axisLabel\": \"\",\n\t\t\t\t\t\t\"axisPlacement\": \"auto\",\n\t\t\t\t\t\t\"barAlignment\":
+    0,\n\t\t\t\t\t\t\"barWidthFactor\": 0.6,\n\t\t\t\t\t\t\"drawStyle\": \"line\",\n\t\t\t\t\t\t\"fillOpacity\":
+    10,\n\t\t\t\t\t\t\"gradientMode\": \"none\",\n\t\t\t\t\t\t\"hideFrom\": {\n\t\t\t\t\t\t\t\"tooltip\":
+    false,\n\t\t\t\t\t\t\t\"viz\": false,\n\t\t\t\t\t\t\t\"legend\": false\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"insertNulls\":
+    false,\n\t\t\t\t\t\t\"lineInterpolation\": \"linear\",\n\t\t\t\t\t\t\"lineWidth\":
+    1,\n\t\t\t\t\t\t\"pointSize\": 5,\n\t\t\t\t\t\t\"scaleDistribution\": {\n\t\t\t\t\t\t\t\"type\":
+    \"linear\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"showPoints\": \"never\",\n\t\t\t\t\t\t\"spanNulls\":
+    false,\n\t\t\t\t\t\t\"stacking\": {\n\t\t\t\t\t\t\t\"group\": \"A\",\n\t\t\t\t\t\t\t\"mode\":
+    \"none\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"thresholdsStyle\": {\n\t\t\t\t\t\t\t\"mode\":
+    \"off\"\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\t\"mappings\": [],\n\t\t\t\t\t\"thresholds\":
+    {\n\t\t\t\t\t\t\"mode\": \"absolute\",\n\t\t\t\t\t\t\"steps\": [\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\":
+    \"green\",\n\t\t\t\t\t\t\t\t\"value\": null\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t]\n\t\t\t\t\t},\n\t\t\t\t\t\"unit\":
+    \"short\"\n\t\t\t\t},\n\t\t\t\t\"overrides\": []\n\t\t\t},\n\t\t\t\"gridPos\":
+    {\n\t\t\t\t\"h\": 8,\n\t\t\t\t\"w\": 12,\n\t\t\t\t\"x\": 12,\n\t\t\t\t\"y\": 12\n\t\t\t},\n\t\t\t\"id\":
+    6,\n\t\t\t\"options\": {\n\t\t\t\t\"legend\": {\n\t\t\t\t\t\"calcs\": [],\n\t\t\t\t\t\"displayMode\":
+    \"list\",\n\t\t\t\t\t\"placement\": \"bottom\",\n\t\t\t\t\t\"showLegend\": true\n\t\t\t\t},\n\t\t\t\t\"tooltip\":
+    {\n\t\t\t\t\t\"mode\": \"multi\",\n\t\t\t\t\t\"sort\": \"none\"\n\t\t\t\t}\n\t\t\t},\n\t\t\t\"pluginVersion\":
+    \"11.0.0\",\n\t\t\t\"targets\": [\n\t\t\t\t{\n\t\t\t\t\t\"datasource\": {\n\t\t\t\t\t\t\"type\":
+    \"prometheus\",\n\t\t\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t\t\t},\n\t\t\t\t\t\"expr\":
+    \"go_goroutines{job=\\\"tetragon\\\"}\",\n\t\t\t\t\t\"legendFormat\": \"{{pod}}\",\n\t\t\t\t\t\"refId\":
+    \"A\"\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"title\": \"Goroutines\",\n\t\t\t\"type\":
+    \"timeseries\"\n\t\t},\n\t\t{\n\t\t\t\"datasource\": {\n\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\"uid\":
+    \"${DS_PROMETHEUS}\"\n\t\t\t},\n\t\t\t\"fieldConfig\": {\n\t\t\t\t\"defaults\":
+    {\n\t\t\t\t\t\"color\": {\n\t\t\t\t\t\t\"mode\": \"palette-classic\"\n\t\t\t\t\t},\n\t\t\t\t\t\"custom\":
+    {\n\t\t\t\t\t\t\"axisBorderShow\": false,\n\t\t\t\t\t\t\"axisCenteredZero\": false,\n\t\t\t\t\t\t\"axisColorMode\":
+    \"text\",\n\t\t\t\t\t\t\"axisLabel\": \"\",\n\t\t\t\t\t\t\"axisPlacement\": \"auto\",\n\t\t\t\t\t\t\"barAlignment\":
+    0,\n\t\t\t\t\t\t\"barWidthFactor\": 0.6,\n\t\t\t\t\t\t\"drawStyle\": \"line\",\n\t\t\t\t\t\t\"fillOpacity\":
+    10,\n\t\t\t\t\t\t\"gradientMode\": \"none\",\n\t\t\t\t\t\t\"hideFrom\": {\n\t\t\t\t\t\t\t\"tooltip\":
+    false,\n\t\t\t\t\t\t\t\"viz\": false,\n\t\t\t\t\t\t\t\"legend\": false\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"insertNulls\":
+    false,\n\t\t\t\t\t\t\"lineInterpolation\": \"linear\",\n\t\t\t\t\t\t\"lineWidth\":
+    1,\n\t\t\t\t\t\t\"pointSize\": 5,\n\t\t\t\t\t\t\"scaleDistribution\": {\n\t\t\t\t\t\t\t\"type\":
+    \"linear\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"showPoints\": \"never\",\n\t\t\t\t\t\t\"spanNulls\":
+    false,\n\t\t\t\t\t\t\"stacking\": {\n\t\t\t\t\t\t\t\"group\": \"A\",\n\t\t\t\t\t\t\t\"mode\":
+    \"none\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"thresholdsStyle\": {\n\t\t\t\t\t\t\t\"mode\":
+    \"off\"\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\t\"mappings\": [],\n\t\t\t\t\t\"thresholds\":
+    {\n\t\t\t\t\t\t\"mode\": \"absolute\",\n\t\t\t\t\t\t\"steps\": [\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\":
+    \"green\",\n\t\t\t\t\t\t\t\t\"value\": null\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t]\n\t\t\t\t\t},\n\t\t\t\t\t\"unit\":
+    \"short\"\n\t\t\t\t},\n\t\t\t\t\"overrides\": []\n\t\t\t},\n\t\t\t\"gridPos\":
+    {\n\t\t\t\t\"h\": 8,\n\t\t\t\t\"w\": 12,\n\t\t\t\t\"x\": 0,\n\t\t\t\t\"y\": 16\n\t\t\t},\n\t\t\t\"id\":
+    7,\n\t\t\t\"options\": {\n\t\t\t\t\"legend\": {\n\t\t\t\t\t\"calcs\": [],\n\t\t\t\t\t\"displayMode\":
+    \"list\",\n\t\t\t\t\t\"placement\": \"bottom\",\n\t\t\t\t\t\"showLegend\": true\n\t\t\t\t},\n\t\t\t\t\"tooltip\":
+    {\n\t\t\t\t\t\"mode\": \"multi\",\n\t\t\t\t\t\"sort\": \"none\"\n\t\t\t\t}\n\t\t\t},\n\t\t\t\"pluginVersion\":
+    \"11.0.0\",\n\t\t\t\"targets\": [\n\t\t\t\t{\n\t\t\t\t\t\"datasource\": {\n\t\t\t\t\t\t\"type\":
+    \"prometheus\",\n\t\t\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t\t\t},\n\t\t\t\t\t\"expr\":
+    \"sum(rate(tetragon_syscalls_total[5m])) by (binary)\",\n\t\t\t\t\t\"legendFormat\":
+    \"{{binary}}\",\n\t\t\t\t\t\"refId\": \"A\"\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"title\":
+    \"Syscalls Rate by Binary\",\n\t\t\t\"type\": \"timeseries\"\n\t\t},\n\t\t{\n\t\t\t\"datasource\":
+    {\n\t\t\t\t\"type\": \"prometheus\",\n\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t},\n\t\t\t\"fieldConfig\":
+    {\n\t\t\t\t\"defaults\": {\n\t\t\t\t\t\"color\": {\n\t\t\t\t\t\t\"mode\": \"palette-classic\"\n\t\t\t\t\t},\n\t\t\t\t\t\"custom\":
+    {\n\t\t\t\t\t\t\"axisBorderShow\": false,\n\t\t\t\t\t\t\"axisCenteredZero\": false,\n\t\t\t\t\t\t\"axisColorMode\":
+    \"text\",\n\t\t\t\t\t\t\"axisLabel\": \"\",\n\t\t\t\t\t\t\"axisPlacement\": \"auto\",\n\t\t\t\t\t\t\"barAlignment\":
+    0,\n\t\t\t\t\t\t\"barWidthFactor\": 0.6,\n\t\t\t\t\t\t\"drawStyle\": \"line\",\n\t\t\t\t\t\t\"fillOpacity\":
+    10,\n\t\t\t\t\t\t\"gradientMode\": \"none\",\n\t\t\t\t\t\t\"hideFrom\": {\n\t\t\t\t\t\t\t\"tooltip\":
+    false,\n\t\t\t\t\t\t\t\"viz\": false,\n\t\t\t\t\t\t\t\"legend\": false\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"insertNulls\":
+    false,\n\t\t\t\t\t\t\"lineInterpolation\": \"linear\",\n\t\t\t\t\t\t\"lineWidth\":
+    1,\n\t\t\t\t\t\t\"pointSize\": 5,\n\t\t\t\t\t\t\"scaleDistribution\": {\n\t\t\t\t\t\t\t\"type\":
+    \"linear\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"showPoints\": \"never\",\n\t\t\t\t\t\t\"spanNulls\":
+    false,\n\t\t\t\t\t\t\"stacking\": {\n\t\t\t\t\t\t\t\"group\": \"A\",\n\t\t\t\t\t\t\t\"mode\":
+    \"none\"\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"thresholdsStyle\": {\n\t\t\t\t\t\t\t\"mode\":
+    \"off\"\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\t\"mappings\": [],\n\t\t\t\t\t\"thresholds\":
+    {\n\t\t\t\t\t\t\"mode\": \"absolute\",\n\t\t\t\t\t\t\"steps\": [\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\t\"color\":
+    \"green\",\n\t\t\t\t\t\t\t\t\"value\": null\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t]\n\t\t\t\t\t},\n\t\t\t\t\t\"unit\":
+    \"percent\"\n\t\t\t\t},\n\t\t\t\t\"overrides\": []\n\t\t\t},\n\t\t\t\"gridPos\":
+    {\n\t\t\t\t\"h\": 8,\n\t\t\t\t\"w\": 12,\n\t\t\t\t\"x\": 12,\n\t\t\t\t\"y\": 20\n\t\t\t},\n\t\t\t\"id\":
+    8,\n\t\t\t\"options\": {\n\t\t\t\t\"legend\": {\n\t\t\t\t\t\"calcs\": [],\n\t\t\t\t\t\"displayMode\":
+    \"list\",\n\t\t\t\t\t\"placement\": \"bottom\",\n\t\t\t\t\t\"showLegend\": true\n\t\t\t\t},\n\t\t\t\t\"tooltip\":
+    {\n\t\t\t\t\t\"mode\": \"multi\",\n\t\t\t\t\t\"sort\": \"none\"\n\t\t\t\t}\n\t\t\t},\n\t\t\t\"pluginVersion\":
+    \"11.0.0\",\n\t\t\t\"targets\": [\n\t\t\t\t{\n\t\t\t\t\t\"datasource\": {\n\t\t\t\t\t\t\"type\":
+    \"prometheus\",\n\t\t\t\t\t\t\"uid\": \"${DS_PROMETHEUS}\"\n\t\t\t\t\t},\n\t\t\t\t\t\"expr\":
+    \"rate(process_cpu_seconds_total{job=\\\"tetragon\\\"}[5m]) * 100\",\n\t\t\t\t\t\"legendFormat\":
+    \"{{pod}}\",\n\t\t\t\t\t\"refId\": \"A\"\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"title\":
+    \"CPU Usage\",\n\t\t\t\"type\": \"timeseries\"\n\t\t}\n\t],\n\t\"schemaVersion\":
+    39,\n\t\"tags\": [\"tetragon\", \"security\", \"ebpf\"],\n\t\"templating\": {\n\t\t\"list\":
+    [\n\t\t\t{\n\t\t\t\t\"current\": {\n\t\t\t\t\t\"selected\": false,\n\t\t\t\t\t\"text\":
+    \"prometheus\",\n\t\t\t\t\t\"value\": \"prometheus\"\n\t\t\t\t},\n\t\t\t\t\"hide\":
+    0,\n\t\t\t\t\"includeAll\": false,\n\t\t\t\t\"label\": \"Datasource\",\n\t\t\t\t\"multi\":
+    false,\n\t\t\t\t\"name\": \"DS_PROMETHEUS\",\n\t\t\t\t\"options\": [],\n\t\t\t\t\"query\":
+    \"prometheus\",\n\t\t\t\t\"refresh\": 1,\n\t\t\t\t\"regex\": \"\",\n\t\t\t\t\"skipUrlSync\":
+    false,\n\t\t\t\t\"type\": \"datasource\"\n\t\t\t}\n\t\t]\n\t},\n\t\"time\": {\n\t\t\"from\":
+    \"now-6h\",\n\t\t\"to\": \"now\"\n\t},\n\t\"timezone\": \"browser\",\n\t\"title\":
+    \"Tetragon Security Observability\",\n\t\"uid\": \"tetragon-security\",\n\t\"version\":
+    1,\n\t\"weekStart\": \"\"\n}\n"
+kind: ConfigMap
+metadata:
+  name: tetragon-dashboard

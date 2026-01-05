@@ -1,0 +1,94 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tetragon
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: tetragon
+      version: 1.6.0
+      sourceRef:
+        kind: HelmRepository
+        name: cilium
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    # Tetragon Agent Configuration
+    tetragon:
+      enabled: true
+      image:
+        repository: quay.io/cilium/tetragon
+        tag: v1.6.0
+
+      # Resource limits for home-lab environment
+      resources:
+        requests:
+          cpu: 10m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+
+      # Security context - privileged required for eBPF
+      securityContext:
+        privileged: true
+
+      # Process cache configuration
+      processCacheSize: 65536
+
+      # Export configuration for VictoriaLogs integration
+      exportFilename: tetragon.log
+      exportFilePerm: "600"
+      exportFileMaxSizeMB: 10
+      exportFileMaxBackups: 5
+
+      # Event filtering for home-lab - exclude system namespaces
+      exportAllowList: |-
+        {"event_set":["PROCESS_EXEC", "PROCESS_EXIT", "PROCESS_KPROBE", "PROCESS_TRACEPOINT", "PROCESS_LSM"]}
+      exportDenyList: |-
+        {"health_check":true}
+        {"namespace":["", "cilium", "kube-system", "flux-system"]}
+
+    # Host network required for process visibility
+    hostNetwork: true
+
+    # Kubernetes API integration
+    enableK8sAPI: true
+    enablePolicyFilter: true
+
+    # Prometheus metrics configuration
+    prometheus:
+      enabled: true
+      port: 2112
+      metricsLabelFilter: "namespace,workload,pod,binary"
+      serviceMonitor:
+        enabled: true
+        labelsOverride:
+          prometheus.io/operator: kube-prometheus-stack
+        scrapeInterval: 60s
+
+    # Tetragon Operator Configuration
+    tetragonOperator:
+      enabled: true
+      replicas: 1
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 128Mi
+
+      # Enable TracingPolicy CRD management
+      tracingPolicy:
+        enabled: true

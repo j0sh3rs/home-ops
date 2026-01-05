@@ -8,6 +8,7 @@ components:
 resources:
   - ./referencegrant.yaml
   - ./grafana/ks.yaml
+  - ./grafana/dashboards/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
   # - ./opentelemetry/ks.yaml
   - ./thanos/ks.yaml
