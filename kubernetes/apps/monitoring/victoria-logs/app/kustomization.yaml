@@ -6,3 +6,5 @@ resources:
   - ./grafanadashboard.yaml
   - ./helmrelease.yaml
   - ./ocirepository.yaml
+  - ./victoria-logs-syslog-tcproute.yaml
+  - ./victoria-logs-syslog-udproute.yaml
