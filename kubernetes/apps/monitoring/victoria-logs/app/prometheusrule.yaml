@@ -1,0 +1,76 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: victoria-logs-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: victorialogs
+      rules:
+        # Critical: VictoriaLogs pod not running
+        - alert: VictoriaLogsDown
+          expr: |
+            absent(up{job="victoria-logs-server"} == 1)
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "VictoriaLogs is down"
+            description: "VictoriaLogs pod in namespace {{ $labels.namespace }} has been down for more than 5 minutes. Log ingestion is stopped."
+
+        # Critical: Syslog receiver not accepting connections
+        - alert: VictoriaLogsSyslogReceiverDown
+          expr: |
+            (
+              absent(up{job="victoria-logs-server", pod=~"victoria-logs-server-.*"} == 1)
+              or
+              up{job="victoria-logs-server", pod=~"victoria-logs-server-.*"} == 0
+            )
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "VictoriaLogs syslog receiver is down"
+            description: "VictoriaLogs syslog receiver (TCP/UDP port 514) is not accepting connections. External syslog sources cannot send logs."
+
+        # Warning: High memory usage approaching limit
+        - alert: VictoriaLogsHighMemoryUsage
+          expr: |
+            container_memory_working_set_bytes{namespace="monitoring", pod=~"victoria-logs-server-.*", container="victoria-logs-server"} > 1610612736
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "VictoriaLogs high memory usage"
+            description: "VictoriaLogs container in pod {{ $labels.pod }} is using {{ $value | humanize1024 }}B of memory (threshold: 1.5Gi, limit: 2Gi). Risk of OOMKill."
+
+        # Warning: PVC filling up
+        - alert: VictoriaLogsPVCFillingUp
+          expr: |
+            (
+              kubelet_volume_stats_used_bytes{namespace="monitoring", persistentvolumeclaim=~"victoria-logs-server-.*"}
+              /
+              kubelet_volume_stats_capacity_bytes{namespace="monitoring", persistentvolumeclaim=~"victoria-logs-server-.*"}
+            ) > 0.80
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "VictoriaLogs PVC filling up"
+            description: "VictoriaLogs PVC {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full (>80% threshold, 50Gi capacity). Log retention may need adjustment."
+
+        # Warning: No recent logs ingested
+        - alert: VictoriaLogsNoRecentLogs
+          expr: |
+            (
+              rate(victoria_logs_rows_ingested_total[5m]) == 0
+              or
+              absent(victoria_logs_rows_ingested_total)
+            )
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "VictoriaLogs not ingesting logs"
+            description: "VictoriaLogs has not ingested any logs in the last 10 minutes. Possible syslog source issue or ingestion problem."
