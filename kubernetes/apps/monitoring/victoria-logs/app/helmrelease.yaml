@@ -21,6 +21,10 @@ spec:
         syslog.listenAddr.tcp: ":514"
         syslog.listenAddr.udp: ":514"
         syslog.timezone: "America/New_York"
+      securityContext:
+        capabilities:
+          add:
+            - NET_BIND_SERVICE
       persistentVolume:
         enabled: true
         storageClassName: openebs-hostpath
@@ -30,8 +34,12 @@ spec:
         extraPorts:
           - name: syslog-tcp
             port: 514
-            targetPort: syslog-tcp
+            targetPort: 514
             protocol: TCP
+          - name: syslog-udp
+            port: 514
+            targetPort: 514
+            protocol: UDP
       route:
         enabled: true
         hostnames:

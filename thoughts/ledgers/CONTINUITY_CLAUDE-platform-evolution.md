@@ -1,0 +1,269 @@
+# Session: platform-evolution
+
+Updated: 2026-01-05T19:45:00Z
+
+## Goal
+
+Evolve home-ops platform towards simplified, production-grade observability and security. Done when:
+
+1. Observability consolidated to Grafana + VictoriaLogs + Prometheus/Thanos with S3 backing
+2. VictoriaLogs accepts external syslog (TCP/UDP) from network devices
+3. Tetragon provides runtime security for Talos nodes with proper tuning
+4. CI/CD fully migrated from GitHub to Codeberg with Forgejo runners
+
+## Constraints
+
+- Must maintain GitOps patterns: FluxCD + Kustomize/HelmRelease
+- SOPS-encrypted secrets for all credentials
+- Existing Minio S3 endpoint: https://s3.68cc.io
+- OpenEBS LocalPV + S3 hybrid storage strategy
+- Home-lab resource constraints (single replicas with S3 durability)
+- Zero downtime migration where possible
+
+## Key Decisions
+
+### Observability Architecture
+
+- **Keep**: Grafana (dashboards/alerting), Prometheus (metrics collection), Thanos (long-term metrics)
+- **Add**: VictoriaLogs (centralized logging with external syslog support)
+- **Remove**: Loki, Tempo, Mimir (complexity overhead for home-lab scale)
+- **Replace**: Wazuh will be superseded by VictoriaLogs + Alertmanager (less fragile)
+- **Drop**: Parseable (no longer needed with VictoriaLogs syslog)
+- **Storage**: S3-backed where supported (Thanos confirmed, VictoriaLogs TBD)
+- **Alerting**: Centralized through Alertmanager with Discord integration
+- **Dashboards**: Reuse upstream open source dashboards first, develop custom only if needed
+
+### Security Architecture
+
+- **Runtime Security**: Tetragon for eBPF-based runtime monitoring
+- **Platform**: Talos Linux-specific tuning (debugfs/tracefs mounts, eBPF support)
+- **Integration**: Tetragon → VictoriaLogs → Grafana → Alertmanager
+- **Scope**: Node-level security events, container runtime monitoring
+
+### CI/CD Architecture
+
+- **Platform**: Codeberg (Forgejo-based) for Git hosting
+- **Runners**: Self-hosted Forgejo runners on Kubernetes cluster
+- **Migration**: Full repository migration from GitHub to Codeberg
+- **Automation**: Woodpecker CI or Forgejo Actions (TBD based on capability comparison)
+
+## State
+
+### Phase 1: Research & Architecture Design
+
+- [x] Research VictoriaLogs capabilities
+    - [x] S3 backend support status (NOT available - GitHub issue #48, on roadmap)
+    - [x] Syslog server functionality (Native TCP/UDP on ports 514, 6514 - RFC 5424/3164)
+    - [x] Integration with Grafana (Official victoriametrics-logs-datasource plugin v0.22.0)
+    - [x] Resource requirements vs current LGTM stack (3x better: 70-90% less RAM, 37% less storage)
+    - [x] Migration path from Loki (Medium complexity - LogsQL incompatible with LogQL, dashboard rewrite needed)
+- [x] Research Tetragon for Talos
+    - [x] Talos Linux compatibility (CONFIRMED: Kernel 6.18.1 fully compatible, already operational 46+ hours)
+    - [x] Required Talos patches (NONE needed - debugfs/tracefs already mounted)
+    - [x] Configuration examples for Kubernetes (TracingPolicy examples documented)
+    - [x] Alert rule templates for common threats (Sensitive file access, network egress, privilege escalation)
+    - [x] Performance overhead on home-lab nodes (Minimal: 258Mi RAM, 6m CPU per node)
+- [ ] Research Codeberg migration
+    - [ ] Forgejo runner deployment patterns
+    - [ ] CI/CD feature comparison (Woodpecker vs Forgejo Actions)
+    - [ ] Repository migration tools and process
+    - [ ] Secret management in Codeberg
+    - [ ] Webhook configuration for Flux
+
+### Phase 2: VictoriaLogs Implementation
+
+- [ ] Deploy VictoriaLogs
+    - [ ] Create namespace and base deployment
+    - [ ] Configure syslog listeners (TCP 514, UDP 514)
+    - [ ] Set up S3 backend (if supported)
+    - [ ] Configure retention policies
+- [ ] Integrate with existing infrastructure
+    - [ ] Add Grafana datasource for VictoriaLogs
+    - [ ] Configure log forwarding from Promtail/agents
+    - [ ] Test external syslog from UDM Pro
+    - [ ] Test external syslog from Synology NAS
+- [ ] Migrate from Loki
+    - [ ] Identify critical dashboards using Loki
+    - [ ] Recreate dashboards for VictoriaLogs
+    - [ ] Test query compatibility
+    - [ ] Parallel run period (2 weeks)
+    - [ ] Deprecate Loki components
+
+### Phase 3: Observability Consolidation
+
+- [ ] Remove deprecated components
+    - [ ] Remove Loki StatefulSet and services
+    - [ ] Remove Tempo deployment
+    - [ ] Remove Mimir deployment
+    - [ ] Clean up unused PVCs and S3 buckets
+- [ ] Configure Alertmanager
+    - [ ] Define alert rules for security events
+    - [ ] Define alert rules for infrastructure health
+    - [ ] Configure Discord integration
+    - [ ] Test alert routing and escalation
+- [ ] Dashboard standardization
+    - [ ] Find upstream dashboards for VictoriaLogs
+    - [ ] Find upstream dashboards for Tetragon
+    - [ ] Import and customize for home-lab
+    - [ ] Document dashboard organization
+
+### Phase 4: Tetragon Deployment
+
+- [ ] Talos preparation
+    - [ ] Verify kernel eBPF support
+    - [ ] Apply required Talos patches (if needed)
+    - [ ] Configure debugfs/tracefs mounts
+    - [ ] Test eBPF program loading
+- [ ] Deploy Tetragon
+    - [ ] Create namespace and RBAC
+    - [ ] Deploy Tetragon DaemonSet
+    - [ ] Configure policy rules
+    - [ ] Test event generation
+- [ ] Integration and tuning
+    - [ ] Forward events to VictoriaLogs
+    - [ ] Create Grafana dashboards
+    - [ ] Define security alert rules
+    - [ ] Tune for false positive reduction
+
+### Phase 5: Wazuh Migration
+
+- [ ] Migrate Wazuh capabilities
+    - [ ] Map Wazuh rules to Tetragon policies
+    - [ ] Map Wazuh alerts to Alertmanager rules
+    - [ ] Verify content filtering coverage (UDM Pro DPI logs)
+    - [ ] Test end-to-end alerting flow
+- [ ] Deprecate Wazuh
+    - [ ] Parallel run period (1 month)
+    - [ ] Validate no missed alerts
+    - [ ] Document capability mapping
+    - [ ] Remove Wazuh deployment
+
+### Phase 6: Codeberg Migration
+
+- [ ] Deploy Forgejo runners
+    - [ ] Create runner namespace
+    - [ ] Deploy runner pods with proper RBAC
+    - [ ] Register runners with Codeberg
+    - [ ] Test basic CI/CD pipeline
+- [ ] Repository migration
+    - [ ] Create Codeberg organization/repos
+    - [ ] Migrate home-ops repository
+    - [ ] Configure Flux webhook for Codeberg
+    - [ ] Update repository URLs in Flux
+- [ ] CI/CD pipeline migration
+    - [ ] Choose CI system (Woodpecker vs Forgejo Actions)
+    - [ ] Migrate GitHub Actions workflows
+    - [ ] Configure secrets in Codeberg
+    - [ ] Test full deployment pipeline
+- [ ] Finalize migration
+    - [ ] Archive GitHub repository (read-only)
+    - [ ] Update documentation
+    - [ ] Monitor for issues (2 weeks)
+    - [ ] Delete GitHub repository
+
+- Done: [✓] Phase 1: Research & Architecture Design (VictoriaLogs + Tetragon)
+- Now: [→] Phase 2: VictoriaLogs Implementation - Deploy and activate
+- Next: Phase 2 continued (syslog integration), Phase 3 (Observability Consolidation)
+- Remaining: Phases 3-6 (consolidation, security policies, Wazuh migration, CI/CD)
+
+## Open Questions
+
+- ✅ CONFIRMED: VictoriaLogs does NOT support S3 backend (GitHub issue #48, on roadmap). Workaround: OpenEBS LocalPV (14d retention) + Velero S3 snapshots.
+- ✅ CONFIRMED: VictoriaLogs has native syslog server (TCP/UDP ports 514, 6514 - RFC 5424/3164).
+- ✅ CONFIRMED: Talos kernel 6.18.1 fully supports eBPF with debugfs/tracefs already mounted.
+- ✅ CONFIRMED: Tetragon works out-of-box on Talos - no patches needed, already operational.
+- UNCONFIRMED: Woodpecker CI vs Forgejo Actions - which is more mature/feature-complete?
+- UNCONFIRMED: Can Flux webhook work with Codeberg without modifications?
+- NEW: Does Wazuh provide compliance-critical SIEM capabilities that must be preserved?
+- NEW: Should Tetragon operate in observability mode (Post) or enforcement mode (Sigkill)?
+
+## Working Set
+
+- Branch: `main`
+- Key investigation areas:
+    - VictoriaLogs documentation and deployment examples
+    - Tetragon documentation for Kubernetes/Talos
+    - Forgejo runner documentation and examples
+    - Current cluster state: `kubernetes/apps/monitoring/`
+- Research commands:
+    - `kubectl get all -n monitoring --context home`
+    - `kubectl get all -n security --context home`
+    - Talos kernel info: `talosctl -n <node-ip> read /proc/version`
+- Deploy commands:
+    - `flux reconcile ks <app> -n <namespace> --with-source --context home`
+
+## Architecture Context
+
+### Current LGTM Stack (To Be Simplified)
+
+```
+Logs: Loki (S3-backed, simple scalable mode) → TO BE REPLACED
+Traces: Tempo (S3-backed, monolithic mode) → TO BE REMOVED
+Metrics: Mimir (S3-backed, monolithic) + Prometheus + Thanos → KEEP Prometheus/Thanos, REMOVE Mimir
+Visualization: Grafana → KEEP
+Collection: kube-prometheus-stack, Promtail → KEEP/ADAPT
+```
+
+### Target Architecture
+
+```
+Logs: VictoriaLogs (with syslog) → REPLACES Loki + Parseable + Wazuh logging
+Metrics: Prometheus + Thanos (S3-backed) → EXISTING, keep as-is
+Visualization: Grafana → EXISTING, keep as-is
+Alerting: Alertmanager → EXISTING, enhanced with new rules
+Security: Tetragon → NEW, replaces Wazuh runtime security
+```
+
+### Storage Strategy
+
+```
+Short-term: OpenEBS LocalPV for performance
+Long-term: Minio S3 at https://s3.68cc.io for durability
+  - Confirmed: Thanos has S3 support
+  - TBD: VictoriaLogs S3 support status
+  - Pattern: Dedicated S3 bucket per component
+```
+
+## Strategic Rationale
+
+### Why Simplify LGTM Stack?
+
+1. **Operational Complexity**: Running Loki + Tempo + Mimir + Prometheus + Thanos is overhead for home-lab
+2. **Resource Efficiency**: Single-replica deployments with S3 backing reduces memory footprint
+3. **Maintenance Burden**: Fewer components = less upgrade coordination, fewer breaking changes
+4. **Capability Overlap**: VictoriaLogs can handle both application logs and external syslog (Parseable/Wazuh redundant)
+5. **Wazuh Fragility**: Wazuh has proven brittle (empty decoder crashes, queue_size config errors) - VictoriaLogs + Tetragon more robust
+
+### Why Tetragon for Security?
+
+1. **eBPF-Native**: Modern approach, better performance than traditional monitoring
+2. **Talos Integration**: Designed for immutable OS platforms like Talos
+3. **Observable Security**: Security events as structured logs → VictoriaLogs → Grafana
+4. **Policy as Code**: Version-controlled security policies in Git
+
+### Why Codeberg Migration?
+
+1. **Self-Sovereignty**: Reduced dependency on GitHub/Microsoft
+2. **Cost**: Codeberg is non-profit, free for self-hosted runners
+3. **Learning**: Experience with Forgejo (Gitea fork) deployment patterns
+4. **Capability**: Forgejo runners + Actions competitive with GitHub Actions
+
+## Migration Risk Mitigation
+
+- **Parallel Running**: Keep old and new systems running during validation periods
+- **Incremental Cutover**: Migrate one capability at a time (logs → security → CI/CD)
+- **Rollback Plans**: Document how to revert each phase if issues arise
+- **Monitoring**: Enhanced alerting during migration to catch issues early
+- **Documentation**: Comprehensive handoff docs for each phase completion
+
+## Success Metrics
+
+- **Observability**: All logs (internal + external) flowing to VictoriaLogs, visible in Grafana
+- **Security**: Tetragon events generating alerts for suspicious activity
+- **CI/CD**: Flux automatically deploying from Codeberg pushes
+- **Resource Usage**: Overall cluster memory usage reduced by 20%+ from LGTM consolidation
+- **Operational Overhead**: Fewer components to upgrade, monitor, and troubleshoot
+
+## Agent Reports
+
+None yet - first session establishing strategic direction
