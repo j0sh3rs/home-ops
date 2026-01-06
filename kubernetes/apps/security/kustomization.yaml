@@ -2,9 +2,10 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: security
 components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  - ./tetragon/ks.yaml
+  # - ./tetragon/ks.yaml  # Disabled - Tetragon is deployed in kube-system namespace
   - ./wazuh/ks.yaml
