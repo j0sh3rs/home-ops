@@ -8,4 +8,4 @@ components:
   - ../../components/repos/app-template
 resources:
   # - ./tetragon/ks.yaml  # Disabled - Tetragon is deployed in kube-system namespace
-  - ./wazuh/ks.yaml
+  # - ./wazuh/ks.yaml  # Removed - Phase 5E: Replaced by Tetragon + VictoriaLogs
