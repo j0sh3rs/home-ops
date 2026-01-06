@@ -1,6 +1,6 @@
 # Session: platform-evolution
 
-Updated: 2026-01-05T15:55:03.156Z
+Updated: 2026-01-06T03:15:00.000Z
 
 ## Goal
 
@@ -125,18 +125,30 @@ Evolve home-ops platform towards simplified, production-grade observability and 
     - [ ] Define security alert rules (Pending Phase 5 - after event generation validation)
     - [ ] Tune for false positive reduction (Pending Phase 5 - after initial observation period)
 
-### Phase 5: Wazuh Migration
+### Phase 5: Wazuh Migration - **ASSESSMENT COMPLETE**
 
-- [ ] Migrate Wazuh capabilities
-    - [ ] Map Wazuh rules to Tetragon policies
-    - [ ] Map Wazuh alerts to Alertmanager rules
-    - [ ] Verify content filtering coverage (UDM Pro DPI logs)
-    - [ ] Test end-to-end alerting flow
-- [ ] Deprecate Wazuh
-    - [ ] Parallel run period (1 month)
-    - [ ] Validate no missed alerts
-    - [ ] Document capability mapping
-    - [ ] Remove Wazuh deployment
+- [x] Assess Wazuh current state and capabilities
+    - [x] Inventory active agents (3 K8s nodes active, 2 external disconnected)
+    - [x] Identify log sources (K8s nodes only - no external syslog connections)
+    - [x] Analyze alert activity (2 total alerts, both false positives)
+    - [x] Review security features (rootcheck, syscollector, auditd rules, syslog receivers)
+    - [x] Map capabilities to replacement stack (documented in `claudedocs/wazuh-capability-assessment.md`)
+- [x] Capability mapping analysis
+    - [x] Map Wazuh rules to Tetragon policies (runtime security: ✅ full replacement)
+    - [x] Map Wazuh alerts to Alertmanager rules (alerting: ✅ full replacement)
+    - [x] Verify UDM Pro DPI log coverage (❌ NOT connected to Wazuh, will connect to VictoriaLogs)
+    - [x] Document capability gaps (file integrity monitoring: ⚠️ partial, acceptable gap)
+- [ ] Implementation and deprecation (Phase 5B-5E)
+    - [x] Create PrometheusRule CRDs (Wazuh-equivalent alerts) - **PHASE 5B COMPLETE**
+        - [x] PrivilegeEscalationDetected (Wazuh rule 80721 → Tetragon capabilities monitoring)
+        - [x] SensitiveFileAccessed (Wazuh rule 80713 → Tetragon file access tracking)
+        - [x] AbnormalProcessExecution (Wazuh rule 80712 → Tetragon process exec from tmp/shm)
+        - [x] SuspiciousNetworkActivity (Wazuh rule 80710 → Tetragon network monitoring)
+        - [x] RepeatedAuthenticationFailures (Wazuh rule 40111 → Tetragon auth process tracking)
+    - [ ] Configure UDM Pro syslog → VictoriaLogs (Phase 5C - user action required)
+    - [ ] Parallel run period (Phase 5D - 2 weeks, Tetragon + Wazuh side-by-side)
+    - [ ] Validate no missed security events (Phase 5D validation)
+    - [ ] Remove Wazuh deployment (Phase 5E - reclaim ~6Gi memory + ~500m CPU)
 
 ### Phase 6: Codeberg Migration
 

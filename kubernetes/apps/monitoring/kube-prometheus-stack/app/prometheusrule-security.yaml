@@ -8,6 +8,95 @@ metadata:
     app.kubernetes.io/part-of: kube-prometheus-stack
 spec:
   groups:
+    # Tetragon Runtime Security (Replaces Wazuh auditd monitoring)
+    - name: tetragon-runtime-security
+      interval: 30s
+      rules:
+        # Privilege Escalation Detection (Wazuh rule 80721 equivalent)
+        - alert: PrivilegeEscalationDetected
+          expr: |
+            sum by (namespace, pod, binary, parent_binary) (
+              rate(tetragon_process_exec_total{
+                capabilities=~".*CAP_SETUID.*|.*CAP_SETGID.*"
+              }[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: security
+            mitre_attack: "T1548"
+          annotations:
+            summary: "Privilege escalation attempt detected in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Process {{ $labels.binary }} (parent: {{ $labels.parent_binary }}) attempted privilege escalation via setuid/setgid capabilities. This matches Wazuh rule 80721 (ANOM_ROOT_TRANS)."
+
+        # Sensitive File Access (Wazuh rule 80713 equivalent)
+        - alert: SensitiveFileAccessed
+          expr: |
+            sum by (namespace, pod, binary, path) (
+              rate(tetragon_file_access_total{
+                path=~"/etc/passwd|/etc/shadow|/etc/sudoers|/root/.ssh/.*"
+              }[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: high
+            component: security
+            mitre_attack: "T1003"
+          annotations:
+            summary: "Sensitive file {{ $labels.path }} accessed in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Process {{ $labels.binary }} accessed sensitive system file {{ $labels.path }}. This matches Wazuh rule 80713 (file security monitoring)."
+
+        # Abnormal Process Execution (Wazuh rule 80712 equivalent)
+        - alert: AbnormalProcessExecution
+          expr: |
+            sum by (namespace, pod, binary) (
+              rate(tetragon_process_exec_total{
+                binary=~".*/tmp/.*|.*/dev/shm/.*"
+              }[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: high
+            component: security
+            mitre_attack: "T1204"
+          annotations:
+            summary: "Suspicious process execution in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Process {{ $labels.binary }} executed from suspicious location (tmp or shared memory). This matches Wazuh rule 80712 (ANOM_EXEC)."
+
+        # Network Anomaly Detection (Wazuh rule 80710 equivalent)
+        - alert: SuspiciousNetworkActivity
+          expr: |
+            sum by (namespace, pod, binary, destination_ip, destination_port) (
+              rate(tetragon_network_connect_total{
+                destination_port=~"22|23|3389|4444|5900|6667"
+              }[5m])
+            ) > 3
+          for: 2m
+          labels:
+            severity: warning
+            component: security
+            mitre_attack: "T1071"
+          annotations:
+            summary: "Suspicious network connection in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Process {{ $labels.binary }} made {{ $value }} connections to {{ $labels.destination_ip }}:{{ $labels.destination_port }}. Monitoring common attack ports (SSH, Telnet, RDP, Metasploit, VNC, IRC)."
+
+        # Multiple Authentication Failures (Wazuh rule 40111 equivalent)
+        - alert: RepeatedAuthenticationFailures
+          expr: |
+            sum by (namespace, pod, binary) (
+              rate(tetragon_process_exec_total{
+                binary=~".*su|.*sudo|.*ssh"
+              }[2m])
+            ) > 5
+          for: 2m
+          labels:
+            severity: warning
+            component: security
+            mitre_attack: "T1110"
+          annotations:
+            summary: "Repeated authentication attempts in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "{{ $value }} authentication-related process executions ({{ $labels.binary }}) detected in 2 minutes. Possible brute force attempt. This matches Wazuh rule 40111 (authentication_failed frequency)."
+
     # Wazuh Security Monitoring (Phase 5 deprecation pending)
     - name: wazuh
       interval: 30s
