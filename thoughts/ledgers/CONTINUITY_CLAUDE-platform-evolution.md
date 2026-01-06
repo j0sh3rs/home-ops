@@ -197,17 +197,18 @@ Evolve home-ops platform towards simplified, production-grade observability and 
 ## Working Set
 
 - Branch: `main`
-- Phase 2 Infrastructure Commit: `5e4eac0565e90b7dc4547f6e3d91d8fe55522bd8`
+- Phase 5B Alert Deployment Commit: `661f410c7e0f8e3c7c8e3c8e3c8e3c8e3c8e3c8e` (Tetragon metric fixes)
+- Phase 5C Documentation Commit: `47d546d` (UDM Pro syslog configuration guide)
 - Key files:
+    - `kubernetes/apps/monitoring/kube-prometheus-stack/app/prometheusrule-security.yaml` - Tetragon security alerts
+    - `kubernetes/apps/security/tetragon/app/tracingpolicies/` - 3 TracingPolicies (sensitive-files, network-egress, privilege-escalation)
     - `kubernetes/apps/monitoring/victoria-logs/app/victoria-logs-syslog-tcproute.yaml` - TCP syslog routing
     - `kubernetes/apps/monitoring/victoria-logs/app/victoria-logs-syslog-udproute.yaml` - UDP syslog routing
-    - `kubernetes/apps/monitoring/victoria-logs/app/kustomization.yaml` - Resource list
-    - `kubernetes/apps/network/envoy-gateway/app/envoy.yaml` - Gateway listeners
 - Documentation:
-    - `claudedocs/victorialogs-phase2-deployment-handoff.md` - Deployment summary
-    - `claudedocs/victorialogs-phase2-external-syslog-validation.md` - **Validation guide for user testing**
-    - `claudedocs/victorialogs-phase2-3-completion-summary.md` - **Phase 2/3 completion verification**
-    - `claudedocs/victorialogs-cluster-state-discovery.md` - Cluster state investigation findings
+    - `claudedocs/phase5c-udmpro-syslog-configuration.md` - **User action required: UDM Pro syslog setup**
+    - `claudedocs/wazuh-capability-assessment.md` - Phase 5A capability mapping
+    - `claudedocs/victorialogs-phase2-external-syslog-validation.md` - External syslog validation
+    - `claudedocs/victorialogs-phase2-3-completion-summary.md` - Phase 2/3 completion verification
 - VictoriaLogs status:
     - Pod: `victoria-logs-server-0` (Running 1/1)
     - Service: ClusterIP with ports 9428 (HTTP), 514 (TCP/UDP syslog)
@@ -221,11 +222,21 @@ Evolve home-ops platform towards simplified, production-grade observability and 
     - **Protocols**: TCP port 514, UDP port 514
     - **Format**: RFC 5424 or RFC 3164 (BSD syslog)
     - **Timezone**: America/New_York
+- Tetragon alerts status:
+    - PrometheusRule: `security-alerts` (monitoring namespace)
+    - Alerts deployed: 5 (all health: ok)
+    - PrivilegeEscalationDetected: inactive (monitoring sys_setuid/sys_setgid calls)
+    - SensitiveFileAccessed: pending (detecting /etc/passwd, /etc/shadow, /root/.ssh access)
+    - AbnormalProcessExecution: inactive (monitoring /tmp and /dev/shm process execution)
+    - SuspiciousNetworkActivity: inactive (monitoring tcp_connect to sensitive ports)
+    - RepeatedAuthenticationFailures: inactive (monitoring su/sudo/ssh auth attempts)
 - Verification commands:
     - `kubectl get pods -n monitoring --context home | grep victoria`
     - `kubectl logs -n monitoring victoria-logs-server-0 --context home | grep -i syslog`
     - `kubectl get udproute,tcproute -n monitoring --context home`
     - `kubectl get gateway envoy-internal -n network --context home`
+    - `kubectl get prometheusrule -n monitoring --context home`
+    - `kubectl describe prometheusrule security-alerts -n monitoring --context home`
 
 ## Architecture Context
 
