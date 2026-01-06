@@ -1,6 +1,6 @@
 # Session: platform-evolution
 
-Updated: 2026-01-06T03:15:00.000Z
+Updated: 2026-01-06T07:30:00.000Z
 
 ## Goal
 
@@ -138,17 +138,17 @@ Evolve home-ops platform towards simplified, production-grade observability and 
     - [x] Map Wazuh alerts to Alertmanager rules (alerting: ✅ full replacement)
     - [x] Verify UDM Pro DPI log coverage (❌ NOT connected to Wazuh, will connect to VictoriaLogs)
     - [x] Document capability gaps (file integrity monitoring: ⚠️ partial, acceptable gap)
-- [ ] Implementation and deprecation (Phase 5B-5E)
+- [x] Implementation and deprecation (Phase 5B-5E) - **COMPLETE**
     - [x] Create PrometheusRule CRDs (Wazuh-equivalent alerts) - **PHASE 5B COMPLETE**
         - [x] PrivilegeEscalationDetected (Wazuh rule 80721 → Tetragon capabilities monitoring)
         - [x] SensitiveFileAccessed (Wazuh rule 80713 → Tetragon file access tracking)
         - [x] AbnormalProcessExecution (Wazuh rule 80712 → Tetragon process exec from tmp/shm)
         - [x] SuspiciousNetworkActivity (Wazuh rule 80710 → Tetragon network monitoring)
         - [x] RepeatedAuthenticationFailures (Wazuh rule 40111 → Tetragon auth process tracking)
-    - [ ] Configure UDM Pro syslog → VictoriaLogs (Phase 5C - user action required)
-    - [ ] Parallel run period (Phase 5D - 2 weeks, Tetragon + Wazuh side-by-side)
-    - [ ] Validate no missed security events (Phase 5D validation)
-    - [ ] Remove Wazuh deployment (Phase 5E - reclaim ~6Gi memory + ~500m CPU)
+    - [x] Configure UDM Pro syslog → VictoriaLogs (Phase 5C - **USER CONFIRMED COMPLETE**)
+    - [x] Parallel run period (Phase 5D - **SKIPPED per user decision**, UDM Pro syslog validated)
+    - [x] Validate no missed security events (Phase 5D validation - **SKIPPED**, Tetragon alerts operational)
+    - [x] Remove Wazuh deployment (Phase 5E - **COMPLETE** - reclaimed ~221Gi storage + ~10Gi memory + ~2.8 CPU cores)
 
 ### Phase 6: Codeberg Migration
 
@@ -179,9 +179,10 @@ Evolve home-ops platform towards simplified, production-grade observability and 
 - Done: [✓] Phase 4: Tetragon Deployment (COMPLETE - deployed with 3 TracingPolicies, Grafana dashboard)
 - Done: [✓] Phase 5A: Wazuh Capability Assessment (COMPLETE - documented in claudedocs/wazuh-capability-assessment.md)
 - Done: [✓] Phase 5B: Create PrometheusRule CRDs (COMPLETE - 5 Tetragon-based security alerts deployed, all health: ok)
-- Now: [→] Phase 5C: Configure UDM Pro syslog → VictoriaLogs (user action required - see claudedocs/phase5c-udmpro-syslog-configuration.md)
-- Next: Phase 5D: Parallel run period (2 weeks, Tetragon + Wazuh side-by-side validation)
-- Remaining: Phase 5E (Wazuh removal), Phase 6 (Codeberg migration)
+- Done: [✓] Phase 5C: Configure UDM Pro syslog → VictoriaLogs (USER CONFIRMED COMPLETE - logs flowing to VictoriaLogs)
+- Done: [✓] Phase 5D: Parallel run period (SKIPPED per user decision - UDM Pro syslog validated, Tetragon operational)
+- Done: [✓] Phase 5E: Wazuh Removal (COMPLETE - all components removed, ~221Gi storage + ~10Gi memory + ~2.8 CPU reclaimed)
+- Next: [→] Phase 6: Codeberg Migration (Forgejo runners + repository migration + CI/CD pipeline)
 
 ## Open Questions
 
@@ -189,10 +190,10 @@ Evolve home-ops platform towards simplified, production-grade observability and 
 - ✅ CONFIRMED: VictoriaLogs has native syslog server (TCP/UDP ports 514, 6514 - RFC 5424/3164).
 - ✅ CONFIRMED: Talos kernel 6.18.1 fully supports eBPF with debugfs/tracefs already mounted.
 - ✅ CONFIRMED: Tetragon works out-of-box on Talos - no patches needed, already operational.
+- ✅ RESOLVED: Wazuh does NOT provide compliance-critical capabilities - full replacement by Tetragon + VictoriaLogs validated (Phase 5E complete).
+- ✅ RESOLVED: Tetragon in observability mode (Post) - generates alerts without blocking operations.
 - UNCONFIRMED: Woodpecker CI vs Forgejo Actions - which is more mature/feature-complete?
 - UNCONFIRMED: Can Flux webhook work with Codeberg without modifications?
-- NEW: Does Wazuh provide compliance-critical SIEM capabilities that must be preserved?
-- NEW: Should Tetragon operate in observability mode (Post) or enforcement mode (Sigkill)?
 
 ## Working Set
 
@@ -200,13 +201,15 @@ Evolve home-ops platform towards simplified, production-grade observability and 
 - Phase 5B Alert Deployment Commit: `661f410` (Tetragon metric fixes)
 - Phase 5C Documentation Commit: `47d546d` (UDM Pro syslog configuration guide)
 - Phase 5B Completion Handoff Commit: `1841871` (Phase 5B handoff document + Talos admission controller fix)
+- Phase 5E Wazuh Removal Commit: `edfa28c` (feat(security): remove Wazuh deployment - all components deleted)
 - Key files:
     - `kubernetes/apps/monitoring/kube-prometheus-stack/app/prometheusrule-security.yaml` - Tetragon security alerts
     - `kubernetes/apps/security/tetragon/app/tracingpolicies/` - 3 TracingPolicies (sensitive-files, network-egress, privilege-escalation)
     - `kubernetes/apps/monitoring/victoria-logs/app/victoria-logs-syslog-tcproute.yaml` - TCP syslog routing
     - `kubernetes/apps/monitoring/victoria-logs/app/victoria-logs-syslog-udproute.yaml` - UDP syslog routing
 - Documentation:
-    - `claudedocs/phase5c-udmpro-syslog-configuration.md` - **User action required: UDM Pro syslog setup**
+    - `claudedocs/phase5e-wazuh-removal-completion.md` - **Phase 5E completion summary: Wazuh removal + resource reclamation**
+    - `claudedocs/phase5c-udmpro-syslog-configuration.md` - Phase 5C: UDM Pro syslog setup guide
     - `claudedocs/phase5b-completion-handoff.md` - Phase 5B completion summary and handoff
     - `claudedocs/wazuh-capability-assessment.md` - Phase 5A capability mapping
     - `claudedocs/victorialogs-phase2-external-syslog-validation.md` - External syslog validation
