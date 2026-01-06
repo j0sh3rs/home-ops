@@ -197,8 +197,9 @@ Evolve home-ops platform towards simplified, production-grade observability and 
 ## Working Set
 
 - Branch: `main`
-- Phase 5B Alert Deployment Commit: `661f410c7e0f8e3c7c8e3c8e3c8e3c8e3c8e3c8e` (Tetragon metric fixes)
+- Phase 5B Alert Deployment Commit: `661f410` (Tetragon metric fixes)
 - Phase 5C Documentation Commit: `47d546d` (UDM Pro syslog configuration guide)
+- Phase 5B Completion Handoff Commit: `1841871` (Phase 5B handoff document + Talos admission controller fix)
 - Key files:
     - `kubernetes/apps/monitoring/kube-prometheus-stack/app/prometheusrule-security.yaml` - Tetragon security alerts
     - `kubernetes/apps/security/tetragon/app/tracingpolicies/` - 3 TracingPolicies (sensitive-files, network-egress, privilege-escalation)
@@ -206,6 +207,7 @@ Evolve home-ops platform towards simplified, production-grade observability and 
     - `kubernetes/apps/monitoring/victoria-logs/app/victoria-logs-syslog-udproute.yaml` - UDP syslog routing
 - Documentation:
     - `claudedocs/phase5c-udmpro-syslog-configuration.md` - **User action required: UDM Pro syslog setup**
+    - `claudedocs/phase5b-completion-handoff.md` - Phase 5B completion summary and handoff
     - `claudedocs/wazuh-capability-assessment.md` - Phase 5A capability mapping
     - `claudedocs/victorialogs-phase2-external-syslog-validation.md` - External syslog validation
     - `claudedocs/victorialogs-phase2-3-completion-summary.md` - Phase 2/3 completion verification
