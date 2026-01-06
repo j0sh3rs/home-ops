@@ -176,10 +176,12 @@ Evolve home-ops platform towards simplified, production-grade observability and 
 - Done: [✓] Phase 1: Research & Architecture Design (VictoriaLogs + Tetragon)
 - Done: [✓] Phase 2: VictoriaLogs Infrastructure & Migration (COMPLETE - deployed + external syslog validated)
 - Done: [✓] Phase 3: Component Removal & Resource Cleanup (verified complete - no orphaned resources)
-- Now: [→] Phase 3: Alerting & Dashboards (Alertmanager configuration, dashboard standardization)
-- Next: Phase 4: Tetragon Deployment (Talos runtime security with eBPF monitoring)
-- Decision Needed: In-cluster log collection strategy (Vector, Fluent Bit, Promtail, or external syslog only?)
-- Remaining: Phases 4-6 (Tetragon deployment, Wazuh assessment, CI/CD migration)
+- Done: [✓] Phase 4: Tetragon Deployment (COMPLETE - deployed with 3 TracingPolicies, Grafana dashboard)
+- Done: [✓] Phase 5A: Wazuh Capability Assessment (COMPLETE - documented in claudedocs/wazuh-capability-assessment.md)
+- Done: [✓] Phase 5B: Create PrometheusRule CRDs (COMPLETE - 5 Tetragon-based security alerts deployed, all health: ok)
+- Now: [→] Phase 5C: Configure UDM Pro syslog → VictoriaLogs (user action required - see claudedocs/phase5c-udmpro-syslog-configuration.md)
+- Next: Phase 5D: Parallel run period (2 weeks, Tetragon + Wazuh side-by-side validation)
+- Remaining: Phase 5E (Wazuh removal), Phase 6 (Codeberg migration)
 
 ## Open Questions
 
