@@ -30,23 +30,23 @@ spec:
             summary: "Privilege escalation attempt detected in {{ $labels.namespace }}/{{ $labels.pod }}"
             description: "Process {{ $labels.binary }} in workload {{ $labels.workload }} attempted privilege escalation via setuid/setgid syscalls. This matches Wazuh rule 80721 (ANOM_ROOT_TRANS)."
 
-        # Sensitive File Access (Wazuh rule 80713 equivalent)
-        - alert: SensitiveFileAccessed
-          expr: |
-            sum by (namespace, pod, binary, workload) (
-              rate(tetragon_policy_events_total{
-                policy="monitor-sensitive-files",
-                hook="kprobe:security_file_open"
-              }[5m])
-            ) > 0
-          for: 1m
-          labels:
-            severity: high
-            component: security
-            mitre_attack: "T1003"
-          annotations:
-            summary: "Sensitive file accessed in {{ $labels.namespace }}/{{ $labels.pod }}"
-            description: "Process {{ $labels.binary }} in workload {{ $labels.workload }} accessed sensitive system files (e.g., /etc/passwd, /etc/shadow, /etc/sudoers, SSH keys). This matches Wazuh rule 80713 (file security monitoring)."
+        # Sensitive File Access (Wazuh rule 80713 equivalent) - DISABLED: Too noisy
+        # - alert: SensitiveFileAccessed
+        #   expr: |
+        #     sum by (namespace, pod, binary, workload) (
+        #       rate(tetragon_policy_events_total{
+        #         policy="monitor-sensitive-files",
+        #         hook="kprobe:security_file_open"
+        #       }[5m])
+        #     ) > 0
+        #   for: 1m
+        #   labels:
+        #     severity: high
+        #     component: security
+        #     mitre_attack: "T1003"
+        #   annotations:
+        #     summary: "Sensitive file accessed in {{ $labels.namespace }}/{{ $labels.pod }}"
+        #     description: "Process {{ $labels.binary }} in workload {{ $labels.workload }} accessed sensitive system files (e.g., /etc/passwd, /etc/shadow, /etc/sudoers, SSH keys). This matches Wazuh rule 80713 (file security monitoring)."
 
         # Abnormal Process Execution (Wazuh rule 80712 equivalent)
         - alert: AbnormalProcessExecution
