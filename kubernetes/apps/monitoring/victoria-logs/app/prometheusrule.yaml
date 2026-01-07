@@ -61,6 +61,7 @@ spec:
             description: "VictoriaLogs PVC {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full (>80% threshold, 50Gi capacity). Log retention may need adjustment."
 
         # Warning: No recent logs ingested
+        # Tuned for scheduled syslog sources (e.g., every 15 minutes)
         - alert: VictoriaLogsNoRecentLogs
           expr: |
             (
@@ -68,9 +69,9 @@ spec:
               or
               absent(vl_rows_ingested_total)
             )
-          for: 10m
+          for: 30m
           labels:
             severity: warning
           annotations:
             summary: "VictoriaLogs not ingesting logs"
-            description: "VictoriaLogs has not ingested any logs in the last 10 minutes. Possible syslog source issue or ingestion problem."
+            description: "VictoriaLogs has not ingested any logs in the last 30 minutes. Possible syslog source issue or ingestion problem."
