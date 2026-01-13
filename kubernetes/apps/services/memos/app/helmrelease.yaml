@@ -34,7 +34,7 @@ spec:
           app:
             image:
               repository: neosmemo/memos
-              tag: latest
+              tag: 0.25
               pullPolicy: IfNotPresent
             envFrom:
               - secretRef:
