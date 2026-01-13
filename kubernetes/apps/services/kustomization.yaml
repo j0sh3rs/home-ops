@@ -11,3 +11,4 @@ resources:
   - ./changedetector/ks.yaml
   - ./it-tools/ks.yaml
   - ./linkwarden/ks.yaml
+  - ./memos/ks.yaml
