@@ -59,8 +59,6 @@ spec:
                 value: true
               - name: GENERIC_TIMEZONE
                 value: "America/New_York"
-              - name: N8N_RUNNERS_ENABLED
-                value: true
             envFrom:
               - secretRef:
                   name: n8n-secrets
