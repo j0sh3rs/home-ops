@@ -21,7 +21,7 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     controllers:
-      memos:
+      n8n:
         initContainers:
           init-db:
             image:
@@ -29,7 +29,7 @@ spec:
               tag: 17
             envFrom:
               - secretRef:
-                  name: memos-secrets
+                  name: n8n-secrets
         containers:
           app:
             image:
