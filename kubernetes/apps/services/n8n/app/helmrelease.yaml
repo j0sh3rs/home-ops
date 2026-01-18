@@ -1,0 +1,96 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app memos
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    global:
+      annotations:
+        reloader.stakater.com/auto: "true"
+    controllers:
+      memos:
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: 17
+            envFrom:
+              - secretRef:
+                  name: memos-secrets
+        containers:
+          app:
+            image:
+              repository: n8nio/n8n
+              tag: 2.3.6
+              pullPolicy: IfNotPresent
+            env:
+              - name: N8N_EDITOR_BASE_URL
+                value: &url "n8n.68cc.io"
+              - name: N8N_TEMPLATES_ENABLED
+                value: "true"
+              - name: N8N_PROTOCOL
+                value: "https"
+              - name: N8N_HOST
+                value: "0.0.0.0"
+              - name: N8N_DIAGNOSTICS_ENABLED
+                value: false
+              - name: N8N_HIRING_BANNER_ENABLED
+                value: false
+              - name: N8N_REINSTALL_MISSING_PACKAGES
+                value: true
+              - name: N8N_METRICS
+                value: true
+              - name: N8N_METRICS_INCLUDE_CACHE_METRICS
+                value: true
+              - name: N8N_METRICS_INCLUDE_MESSAGE_EVENT_BUS_METRICS
+                value: true
+              - name: GENERIC_TIMEZONE
+                value: "America/New_York"
+              - name: N8N_RUNNERS_ENABLED
+                value: true
+            envFrom:
+              - secretRef:
+                  name: n8n-secrets
+            resources:
+              requests:
+                cpu: 300m
+                memory: 1Gi
+              limits:
+                cpu: 4
+                memory: 4Gi
+            probes:
+              liveness:
+                enabled: false
+              readiness:
+                enabled: false
+              startup:
+                enabled: false
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: &port 5678
+    route:
+      app:
+        hostnames: [*url]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - name: *app
+                port: *port
