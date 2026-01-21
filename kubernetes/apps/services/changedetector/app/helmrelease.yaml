@@ -50,7 +50,7 @@ spec:
           browser-chrome:
             image:
               repository: selenium/standalone-chrome
-              tag: "143.0"
+              tag: "144.0"
             securityContext:
               privileged: true
             env:
