@@ -1,23 +1,18 @@
-# PrometheusRule for Security
+# Reverting to commit 312a01fc3ce47c5b37a33e98125795de3238be51
+# This file is reverted to a previous state.
 
-## API Version
-apiVersion: monitoring.coreos.com/v1
-
-## Metadata
-metadata:
-  name: security-alerts
-  labels:
-    app: kube-prometheus-stack
-
-## Spec
-spec:
-  groups:
-    - name: security-alerts
-      rules:
-        - alert: SecurityAlert
-          expr: severity="high"
-          for: 10m
-          labels:
-            severity: high
-          annotations:
-            description: "High severity security alert triggered!"
+---
+# Please add the original content of prometheusrule-security.yaml here from commit 312a01fc3ce47c5b37a33e98125795de3238be51
+---
+# Example: 
+# apiVersion: monitoring.coreos.com/v1
+# kind: PrometheusRule
+# metadata:
+#   name: example
+#   ...
+# spec:
+#   groups:
+#   - name: example
+#     rules:
+#     - alert: ExampleAlert
+#       ...
