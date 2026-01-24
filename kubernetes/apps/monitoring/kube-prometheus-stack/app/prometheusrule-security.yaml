@@ -1,7 +1,23 @@
-# alerts:
-#   - name: UnauthorizedAPIAccessAttempts
-#     ...
-#   - name: ContainerUsingLatestTag
-#     ...
-#   - name: ServiceExposedWithoutNetworkPolicy
-#     ...
+# PrometheusRule for Security
+
+## API Version
+apiVersion: monitoring.coreos.com/v1
+
+## Metadata
+metadata:
+  name: security-alerts
+  labels:
+    app: kube-prometheus-stack
+
+## Spec
+spec:
+  groups:
+    - name: security-alerts
+      rules:
+        - alert: SecurityAlert
+          expr: severity="high"
+          for: 10m
+          labels:
+            severity: high
+          annotations:
+            description: "High severity security alert triggered!"
