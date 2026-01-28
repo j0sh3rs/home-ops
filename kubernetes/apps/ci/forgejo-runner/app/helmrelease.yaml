@@ -24,7 +24,7 @@ spec:
           runner-register:
             image:
               repository: code.forgejo.org/forgejo/runner
-              tag: 12.6.2
+              tag: 12.6.3
             command:
               - sh
               - -c
@@ -75,7 +75,7 @@ spec:
           app:
             image:
               repository: code.forgejo.org/forgejo/runner
-              tag: 12.6.2
+              tag: 12.6.3
             command:
               - sh
               - -c
