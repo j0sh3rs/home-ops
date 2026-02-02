@@ -51,7 +51,7 @@ spec:
         ports:
           http:
             primary: true
-            port: &port 443
+            port: &port 12008
     route:
       app:
         hostnames: ["mcp.68cc.io"]
