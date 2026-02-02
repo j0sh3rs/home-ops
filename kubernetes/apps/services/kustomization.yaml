@@ -12,4 +12,5 @@ resources:
   - ./it-tools/ks.yaml
   - ./linkwarden/ks.yaml
   - ./memos/ks.yaml
+  - ./metamcp/ks.yaml
   - ./n8n/ks.yaml
