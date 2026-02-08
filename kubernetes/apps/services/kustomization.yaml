@@ -8,9 +8,9 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./atuin/ks.yaml
-  - ./changedetector/ks.yaml
+  # - ./changedetector/ks.yaml
   - ./it-tools/ks.yaml
   - ./linkwarden/ks.yaml
-  - ./memos/ks.yaml
+  #  ./memos/ks.yaml
   - ./metamcp/ks.yaml
-  - ./n8n/ks.yaml
+  # - ./n8n/ks.yaml
