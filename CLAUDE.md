@@ -4,389 +4,248 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a home-lab Kubernetes cluster built on **Talos Linux** with **FluxCD** for GitOps-based deployments. The cluster uses SOPS for secret encryption, mise for development environment management, and follows a structured approach to application deployment via Helm charts and Kustomize overlays.
+Home-lab Kubernetes cluster on **Talos Linux** running **Kubernetes**, managed via **FluxCD** GitOps. Source repo: `github.com/j0sh3rs/home-ops`.
 
-## Development Environment Setup
+## Critical: Kubectl Context
 
-**Tool Management**: This project uses [mise](https://mise.jdx.dev/) to manage all development tools.
-
-```bash
-# Trust and install all tools (first time only)
-mise trust
-pip install pipx
-mise install
-
-# Tools installed include: kubectl, helm, flux, talosctl, talhelper, sops, age, kustomize, yq, jq
-```
-
-**Environment Variables**: Automatically set by mise from `.mise.toml`:
-
-- `KUBECONFIG`: `./kubeconfig` - Cluster access configuration
-- `SOPS_AGE_KEY_FILE`: `./age.key` - SOPS decryption key
-- `TALOSCONFIG`: `./talos/clusterconfig/talosconfig` - Talos cluster config
-
-## Kubectl Context Requirement
-
-**CRITICAL**: This cluster uses the `home` kubectl context. All kubectl, helm, and flux commands MUST explicitly use `--context home` to ensure correct cluster targeting.
+**ALL** kubectl, helm, and flux commands MUST use `--context home`:
 
 ```bash
-# Correct - always specify context
-kubectl get pods -n toolhive-system --context home
+kubectl get pods -A --context home
 helm list -A --kube-context home
-flux get kustomizations -A --context home
-
-# Incorrect - missing context specification
-kubectl get pods -n toolhive-system  # ❌ Wrong cluster
-helm list -A                          # ❌ Wrong cluster
+flux get ks -A --context home
 ```
 
-**Repository Configuration**: This cluster uses `github.com/j0sh3rs/home-ops` as the GitOps source repository.
+## Development Environment
 
-## Common Commands
-
-### Cluster Operations
+**Tool chain**: `mise` installs `aqua` (via `aqua:cli/cli` in `.mise.toml`), which pins `talhelper` and `talos` CLI versions via `aqua.yaml`.
 
 ```bash
-# Force Flux to reconcile (pull latest from Git)
-task reconcile
+# First-time setup
+mise trust && mise install
 
-# Bootstrap Talos Linux on nodes
-task bootstrap:talos
+# Environment variables (set automatically by mise via .mise.toml)
+# KUBECONFIG=./kubeconfig
+# SOPS_AGE_KEY_FILE=./age.key
+# TALOSCONFIG=./talos/clusterconfig/talosconfig
+```
 
-# Bootstrap applications into cluster
-task bootstrap:apps
+## Task Runner Commands
 
-# Check Flux status
-flux check
-flux get sources git -A
-flux get ks -A
-flux get hr -A
+All operational tasks use [go-task](https://taskfile.dev/). Run `task -l` to list all tasks. Taskfiles are in `.taskfiles/`.
 
-# Check Cilium status
-cilium status
+### Flux Operations
+
+```bash
+task flux:reconcile                              # Force git source + cluster kustomization reconcile
+task flux:bootstrap                              # Bootstrap Flux into cluster (first-time)
+task flux:apply path=network/cloudflared         # Build and apply a specific Flux Kustomization
 ```
 
 ### Talos Operations
 
 ```bash
-# Generate Talos configuration from talconfig.yaml
-task talos:generate-config
-
-# Apply configuration to a node
-task talos:apply-node IP=192.168.1.100 MODE=auto
-
-# Upgrade Talos on a node
-task talos:upgrade-node IP=192.168.1.100
-
-# Upgrade Kubernetes version
-task talos:upgrade-k8s
-
-# Reset cluster (WARNING: destructive)
-task talos:reset
+task talos:generate-config                       # Generate configs from talconfig.yaml
+task talos:apply-node IP=192.168.1.100 MODE=auto # Apply config to a node
+task talos:upgrade-node IP=192.168.1.100         # Upgrade Talos on a node
+task talos:upgrade-k8s                           # Upgrade Kubernetes version
+task talos:reset                                 # Reset all nodes (DESTRUCTIVE, prompts)
 ```
 
-### Debugging and Inspection
+### Workload Operations
 
 ```bash
-# View pods across all namespaces
-kubectl get pods -A --watch --context home
-
-# Check namespace-specific resources
-kubectl -n <namespace> get pods -o wide --context home
-kubectl -n <namespace> logs <pod-name> -f --context home
-kubectl -n <namespace> describe <resource> <name> --context home
-kubectl -n <namespace> get events --sort-by='.metadata.creationTimestamp' --context home
-
-# Check HelmRelease status for an app
-kubectl -n <namespace> describe helmrelease <app-name> --context home
-
-# View Flux reconciliation logs
-kubectl -n flux-system logs -l app=flux --tail=100 -f --context home
+task workload:sync ns=monitoring ks=grafana      # Reconcile a Kustomization
+task workload:sync ns=monitoring hr=grafana      # Reconcile a HelmRelease
+task workload:minisync ns=monitoring hr=grafana  # Quick HelmRelease reconcile
 ```
 
-### Secret Management
+### VolSync Backup/Restore
 
 ```bash
-# Encrypt a secret (must be in kubernetes/ or talos/ directory)
-sops -e -i path/to/secret.yaml
-
-# Decrypt a secret to view contents
-sops -d path/to/secret.sops.yaml
-
-# Edit encrypted secret in place
-sops path/to/secret.sops.yaml
+task volsync:list app=sonarr ns=services         # List snapshots for an app
+task volsync:snapshot app=sonarr ns=services     # Trigger manual snapshot
+task volsync:restore app=sonarr ns=services      # Restore from snapshot (suspends/resumes)
+task volsync:unlock app=sonarr ns=services       # Unlock stuck Restic repo
 ```
 
-## Repository Architecture
+### SOPS Secret Management
 
-### Directory Structure
-
-```
-├── kubernetes/
-│   ├── apps/                          # Application deployments
-│   │   ├── cert-manager/              # Certificate management
-│   │   ├── databases/                 # CloudNative-PG, DragonflyDB
-│   │   ├── flux-system/               # Flux operator and instance
-│   │   ├── kube-system/               # Core system components
-│   │   ├── monitoring/                # Grafana, Loki, Tempo, Mimir
-│   │   ├── network/                   # Cloudflared, external-dns
-│   │   ├── security/                  # Falco
-│   │   ├── services/                  # User-facing applications
-│   │   └── velero/                    # Backup solution
-│   ├── flux/
-│   │   ├── cluster/                   # Cluster-level Flux resources
-│   │   ├── meta/                      # Repository sources
-│   │   └── repositories/              # Helm repositories
-│   └── components/                    # Shared Kustomize components
-├── talos/
-│   ├── clusterconfig/                 # Generated Talos configs (gitignored)
-│   ├── patches/                       # Talos configuration patches
-│   │   ├── controller/                # Control plane patches
-│   │   └── global/                    # Global node patches
-│   ├── talconfig.yaml                 # Talos cluster definition
-│   └── talenv.yaml                    # Talos/K8s versions
-├── bootstrap/                         # Bootstrap scripts
-├── scripts/                           # Utility scripts
-├── cluster.yaml                       # Cluster configuration template
-└── nodes.yaml                         # Node definitions template
+```bash
+task sops:encrypt                                # Encrypt all *.sops.* files under kubernetes/
+task sops:decrypt                                # Decrypt all *.sops.* files
+task sops:encrypt-file file=path/to/secret.yaml  # Encrypt a specific file
+sops -d path/to/secret.sops.yaml                 # Decrypt to view
+sops path/to/secret.sops.yaml                    # Edit encrypted file in-place
 ```
 
-### Application Deployment Pattern
+### Kubernetes Debugging
 
-Each application follows the **Flux Kustomization + HelmRelease** pattern:
+```bash
+task kubernetes:network                          # Launch netshoot debug pod
+task kubernetes:privileged node=k8s-worker-1     # Privileged pod on a specific node
+task kubernetes:drain node=k8s-worker-1          # Drain a node
+task kubernetes:browse-pvc claim=data ns=services # Browse a PVC's contents
+task kubernetes:delete-failed-pods               # Clean up Succeeded/Failed pods
+task kubernetes:resource-dump ns=monitoring      # Dump all resources in namespace to YAML
+```
+
+## Application Deployment Pattern
+
+Each app follows this structure:
 
 ```
 kubernetes/apps/{namespace}/{app}/
-├── ks.yaml                           # Flux Kustomization (entry point)
+├── ks.yaml                    # Flux Kustomization (entry point)
 └── app/
-    ├── kustomization.yaml            # Kustomize overlay
-    ├── helmrelease.yaml              # Helm chart configuration
-    ├── secret.sops.yaml              # Encrypted secrets (optional)
-    └── *.yaml                        # Additional resources (optional)
+    ├── kustomization.yaml     # Kustomize overlay
+    ├── helmrelease.yaml       # Helm chart configuration
+    └── secret.sops.yaml       # Encrypted secrets (optional)
 ```
 
-**Key Points**:
+### IMPORTANT: Use OCIRepository + chartRef Pattern
 
-- `ks.yaml` is the Flux entry point that references the `app/` directory
-- `helmrelease.yaml` defines the Helm chart version and values
-- All secrets MUST be encrypted with SOPS before committing
-- Each app is namespaced and organized by function
-
-### Flux Repository Structure
-
-**Helm Repositories**: Defined in `kubernetes/flux/meta/repos/*.yaml`
+New applications **must** use the `OCIRepository` + `chartRef` pattern. Do NOT use the old `chart.spec.sourceRef` with `HelmRepository`:
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-    name: repo-name
-    namespace: flux-system
-spec:
-    interval: 1h
-    url: https://charts.example.com
-```
-
-**OCIRepository Pattern**: For OCI-based charts
-
-```yaml
+# Correct: OCIRepository + chartRef
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: OCIRepository
 metadata:
-    name: chart-name
+    name: app-name
+    namespace: flux-system
 spec:
     interval: 12h
-    url: oci://ghcr.io/org/charts/chart-name
+    layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
     ref:
-        semver: ">=1.0.0"
+        tag: 1.2.3
+    url: oci://ghcr.io/example/charts/app-name
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+    name: app-name
+spec:
+    interval: 1h
+    chartRef:
+        kind: OCIRepository
+        name: app-name
+        namespace: flux-system
+    values: {}
+
+# WRONG: chart.spec.sourceRef with HelmRepository (legacy pattern, do not use)
 ```
+
+Helm repository definitions live in `kubernetes/flux/meta/repos/`.
+
+### Flux Variable Substitution
+
+The cluster-apps Kustomization (`kubernetes/flux/cluster/apps.yaml`) injects variables via `postBuild.substituteFrom` from:
+
+- `cluster-settings` ConfigMap
+- `cluster-secrets` Secret
+
+Apps can reference these variables using `${VARIABLE_NAME}` syntax in their manifests.
 
 ## Secret Management
 
-**SOPS Configuration** (`.sops.yaml`):
+**SOPS config** (`.sops.yaml`): age-key encryption with path-based rules:
 
-- `talos/`: Entire files encrypted
-- `kubernetes/`, `bootstrap/`, `archive/`: Only `data` and `stringData` fields encrypted
+- `talos/` — entire files encrypted
+- `kubernetes/`, `bootstrap/`, `archive/` — only `data` and `stringData` fields encrypted
 
-**Creating Encrypted Secrets**:
+All secrets MUST be encrypted before committing. Name encrypted files `*.sops.yaml`.
+
+## Architecture
+
+### Networking
+
+- **Cilium** — eBPF-based CNI and network policy engine
+- **Cloudflared** — Cloudflare DNS integration
+- **external-dns** — Automatic DNS registration
+- **cert-manager** — TLS certificate automation
+- **k8s-gateway** — Split-horizon DNS
+
+### Storage
+
+- **OpenEBS LocalPV** — Default storage class (`openebs-localpv-hostpath`)
+- **Minio S3** — Object storage at `https://s3.68cc.io` (buckets: `openebs-backups`, `loki-chunks`, `tempo-traces`, `mimir-blocks`)
+- **Velero** — Cluster-level S3-backed snapshots (daily 02:00 UTC, 30-day retention)
+- **VolSync** — Application-level Restic backups to S3
+
+Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{component}-s3-secret`).
+
+### Observability (LGTM Stack)
+
+- **Grafana** — Unified dashboards
+- **Loki** — Log aggregation (S3 backend, simple scalable mode)
+- **Tempo** — Distributed tracing (S3 backend, monolithic mode)
+- **Mimir** — Long-term metrics (S3 backend, monolithic mode)
+- **OpenTelemetry Collector** — Telemetry collection pipeline
+- **kube-prometheus-stack** — Prometheus with remote-write to Mimir
+
+### Databases
+
+- **CloudNative-PG** — PostgreSQL operator with S3 backups
+- **DragonflyDB** — Redis-compatible in-memory store
+
+### Security
+
+- **Falco** — Runtime threat detection
+- **Toolhive** — In-cluster MCP servers (`toolhive-system` namespace, managed via `kubernetes/components/toolhive/`)
+
+### Application Namespaces
+
+`cert-manager`, `databases`, `flux-system`, `kube-system`, `monitoring`, `network`, `security`, `services`, `toolhive-system`, `velero`
+
+## CI/CD
+
+### GitHub Actions Workflows
+
+- **flux-diff** — Shows Flux Kustomization diffs on PRs
+- **yamllint** — Lints all YAML files
+- **lychee** — Checks for broken links
+- **label-sync** — Syncs GitHub labels from `.github/labels.yaml`
+
+### Renovate
+
+Config at `.github/renovate.json5`. Auto-merge behavior:
+
+- **Patch** container images, Helm charts, GitHub releases — auto-merge
+- **Minor** updates across all types — auto-merge
+- **Major** updates — manual review required
+- **Talos installer** — scheduled for Saturday after 2pm, no auto-merge
+
+Commit prefixes: `fix(container):`, `fix(helm):`, `fix(deps):`, `feat(deps):`
+
+## Key Design Decisions
+
+- **Single replicas everywhere** — S3 provides data durability instead of pod replication
+- **Monolithic deployment modes** — Resource efficiency over distributed complexity
+- **Resource-constrained** — Prefer vertical scaling, memory <2Gi per pod
+- **FluxCD over ArgoCD** — Simpler for home-lab, native Kubernetes CRDs
+- **SOPS + age** — Git-native encryption, no external dependency
+- **Immutable infrastructure** — Talos nodes are API-configured, never SSH'd into
+
+## Debugging Cheat Sheet
 
 ```bash
-# Create secret template
-kubectl create secret generic my-secret \
-  --from-literal=key=value \
-  --dry-run=client -o yaml > secret.yaml
+# Check Flux status
+flux get ks -A --context home
+flux get hr -A --context home
+flux logs --kind=HelmRelease --namespace={ns} --name={app} --context home
 
-# Encrypt with SOPS
-sops -e -i secret.yaml
-mv secret.yaml secret.sops.yaml
+# Check pod issues
+kubectl -n {ns} get pods -o wide --context home
+kubectl -n {ns} describe pod {pod} --context home
+kubectl -n {ns} logs {pod} -f --context home
+kubectl -n {ns} get events --sort-by='.metadata.creationTimestamp' --context home
+
+# Check HelmRelease specifically
+kubectl -n {ns} describe helmrelease {app} --context home
+
+# Validate manifests before pushing
+kustomize build kubernetes/apps/{namespace}/{app}/app
 ```
-
-**IMPORTANT**: Never commit unencrypted secrets. All `*.sops.yaml` files should show encrypted content.
-
-## Storage Architecture
-
-**Primary Storage**: OpenEBS LocalPV Provisioner
-
-- Storage class: `openebs-hostpath` (default)
-- Dynamic provisioning for persistent volumes
-- Local node storage for performance
-
-**S3 Object Storage**: Local Minio instance (`https://s3.68cc.io`)
-
-- Used for: Backup snapshots, observability data persistence
-- Buckets: `openebs-backups`, `mimir-blocks`
-- Each component has dedicated SOPS-encrypted S3 secrets
-
-**Disaster Recovery**: Velero
-
-- S3-backed snapshots
-- Daily backups at 02:00 UTC
-- 30-day retention policy
-
-## Observability Stack (LGTM)
-
-**Logs**: VictoriaMetrics with S3 backend (simple scalable mode)
-**Metrics**: Mimir with S3 backend (monolithic mode, long-term storage)
-**Visualization**: Grafana with datasources for Prometheus, Loki, Tempo, Mimir
-**Collection**: OpenTelemetry Collector for logs and metrics sending to Mimir
-
-## Key Architectural Decisions
-
-1. **Talos Linux**: Immutable OS, API-driven configuration, secure by default
-2. **FluxCD over ArgoCD**: Simpler for home-lab, native Kubernetes CRDs
-3. **SOPS + age**: Git-native secret encryption, no external dependencies
-4. **OpenEBS LocalPV**: Local storage for performance, S3 for durability
-5. **Monolithic**: Resource efficiency over distributed complexity
-6. **Single Replicas**: Home-lab scale, S3 provides data durability
-
-## Workflow Guidelines
-
-### Adding a New Application
-
-1. **Create app structure**:
-
-    ```bash
-    mkdir -p kubernetes/apps/{namespace}/{app}/app
-    ```
-
-2. **Create Kustomization** (`ks.yaml`):
-
-    ```yaml
-    apiVersion: kustomize.toolkit.fluxcd.io/v1
-    kind: Kustomization
-    metadata:
-        name: app-name
-        namespace: target-namespace
-    spec:
-        interval: 1h
-        path: ./kubernetes/apps/{namespace}/{app}/app
-        prune: true
-        sourceRef:
-            kind: GitRepository
-            name: flux-system
-            namespace: flux-system
-    ```
-
-3. **Create HelmRelease** (`app/helmrelease.yaml`):
-
-    ```yaml
-    apiVersion: helm.toolkit.fluxcd.io/v2
-    kind: HelmRelease
-    metadata:
-        name: app-name
-    spec:
-        interval: 30m
-        chart:
-            spec:
-                chart: chart-name
-                version: x.y.z
-                sourceRef:
-                    kind: HelmRepository
-                    name: repo-name
-                    namespace: flux-system
-        values:
-            # Helm chart values here
-    ```
-
-4. **Create Kustomize overlay** (`app/kustomization.yaml`):
-
-    ```yaml
-    apiVersion: kustomize.config.k8s.io/v1beta1
-    kind: Kustomization
-    resources:
-        - helmrelease.yaml
-    ```
-
-5. **Add secrets if needed** (`app/secret.sops.yaml`):
-    - Create unencrypted YAML first
-    - Encrypt with `sops -e -i secret.yaml`
-    - Rename to `secret.sops.yaml`
-    - Reference in `kustomization.yaml`
-
-6. **Commit and push**:
-
-    ```bash
-    git add kubernetes/apps/{namespace}/{app}
-    git commit -m "feat: add {app} application"
-    git push
-    ```
-
-7. **Force reconciliation**:
-    ```bash
-    task reconcile
-    # Or wait for Flux's automatic reconciliation (default: 1h)
-    ```
-
-### Updating Application Configuration
-
-1. Edit `helmrelease.yaml` to change Helm values or chart version
-2. Commit changes: `git commit -m "fix: update {app} configuration"`
-3. Push: `git push`
-4. Reconcile: `task reconcile` or wait for automatic sync
-
-**NOTE**: Renovate automatically opens PRs for chart version updates.
-
-### Debugging Failed Deployments
-
-1. Check Flux resources:
-
-    ```bash
-    flux get hr -n {namespace}  # Check HelmRelease status
-    flux logs --kind=HelmRelease --namespace={namespace} --name={app}
-    ```
-
-2. Check Kubernetes resources:
-
-    ```bash
-    kubectl -n {namespace} get pods --context home
-    kubectl -n {namespace} logs {pod-name} --context home
-    kubectl -n {namespace} describe pod {pod-name} --context home
-    ```
-
-3. Check events:
-
-    ```bash
-    kubectl -n {namespace} get events --sort-by='.metadata.creationTimestamp' --context home
-    ```
-
-4. Verify secrets are decrypted (Flux handles this automatically via SOPS):
-    ```bash
-    kubectl -n {namespace} get secret {secret-name} -o yaml --context home
-    ```
-
-## Development Best Practices
-
-1. **Always encrypt secrets**: Use `sops -e -i` before committing any secrets
-2. **Follow the pattern**: Use the established `ks.yaml` + `app/` structure
-3. **Test locally**: Use `kustomize build` to validate manifests before pushing
-4. **Version pinning**: Always specify exact chart versions in HelmRelease
-5. **Namespace organization**: Group apps by function (monitoring, databases, services, etc.)
-6. **Resource limits**: Define resource requests/limits for all workloads (home-lab constraints)
-7. **Use Flux reconcile**: After changes, use `task reconcile` to force immediate sync
-
-## Additional Resources
-
-- **Talos Documentation**: https://www.talos.dev/
-- **Flux Documentation**: https://fluxcd.io/flux/
-- **Template Repository**: https://github.com/onedr0p/cluster-template
-- **Community Support**: Discord - https://discord.gg/home-operations

@@ -10,7 +10,7 @@ resources:
   - ./grafana/ks.yaml
   - ./grafana/dashboards/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
-  # - ./opentelemetry/ks.yaml
+  - ./netdata/ks.yaml
   - ./thanos/ks.yaml
   - ./unpoller/ks.yaml
   - ./victoria-logs/ks.yaml
