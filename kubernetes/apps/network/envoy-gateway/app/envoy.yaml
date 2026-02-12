@@ -136,6 +136,20 @@ spec:
           from: All
         kinds:
           - kind: TCPRoute
+    - name: postgres-tls
+      protocol: TLS
+      port: 5432
+      hostname: pg.68cc.io
+      allowedRoutes:
+        namespaces:
+          from: All
+        kinds:
+          - kind: TLSRoute
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: 68cc-io-tls
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/backendtrafficpolicy_v1alpha1.json
 apiVersion: gateway.envoyproxy.io/v1alpha1
