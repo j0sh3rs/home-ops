@@ -1,0 +1,123 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+vars:
+  CONTEXT: home
+
+tasks:
+  reconcile:
+    desc: Force reconcile git source and cluster kustomizations
+    cmds:
+      - flux reconcile source git flux-system --context {{.CONTEXT}}
+      - flux reconcile kustomization flux-system --context {{.CONTEXT}}
+      - flux reconcile kustomization cluster --context {{.CONTEXT}}
+      - echo "✅ Flux reconciliation complete"
+
+  bootstrap:
+    desc: Bootstrap Flux into cluster (first-time setup)
+    prompt: This will bootstrap Flux into the cluster. Continue?
+    cmds:
+      - |
+        flux bootstrap github \
+          --owner=j0sh3rs \
+          --repository=home-ops \
+          --path=kubernetes/flux \
+          --personal \
+          --context {{.CONTEXT}}
+
+  apply:
+    desc: Build and apply a specific Flux Kustomization
+    vars:
+      PATH: '{{.path | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.PATH}}" ]'
+        msg: "path variable is required. Usage: task flux:apply path=network/cloudflared"
+    cmds:
+      - |
+        echo "📦 Building Kustomization for {{.PATH}}..."
+        flux build kustomization {{.PATH}} \
+          --path kubernetes/apps/{{.PATH}} \
+          --dry-run | kubectl apply -f - --context {{.CONTEXT}}
+        echo "✅ Applied {{.PATH}}"
+
+  status:
+    desc: Show status of all Flux Kustomizations
+    cmds:
+      - flux get kustomizations -A --context {{.CONTEXT}}
+      - echo ""
+      - flux get helmreleases -A --context {{.CONTEXT}}
+
+  suspend:
+    desc: Suspend a Flux Kustomization or HelmRelease
+    vars:
+      TYPE: '{{.type | default "kustomization"}}'
+      NAME: '{{.name | default ""}}'
+      NAMESPACE: '{{.ns | default "flux-system"}}'
+    preconditions:
+      - sh: '[ -n "{{.NAME}}" ]'
+        msg: "name variable is required. Usage: task flux:suspend name=app ns=default type=helmrelease"
+    cmds:
+      - flux suspend {{.TYPE}} {{.NAME}} -n {{.NAMESPACE}} --context {{.CONTEXT}}
+      - echo "⏸️  Suspended {{.TYPE}}/{{.NAME}} in namespace {{.NAMESPACE}}"
+
+  resume:
+    desc: Resume a suspended Flux Kustomization or HelmRelease
+    vars:
+      TYPE: '{{.type | default "kustomization"}}'
+      NAME: '{{.name | default ""}}'
+      NAMESPACE: '{{.ns | default "flux-system"}}'
+    preconditions:
+      - sh: '[ -n "{{.NAME}}" ]'
+        msg: "name variable is required. Usage: task flux:resume name=app ns=default type=helmrelease"
+    cmds:
+      - flux resume {{.TYPE}} {{.NAME}} -n {{.NAMESPACE}} --context {{.CONTEXT}}
+      - echo "▶️  Resumed {{.TYPE}}/{{.NAME}} in namespace {{.NAMESPACE}}"
+
+  logs:
+    desc: Show logs for a Flux Kustomization or HelmRelease
+    vars:
+      TYPE: '{{.type | default "helmrelease"}}'
+      NAME: '{{.name | default ""}}'
+      NAMESPACE: '{{.ns | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.NAME}}" ]'
+        msg: "name and ns variables are required. Usage: task flux:logs name=grafana ns=monitoring"
+      - sh: '[ -n "{{.NAMESPACE}}" ]'
+        msg: "name and ns variables are required. Usage: task flux:logs name=grafana ns=monitoring"
+    cmds:
+      - flux logs --kind={{.TYPE}} --namespace={{.NAMESPACE}} --name={{.NAME}} --context {{.CONTEXT}}
+
+  reconcile-ks:
+    desc: Reconcile a specific Kustomization
+    vars:
+      NAME: '{{.name | default ""}}'
+      NAMESPACE: '{{.ns | default "flux-system"}}'
+    preconditions:
+      - sh: '[ -n "{{.NAME}}" ]'
+        msg: "name variable is required. Usage: task flux:reconcile-ks name=cluster-apps"
+    cmds:
+      - flux reconcile kustomization {{.NAME}} -n {{.NAMESPACE}} --context {{.CONTEXT}}
+      - echo "✅ Reconciled kustomization {{.NAME}}"
+
+  reconcile-hr:
+    desc: Reconcile a specific HelmRelease
+    vars:
+      NAME: '{{.name | default ""}}'
+      NAMESPACE: '{{.ns | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.NAME}}" ]'
+        msg: "name and ns variables are required. Usage: task flux:reconcile-hr name=grafana ns=monitoring"
+      - sh: '[ -n "{{.NAMESPACE}}" ]'
+        msg: "name and ns variables are required. Usage: task flux:reconcile-hr name=grafana ns=monitoring"
+    cmds:
+      - flux reconcile helmrelease {{.NAME}} -n {{.NAMESPACE}} --context {{.CONTEXT}}
+      - echo "✅ Reconciled HelmRelease {{.NAME}}"
+
+  check:
+    desc: Check Flux components health
+    cmds:
+      - flux check --context {{.CONTEXT}}
+      - echo ""
+      - echo "📊 Component Status:"
+      - kubectl get pods -n flux-system --context {{.CONTEXT}}

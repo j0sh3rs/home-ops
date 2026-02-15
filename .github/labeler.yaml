@@ -1,33 +1,133 @@
 ---
+# Area labels - indicate what part of the codebase changed
 area/bootstrap:
   - changed-files:
       - any-glob-to-any-file: bootstrap/**/*
+
 area/docs:
   - changed-files:
       - any-glob-to-any-file:
           - "README.md"
+          - "CLAUDE.md"
+          - "docs/**/*"
+
 area/github:
   - changed-files:
       - any-glob-to-any-file: .github/**/*
+
 area/kubernetes:
   - changed-files:
       - any-glob-to-any-file: kubernetes/**/*
+
 area/renovate:
   - changed-files:
       - any-glob-to-any-file:
           - ".renovate/**/*"
           - ".renovaterc.json5"
+
 area/scripts:
   - changed-files:
       - any-glob-to-any-file: scripts/**/*
+
 area/talos:
   - changed-files:
       - any-glob-to-any-file: talos/**/*
+
 area/taskfile:
   - changed-files:
       - any-glob-to-any-file:
           - ".taskfiles/**/*"
           - "Taskfile.yaml"
+
 area/templates:
   - changed-files:
       - any-glob-to-any-file: templates/**/*
+
+# Risk labels - indicate blast radius and review requirements
+risk/critical:
+  - changed-files:
+      - any-glob-to-any-file:
+          # Core infrastructure that affects entire cluster
+          - "kubernetes/apps/kube-system/cilium/**/*"
+          - "kubernetes/apps/kube-system/coredns/**/*"
+          - "kubernetes/apps/kube-system/openebs/**/*"
+          - "kubernetes/apps/flux-system/**/*"
+          - "talos/**/*"
+          - ".sops.yaml"
+          - "kubernetes/components/common/sops-age.sops.yaml"
+          # Flux cluster configuration
+          - "kubernetes/flux/cluster/**/*"
+
+risk/high:
+  - changed-files:
+      - any-glob-to-any-file:
+          # Networking components
+          - "kubernetes/apps/network/**/*"
+          - "kubernetes/apps/kube-system/metrics-server/**/*"
+          # Certificate management
+          - "kubernetes/apps/cert-manager/**/*"
+          # Security components
+          - "kubernetes/apps/security/**/*"
+          - "kubernetes/apps/kube-system/tetragon/**/*"
+          # Storage components
+          - "kubernetes/apps/kube-system/nfs-external-provisioner/**/*"
+          # System upgrades
+          - "kubernetes/apps/system-upgrade/**/*"
+
+risk/medium:
+  - changed-files:
+      - any-glob-to-any-file:
+          # Platform services (databases, monitoring)
+          - "kubernetes/apps/databases/**/*"
+          - "kubernetes/apps/monitoring/**/*"
+          # Backup systems
+          - "kubernetes/apps/velero/**/*"
+          # Flux repositories
+          - "kubernetes/flux/meta/**/*"
+
+risk/low:
+  - changed-files:
+      - any-glob-to-any-file:
+          # Application services
+          - "kubernetes/apps/services/**/*"
+          # Documentation
+          - "**/*.md"
+          - "docs/**/*"
+          # Non-critical scripts
+          - "scripts/**/*"
+
+# Component type labels
+type/infrastructure:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "kubernetes/apps/kube-system/**/*"
+          - "kubernetes/apps/network/**/*"
+          - "talos/**/*"
+
+type/platform:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "kubernetes/apps/databases/**/*"
+          - "kubernetes/apps/monitoring/**/*"
+          - "kubernetes/apps/cert-manager/**/*"
+
+type/application:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "kubernetes/apps/services/**/*"
+
+type/security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "kubernetes/apps/security/**/*"
+          - "**/*.sops.yaml"
+          - ".sops.yaml"
+
+# CI/CD labels
+type/automation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**/*"
+          - ".taskfiles/**/*"
+          - "Taskfile.yaml"
+          - ".renovate/**/*"

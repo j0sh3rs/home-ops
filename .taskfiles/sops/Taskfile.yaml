@@ -1,0 +1,213 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+tasks:
+  encrypt:
+    desc: Encrypt all *.sops.yaml files under kubernetes/
+    cmds:
+      - |
+        echo "🔒 Encrypting all *.sops.yaml files..."
+        SOPS_FILES=$(find kubernetes/ bootstrap/ archive/ -name "*.sops.yaml" -type f 2>/dev/null)
+
+        if [ -z "$SOPS_FILES" ]; then
+          echo "ℹ️  No *.sops.yaml files found to encrypt"
+          exit 0
+        fi
+
+        COUNT=0
+        for file in $SOPS_FILES; do
+          # Check if already encrypted
+          if grep -q "^sops:" "$file"; then
+            echo "  ⏭️  $file (already encrypted)"
+          else
+            echo "  🔐 $file"
+            sops --encrypt --in-place "$file"
+            COUNT=$((COUNT + 1))
+          fi
+        done
+
+        echo ""
+        if [ $COUNT -eq 0 ]; then
+          echo "✅ All files already encrypted"
+        else
+          echo "✅ Encrypted $COUNT file(s)"
+        fi
+
+  decrypt:
+    desc: Decrypt all *.sops.yaml files under kubernetes/
+    prompt: This will decrypt all secrets in-place. Continue?
+    cmds:
+      - |
+        echo "🔓 Decrypting all *.sops.yaml files..."
+        SOPS_FILES=$(find kubernetes/ bootstrap/ archive/ -name "*.sops.yaml" -type f 2>/dev/null)
+
+        if [ -z "$SOPS_FILES" ]; then
+          echo "ℹ️  No *.sops.yaml files found to decrypt"
+          exit 0
+        fi
+
+        COUNT=0
+        for file in $SOPS_FILES; do
+          # Check if encrypted
+          if grep -q "^sops:" "$file"; then
+            echo "  🔓 $file"
+            sops --decrypt --in-place "$file"
+            COUNT=$((COUNT + 1))
+          else
+            echo "  ⏭️  $file (not encrypted)"
+          fi
+        done
+
+        echo ""
+        echo "⚠️  WARNING: Secrets are now in plaintext!"
+        echo "   Remember to run 'task sops:encrypt' before committing"
+        echo ""
+        echo "✅ Decrypted $COUNT file(s)"
+
+  encrypt-file:
+    desc: Encrypt a specific file
+    vars:
+      FILE: '{{.file | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.FILE}}" ]'
+        msg: "file variable is required. Usage: task sops:encrypt-file file=path/to/secret.sops.yaml"
+      - sh: '[ -f "{{.FILE}}" ]'
+        msg: "File {{.FILE}} does not exist"
+    cmds:
+      - |
+        if grep -q "^sops:" "{{.FILE}}"; then
+          echo "ℹ️  {{.FILE}} is already encrypted"
+        else
+          echo "🔐 Encrypting {{.FILE}}..."
+          sops --encrypt --in-place "{{.FILE}}"
+          echo "✅ Encrypted {{.FILE}}"
+        fi
+
+  decrypt-file:
+    desc: Decrypt a specific file
+    vars:
+      FILE: '{{.file | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.FILE}}" ]'
+        msg: "file variable is required. Usage: task sops:decrypt-file file=path/to/secret.sops.yaml"
+      - sh: '[ -f "{{.FILE}}" ]'
+        msg: "File {{.FILE}} does not exist"
+    cmds:
+      - |
+        if grep -q "^sops:" "{{.FILE}}"; then
+          echo "🔓 Decrypting {{.FILE}}..."
+          sops --decrypt --in-place "{{.FILE}}"
+          echo "✅ Decrypted {{.FILE}}"
+          echo ""
+          echo "⚠️  WARNING: {{.FILE}} is now in plaintext!"
+          echo "   Remember to run 'task sops:encrypt-file file={{.FILE}}' before committing"
+        else
+          echo "ℹ️  {{.FILE}} is not encrypted"
+        fi
+
+  view:
+    desc: View decrypted content of a file without modifying it
+    vars:
+      FILE: '{{.file | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.FILE}}" ]'
+        msg: "file variable is required. Usage: task sops:view file=path/to/secret.sops.yaml"
+      - sh: '[ -f "{{.FILE}}" ]'
+        msg: "File {{.FILE}} does not exist"
+    cmds:
+      - sops -d "{{.FILE}}"
+
+  edit:
+    desc: Edit an encrypted file (decrypts, opens editor, re-encrypts)
+    vars:
+      FILE: '{{.file | default ""}}'
+    preconditions:
+      - sh: '[ -n "{{.FILE}}" ]'
+        msg: "file variable is required. Usage: task sops:edit file=path/to/secret.sops.yaml"
+      - sh: '[ -f "{{.FILE}}" ]'
+        msg: "File {{.FILE}} does not exist"
+    cmds:
+      - sops "{{.FILE}}"
+
+  verify:
+    desc: Verify all *.sops.yaml files are properly encrypted
+    cmds:
+      - |
+        echo "🔍 Verifying SOPS encryption..."
+        SOPS_FILES=$(find kubernetes/ bootstrap/ archive/ -name "*.sops.yaml" -type f 2>/dev/null)
+
+        if [ -z "$SOPS_FILES" ]; then
+          echo "ℹ️  No *.sops.yaml files found"
+          exit 0
+        fi
+
+        EXIT_CODE=0
+        for file in $SOPS_FILES; do
+          if grep -q "^sops:" "$file"; then
+            if grep -A 5 "^sops:" "$file" | grep -q -E "(kms|age|pgp):"; then
+              echo "  ✅ $file"
+            else
+              echo "  ❌ $file (has 'sops:' but no encryption metadata)"
+              EXIT_CODE=1
+            fi
+          else
+            echo "  ❌ $file (not encrypted)"
+            EXIT_CODE=1
+          fi
+        done
+
+        echo ""
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "🎉 All *.sops.yaml files are properly encrypted"
+        else
+          echo "💥 Some files are not properly encrypted!"
+          echo ""
+          echo "To encrypt files, run:"
+          echo "  task sops:encrypt"
+          exit 1
+        fi
+
+  rotate:
+    desc: Rotate encryption keys for all *.sops.yaml files
+    prompt: This will rotate all SOPS keys. Ensure you have access to both old and new keys. Continue?
+    cmds:
+      - |
+        echo "🔄 Rotating SOPS keys..."
+        SOPS_FILES=$(find kubernetes/ bootstrap/ archive/ -name "*.sops.yaml" -type f 2>/dev/null)
+
+        if [ -z "$SOPS_FILES" ]; then
+          echo "ℹ️  No *.sops.yaml files found"
+          exit 0
+        fi
+
+        for file in $SOPS_FILES; do
+          if grep -q "^sops:" "$file"; then
+            echo "  🔄 $file"
+            sops rotate --in-place "$file"
+          fi
+        done
+
+        echo "✅ Key rotation complete"
+
+  updatekeys:
+    desc: Update encryption keys for all *.sops.yaml files based on .sops.yaml rules
+    prompt: This will update all SOPS keys based on .sops.yaml rules. Continue?
+    cmds:
+      - |
+        echo "🔧 Updating SOPS keys from .sops.yaml rules..."
+        SOPS_FILES=$(find kubernetes/ bootstrap/ archive/ -name "*.sops.yaml" -type f 2>/dev/null)
+
+        if [ -z "$SOPS_FILES" ]; then
+          echo "ℹ️  No *.sops.yaml files found"
+          exit 0
+        fi
+
+        for file in $SOPS_FILES; do
+          if grep -q "^sops:" "$file"; then
+            echo "  🔧 $file"
+            sops updatekeys --yes "$file"
+          fi
+        done
+
+        echo "✅ Keys updated"

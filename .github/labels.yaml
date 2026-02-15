@@ -18,6 +18,38 @@
   color: "0e8a16"
 - name: area/taskfile
   color: "0e8a16"
+
+# Risk Levels (blast radius & review requirements)
+- name: risk/critical
+  color: "b60205"
+  description: "Critical infrastructure - requires manual review and extra caution"
+- name: risk/high
+  color: "d93f0b"
+  description: "High-risk changes - requires careful review"
+- name: risk/medium
+  color: "fbca04"
+  description: "Medium-risk changes - standard review process"
+- name: risk/low
+  color: "0e8a16"
+  description: "Low-risk changes - safe to auto-merge"
+
+# Component Types
+- name: type/infrastructure
+  color: "5319e7"
+  description: "Core infrastructure components (CNI, DNS, storage)"
+- name: type/platform
+  color: "7057ff"
+  description: "Platform services (databases, monitoring)"
+- name: type/application
+  color: "a2eeef"
+  description: "Application workloads"
+- name: type/security
+  color: "d73a4a"
+  description: "Security-related changes"
+- name: type/automation
+  color: "0366d6"
+  description: "CI/CD and automation changes"
+
 # Renovate Types
 - name: renovate/container
   color: "027fa0"
@@ -29,6 +61,7 @@
   color: "027fa0"
 - name: renovate/helm
   color: "027fa0"
+
 # Semantic Types
 - name: type/digest
   color: "ffeC19"
@@ -38,6 +71,7 @@
   color: "ff9800"
 - name: type/major
   color: "f6412d"
+
 # Uncategorized
 - name: community
   color: "370fb2"

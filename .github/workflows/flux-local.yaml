@@ -40,6 +40,90 @@ jobs:
         with:
           args: test --enable-helm --all-namespaces --path /github/workspace/kubernetes/flux/cluster -v
 
+  kubeconform:
+    name: Kubeconform Schema Validation
+    needs: pre-job
+    runs-on: ubuntu-latest
+    if: ${{ needs.pre-job.outputs.any_changed == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Install Tools
+        run: |
+          brew install kubeconform kustomize helm yq
+
+      - name: Validate Kubernetes Manifests with Kubeconform
+        run: |
+          echo "🔍 Running kubeconform validation on Kubernetes manifests..."
+
+          # Create temporary directory for rendered manifests
+          mkdir -p /tmp/manifests
+
+          # Build all Flux Kustomizations
+          echo "📦 Building Flux Kustomizations..."
+
+          # Find all ks.yaml files (Flux Kustomization entry points)
+          KS_FILES=$(find kubernetes/apps -name "ks.yaml" -type f)
+
+          for ks_file in $KS_FILES; do
+            ks_dir=$(dirname "$ks_file")
+            app_name=$(basename "$ks_dir")
+            namespace=$(basename "$(dirname "$ks_dir")")
+
+            echo "  Building: $namespace/$app_name"
+
+            # Check if there's an app subdirectory (common pattern)
+            if [ -d "$ks_dir/app" ]; then
+              kustomize build "$ks_dir/app" > "/tmp/manifests/${namespace}-${app_name}.yaml" 2>/dev/null || \
+                echo "    ⚠️  Warning: Failed to build $namespace/$app_name"
+            elif [ -f "$ks_dir/kustomization.yaml" ]; then
+              kustomize build "$ks_dir" > "/tmp/manifests/${namespace}-${app_name}.yaml" 2>/dev/null || \
+                echo "    ⚠️  Warning: Failed to build $namespace/$app_name"
+            fi
+          done
+
+          # Count rendered manifests
+          MANIFEST_COUNT=$(find /tmp/manifests -type f -name "*.yaml" | wc -l)
+          echo ""
+          echo "✅ Built $MANIFEST_COUNT manifest files"
+          echo ""
+
+          # Run kubeconform validation
+          echo "🔍 Validating manifests with kubeconform..."
+
+          # Kubeconform with CRD support from common schemas
+          kubeconform \
+            -strict \
+            -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://kubernetes-schemas.pages.dev/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -verbose \
+            -summary \
+            /tmp/manifests/*.yaml
+
+          KUBECONFORM_EXIT=$?
+
+          if [ $KUBECONFORM_EXIT -eq 0 ]; then
+            echo ""
+            echo "🎉 All manifests passed kubeconform validation!"
+          else
+            echo ""
+            echo "💥 Kubeconform validation failed!"
+            echo ""
+            echo "Common issues:"
+            echo "  - Invalid field names or types"
+            echo "  - Required fields missing"
+            echo "  - Schema validation errors"
+            echo ""
+            echo "To validate locally, run:"
+            echo "  bash .taskfiles/template/resources/kubeconform.sh"
+            exit 1
+          fi
+
   diff:
     name: Flux Local Diff
     needs: pre-job
@@ -109,7 +193,7 @@ jobs:
 
   flux-local-status:
     name: Flux Local Success
-    needs: ["test", "diff"]
+    needs: ["test", "kubeconform", "diff"]
     runs-on: ubuntu-latest
     if: ${{ always() }}
     steps:

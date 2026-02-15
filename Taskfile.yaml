@@ -20,6 +20,8 @@ env:
 
 includes:
   bootstrap: .taskfiles/bootstrap
+  flux: .taskfiles/flux
+  sops: .taskfiles/sops
   talos: .taskfiles/talos
   template: .taskfiles/template
 

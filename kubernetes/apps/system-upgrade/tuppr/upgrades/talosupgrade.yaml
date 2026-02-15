@@ -10,3 +10,6 @@ spec:
     version: v1.12.4
   policy:
     rebootMode: powercycle
+    placement: soft
+    timeout: "30m"
+    debug: true
