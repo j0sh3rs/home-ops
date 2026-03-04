@@ -10,4 +10,4 @@ spec:
     operation: copy
   url: oci://ghcr.io/stevehipwell/helm-charts/thanos
   ref:
-    tag: 1.22.1
+    tag: 1.23.0
