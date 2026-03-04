@@ -30,3 +30,4 @@ kubernetes/apps/**/*.txt
 # Continuous Claude cache (local only)
 .claude/cache/
 .tldr/
+.serena
