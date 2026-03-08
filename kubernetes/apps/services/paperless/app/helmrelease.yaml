@@ -36,7 +36,7 @@ spec:
             image:
               repository: ghcr.io/paperless-ngx/paperless-ngx
               # renovate: datasource=github-releases depName=paperless-ngx/paperless-ngx
-              tag: 2.14.7
+              tag: 2.20.10
             env:
               PAPERLESS_URL: "https://paperless.68cc.io"
               PAPERLESS_PORT: "8000"
