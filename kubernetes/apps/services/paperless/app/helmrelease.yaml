@@ -98,7 +98,7 @@ spec:
             image:
               repository: gotenberg/gotenberg
               # renovate: datasource=docker depName=gotenberg/gotenberg
-              tag: 8.17.3
+              tag: 8.27.0
             env:
               # Disable unnecessary modules
               DISABLE_GOOGLE_CHROME: "1"
