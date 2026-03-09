@@ -29,7 +29,7 @@ spec:
             image:
               repository: ghcr.io/open-webui/open-webui
               # renovate: datasource=github-releases depName=open-webui/open-webui
-              tag: v0.8.8
+              tag: v0.8.10
             env:
               # Point at internal Ollama service (same namespace)
               OLLAMA_BASE_URL: "http://ollama:11434"
