@@ -175,7 +175,7 @@ spec:
       # Application data (search index, classification models)
       data:
         type: persistentVolumeClaim
-        storageClass: openebs-localpv-hostpath
+        storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
         size: 10Gi
         retain: true
@@ -187,7 +187,7 @@ spec:
       # Scanned documents and thumbnails — size generously
       media:
         type: persistentVolumeClaim
-        storageClass: openebs-localpv-hostpath
+        storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
         size: 50Gi
         retain: true
@@ -199,7 +199,7 @@ spec:
       # Watch folder: drop files here to trigger ingest
       consume:
         type: persistentVolumeClaim
-        storageClass: openebs-localpv-hostpath
+        storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
         size: 5Gi
         retain: true
@@ -211,7 +211,7 @@ spec:
       # Bulk export directory
       export:
         type: persistentVolumeClaim
-        storageClass: openebs-localpv-hostpath
+        storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
         size: 10Gi
         retain: true

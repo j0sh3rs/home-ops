@@ -9,12 +9,12 @@ components:
 resources:
   - ./atuin/ks.yaml
   # - ./changedetector/ks.yaml
-  - ./home-assistant/ks.yaml
+  # - ./home-assistant/ks.yaml
   - ./it-tools/ks.yaml
   - ./linkwarden/ks.yaml
   #  ./memos/ks.yaml
   # - ./metamcp/ks.yaml
   - ./n8n/ks.yaml
   - ./ollama/ks.yaml
-  - ./open-webui/ks.yaml
+  # - ./open-webui/ks.yaml
   #  - ./paperless/ks.yaml
