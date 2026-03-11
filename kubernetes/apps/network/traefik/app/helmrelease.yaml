@@ -26,23 +26,23 @@ spec:
     image:
       # renovate: datasource=docker depName=traefik
       tag: v3.6.10
-    experimental:
-      plugins:
-        crowdsec-bouncer-traefik-plugin:
-          moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
-          # renovate: datasource=github-releases depName=maxlerebourg/crowdsec-bouncer-traefik-plugin
-          version: v1.5.1
-        traefikoidc:
-          # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
-          moduleName: "github.com/lukaszraczylo/traefikoidc"
-          version: "v0.8.1"
-        clusterRatelimit:
-          moduleName: "github.com/nzin/traefik-cluster-ratelimit"
-          version: "v1.2.0"
-        wrangler:
-          moduleName: "github.com/holysoles/bot-wrangler-traefik-plugin"
-          version: v0.10.1
-      otlpLogs: false
+    # experimental:
+    #   plugins:
+    #     crowdsec-bouncer-traefik-plugin:
+    #       moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
+    #       # renovate: datasource=github-releases depName=maxlerebourg/crowdsec-bouncer-traefik-plugin
+    #       version: v1.5.1
+    #     traefikoidc:
+    #       # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
+    #       moduleName: "github.com/lukaszraczylo/traefikoidc"
+    #       version: "v0.8.1"
+    #     clusterRatelimit:
+    #       moduleName: "github.com/nzin/traefik-cluster-ratelimit"
+    #       version: "v1.2.0"
+    #     wrangler:
+    #       moduleName: "github.com/holysoles/bot-wrangler-traefik-plugin"
+    #       version: v0.10.1
+    #   otlpLogs: false
     ocsp:
       enabled: true
       envFrom:
@@ -153,7 +153,7 @@ spec:
           enabled: true
           enableHttp2: true
         prometheusRule:
-          enabled: false
+          enabled: true
       otlp:
         enabled: false
         http:

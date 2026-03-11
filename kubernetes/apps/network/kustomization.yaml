@@ -8,3 +8,4 @@ components:
 resources:
   - ./cloudflare-dns/ks.yaml
   - ./traefik/ks.yaml
+  - ./unifi-dns/ks.yaml
