@@ -86,7 +86,7 @@ spec:
       app:
         hostnames: [*url]
         parentRefs:
-          - name: envoy-internal
+          - name: traefik
             namespace: network
         rules:
           - backendRefs:

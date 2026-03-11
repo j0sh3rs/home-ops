@@ -45,7 +45,7 @@ spec:
         hostnames:
           - logs.68cc.io
         parentRefs:
-          - name: envoy-internal
+          - name: traefik
             namespace: network
         extraRules:
           - filters:

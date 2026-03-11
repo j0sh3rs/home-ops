@@ -123,27 +123,16 @@ spec:
     - name: gateways
       interval: 30s
       rules:
-        - alert: EnvoyGatewayDown
+        - alert: TraefikDown
           expr: |
-            kube_deployment_status_replicas_available{namespace="network", deployment=~"envoy-(external|internal)"} == 0
+            kube_daemonset_status_number_ready{namespace="network", daemonset="traefik"} == 0
           for: 5m
           labels:
             severity: critical
             component: ingress
           annotations:
-            summary: "Envoy Gateway {{ $labels.deployment }} is unavailable"
-            description: "Envoy Gateway {{ $labels.deployment }} has no available replicas for more than 5 minutes. External access may be impacted."
-
-        - alert: EnvoyGatewayControllerDown
-          expr: |
-            kube_deployment_status_replicas_available{namespace="network", deployment="envoy-gateway"} == 0
-          for: 5m
-          labels:
-            severity: critical
-            component: ingress
-          annotations:
-            summary: "Envoy Gateway controller is unavailable"
-            description: "The Envoy Gateway controller has no available replicas for more than 5 minutes. Gateway configuration updates will fail."
+            summary: "Traefik ingress controller is unavailable"
+            description: "Traefik has no ready pods for more than 5 minutes. External access to all services may be impacted."
 
     # Storage
     - name: storage

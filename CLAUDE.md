@@ -32,28 +32,36 @@ mise trust && mise install
 
 ## Task Runner Commands
 
-All operational tasks use [go-task](https://taskfile.dev/). Run `task -l` to list all tasks. Taskfiles are in `.taskfiles/`.
+All operational tasks use [go-task](https://taskfile.dev/). Run `task -l` to list all tasks. Taskfiles are in `.taskfiles/`. Valid namespaces: `bootstrap`, `flux`, `sops`, `talos`, `template`.
+
+### Core
+
+```bash
+task reconcile                                   # Shorthand: reconcile flux-system kustomization
+task template:debug                              # Dump common cluster resources (pods, helmreleases, etc.)
+```
+
+### Bootstrap (First-Time Setup)
+
+```bash
+task template:init                               # Generate age key, deploy key, push token
+task template:configure                          # Render configs, validate schemas, encrypt secrets
+task bootstrap:talos                             # Bootstrap Talos cluster from talconfig.yaml
+task bootstrap:apps                              # Apply initial app manifests via bootstrap-apps.sh
+```
 
 ### Flux Operations
 
 ```bash
-# Core Flux operations
-task flux:reconcile                              # Force git source + cluster kustomization reconcile
-task flux:bootstrap                              # Bootstrap Flux into cluster (first-time)
+task flux:reconcile                              # Force git source + all kustomizations reconcile
 task flux:apply path=network/cloudflared         # Build and apply a specific Flux Kustomization
 task flux:status                                 # Show status of all Kustomizations and HelmReleases
-
-# Suspend/Resume
-task flux:suspend name=app ns=default type=helmrelease  # Suspend a resource
-task flux:resume name=app ns=default type=helmrelease   # Resume a resource
-
-# Logs and debugging
-task flux:logs name=grafana ns=monitoring        # Show logs for a HelmRelease
 task flux:check                                  # Check Flux components health
-
-# Specific reconciliation
-task flux:reconcile-ks name=cluster-apps         # Reconcile a Kustomization
-task flux:reconcile-hr name=grafana ns=monitoring # Reconcile a HelmRelease
+task flux:logs name=grafana ns=monitoring        # Show logs for a HelmRelease
+task flux:suspend name=app ns=default type=helmrelease
+task flux:resume name=app ns=default type=helmrelease
+task flux:reconcile-ks name=cluster-apps         # Reconcile a specific Kustomization
+task flux:reconcile-hr name=grafana ns=monitoring
 ```
 
 ### Talos Operations
@@ -69,35 +77,15 @@ task talos:reset                                 # Reset all nodes (DESTRUCTIVE,
 ### SOPS Secret Management
 
 ```bash
-# Bulk operations
 task sops:encrypt                                # Encrypt all *.sops.yaml files
-task sops:decrypt                                # Decrypt all *.sops.yaml files (prompts for confirmation)
+task sops:decrypt                                # Decrypt all *.sops.yaml files (prompts)
 task sops:verify                                 # Verify all *.sops.yaml files are properly encrypted
-
-# Single file operations
-task sops:encrypt-file file=path/to/secret.yaml  # Encrypt a specific file
-task sops:decrypt-file file=path/to/secret.yaml  # Decrypt a specific file
+task sops:encrypt-file file=path/to/secret.yaml
+task sops:decrypt-file file=path/to/secret.yaml
 task sops:view file=path/to/secret.sops.yaml     # View decrypted content (read-only)
 task sops:edit file=path/to/secret.sops.yaml     # Edit encrypted file in editor
-
-# Advanced operations
 task sops:rotate                                 # Rotate encryption keys for all files
 task sops:updatekeys                             # Update keys based on .sops.yaml rules
-
-# Direct SOPS commands
-sops -d path/to/secret.sops.yaml                 # Decrypt to view
-sops path/to/secret.sops.yaml                    # Edit encrypted file in-place
-```
-
-### Kubernetes Debugging
-
-```bash
-task kubernetes:network                          # Launch netshoot debug pod
-task kubernetes:privileged node=k8s-worker-1     # Privileged pod on a specific node
-task kubernetes:drain node=k8s-worker-1          # Drain a node
-task kubernetes:browse-pvc claim=data ns=services # Browse a PVC's contents
-task kubernetes:delete-failed-pods               # Clean up Succeeded/Failed pods
-task kubernetes:resource-dump ns=monitoring      # Dump all resources in namespace to YAML
 ```
 
 ## Application Deployment Pattern
@@ -167,8 +155,6 @@ This cluster uses the **Flux Operator** pattern rather than standard Flux bootst
 - `kubernetes/apps/flux-system/flux-instance/` — FluxInstance CR that defines the cluster's Flux configuration
 - `kubernetes/apps/flux-system/flux-instance/app/receiver.yaml` — Webhook receiver for push-based reconciliation
 
-This pattern provides better lifecycle management and upgrades compared to traditional Flux bootstrap.
-
 ## Secret Management
 
 **SOPS config** (`.sops.yaml`): age-key encryption with path-based rules:
@@ -187,10 +173,9 @@ task sops:verify  # Check all *.sops.yaml files are properly encrypted
 
 ### Networking
 
-- **Cilium** — eBPF-based CNI and network policy engine
-- **Envoy Gateway** — Gateway API implementation for ingress
-- **Cloudflare DNS** — Cloudflare DNS integration via external-dns
-- **Unifi DNS** — Internal DNS integration with UniFi network
+- **Traefik** — Ingress controller with HTTPRoute and middleware support
+- **k8s-gateway** — Split-horizon DNS for internal cluster resolution
+- **Cloudflare DNS** — External DNS integration via external-dns
 - **cert-manager** — TLS certificate automation
 
 ### Storage
@@ -202,16 +187,16 @@ task sops:verify  # Check all *.sops.yaml files are properly encrypted
 
 Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{component}-s3-secret`).
 
-### Observability (Metrics, Logs, Tracing)
+### Observability
 
 - **Grafana** — Unified dashboards (deployed via Grafana Operator with `GrafanaInstance` + `GrafanaDashboard` CRDs)
 - **kube-prometheus-stack** — Prometheus with ServiceMonitors, recording rules, and alerting
 - **Thanos** — Long-term metrics storage with S3 backend (`thanos-blocks` bucket)
-- **Victoria Logs** — Log aggregation with S3 persistence and syslog ingestion (TCP/UDP routes)
+- **Victoria Logs** — Log aggregation with S3 persistence and syslog ingestion
 - **netdata** — Real-time system metrics and visualization
 - **unpoller** — UniFi network device monitoring
 
-**Note**: The monitoring stack uses single-replica deployments with S3 providing durability.
+**Note**: Single-replica deployments; S3 provides durability.
 
 ### Databases
 
@@ -220,11 +205,12 @@ Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{compone
 
 ### Security
 
-- **Tetragon** — Runtime security observability with eBPF (deployed in both `kube-system` and `security` namespaces)
+- **Tetragon** — Runtime security observability with eBPF (`kube-system` and `security` namespaces)
 - **CrowdSec** — Collaborative IDS/IPS for threat detection and blocking
 
-### System Components
+### System Components (`kube-system`)
 
+- **Cilium** — eBPF-based CNI and network policy engine
 - **Reflector** — Reflects Secrets and ConfigMaps across namespaces
 - **Reloader** — Triggers rolling updates when ConfigMaps/Secrets change
 - **Spegel** — P2P container image distribution for faster pulls
@@ -233,22 +219,24 @@ Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{compone
 - **AMD GPU Device Plugin** — AMD GPU support for workloads
 - **Talos Backups** — Automated etcd backup CronJob
 - **IRQBalance** — Hardware interrupt balancing
-- **Tuppr** — System upgrade controller (manages Talos OS upgrades via Image Update Automation)
+- **Tuppr** — System upgrade controller (manages Talos OS upgrades)
 
 ### Application Namespaces
 
 `cert-manager`, `databases`, `flux-system`, `kube-system`, `monitoring`, `network`, `security`, `services`, `system-upgrade`, `velero`
 
-## Deployed Applications
-
-### Services Namespace
+## Deployed Applications (services namespace)
 
 - **Atuin** — Shell history sync server
+- **Home Assistant** — Home automation platform
 - **Linkwarden** — Collaborative bookmark manager
 - **ChangeDetector** — Website change monitoring
 - **IT-Tools** — Collection of IT utility tools
 - **Memos** — Lightweight note-taking service
 - **N8N** — Workflow automation platform
+- **Ollama** — Local LLM inference server
+- **Open WebUI** — Web interface for Ollama
+- **Paperless-NGX** — Document management system
 - **MetaMCP** — MCP (Model Context Protocol) server
 
 ## Grafana Operator Pattern
@@ -266,64 +254,46 @@ kubernetes/apps/monitoring/grafana/
         └── {dashboard-name}.json    # Grafana dashboard JSON
 ```
 
-This pattern separates operator installation, instance configuration, and dashboard management for better organization.
-
 ## CI/CD
 
 ### GitHub Actions Workflows
 
 **Validation & Testing:**
-- **validate-secrets** — Verifies all `*.sops.yaml` files are properly encrypted (prevents accidental plaintext commits)
+- **validate-secrets** — Verifies all `*.sops.yaml` files are properly encrypted
 - **flux-local** — Flux manifest validation, kubeconform schema validation, and diff generation for PRs
 - **e2e** — End-to-end testing
 
 **Automation:**
 - **labeler** — Auto-labels PRs based on changed paths (includes risk-based labels)
 - **label-sync** — Syncs GitHub labels from `.github/labels.yaml`
-- **mise** — Validates mise configuration
-- **release** — Creates GitHub releases
 
 **PR Risk Labels:**
-PRs are automatically labeled based on the files changed:
 - `risk/critical` — Core infrastructure (Cilium, CoreDNS, Flux, Talos, SOPS config)
 - `risk/high` — Networking, cert-manager, security, storage, system-upgrade
 - `risk/medium` — Databases, monitoring, backup systems
 - `risk/low` — Application services, documentation
 
-These labels help reviewers understand the blast radius of changes.
-
 ### Renovate
 
 Config at `.github/renovate.json5`. Auto-merge behavior:
 
-- **Patch** container images, Helm charts, GitHub releases — auto-merge
-- **Minor** updates across all types — auto-merge
-- **Major** updates — manual review required
+- **Patch + Minor** — container images, Helm charts, GitHub releases auto-merge
+- **Major** — manual review required
 - **Talos installer** — scheduled for Saturday after 2pm, no auto-merge
-
-**Recommended Enhancement**: Consider adding `stabilityDays` for infrastructure components (Cilium, cert-manager, etc.) to prevent auto-merging freshly-released updates.
 
 Commit prefixes: `fix(container):`, `fix(helm):`, `fix(deps):`, `feat(deps):`
 
 ### Pre-Commit Validation
 
-Before pushing changes, validate locally:
-
 ```bash
-# Verify SOPS encryption
 task sops:verify
-
-# Validate Kubernetes manifests
 kustomize build kubernetes/apps/{namespace}/{app}/app | kubectl apply --dry-run=client -f -
-
-# Check Flux resources
 flux build kustomization {name} --path kubernetes/apps/{path} --dry-run
 ```
 
 ## Key Design Decisions
 
 - **Single replicas everywhere** — S3 provides data durability instead of pod replication
-- **Monolithic deployment modes** — Resource efficiency over distributed complexity
 - **Resource-constrained** — Prefer vertical scaling, memory <2Gi per pod
 - **FluxCD over ArgoCD** — Simpler for home-lab, native Kubernetes CRDs
 - **Flux Operator pattern** — Better lifecycle management than traditional bootstrap
@@ -331,7 +301,6 @@ flux build kustomization {name} --path kubernetes/apps/{path} --dry-run
 - **SOPS + age** — Git-native encryption, no external dependency
 - **Immutable infrastructure** — Talos nodes are API-configured, never SSH'd into
 - **eBPF-native** — Cilium CNI + Tetragon security for kernel-level observability
-- **Security-first CI/CD** — Automated validation prevents misconfigurations
 
 ## Debugging Cheat Sheet
 
@@ -347,12 +316,15 @@ kubectl -n {ns} describe pod {pod} --context home
 kubectl -n {ns} logs {pod} -f --context home
 kubectl -n {ns} get events --sort-by='.metadata.creationTimestamp' --context home
 
-# Check HelmRelease specifically
+# Check HelmRelease
 kubectl -n {ns} describe helmrelease {app} --context home
 
 # Check Grafana Operator resources
 kubectl -n monitoring get grafanainstance --context home
 kubectl -n monitoring get grafanadashboard --context home
+
+# Dump common cluster resources
+task template:debug
 
 # Validate manifests before pushing
 kustomize build kubernetes/apps/{namespace}/{app}/app
