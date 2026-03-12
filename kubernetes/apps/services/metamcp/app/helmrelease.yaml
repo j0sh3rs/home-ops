@@ -58,7 +58,7 @@ spec:
           external-dns.alpha.kubernetes.io/target: 192.168.35.15
         hostnames: ["mcp.68cc.io"]
         parentRefs:
-          - name: traefik
+          - name: traefik-gateway
             namespace: network
         rules:
           - backendRefs:

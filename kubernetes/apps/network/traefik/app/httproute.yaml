@@ -8,7 +8,7 @@ metadata:
     external-dns.alpha.kubernetes.io/target: 192.168.35.15
 spec:
   parentRefs:
-    - name: traefik
+    - name: traefik-gateway
       namespace: network
   hostnames:
     - dash.68cc.io

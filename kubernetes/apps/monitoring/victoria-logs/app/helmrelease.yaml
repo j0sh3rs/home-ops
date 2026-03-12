@@ -47,7 +47,7 @@ spec:
         hostnames:
           - logs.68cc.io
         parentRefs:
-          - name: traefik
+          - name: traefik-gateway
             namespace: network
         extraRules:
           - filters:

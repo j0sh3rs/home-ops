@@ -27,7 +27,7 @@ spec:
           hostnames:
             - alertmanager.68cc.io
           parentRefs:
-            - name: traefik
+            - name: traefik-gateway
               namespace: network
       alertmanagerSpec:
         alertmanagerConfiguration:
@@ -55,7 +55,7 @@ spec:
           hostnames:
             - prometheus.68cc.io
           parentRefs:
-            - name: traefik
+            - name: traefik-gateway
               namespace: network
       prometheusSpec:
         securityContext:
