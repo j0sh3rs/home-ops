@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ./crds.yaml
   - ./secret.sops.yaml
+  - ./certificate.yaml
   - https://raw.githubusercontent.com/traefik/traefik/refs/heads/master/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
   - ./middleware/
   - ./ocirepository.yaml
