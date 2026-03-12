@@ -84,6 +84,8 @@ spec:
             scrapeTimeout: 10s
     route:
       app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
         hostnames: ["sh.68cc.io"]
         parentRefs:
           - name: traefik-gateway

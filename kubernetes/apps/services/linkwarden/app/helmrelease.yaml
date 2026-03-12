@@ -64,6 +64,8 @@ spec:
             port: &port 3000
     route:
       app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
         hostnames: ["links.68cc.io"]
         parentRefs:
           - name: traefik
