@@ -102,54 +102,6 @@ spec:
             summary: "Repeated authentication attempts in {{ $labels.namespace }}/{{ $labels.pod }}"
             description: "{{ $value }} authentication-related process executions ({{ $labels.binary }}) in workload {{ $labels.workload }} detected in 2 minutes. Possible brute force attempt. This matches Wazuh rule 40111 (authentication_failed frequency)."
 
-    # Wazuh Security Monitoring (Phase 5 deprecation pending)
-    - name: wazuh
-      interval: 30s
-      rules:
-        - alert: WazuhManagerDown
-          expr: |
-            kube_statefulset_status_replicas_ready{namespace="security", statefulset=~"wazuh-manager-.*"} == 0
-          for: 5m
-          labels:
-            severity: critical
-            component: security
-          annotations:
-            summary: "Wazuh Manager {{ $labels.statefulset }} is unavailable"
-            description: "Wazuh Manager {{ $labels.statefulset }} has no ready replicas for more than 5 minutes. Security monitoring may be degraded."
-
-        - alert: WazuhIndexerDown
-          expr: |
-            kube_statefulset_status_replicas_ready{namespace="security", statefulset="wazuh-indexer"} < 2
-          for: 5m
-          labels:
-            severity: warning
-            component: security
-          annotations:
-            summary: "Wazuh Indexer has degraded availability"
-            description: "Wazuh Indexer has less than 2 ready replicas. Expected: 3. Security event indexing may be impacted."
-
-        - alert: WazuhAgentDown
-          expr: |
-            kube_daemonset_status_number_ready{namespace="security", daemonset="wazuh-agent"} < kube_daemonset_status_desired_number_scheduled{namespace="security", daemonset="wazuh-agent"}
-          for: 10m
-          labels:
-            severity: warning
-            component: security
-          annotations:
-            summary: "Wazuh agents not running on all nodes"
-            description: "{{ $value }} Wazuh agent pods are not running. Expected: {{ $labels.desired }}. Some nodes lack security monitoring."
-
-        - alert: WazuhDashboardDown
-          expr: |
-            kube_deployment_status_replicas_available{namespace="security", deployment="wazuh-dashboard"} == 0
-          for: 10m
-          labels:
-            severity: warning
-            component: security
-          annotations:
-            summary: "Wazuh Dashboard is unavailable"
-            description: "Wazuh Dashboard has no available replicas for more than 10 minutes. Security event visualization is unavailable."
-
     # Kubernetes RBAC and Authorization
     - name: rbac-security
       interval: 30s

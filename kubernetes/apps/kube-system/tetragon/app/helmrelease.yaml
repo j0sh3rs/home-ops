@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -26,7 +27,10 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    # Add volumes for Talos Linux eBPF support (top-level)
+    hostNetwork: true
+    enableK8sAPI: true
+    enablePolicyFilter: true
+    # Talos Linux eBPF support
     extraVolumes:
       - name: debugfs
         hostPath:
@@ -38,14 +42,42 @@ spec:
           type: DirectoryOrCreate
     tetragonOperator:
       forceUpdateCRDs: true
+      replicas: 1
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 128Mi
+      tracingPolicy:
+        enabled: true
       prometheus:
         serviceMonitor:
           enabled: true
     tetragon:
+      enabled: true
+      image:
+        repository: quay.io/cilium/tetragon
+        tag: v1.6.0
+      resources:
+        requests:
+          cpu: 10m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      securityContext:
+        privileged: true
+      processCacheSize: 65536
       exportFilename: /dev/stdout
       exportRateLimit: 1000
-      exportAllowList: "{}"
-      exportDenyList: "{}"
+      # Event filtering - exclude platform namespaces, focus on workloads
+      exportAllowList: |-
+        {"event_set":["PROCESS_EXEC", "PROCESS_EXIT", "PROCESS_KPROBE", "PROCESS_TRACEPOINT", "PROCESS_LSM"]}
+      exportDenyList: |-
+        {"health_check":true}
+        {"namespace":["", "cilium", "kube-system", "flux-system"]}
       grpc:
         enabled: true
         address: "localhost:54321"
@@ -53,9 +85,13 @@ spec:
         enabled: true
         socketHostPath: /run/containerd/containerd.sock
       prometheus:
+        enabled: true
+        port: 2112
+        metricsLabelFilter: "namespace,workload,pod,binary"
         serviceMonitor:
           enabled: true
-      # Add volume mounts for Talos Linux eBPF support
+          scrapeInterval: 60s
+      # Talos Linux eBPF volume mounts
       extraVolumeMounts:
         - name: debugfs
           mountPath: /sys/kernel/debug

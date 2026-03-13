@@ -13,7 +13,7 @@ spec:
     crds:
       enabled: true
       upgradeJob:
-        enabeld: true
+        enabled: true
         forceConflicts: true
     fullnameOverride: prometheus
     nameOverride: prometheus
@@ -43,7 +43,7 @@ spec:
     kubeEtcd:
       service:
         selector:
-          component: kube-apiserver # etcd runs on control plane nodes
+          component: etcd
     kubeProxy:
       enabled: false
     prometheus:
