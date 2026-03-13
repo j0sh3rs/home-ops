@@ -31,3 +31,7 @@ kubernetes/apps/**/*.txt
 .claude/cache/
 .tldr/
 .serena
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
