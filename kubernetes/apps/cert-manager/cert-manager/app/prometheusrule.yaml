@@ -1,0 +1,70 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cert-manager-acme-alerts
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: cert-manager-acme
+      interval: 60s
+      rules:
+        - alert: CertManagerACMEClientErrors
+          expr: |
+            sum by (method, path) (
+              rate(certmanager_http_acme_client_request_count{status=~"4..|5.."}[5m])
+            ) > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: certificates
+          annotations:
+            summary: "cert-manager ACME client errors on {{ $labels.path }}"
+            description: "cert-manager is receiving {{ $labels.status }} errors from the ACME server for {{ $labels.method }} {{ $labels.path }}. Certificate issuance or renewal may be failing."
+
+        - alert: CertManagerACMEHighLatency
+          expr: |
+            histogram_quantile(0.95, sum by (le, method, path) (
+              rate(certmanager_http_acme_client_request_duration_seconds_bucket[5m])
+            )) > 10
+          for: 10m
+          labels:
+            severity: warning
+            component: certificates
+          annotations:
+            summary: "cert-manager ACME requests taking >10s (p95)"
+            description: "cert-manager ACME requests to {{ $labels.path }} are taking {{ $value | humanizeDuration }} at p95. Possible ACME server throttling or network issues."
+
+    - name: cert-manager-issuance
+      interval: 60s
+      rules:
+        - alert: CertificateIssuanceFailed
+          expr: |
+            sum by (issuer_group, issuer_kind, issuer_name, name, namespace) (
+              certmanager_certificate_ready_status{condition="False"}
+            ) == 1
+          for: 20m
+          labels:
+            severity: warning
+            component: certificates
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} not ready"
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} (issuer: {{ $labels.issuer_name }}) has been in a not-ready state for 20 minutes. Check certificate events for ACME challenge or DNS errors."
+
+        - alert: CertificateRenewalFailure
+          expr: |
+            sum by (issuer_group, issuer_kind, issuer_name, name, namespace) (
+              certmanager_certificate_renewal_timestamp_seconds - time() < (3 * 24 * 60 * 60)
+              and
+              certmanager_certificate_ready_status{condition="False"} == 1
+            )
+          for: 1h
+          labels:
+            severity: critical
+            component: certificates
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} renewal failing with <3 days to expiry"
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.namespace }} is due for renewal within 3 days but is not ready. Immediate investigation required."

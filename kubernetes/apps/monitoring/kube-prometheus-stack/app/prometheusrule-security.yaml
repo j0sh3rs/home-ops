@@ -106,16 +106,16 @@ spec:
     - name: rbac-security
       interval: 30s
       rules:
-        - alert: UnauthorizedAPIAccessAttempts
+        - alert: DeniedAPIAccessAttempts
           expr: |
-            sum by (verb, resource) (rate(apiserver_audit_event_total{verb!~"get|list|watch"}[5m])) > 10
+            sum by (verb, resource) (rate(apiserver_audit_event_total{annotations_authorization_k8s_io_decision="forbid"}[5m])) > 5
           for: 5m
           labels:
             severity: warning
             component: security
           annotations:
-            summary: "High rate of {{ $labels.verb }} attempts on {{ $labels.resource }}"
-            description: "Detected {{ $value }} unauthorized API access attempts per second for {{ $labels.verb }} {{ $labels.resource }}."
+            summary: "Denied API access attempts on {{ $labels.resource }}"
+            description: "Detected {{ $value }} denied API requests per second for {{ $labels.verb }} {{ $labels.resource }}. Possible unauthorized access attempt."
 
         - alert: ServiceAccountTokenLeaked
           expr: |
@@ -147,7 +147,7 @@ spec:
 
         - alert: HostNetworkPodRunning
           expr: |
-            kube_pod_spec_host_network{pod!~".*(cilium|wazuh|kube-proxy).*"} == 1
+            kube_pod_spec_host_network{pod!~".*(cilium|wazuh|kube-proxy|tetragon).*"} == 1
           for: 10m
           labels:
             severity: warning
@@ -160,7 +160,7 @@ spec:
           expr: |
             kube_pod_spec_volumes_persistentvolumeclaims_info == 0
             and on(namespace, pod)
-            kube_pod_spec_volumes_hostpath_info{pod!~".*(cilium|wazuh|node-exporter).*"}
+            kube_pod_spec_volumes_hostpath_info{pod!~".*(cilium|wazuh|node-exporter|tetragon|openebs).*"}
           for: 10m
           labels:
             severity: warning
@@ -186,14 +186,16 @@ spec:
 
         - alert: SecretDeletionAttempt
           expr: |
-            increase(apiserver_audit_event_total{objectRef_resource="secrets", verb="delete"}[5m]) > 0
-          for: 1m
+            sum by (namespace) (
+              increase(apiserver_audit_event_total{objectRef_resource="secrets", verb="delete", namespace!~"flux-system|kube-system|cert-manager|velero"}[5m])
+            ) > 3
+          for: 5m
           labels:
-            severity: critical
+            severity: warning
             component: security
           annotations:
-            summary: "Secret deletion detected"
-            description: "{{ $value }} secret(s) were deleted in the last 5 minutes. Verify if this is authorized."
+            summary: "Elevated secret deletion in namespace {{ $labels.namespace }}"
+            description: "{{ $value }} secret(s) deleted in namespace {{ $labels.namespace }} in the last 5 minutes. Verify if this is authorized."
 
     # Image Security
     - name: image-security

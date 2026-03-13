@@ -1,0 +1,72 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: crowdsec-alerts
+  namespace: security
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: crowdsec-health
+      interval: 30s
+      rules:
+        - alert: CrowdSecLAPIDown
+          expr: |
+            kube_deployment_status_replicas_available{namespace="security", deployment=~"crowdsec-lapi.*"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "CrowdSec LAPI is unavailable"
+            description: "CrowdSec Local API has no available replicas for more than 5 minutes. IDS/IPS decisions cannot be distributed to bouncers."
+
+        - alert: CrowdSecBouncerNotConnected
+          expr: |
+            cs_bouncers_count == 0
+          for: 10m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "No CrowdSec bouncers connected"
+            description: "No bouncers are connected to the CrowdSec LAPI. Blocking decisions are not being enforced."
+
+        - alert: CrowdSecAgentDown
+          expr: |
+            kube_daemonset_status_number_ready{namespace="security", daemonset=~"crowdsec-agent.*"} <
+            kube_daemonset_status_desired_number_scheduled{namespace="security", daemonset=~"crowdsec-agent.*"}
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "CrowdSec agents not running on all nodes"
+            description: "{{ $value }} CrowdSec agent pod(s) are not running. Some nodes may lack IDS coverage."
+
+    - name: crowdsec-decisions
+      interval: 60s
+      rules:
+        - alert: CrowdSecHighBanRate
+          expr: |
+            sum(increase(cs_active_decisions{origin="crowdsec", type="ban"}[1h])) > 100
+          for: 5m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "CrowdSec high ban rate"
+            description: "CrowdSec has issued {{ $value }} ban decisions in the last hour. Possible active attack or misconfigured rules."
+
+        - alert: CrowdSecNoDecisionsReceived
+          expr: |
+            absent(cs_active_decisions)
+          for: 15m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "CrowdSec not reporting decision metrics"
+            description: "CrowdSec LAPI has not reported decision metrics in 15 minutes. Monitoring may be degraded."

@@ -7,3 +7,4 @@ resources:
   - ./secret.sops.yaml
   - ./helmrelease.yaml
   - ./schedule.yaml
+  - ./prometheusrule.yaml

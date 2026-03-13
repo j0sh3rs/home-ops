@@ -1,0 +1,111 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: thanos-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: thanos-query
+      interval: 30s
+      rules:
+        - alert: ThanosQueryDown
+          expr: |
+            kube_deployment_status_replicas_available{namespace="monitoring", deployment="thanos-query"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: thanos
+          annotations:
+            summary: "Thanos Query is unavailable"
+            description: "Thanos Query has no available replicas for more than 5 minutes. PromQL queries against long-term metrics will fail."
+
+        - alert: ThanosQueryHighErrorRate
+          expr: |
+            sum(rate(thanos_query_range_requested_timespan_duration_seconds_count{result="error"}[5m])) /
+            sum(rate(thanos_query_range_requested_timespan_duration_seconds_count[5m])) > 0.1
+          for: 10m
+          labels:
+            severity: warning
+            component: thanos
+          annotations:
+            summary: "Thanos Query high error rate"
+            description: "Thanos Query is returning errors for {{ $value | humanizePercentage }} of requests."
+
+    - name: thanos-store-gateway
+      interval: 30s
+      rules:
+        - alert: ThanosStoreGatewayDown
+          expr: |
+            kube_statefulset_status_replicas_ready{namespace="monitoring", statefulset="thanos-store-gateway"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: thanos
+          annotations:
+            summary: "Thanos Store Gateway is unavailable"
+            description: "Thanos Store Gateway has no ready replicas for more than 5 minutes. Historical metrics from object storage are inaccessible."
+
+        - alert: ThanosStoreGatewayHighErrorRate
+          expr: |
+            sum(rate(thanos_objstore_operation_failures_total{component="store"}[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: thanos
+          annotations:
+            summary: "Thanos Store Gateway object storage errors"
+            description: "Thanos Store Gateway is experiencing object storage operation failures at {{ $value }} per second."
+
+    - name: thanos-compactor
+      interval: 30s
+      rules:
+        - alert: ThanosCompactorDown
+          expr: |
+            kube_statefulset_status_replicas_ready{namespace="monitoring", statefulset="thanos-compact"} == 0
+          for: 5m
+          labels:
+            severity: warning
+            component: thanos
+          annotations:
+            summary: "Thanos Compactor is unavailable"
+            description: "Thanos Compactor has no ready replicas for more than 5 minutes. Long-term metric compaction and downsampling will stall."
+
+        - alert: ThanosCompactorHalted
+          expr: |
+            thanos_compact_halted == 1
+          for: 5m
+          labels:
+            severity: critical
+            component: thanos
+          annotations:
+            summary: "Thanos Compactor has halted"
+            description: "Thanos Compactor has halted due to a fatal error. Manual intervention required to resume compaction."
+
+        - alert: ThanosCompactorNotRunning
+          expr: |
+            absent(thanos_compact_iterations_total)
+          for: 30m
+          labels:
+            severity: warning
+            component: thanos
+          annotations:
+            summary: "Thanos Compactor is not running"
+            description: "No compaction activity detected in the last 30 minutes. Thanos Compactor may be stuck or not running."
+
+    - name: thanos-object-storage
+      interval: 30s
+      rules:
+        - alert: ThanosObjectStorageErrors
+          expr: |
+            sum(rate(thanos_objstore_operation_failures_total[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: thanos
+          annotations:
+            summary: "Thanos object storage operation failures"
+            description: "Thanos is experiencing failures accessing object storage (S3) at {{ $value }} operations/sec. Long-term metric storage may be impacted."

@@ -1,0 +1,71 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: velero-alerts
+  namespace: velero
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: velero-backups
+      interval: 30s
+      rules:
+        - alert: VeleroBackupFailure
+          expr: |
+            increase(velero_backup_failure_total[1h]) > 0
+          for: 5m
+          labels:
+            severity: critical
+            component: backup
+          annotations:
+            summary: "Velero backup failed for schedule {{ $labels.schedule }}"
+            description: "{{ $value }} Velero backup(s) have failed in the last hour for schedule {{ $labels.schedule }}. Cluster data may not be protected."
+
+        - alert: VeleroBackupPartialFailure
+          expr: |
+            increase(velero_backup_partial_failure_total[1h]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: backup
+          annotations:
+            summary: "Velero backup partially failed for schedule {{ $labels.schedule }}"
+            description: "{{ $value }} Velero backup(s) completed with partial failures in the last hour for schedule {{ $labels.schedule }}. Some resources may not be backed up."
+
+        - alert: VeleroBackupNotCompleted
+          expr: |
+            velero_backup_last_status{schedule!=""} == 0
+          for: 25h
+          labels:
+            severity: critical
+            component: backup
+          annotations:
+            summary: "Velero schedule {{ $labels.schedule }} has not completed a successful backup"
+            description: "Velero schedule {{ $labels.schedule }} last backup status is not Completed. A successful backup has not been recorded in over 25 hours."
+
+        - alert: VeleroBackupDurationHigh
+          expr: |
+            velero_backup_duration_seconds{schedule!=""} > 3600
+          for: 5m
+          labels:
+            severity: warning
+            component: backup
+          annotations:
+            summary: "Velero backup taking longer than 1 hour for schedule {{ $labels.schedule }}"
+            description: "Velero backup for schedule {{ $labels.schedule }} has been running for {{ $value | humanizeDuration }}. Investigate for stuck or unusually large backup."
+
+    - name: velero-restores
+      interval: 30s
+      rules:
+        - alert: VeleroRestoreFailure
+          expr: |
+            increase(velero_restore_failed_total[1h]) > 0
+          for: 5m
+          labels:
+            severity: critical
+            component: backup
+          annotations:
+            summary: "Velero restore operation failed"
+            description: "{{ $value }} Velero restore(s) have failed in the last hour."

@@ -59,7 +59,7 @@ spec:
       spec:
         - alert: DragonflyMissing
           expr: absent(dragonfly_uptime_in_seconds) == 1
-          for: 0m
+          for: 2m
           labels:
             severity: critical
           annotations:
