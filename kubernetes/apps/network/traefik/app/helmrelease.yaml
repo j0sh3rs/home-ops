@@ -151,7 +151,65 @@ spec:
           enabled: true
           enableHttp2: true
         prometheusRule:
-          enabled: false
+          enabled: true
+          rules:
+            - alert: TraefikAbsent
+              expr: absent(traefik_entrypoint_open_connections) == 1
+              for: 5m
+              labels:
+                severity: critical
+                component: ingress
+              annotations:
+                summary: "Traefik metrics absent"
+                description: "Traefik has stopped reporting metrics for 5 minutes, service may be down."
+            - alert: TraefikHighHTTP5xxErrorRate
+              expr: |
+                sum by (entrypoint) (
+                  rate(traefik_entrypoint_requests_total{code=~"5.."}[5m])
+                )
+                /
+                sum by (entrypoint) (
+                  rate(traefik_entrypoint_requests_total[5m])
+                ) > 0.05
+              for: 5m
+              labels:
+                severity: warning
+                component: ingress
+              annotations:
+                summary: "Traefik high 5xx error rate on {{ $labels.entrypoint }}"
+                description: "{{ $value | humanizePercentage }} of requests to {{ $labels.entrypoint }} are returning 5xx errors."
+            - alert: TraefikHighRequestLatency
+              expr: |
+                histogram_quantile(0.99,
+                  sum by (le, entrypoint) (
+                    rate(traefik_entrypoint_request_duration_seconds_bucket[5m])
+                  )
+                ) > 2
+              for: 5m
+              labels:
+                severity: warning
+                component: ingress
+              annotations:
+                summary: "Traefik high p99 latency on {{ $labels.entrypoint }}"
+                description: "p99 request latency on entrypoint {{ $labels.entrypoint }} is {{ $value | humanizeDuration }}."
+            - alert: TraefikConfigReloadFailed
+              expr: traefik_config_last_reload_failure_time_seconds > traefik_config_last_reload_success_time_seconds
+              for: 5m
+              labels:
+                severity: warning
+                component: ingress
+              annotations:
+                summary: "Traefik configuration reload failed"
+                description: "Traefik failed to reload its configuration. Check Traefik logs for details."
+            - alert: TraefikTLSCertExpiringSoon
+              expr: traefik_tls_certs_not_after - time() < 7 * 24 * 3600
+              for: 1h
+              labels:
+                severity: warning
+                component: certificates
+              annotations:
+                summary: "TLS cert expiring soon: {{ $labels.cn }}"
+                description: "TLS certificate for {{ $labels.cn }} (SANs: {{ $labels.sans }}) expires in less than 7 days."
       otlp:
         enabled: false
         http:
