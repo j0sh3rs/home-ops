@@ -61,8 +61,6 @@ spec:
         protocol: TCP
         http3:
           enabled: true
-        tls:
-          enabled: true
       metrics:
         port: 9100
         expose:
