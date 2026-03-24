@@ -70,7 +70,7 @@ spec:
         image:
           registry: docker.io
           repository: prompp/prompp
-          tag: 0.7.6
+          tag: 0.7.7
         # Thanos sidecar configuration for long-term storage
         disableCompaction: true # Let Thanos Compactor handle this
         thanos:
