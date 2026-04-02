@@ -27,6 +27,8 @@ spec:
       # renovate: datasource=docker depName=traefik
       tag: v3.6.12
     experimental:
+      kubernetesGateway:
+        enabled: true
       plugins:
         crowdsec-bouncer-traefik-plugin:
           moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
@@ -71,9 +73,12 @@ spec:
         expose:
           default: true
         protocol: TCP
+      mysql-tls:
+        port: 3306
+        expose:
+          default: true
+        protocol: TCP
     gateway:
-      # annotations:
-      #   external-dns.alpha.kubernetes.io/target: home.68cc.io
       enabled: true
       listeners:
         web:
@@ -94,6 +99,16 @@ spec:
           namespacePolicy:
             from: All
           protocol: TCP
+        mysql-tls:
+          port: 3306
+          namespacePolicy:
+            from: All
+          protocol: TLS
+          tls:
+            mode: Terminate
+            certificateRefs:
+              - name: 68cc-io-tls
+                kind: Secret
     ingressClass:
       enabled: true
       isDefaultClass: false

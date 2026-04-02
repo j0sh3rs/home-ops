@@ -1,0 +1,20 @@
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: dolt
+  namespace: databases
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: dolt.68cc.io
+    external-dns.alpha.kubernetes.io/target: 192.168.35.15
+spec:
+  parentRefs:
+    - name: traefik-gateway
+      namespace: network
+      sectionName: mysql-tls
+  hostnames:
+    - dolt.68cc.io
+  rules:
+    - backendRefs:
+        - name: dolt
+          port: 3306
