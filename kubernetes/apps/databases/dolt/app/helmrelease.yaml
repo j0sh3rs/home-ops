@@ -27,7 +27,7 @@ spec:
             image:
               repository: dolthub/dolt-sql-server
               # renovate: datasource=docker depName=dolthub/dolt-sql-server
-              tag: "1.47.3"
+              tag: "1.85.0"
             env:
               - name: DOLT_ROOT_HOST
                 value: "%"
