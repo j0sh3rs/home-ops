@@ -155,6 +155,8 @@ spec:
       - --entryPoints.websecure.proxyProtocol=true
       - --entryPoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
       - --entryPoints.websecure.reuseport=true
+      # Drop sub-50ms access log entries (kube-probe health checks complete in <10ms)
+      - --accesslog.filters.minduration=50ms
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
@@ -283,10 +285,6 @@ spec:
         format: json
         otlp:
           enabled: false
-        filters:
-          # Drop sub-50ms requests — eliminates kube-probe health check noise
-          # (probes complete in <10ms; real requests are almost always slower)
-          minDuration: "50ms"
         fields:
           general:
             defaultmode: keep
