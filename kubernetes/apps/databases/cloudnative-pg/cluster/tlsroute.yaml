@@ -9,7 +9,7 @@ metadata:
     external-dns.alpha.kubernetes.io/hostname: pg.68cc.io
 spec:
   parentRefs:
-    - name: envoy-internal
+    - name: traefik-gateway
       namespace: network
       sectionName: postgres-tls
   hostnames:

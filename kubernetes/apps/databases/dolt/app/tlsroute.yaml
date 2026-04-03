@@ -6,7 +6,6 @@ metadata:
   namespace: databases
   annotations:
     external-dns.alpha.kubernetes.io/hostname: dolt.68cc.io
-    external-dns.alpha.kubernetes.io/target: 192.168.35.15
 spec:
   parentRefs:
     - name: traefik-gateway

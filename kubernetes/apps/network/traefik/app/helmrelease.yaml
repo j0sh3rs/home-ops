@@ -12,6 +12,29 @@ spec:
     namespace: network
   interval: 1h
   timeout: 2m
+  # The Traefik chart template only renders tls: for protocol: HTTPS listeners.
+  # For protocol: TLS (e.g. mysql-tls) the tls block is silently dropped, causing
+  # "InvalidTLSConfiguration: No TLS configuration for Gateway Listener". Patch it in.
+  #
+  # JSON patch (RFC 6902) is used instead of a strategic merge patch because kustomize
+  # in postRenderers context has no CRD schema, so a merge patch would replace the
+  # entire listeners array. Helm sorts gateway.listeners map keys alphabetically, so
+  # the listener order is deterministic: mysql-tls=0, syslog-tcp=1, web=2, websecure=3.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              group: gateway.networking.k8s.io
+              kind: Gateway
+              name: traefik-gateway
+            patch: |-
+              - op: add
+                path: /spec/listeners/0/tls
+                value:
+                  mode: Terminate
+                  certificateRefs:
+                    - name: 68cc-io-tls
+                      kind: Secret
   values:
     volumes:
       - name: botwrangler-robots-template
@@ -21,14 +44,17 @@ spec:
         mountPath: /etc/traefik/secrets
         type: secret
         secretName: traefik-secrets
+    # Inject traefik-secrets as env vars for OCSP stapling and plugin configuration
+    envFrom:
+      - secretRef:
+          name: traefik-secrets
     global:
       checkNewVersion: false
+      sendAnonymousUsage: false
     image:
       # renovate: datasource=docker depName=traefik
       tag: v3.6.12
     experimental:
-      kubernetesGateway:
-        enabled: true
       plugins:
         crowdsec-bouncer-traefik-plugin:
           moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
@@ -47,9 +73,6 @@ spec:
       otlpLogs: false
     ocsp:
       enabled: true
-      envFrom:
-        - secretRef:
-            name: traefik-secrets
     ports:
       web:
         port: 80
@@ -63,6 +86,11 @@ spec:
         protocol: TCP
         http3:
           enabled: true
+        transport:
+          respondingTimeouts:
+            readTimeout: 60
+            writeTimeout: 120
+            idleTimeout: 180
       metrics:
         port: 9100
         expose:
@@ -113,8 +141,6 @@ spec:
       enabled: true
       isDefaultClass: false
     additionalArguments:
-      - --accesslog=true
-      - --accesslog.format=json
       - --entryPoints.web.http.redirections.entryPoint.to=websecure
       - --entryPoints.web.http.redirections.entryPoint.scheme=https
       - --entryPoints.web.http.redirections.entryPoint.permanent=true
@@ -132,6 +158,14 @@ spec:
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
+      # Set GOMEMLIMIT to 90% of the container memory limit (2Gi → ~1.8Gi)
+      # This ensures Go's GC runs before the OOM killer fires
+      goMemLimitPercentage: 90
+      lifecycle:
+        preStop:
+          exec:
+            # Give the LB 5s to drain connections before SIGTERM is sent
+            command: ["/bin/sh", "-c", "sleep 5"]
     providers:
       kubernetesCRD:
         enabled: true
@@ -225,6 +259,15 @@ spec:
               annotations:
                 summary: "TLS cert expiring soon: {{ $labels.cn }}"
                 description: "TLS certificate for {{ $labels.cn }} (SANs: {{ $labels.sans }}) expires in less than 7 days."
+            - alert: TraefikHighOpenConnections
+              expr: sum by (entrypoint) (traefik_entrypoint_open_connections) > 1000
+              for: 5m
+              labels:
+                severity: warning
+                component: ingress
+              annotations:
+                summary: "Traefik high open connections on {{ $labels.entrypoint }}"
+                description: "{{ $value }} open connections on entrypoint {{ $labels.entrypoint }}. Possible connection leak or traffic spike."
       otlp:
         enabled: false
         http:
@@ -240,18 +283,27 @@ spec:
         format: json
         otlp:
           enabled: false
+        filters:
+          # Drop sub-50ms requests — eliminates kube-probe health check noise
+          # (probes complete in <10ms; real requests are almost always slower)
+          minDuration: "50ms"
         fields:
-          defaultMode: keep
-          names:
-            ServiceName: keep
+          general:
+            defaultmode: keep
+            names:
+              ServiceName: keep
+          headers:
+            defaultmode: drop
     ingressRoute:
       dashboard:
         enabled: true
         matchRule: Host(`dash.68cc.io`)
         entryPoints:
           - websecure
+        middlewares:
+          - name: oidc-auth0-secure
+            namespace: network
     tlsOptions:
       default:
         sniStrict: true
-        preferServerCipherSuites: true
         minVersion: VersionTLS13

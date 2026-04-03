@@ -138,6 +138,18 @@ spec:
 
 Helm repository definitions live in `kubernetes/flux/meta/repos/`.
 
+### app-template (bjw-s) for apps without a Helm chart
+
+The `bjw-s/app-template` chart (`oci://ghcr.io/bjw-s-labs/helm/app-template`, v4.6.2) is used for apps that don't have their own Helm chart. It is **not** globally available — each namespace kustomization must opt in:
+
+```yaml
+# In kubernetes/apps/{namespace}/kustomization.yaml
+components:
+  - ../../components/repos/app-template  # ← required to use app-template
+```
+
+Currently opted in: `services`, `databases`. The OCIRepository is at `kubernetes/components/repos/app-template/ocirepository.yaml`.
+
 ### Flux Variable Substitution
 
 The cluster-apps Kustomization (`kubernetes/flux/cluster/apps.yaml`) injects variables via `postBuild.substituteFrom` from:
@@ -173,14 +185,14 @@ task sops:verify  # Check all *.sops.yaml files are properly encrypted
 
 ### Networking
 
-- **Traefik** — Ingress controller with HTTPRoute and middleware support
-- **k8s-gateway** — Split-horizon DNS for internal cluster resolution
-- **Cloudflare DNS** — External DNS integration via external-dns
-- **cert-manager** — TLS certificate automation
+- **Traefik** — Gateway API ingress controller. Handles HTTPRoute (HTTP/HTTPS), TCPRoute (raw TCP), and TLSRoute (TLS terminate/passthrough). Wildcard cert `68cc-io-tls` in `network` namespace covers `*.68cc.io`. OIDC auth middleware `oidc-auth0-secure` (Auth0 + DragonflyDB session store) available for protecting services. Gateway name: `traefik-gateway` in `network` namespace.
+- **Cloudflare DNS** — External DNS integration via external-dns; use annotation `external-dns.alpha.kubernetes.io/target: 192.168.35.15` on HTTPRoutes
+- **unifi-dns** — Split-horizon DNS for internal cluster resolution via UniFi
+- **cert-manager** — TLS certificate automation; cluster wildcard cert `68cc-io-tls` in `network` namespace
 
 ### Storage
 
-- **OpenEBS LocalPV** — Default storage class (`openebs-localpv-hostpath`)
+- **OpenEBS LocalPV** — Default storage class (`openebs-hostpath`)
 - **NFS External Provisioner** — NFS-backed storage provisioner for shared storage
 - **Minio S3** — Object storage at `https://s3.68cc.io` (buckets: `openebs-backups`, `thanos-blocks`, `victoria-logs-chunks`)
 - **Velero** — Cluster-level S3-backed snapshots (daily 02:00 UTC, 30-day retention)
@@ -200,13 +212,15 @@ Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{compone
 
 ### Databases
 
-- **CloudNative-PG** — PostgreSQL operator with S3 backups
-- **DragonflyDB** — Redis-compatible in-memory store
+- **CloudNative-PG** — PostgreSQL operator with S3 backups; cluster `postgres17-rw` service on port 5432
+- **DragonflyDB** — Redis-compatible in-memory store; `dragonflydb.databases.svc.cluster.local:6379`
+- **Dolt** — Git-versioned MySQL-compatible database; exposed externally at `dolt.68cc.io:3306` via Traefik TLS termination (mysql-tls listener). Connect: `mysql -h dolt.68cc.io -P 3306 -u root -p`. Used as remote backend for Beads task tracking.
 
 ### Security
 
 - **Tetragon** — Runtime security observability with eBPF (`kube-system` and `security` namespaces)
-- **CrowdSec** — Collaborative IDS/IPS for threat detection and blocking
+- **CrowdSec** — Collaborative IDS/IPS for threat detection and blocking; Traefik bouncer middleware applied globally on `web` and `websecure` entrypoints
+- **Auth0 OIDC** — Service-level authentication via `oidc-auth0-secure` Traefik middleware; backed by DragonflyDB session store
 
 ### System Components (`kube-system`)
 
@@ -229,15 +243,17 @@ Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{compone
 
 - **Atuin** — Shell history sync server
 - **Home Assistant** — Home automation platform
-- **Linkwarden** — Collaborative bookmark manager
-- **ChangeDetector** — Website change monitoring
 - **IT-Tools** — Collection of IT utility tools
-- **Memos** — Lightweight note-taking service
+- **Linkwarden** — Collaborative bookmark manager
 - **N8N** — Workflow automation platform
 - **Ollama** — Local LLM inference server
 - **Open WebUI** — Web interface for Ollama
-- **Paperless-NGX** — Document management system
-- **MetaMCP** — MCP (Model Context Protocol) server
+
+Currently disabled (commented out in `kubernetes/apps/services/kustomization.yaml`):
+- ~~ChangeDetector~~ — Website change monitoring
+- ~~Memos~~ — Lightweight note-taking service
+- ~~MetaMCP~~ — MCP server
+- ~~Paperless-NGX~~ — Document management system
 
 ## Grafana Operator Pattern
 
