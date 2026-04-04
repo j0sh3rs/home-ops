@@ -131,12 +131,12 @@ spec:
           port: 3306
           namespacePolicy:
             from: All
-          protocol: TLS
-          tls:
-            mode: Terminate
-            certificateRefs:
-              - name: 68cc-io-tls
-                kind: Secret
+          protocol: TCP
+          # tls:
+          #   mode: Terminate
+          #   certificateRefs:
+          #     - name: 68cc-io-tls
+          #       kind: Secret
     ingressClass:
       enabled: true
       isDefaultClass: false

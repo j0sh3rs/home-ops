@@ -10,7 +10,7 @@ spec:
   parentRefs:
     - name: traefik-gateway
       namespace: network
-      sectionName: mysql-tls
+      sectionName: mysql
   hostnames:
     - dolt.68cc.io
   rules:
