@@ -127,7 +127,7 @@ spec:
           namespacePolicy:
             from: All
           protocol: TCP
-        mysql-tls:
+        mysql:
           port: 3306
           namespacePolicy:
             from: All
