@@ -112,7 +112,7 @@ spec:
         syslog-udp:
           port: 514
           namespacePolicy:
-            from: monitoring
+            from: All
           protocol: UDP
         mysql:
           port: 3306
