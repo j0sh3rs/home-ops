@@ -7,9 +7,9 @@ metadata:
   namespace: monitoring
 spec:
   parentRefs:
-    - name: envoy-internal
+    - name: traefik-gateway
       namespace: network
-      sectionName: victoria-logs-syslog-udp
+      sectionName: victoria-logs-syslog
   rules:
     - backendRefs:
         - name: victoria-logs-server

@@ -12,29 +12,6 @@ spec:
     namespace: network
   interval: 1h
   timeout: 2m
-  # The Traefik chart template only renders tls: for protocol: HTTPS listeners.
-  # For protocol: TLS (e.g. mysql-tls) the tls block is silently dropped, causing
-  # "InvalidTLSConfiguration: No TLS configuration for Gateway Listener". Patch it in.
-  #
-  # JSON patch (RFC 6902) is used instead of a strategic merge patch because kustomize
-  # in postRenderers context has no CRD schema, so a merge patch would replace the
-  # entire listeners array. Helm sorts gateway.listeners map keys alphabetically, so
-  # the listener order is deterministic: mysql-tls=0, syslog-tcp=1, web=2, websecure=3.
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              group: gateway.networking.k8s.io
-              kind: Gateway
-              name: traefik-gateway
-            patch: |-
-              - op: add
-                path: /spec/listeners/0/tls
-                value:
-                  mode: Terminate
-                  certificateRefs:
-                    - name: 68cc-io-tls
-                      kind: Secret
   values:
     volumes:
       - name: botwrangler-robots-template
@@ -78,12 +55,12 @@ spec:
         port: 80
         expose:
           default: true
-        protocol: TCP
+        protocol: HTTP
       websecure:
         port: 443
         expose:
           default: true
-        protocol: TCP
+        protocol: HTTP
         http3:
           enabled: true
         transport:
@@ -95,13 +72,18 @@ spec:
         port: 9100
         expose:
           default: false
-        protocol: TCP
-      syslog-tcp:
+        protocol: HTTP
+      syslog:
         port: 514
         expose:
           default: true
         protocol: TCP
-      mysql-tls:
+      syslog-udp:
+        port: 514
+        expose:
+          default: true
+        protocol: UDP
+      mysql:
         port: 3306
         expose:
           default: true
@@ -122,21 +104,21 @@ spec:
           certificateRefs:
             - name: 68cc-io-tls
               kind: Secret
-        syslog-tcp:
+        syslog:
           port: 514
           namespacePolicy:
-            from: All
+            from: monitoring
           protocol: TCP
+        syslog-udp:
+          port: 514
+          namespacePolicy:
+            from: monitoring
+          protocol: UDP
         mysql:
           port: 3306
           namespacePolicy:
             from: All
           protocol: TCP
-          # tls:
-          #   mode: Terminate
-          #   certificateRefs:
-          #     - name: 68cc-io-tls
-          #       kind: Secret
     ingressClass:
       enabled: true
       isDefaultClass: false
