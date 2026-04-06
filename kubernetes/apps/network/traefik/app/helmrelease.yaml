@@ -55,12 +55,12 @@ spec:
         port: 80
         expose:
           default: true
-        protocol: HTTP
+        protocol: TCP
       websecure:
         port: 443
         expose:
           default: true
-        protocol: HTTP
+        protocol: TCP
         http3:
           enabled: true
         transport:
@@ -72,7 +72,7 @@ spec:
         port: 9100
         expose:
           default: false
-        protocol: HTTP
+        protocol: TCP
       syslog:
         port: 514
         expose:
@@ -107,7 +107,7 @@ spec:
         syslog:
           port: 514
           namespacePolicy:
-            from: monitoring
+            from: All
           protocol: TCP
         syslog-udp:
           port: 514
