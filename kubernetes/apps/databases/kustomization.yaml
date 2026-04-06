@@ -8,4 +8,4 @@ components:
 resources:
   - ./cloudnative-pg/ks.yaml
   - ./dragonflydb/ks.yaml
-  - ./dolt/ks.yaml
+  # - ./dolt/ks.yaml
