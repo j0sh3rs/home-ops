@@ -13,4 +13,4 @@ resources:
   # - ./netdata/ks.yaml
   - ./thanos/ks.yaml
   - ./unpoller/ks.yaml
-  - ./victoria-logs/ks.yaml
+  # - ./victoria-logs/ks.yaml
