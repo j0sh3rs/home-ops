@@ -109,11 +109,6 @@ spec:
           namespacePolicy:
             from: All
           protocol: TCP
-        syslog-udp:
-          port: 514
-          namespacePolicy:
-            from: All
-          protocol: UDP
         mysql:
           port: 3306
           namespacePolicy:
@@ -280,6 +275,13 @@ spec:
         matchRule: Host(`dash.68cc.io`)
         entryPoints:
           - websecure
+      # syslog-udp:
+      #   port: 514
+      #   namespacePolicy:
+      #     from: All
+      #   protocol: UDP
+      #   entryPoints:
+      #     - syslog-udp
     tlsOptions:
       default:
         sniStrict: true

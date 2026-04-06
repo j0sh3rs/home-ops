@@ -5,4 +5,4 @@ resources:
   - ./secret.sops.yaml
   - ./configmap.yaml
   - ./helmrelease.yaml
-  - ./tlsroute.yaml
+  - ./tcproute.yaml
