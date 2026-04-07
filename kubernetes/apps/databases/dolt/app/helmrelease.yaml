@@ -79,7 +79,6 @@ spec:
           remotesapi:
             port: 8000
             protocol: TCP
-            appProtocol: h2c
     persistence:
       data:
         type: persistentVolumeClaim

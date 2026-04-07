@@ -1,23 +1,23 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/traefik.io/ingressroute_v1alpha1.json
+# Using IngressRoute (not HTTPRoute) because Traefik's Gateway API provider
+# does not support appProtocol: h2c on backends. IngressRoute's scheme: h2c
+# is the correct Traefik-native way to proxy gRPC (HTTP/2) backends.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
 metadata:
   name: dolt-remotesapi
   namespace: databases
   annotations:
     external-dns.alpha.kubernetes.io/target: 192.168.35.15
+    external-dns.alpha.kubernetes.io/hostname: dolt-api.68cc.io
 spec:
-  hostnames:
-    - dolt-api.68cc.io
-  parentRefs:
-    - name: traefik-gateway
-      namespace: network
-  rules:
-    - backendRefs:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`dolt-api.68cc.io`)
+      kind: Rule
+      services:
         - name: dolt
           port: 8000
-      matches:
-        - path:
-            type: PathPrefix
-            value: /
+          scheme: h2c
