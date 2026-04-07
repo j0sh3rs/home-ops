@@ -15,6 +15,8 @@ data:
     behavior:
       autocommit: true
       dolt_transaction_commit: false
+    remotesapi:
+      port: 8000
     metrics:
       labels:
         host: dolt.68cc.io

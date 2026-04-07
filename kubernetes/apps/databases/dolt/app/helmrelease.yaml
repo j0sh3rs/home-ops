@@ -76,6 +76,9 @@ spec:
           mysql:
             port: *port
             protocol: TCP
+          remotesapi:
+            port: 8000
+            protocol: TCP
     persistence:
       data:
         type: persistentVolumeClaim
