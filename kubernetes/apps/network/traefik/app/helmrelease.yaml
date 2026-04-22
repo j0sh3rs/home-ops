@@ -30,7 +30,7 @@ spec:
       sendAnonymousUsage: false
     image:
       # renovate: datasource=docker depName=traefik
-      tag: v3.6.13
+      tag: v3.6.14
     experimental:
       plugins:
         crowdsec-bouncer-traefik-plugin:
