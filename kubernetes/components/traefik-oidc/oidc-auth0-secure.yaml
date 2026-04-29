@@ -1,10 +1,13 @@
 ---
 # Auth0 OIDC middleware (plugin: github.com/lukaszraczylo/traefikoidc v0.8.1).
 # Materialized per-namespace via Kustomize Component so HTTPRoute filters
-# can ExtensionRef it in-namespace. ${AUTH0_CLIENT_ID} / ${AUTH0_CLIENT_SECRET}
-# / ${SESSION_ENCRYPTION_KEY} are substituted at plugin runtime from the
-# Traefik pod's env (traefik-secrets in network ns, injected via Traefik
-# HelmRelease envFrom).
+# can ExtensionRef it in-namespace.
+#
+# clientID / clientSecret / sessionEncryptionKey use the plugin's
+# urn:k8s:secret:<name>:<key> syntax to read credentials from a
+# per-namespace Secret. The source Secret `traefik-secrets` lives in the
+# `network` namespace and is mirrored by Reflector into every namespace
+# that opts into this Component (see annotations on the source Secret).
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -13,9 +16,9 @@ spec:
   plugin:
     traefikoidc:
       providerURL: https://68ccio.us.auth0.com
-      clientID: "${AUTH0_CLIENT_ID}"
-      clientSecret: "${AUTH0_CLIENT_SECRET}"
-      sessionEncryptionKey: "${SESSION_ENCRYPTION_KEY}"
+      clientID: urn:k8s:secret:traefik-secrets:AUTH0_CLIENT_ID
+      clientSecret: urn:k8s:secret:traefik-secrets:AUTH0_CLIENT_SECRET
+      sessionEncryptionKey: urn:k8s:secret:traefik-secrets:SESSION_ENCRYPTION_KEY
       sessionMaxAge: 28800
 
       callbackURL: /oauth2/callback
