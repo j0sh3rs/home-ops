@@ -10,8 +10,10 @@ machine:
         - os:etcd:backup
       enabled: true
     rbac: true
-    stableHostname: true
     hostDNS:
       enabled: true
       forwardKubeDNSToHost: true # Requires Cilium socketLB features
       resolveMemberNames: true
+    # Enable XFS project quota support on EPHEMERAL partition so kubelet can
+    # track/enforce ephemeral-storage usage.
+    diskQuotaSupport: true

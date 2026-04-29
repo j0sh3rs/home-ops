@@ -1,23 +1,32 @@
 ---
+# Talos Factory schematic — produces the installer image tag referenced in
+# talconfig.yaml (talosImageURL). Kernel args live here because UKI-based
+# images (Talos v1.13 default) embed kernel cmdline into the UKI; Talos refuses
+# to use machine.install.extraKernelArgs alongside UKI.
 customization:
   extraKernelArgs:
-    - -init_on_alloc # Less security, faster puter
-    - -init_on_free # Less security, faster puter
-    - -selinux # Less security, faster puter
-    - apparmor=0 # Less security, faster puter
-    - init_on_alloc=0 # Less security, faster puter
-    - init_on_free=0 # Less security, faster puter
-    - intel_iommu=on # PCI Passthrough
-    - iommu=pt # PCI Passthrough
-    - mitigations=off # Less security, faster puter
-    - security=none # Less security, faster puter
-    - talos.auditd.disabled=1 # Less security, faster puter
+    # --- Homelab hardening trade-offs (documented in talos/patches/README.md) ---
+    - apparmor=0
+    - mitigations=off
+    - security=none
+    - init_on_alloc=0
+    - init_on_free=0
+    - talos.auditd.disabled=1
+
+    # --- AMD perf tuning (all 3 nodes are AMD APUs) ---
+    # guided mode lets the kernel governor drive P-state transitions while still
+    # using the AMD P-state driver; pairs with cpufreq governor below.
+    - amd_pstate=guided
+    - cpufreq.default_governor=performance
+
+    # --- IOMMU (AMD; canonical form) ---
+    - amd_iommu=on
+    - iommu.passthrough=1
+
   systemExtensions:
     officialExtensions:
-      - siderolabs/nfsrahead # NFS Performance
-      - siderolabs/thunderbolt # Thunderbolt NICs
-      - siderolabs/amd-ucode # AMD CPU Microcode
-      - siderolabs/amdgpu # AMD GPU Drivers
-      - siderolabs/glibc # Better C Library
-      - siderolabs/iscsi-tools # iSCSI Support
-      - siderolabs/nvme-cli # NVMe Management
+      - siderolabs/nfsrahead # NFS read-ahead tuning for NFS provisioner
+      - siderolabs/amd-ucode # AMD CPU microcode
+      - siderolabs/amdgpu # AMD GPU drivers (APU + dGPU)
+      - siderolabs/glibc # Standard C library for extensions needing it
+      - siderolabs/nvme-cli # NVMe install-disk management

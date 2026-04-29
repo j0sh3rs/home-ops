@@ -2,6 +2,22 @@ machine:
   kubelet:
     extraConfig:
       serializeImagePulls: false
+      systemReserved:
+        cpu: "200m"
+        memory: "512Mi"
+        ephemeral-storage: "2Gi"
+      kubeReserved:
+        cpu: "200m"
+        memory: "512Mi"
+        ephemeral-storage: "2Gi"
+      evictionHard:
+        memory.available: "200Mi"
+        nodefs.available: "10%"
+        imagefs.available: "10%"
+      containerLogMaxSize: "50Mi"
+      containerLogMaxFiles: 3
+      imageGCHighThresholdPercent: 75
+      imageGCLowThresholdPercent: 60
     nodeIP:
       validSubnets:
         - 192.168.35.0/24

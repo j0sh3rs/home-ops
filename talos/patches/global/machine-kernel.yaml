@@ -1,16 +1,7 @@
 machine:
+  # Kernel modules loaded at boot. Kept explicitly empty so it is obvious there
+  # are no extra modules to load beyond Talos defaults + system extensions.
+  # Kernel command-line args are managed in talos/schematic.yaml (UKI images
+  # embed cmdline; machine.install.extraKernelArgs conflicts with UKI).
   kernel:
-    modules:
-      - name: nvme_tcp
-      - name: vfio_pci
-  install:
-    extraKernelArgs:
-      - apparmor=0
-      - mitigations=off
-      - security=none
-      - amd_pstate=active
-      - cpufreq.default_governor=performance
-      - iommu.passthrough=1
-      - init_on_alloc=0
-      - init_on_free=0
-      - talos.auditd.disabled=1
+    modules: []

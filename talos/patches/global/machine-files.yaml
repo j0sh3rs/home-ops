@@ -5,6 +5,6 @@ machine:
       permissions: 0o644
       content: |-
         [plugins."io.containerd.cri.v1.images"]
-          discard_unpacked_layers = false
+          discard_unpacked_layers = true
         [metrics]
           address = "0.0.0.0:11234"
