@@ -32,6 +32,11 @@ endpointRoutes:
   enabled: true
 envoy:
   rollOutPods: true
+  # Standalone envoy metrics port is already exposed on cilium-envoy service;
+  # this just creates the ServiceMonitor so Prom/vmagent scrape it.
+  prometheus:
+    serviceMonitor:
+      enabled: true
 gatewayAPI:
   enabled: true
   enableAlpn: true

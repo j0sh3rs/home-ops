@@ -7,7 +7,9 @@ metadata:
 spec:
   route:
     receiver: discord
-    repeatInterval: 12h
+    # Re-notify on long-running critical conditions every 4h (was 12h) so a
+    # persistent outage doesn't go quiet after a single notification.
+    repeatInterval: 4h
     routes:
       - receiver: blackhole
         matchers:
