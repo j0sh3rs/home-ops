@@ -106,8 +106,22 @@ spec:
             type: remap
             inputs: [k8s]
             source: |
-              .log = parse_json(.message) ?? .message
+              # Try to parse message as JSON, otherwise keep as-is.
+              parsed, err = parse_json(.message)
+              if err == null {
+                .log = parsed
+              } else {
+                .log = .message
+              }
               del(.message)
+              # Drop verbose node/pod label maps — pod_name + namespace are
+              # already present as dedicated fields and every log entry was
+              # carrying ~3KB of AMD CPU feature labels per record.
+              del(.kubernetes.node_labels)
+              del(.kubernetes.pod_labels)
+              del(.kubernetes.namespace_labels)
+              del(.kubernetes.pod_annotations)
+              del(.kubernetes.node_annotations)
         sinks:
           exporter:
             type: prometheus_exporter
