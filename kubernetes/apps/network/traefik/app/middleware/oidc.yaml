@@ -35,20 +35,9 @@ spec:
         - email
 
       # User Allowlist Configuration
-      # This section controls who can access protected resources
-      # Users must match at least one of these criteria
+      # Only listed identities may access protected resources.
       allowedUsersAndGroups:
-        # Email-based allowlist (most common for homelab)
-        # Add your authorized email addresses here
-        - "email:your-email@gmail.com"              # Replace with your Gmail
-        - "email:your-github-email@users.noreply.github.com"  # Replace with your GitHub email
-
-        # You can also use email domains to allow all users from a domain
-        # - "email_domain:68cc.io"
-
-        # Or use Auth0 roles if configured (requires custom claims in Auth0)
-        # - "role:admin"
-        # - "role:homelab_user"
+        - "email:j0sh3rs@gmail.com"
 
       # Token Claims Configuration
       # Extract user information from JWT tokens
