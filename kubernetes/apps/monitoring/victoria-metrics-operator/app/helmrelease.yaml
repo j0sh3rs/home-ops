@@ -26,8 +26,12 @@ spec:
     operator:
       disable_prometheus_converter: false
       enable_converter_ownership: true
+    # Emit a prom-operator ServiceMonitor rather than a VMServiceScrape.
+    # kube-prometheus-stack's CRDs are already installed, whereas this chart
+    # install is exactly what would provision VMServiceScrape — chicken/egg.
     serviceMonitor:
       enabled: true
+      vm: false
     resources:
       requests:
         cpu: 50m
