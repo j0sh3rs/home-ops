@@ -12,6 +12,7 @@ spec:
   values:
     fullnameOverride: victoria-logs
     server:
+      retentionPeriod: 30d
       extraArgs:
         envflag.enable: true
         envflag.prefix: VM_
@@ -29,7 +30,6 @@ spec:
         enabled: true
         storageClassName: openebs-hostpath
         size: 50Gi
-      retentionPeriod: 14d
       service:
         extraPorts:
           - name: syslog-tcp
@@ -63,5 +63,73 @@ spec:
                   value: /
       serviceMonitor:
         enabled: true
+
+    # Vector DaemonSet ships pod logs to VictoriaLogs via the ES-compatible
+    # /insert/elasticsearch endpoint. Chart renders the DS + ConfigMap itself
+    # when vector.enabled=true.
+    vector:
+      enabled: true
+      role: Agent
+      dataDir: /vector-data-dir
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 512Mi
+      args:
+        - -w
+        - --config-dir
+        - /etc/vector/
+      containerPorts:
+        - name: prom-exporter
+          containerPort: 9090
+          protocol: TCP
+      service:
+        enabled: false
+      existingConfigMaps:
+        - vector-vl-config
+      customConfigNamespace: ""
+      customConfigName: vector-vl-config
+      customConfig:
+        data_dir: /vector-data-dir
+        api:
+          enabled: false
+          address: 0.0.0.0:8686
+        sources:
+          k8s:
+            type: kubernetes_logs
+          internal_metrics:
+            type: internal_metrics
+        transforms:
+          parser:
+            type: remap
+            inputs: [k8s]
+            source: |
+              .log = parse_json(.message) ?? .message
+              del(.message)
+        sinks:
+          exporter:
+            type: prometheus_exporter
+            address: 0.0.0.0:9090
+            inputs: [internal_metrics]
+          vlogs:
+            type: elasticsearch
+            inputs: [parser]
+            endpoints:
+              - http://victoria-logs.monitoring.svc.cluster.local:9428/insert/elasticsearch
+            mode: bulk
+            api_version: v8
+            compression: gzip
+            healthcheck:
+              enabled: false
+            request:
+              headers:
+                VL-Time-Field: timestamp
+                VL-Stream-Fields: stream,kubernetes.pod_name,kubernetes.container_name,kubernetes.pod_namespace
+                VL-Msg-Field: message,msg,_msg,log.msg,log.message,log
+                AccountID: "0"
+                ProjectID: "0"
+
     dashboards:
       enabled: true

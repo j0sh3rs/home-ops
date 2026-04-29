@@ -12,6 +12,7 @@ resources:
   - ./kube-prometheus-stack/ks.yaml
   - ./thanos/ks.yaml
   - ./unpoller/ks.yaml
+  - ./victoria-logs/ks.yaml
 # node-exporter + kube-prometheus-stack need hostNetwork/hostPID/hostPath/hostPort,
 # which PodSecurity "baseline" rejects. Label the namespace "privileged" so those
 # workloads can run. Other namespaces are unaffected.
