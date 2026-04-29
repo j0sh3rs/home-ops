@@ -29,6 +29,12 @@ spec:
           parentRefs:
             - name: traefik-gateway
               namespace: network
+          filters:
+            - type: ExtensionRef
+              extensionRef:
+                group: traefik.io
+                kind: Middleware
+                name: oidc-auth0-secure
       alertmanagerSpec:
         alertmanagerConfiguration:
           name: alertmanager
@@ -57,6 +63,12 @@ spec:
           parentRefs:
             - name: traefik-gateway
               namespace: network
+          filters:
+            - type: ExtensionRef
+              extensionRef:
+                group: traefik.io
+                kind: Middleware
+                name: oidc-auth0-secure
       prometheusSpec:
         securityContext:
           runAsNonRoot: true
