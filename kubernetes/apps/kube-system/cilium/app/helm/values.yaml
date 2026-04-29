@@ -6,7 +6,10 @@ bandwidthManager:
   bbr: true
 bpf:
   datapathMode: netkit
-  masquerade: false
+  # Full eBPF datapath: skip iptables for outbound NAT and host-routing paths.
+  # Safe with kubeProxyReplacement + native routing + autoDirectNodeRoutes.
+  masquerade: true
+  hostLegacyRouting: false
   preallocateMaps: true
   # tproxy: true
 bpfClockProbe: true
