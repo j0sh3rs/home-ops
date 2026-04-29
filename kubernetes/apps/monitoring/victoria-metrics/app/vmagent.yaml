@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/operator.victoriametrics.com/vmagent_v1beta1.json
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAgent
+metadata:
+  name: vmagent
+spec:
+  replicaCount: 1
+  scrapeInterval: "30s"
+  # Pick up every ServiceMonitor / PodMonitor / Probe / VMRule in the cluster
+  # without requiring a selector. vm-operator also auto-converts prom-operator
+  # CRDs, so existing kube-prometheus-stack targets are included.
+  selectAllByDefault: true
+  remoteWrite:
+    - url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/write
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  serviceScrapeSpec:
+    endpoints:
+      - port: http
+        interval: 30s

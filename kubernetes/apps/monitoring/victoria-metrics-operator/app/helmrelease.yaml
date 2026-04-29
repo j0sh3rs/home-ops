@@ -1,0 +1,47 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: victoria-metrics-operator
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: victoria-metrics-operator
+  interval: 1h
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+  values:
+    fullnameOverride: vm-operator
+    crds:
+      enabled: true
+      upgrade:
+        enabled: true
+        forceConflicts: true
+    # Auto-convert Prometheus operator CRDs (ServiceMonitor/PodMonitor/Probe/
+    # PrometheusRule) into VictoriaMetrics equivalents so existing kube-prom-stack
+    # resources continue to work during the parallel-run migration.
+    operator:
+      disable_prometheus_converter: false
+      enable_converter_ownership: true
+    serviceMonitor:
+      enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    # Prefer bee-jms-03 (64GB node) so the operator control plane is colocated
+    # with the VMsingle data plane — cheap affinity, falls back if unschedulable.
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: node.kubernetes.io/memory-tier
+                  operator: In
+                  values: [high]

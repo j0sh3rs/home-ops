@@ -1,0 +1,39 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/operator.victoriametrics.com/vmsingle_v1beta1.json
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMSingle
+metadata:
+  name: vmsingle
+spec:
+  retentionPeriod: "30d"
+  replicaCount: 1
+  extraArgs:
+    promscrape.maxScrapeSize: "67108864"
+    # Dedup samples at scrape-level during parallel-run so both Prom remote_write
+    # and vmagent-direct scrape don't double-count.
+    dedup.minScrapeInterval: "1ms"
+  storage:
+    accessModes: [ReadWriteOnce]
+    storageClassName: openebs-hostpath
+    resources:
+      requests:
+        storage: 100Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      memory: 4Gi
+  # Pin to bee-jms-03 (64GB node) — VMsingle perf is RAM-bound for indexes.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node.kubernetes.io/memory-tier
+                operator: In
+                values: [high]
+  serviceScrapeSpec:
+    endpoints:
+      - port: http
+        interval: 30s

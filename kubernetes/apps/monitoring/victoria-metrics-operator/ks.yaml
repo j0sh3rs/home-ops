@@ -1,0 +1,24 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: victoria-metrics-operator
+  namespace: flux-system
+spec:
+  targetNamespace: monitoring
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: victoria-metrics-operator
+  dependsOn:
+    - name: kube-prometheus-stack
+  path: ./kubernetes/apps/monitoring/victoria-metrics-operator/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Operator CRDs must be installed before VMSingle/VMAgent CRs reference them.
+  wait: true
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m
