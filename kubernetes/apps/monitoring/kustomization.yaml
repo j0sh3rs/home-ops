@@ -10,7 +10,23 @@ resources:
   - ./grafana/ks.yaml
   - ./grafana/dashboards/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
-  # - ./netdata/ks.yaml
   - ./thanos/ks.yaml
   - ./unpoller/ks.yaml
-  # - ./victoria-logs/ks.yaml
+# node-exporter + kube-prometheus-stack need hostNetwork/hostPID/hostPath/hostPort,
+# which PodSecurity "baseline" rejects. Label the namespace "privileged" so those
+# workloads can run. Other namespaces are unaffected.
+patches:
+  - target:
+      kind: Namespace
+      # Original name from components/common/namespace.yaml; kustomize rewrites
+      # this to "monitoring" via the `namespace:` field above.
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          pod-security.kubernetes.io/enforce: privileged
+          pod-security.kubernetes.io/audit: privileged
+          pod-security.kubernetes.io/warn: privileged

@@ -238,14 +238,16 @@ Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{compone
 
 ### Observability
 
-- **Grafana** — Unified dashboards (deployed via Grafana Operator with `GrafanaInstance` + `GrafanaDashboard` CRDs)
-- **kube-prometheus-stack** — Prometheus with ServiceMonitors, recording rules, and alerting
-- **Thanos** — Long-term metrics storage with S3 backend (`thanos-blocks` bucket)
-- **Victoria Logs** — Log aggregation with S3 persistence and syslog ingestion
-- **netdata** — Real-time system metrics and visualization
-- **unpoller** — UniFi network device monitoring
+- **Grafana** — Unified dashboards (deployed via Grafana Operator with `GrafanaInstance` + `GrafanaDashboard` CRDs). Anonymous auth enabled for LAN; root URL `grafana.68cc.io`.
+- **kube-prometheus-stack** — Prometheus with ServiceMonitors, recording rules, and alerting. Runs the `prompp/prompp` C++ PromQL drop-in image (version override `v2.55.1`). **Slated for replacement** by VictoriaMetrics under epic `home-ops-v17`.
+- **Thanos** — Long-term metrics storage with S3 backend (`thanos-blocks` bucket). Query, store-gateway, compact. **Slated for removal** after VMsingle migration.
+- **Alertmanager** — Discord webhook for `severity=critical`, 12h repeat, `Watchdog`/`InfoInhibitor` blackholed.
+- **unpoller** — UniFi network device monitoring (2m scrape interval, UniFi API rate-limited).
+- **Tetragon** — Runtime security metrics + Grafana dashboard (deployed in `kube-system`, not `monitoring`).
 
-**Note**: Single-replica deployments; S3 provides durability.
+**Log aggregation is currently disabled.** `victoria-logs` manifests exist but are commented out in `kubernetes/apps/monitoring/kustomization.yaml`. Restoration tracked by `home-ops-d1e`. No application log backend until that lands.
+
+**Note**: Single-replica deployments; S3 provides durability. Prometheus runs 6h local retention with all long-term data in Thanos-managed S3 blocks.
 
 ### Databases
 
