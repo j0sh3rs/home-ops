@@ -16,6 +16,28 @@ helm list -A --kube-context home
 flux get ks -A --context home
 ```
 
+## Token-Efficient Commands (RTK)
+
+Prefix all commands with `rtk` per `~/CLAUDE.md` for 60-85% token savings:
+
+```bash
+rtk kubectl get pods -A --context home
+rtk flux get ks -A --context home
+rtk helm list -A --kube-context home
+rtk kubectl logs <pod> -n <ns> --context home
+```
+
+## Task Tracking (Beads)
+
+Issue tracker backed by Dolt (`dolt.68cc.io:3306`). Use `bd` CLI:
+
+```bash
+bd list              # List open tasks
+bd show <id>         # Show task details
+bd ready             # Tasks ready to work (no blockers)
+bd create            # Create new issue interactively
+```
+
 ## Development Environment
 
 **Tool chain**: `mise` installs `aqua` (via `aqua:cli/cli` in `.mise.toml`), which pins `talhelper` and `talos` CLI versions via `aqua.yaml`.
@@ -54,7 +76,7 @@ task bootstrap:apps                              # Apply initial app manifests v
 
 ```bash
 task flux:reconcile                              # Force git source + all kustomizations reconcile
-task flux:apply path=network/cloudflared         # Build and apply a specific Flux Kustomization
+task flux:apply path=network/cloudflare-dns      # Build and apply a specific Flux Kustomization
 task flux:status                                 # Show status of all Kustomizations and HelmReleases
 task flux:check                                  # Check Flux components health
 task flux:logs name=grafana ns=monitoring        # Show logs for a HelmRelease
@@ -137,6 +159,21 @@ spec:
 ```
 
 Helm repository definitions live in `kubernetes/flux/meta/repos/`.
+
+**When adding a new app, ALWAYS check for an OCI-published chart first.** Most upstreams now publish to `ghcr.io` or `oci://` registries. Only fall back to `HelmRepository` + `sourceRef` when the upstream has no OCI artifact available. If you're copying an existing legacy-pattern app as a template, migrate it to `OCIRepository` + `chartRef` during the copy.
+
+**Legacy `HelmRepository` + `sourceRef` apps pending OCI migration** (migrate opportunistically when touching them):
+- `kubernetes/apps/cert-manager/cert-manager/` — `charts.jetstack.io` (check for OCI equivalent)
+- `kubernetes/apps/databases/cloudnative-pg/` — `cloudnative-pg.github.io` (OCI available: `ghcr.io/cloudnative-pg/charts`)
+- `kubernetes/apps/databases/dragonflydb/` — hybrid: `HelmRepository` kind but `oci://` URL → switch to proper `OCIRepository`
+- `kubernetes/apps/velero/` — `vmware-tanzu.github.io`
+- `kubernetes/apps/kube-system/amd-gpu/` — `rocm.github.io/k8s-device-plugin`
+- `kubernetes/apps/kube-system/descheduler/` — OCI available: `ghcr.io/kubernetes-sigs/descheduler`
+- `kubernetes/apps/kube-system/nfs-external-provisioner/` — `kubernetes-sigs.github.io/nfs-subdir-external-provisioner`
+- `kubernetes/apps/kube-system/tetragon/` — has local `helmrepository.yaml`; check for OCI
+- `kubernetes/flux/meta/repos/{prometheus-community,bjw-s}.yaml` — already `oci://` URLs but declared as `HelmRepository`; migrate to `OCIRepository` where charts consume them
+
+Note: `kubernetes/flux/meta/repos/{toolhive-operator,toolhive-operator-crds}.yaml` are the reference examples — already `OCIRepository` with `chartRef` in their HelmReleases.
 
 ### app-template (bjw-s) for apps without a Helm chart
 
@@ -348,3 +385,50 @@ kustomize build kubernetes/apps/{namespace}/{app}/app
 # Check SOPS encryption status
 task sops:verify
 ```
+
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+## Beads Issue Tracker
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+
+### Quick Reference
+
+```bash
+bd ready              # Find available work
+bd show <id>          # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>         # Complete work
+```
+
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Run `bd prime` for detailed command reference and session close protocol
+- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+
+## Session Completion
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **PUSH TO REMOTE** - This is MANDATORY:
+   ```bash
+   git pull --rebase
+   bd dolt push
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+<!-- END BEADS INTEGRATION -->
