@@ -42,7 +42,7 @@ spec:
       redis:
         enabled: true
         address: dragonflydb.databases.svc.cluster.local:6379
-        db: 0
+        db: 1
         keyPrefix: "traefikoidc:auth0:"
         cacheMode: hybrid
         poolSize: 20
