@@ -43,6 +43,19 @@ spec:
           - name: traefik-gateway
             namespace: network
         rules:
-          - backendRefs:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: oidc-auth0-secure
+                  namespace: network
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: security-headers
+                  namespace: network
+            backendRefs:
               - name: *app
                 port: *port
