@@ -21,6 +21,15 @@ spec:
           - name: alertname
             value: InfoInhibitor
             matchType: =
+      # Parity-soak gate (home-ops-c51): vmalert stamps alerts with the
+      # externalLabel alertSource=vmalert. Blackhole them so Discord isn't
+      # double-paged while Prom alerting is still live. Drop this route
+      # when Prom is decommissioned in home-ops-8bb.
+      - receiver: blackhole
+        matchers:
+          - name: alertSource
+            value: vmalert
+            matchType: =
       - receiver: discord
         matchers:
           - name: severity

@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/operator.victoriametrics.com/vmalert_v1beta1.json
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMAlert
+metadata:
+  name: vmalert
+spec:
+  replicaCount: 2
+  evaluationInterval: "30s"
+  # Pick up every VMRule (including the 45 auto-converted from PrometheusRules)
+  # across all namespaces without a selector.
+  selectAllByDefault: true
+  datasource:
+    url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429
+  # Persist stateful alert state so `.for:` clauses survive restarts.
+  remoteRead:
+    url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429
+  remoteWrite:
+    url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429
+  notifiers:
+    - url: http://prometheus-alertmanager.monitoring.svc.cluster.local:9093
+  # Tag every vmalert-originated alert so Alertmanager can route them to a
+  # blackhole receiver during the parallel-run parity soak — prevents double
+  # Discord notifications while Prom alerting is still live.
+  externalLabels:
+    alertSource: vmalert
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
