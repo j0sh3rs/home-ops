@@ -40,7 +40,14 @@ spec:
             env:
               PAPERLESS_URL: "https://paperless.68cc.io"
               PAPERLESS_PORT: "8000"
-              PAPERLESS_REDIS: "redis://dragonflydb.databases.svc.cluster.local:6379"
+              # DragonflyDB now requires AUTH. Password injected via env-var
+              # (DRAGONFLYDB_PASSWORD) from the reflected dragonflydb-auth
+              # Secret; URL expansion happens at container start.
+              PAPERLESS_REDIS: "redis://:$(DRAGONFLYDB_PASSWORD)@dragonflydb.databases.svc.cluster.local:6379"
+              DRAGONFLYDB_PASSWORD:
+                secretKeyRef:
+                  name: dragonflydb-auth
+                  key: password
               PAPERLESS_DBPORT: "5432"
               # Tika + Gotenberg for Office document support
               PAPERLESS_TIKA_ENABLED: "1"
