@@ -33,11 +33,11 @@ spec:
             env:
               TZ: America/New_York
               LOG_TARGETS: stdout
-              HOMEPAGE_ALLOWED_HOSTS: home.68cc.io,homepage.services.svc.cluster.local,$(MY_POD_IP):3000
-              MY_POD_IP:
-                valueFrom:
-                  fieldRef:
-                    fieldPath: status.podIP
+              # Host validation is defense-in-depth against DNS rebinding.
+              # Our external hostname is already gated at the Traefik HTTPRoute
+              # layer (hostname match + OIDC). Allow * here so in-cluster probes
+              # (kubelet hits pod IP) + internal service DNS don't get rejected.
+              HOMEPAGE_ALLOWED_HOSTS: "*"
             resources:
               requests:
                 cpu: 100m
