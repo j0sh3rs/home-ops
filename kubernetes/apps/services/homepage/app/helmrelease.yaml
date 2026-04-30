@@ -101,7 +101,7 @@ spec:
                 port: *port
     persistence:
       config:
-        type: configMap
+        type: secret
         name: homepage-config
         globalMounts:
           - path: /app/config/bookmarks.yaml
