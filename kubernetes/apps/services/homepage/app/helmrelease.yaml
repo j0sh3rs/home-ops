@@ -17,11 +17,11 @@ spec:
     remediation:
       retries: 3
   values:
-    defaultPodOptions:
-      serviceAccountName: homepage
     controllers:
       homepage:
         strategy: RollingUpdate
+        serviceAccount:
+          name: homepage
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
