@@ -15,7 +15,7 @@ metadata:
 spec:
   plugin:
     traefikoidc:
-      providerURL: https://68ccio.us.auth0.com
+      providerURL: https://auth.68cc.io
       clientID: urn:k8s:secret:traefik-secrets:AUTH0_CLIENT_ID
       clientSecret: urn:k8s:secret:traefik-secrets:AUTH0_CLIENT_SECRET
       sessionEncryptionKey: urn:k8s:secret:traefik-secrets:SESSION_ENCRYPTION_KEY
