@@ -43,11 +43,11 @@ spec:
       route:
         enabled: true
         annotations:
-          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
         hostnames:
           - logs.68cc.io
         parentRefs:
-          - name: traefik-external-gateway
+          - name: traefik-internal-gateway
             namespace: network
         filters:
           - type: ExtensionRef

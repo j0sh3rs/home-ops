@@ -23,11 +23,11 @@ spec:
         main:
           enabled: true
           annotations:
-            external-dns.alpha.kubernetes.io/target: 192.168.35.15
+            external-dns.alpha.kubernetes.io/target: 192.168.35.17
           hostnames:
             - alertmanager.68cc.io
           parentRefs:
-            - name: traefik-external-gateway
+            - name: traefik-internal-gateway
               namespace: network
           filters:
             - type: ExtensionRef
@@ -57,11 +57,11 @@ spec:
         main:
           enabled: true
           annotations:
-            external-dns.alpha.kubernetes.io/target: 192.168.35.15
+            external-dns.alpha.kubernetes.io/target: 192.168.35.17
           hostnames:
             - prometheus.68cc.io
           parentRefs:
-            - name: traefik-external-gateway
+            - name: traefik-internal-gateway
               namespace: network
           filters:
             - type: ExtensionRef
