@@ -10,7 +10,7 @@ metadata:
 spec:
   plugin:
     traefikoidc:
-      providerURL: https://68ccio.us.auth0.com
+      providerURL: https://auth.68cc.io/
       clientID: "${AUTH0_CLIENT_ID}"
       clientSecret: "${AUTH0_CLIENT_SECRET}"
       sessionEncryptionKey: "${SESSION_ENCRYPTION_KEY}"
