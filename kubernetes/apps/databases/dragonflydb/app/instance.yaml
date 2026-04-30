@@ -24,6 +24,10 @@ spec:
     - --logtostderr
     - --memcached_port=11211
     - --default_lua_flags=allow-undeclared-keys
+  authentication:
+    passwordFromSecret:
+      name: dragonflydb-auth
+      key: password
 ---
 apiVersion: v1
 kind: Service

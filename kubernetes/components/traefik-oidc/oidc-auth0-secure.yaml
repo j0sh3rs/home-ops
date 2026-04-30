@@ -42,7 +42,13 @@ spec:
       redis:
         enabled: true
         address: dragonflydb.databases.svc.cluster.local:6379
+        password: urn:k8s:secret:dragonflydb-auth:password
         db: 1
+        # Single shared keyPrefix across all opted-in namespaces is intentional:
+        # sessions are user-scoped (single user: j0sh3rs@gmail.com) and the
+        # plugin uses per-user session IDs, so no cross-site collision. Sharing
+        # also provides implicit SSO across sites without re-authentication
+        # (same session cookie recognised by any Middleware copy).
         keyPrefix: "traefikoidc:auth0:"
         cacheMode: hybrid
         poolSize: 20

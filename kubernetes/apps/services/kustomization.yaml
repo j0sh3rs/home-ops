@@ -19,3 +19,23 @@ resources:
   - ./ollama/ks.yaml
   - ./open-webui/ks.yaml
   #  - ./paperless/ks.yaml
+
+# home-assistant needs hostNetwork=true for mDNS/UPnP device auto-discovery.
+# PodSecurity "baseline" rejects host namespaces, so label the namespace
+# "privileged". No other service in this namespace currently uses host
+# namespaces — this is an HA-driven exception. Same pattern as monitoring ns.
+patches:
+  - target:
+      kind: Namespace
+      # Original name from components/common/namespace.yaml; kustomize rewrites
+      # this to "services" via the `namespace:` field above.
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          pod-security.kubernetes.io/enforce: privileged
+          pod-security.kubernetes.io/audit: privileged
+          pod-security.kubernetes.io/warn: privileged

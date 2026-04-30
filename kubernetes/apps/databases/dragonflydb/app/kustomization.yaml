@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - https://raw.githubusercontent.com/dragonflydb/dragonfly-operator/main/manifests/dragonfly-operator.yaml
   - ./instance.yaml
+  - ./secret.sops.yaml

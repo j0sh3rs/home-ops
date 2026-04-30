@@ -14,6 +14,9 @@ spec:
         ipStrategy:
           depth: 2
       redisAddress: "dragonflydb.databases.svc.cluster.local:6379"
+      # $DRAGONFLYDB_PASSWORD env-var expansion; plugin reads value from
+      # traefik-secrets (mounted via HelmRelease envFrom).
+      redisPassword: "$DRAGONFLYDB_PASSWORD"
       redisDb: 3
       redisConnectionTimeout: 2
       whitelistIPs:
