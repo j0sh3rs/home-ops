@@ -9,7 +9,7 @@ metadata:
     external-dns.alpha.kubernetes.io/hostname: dolt.68cc.io
 spec:
   parentRefs:
-    - name: traefik-gateway
+    - name: traefik-external-gateway
       namespace: network
       sectionName: mysql
   rules:

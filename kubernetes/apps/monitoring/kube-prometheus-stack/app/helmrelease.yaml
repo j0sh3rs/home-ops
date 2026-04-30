@@ -27,7 +27,7 @@ spec:
           hostnames:
             - alertmanager.68cc.io
           parentRefs:
-            - name: traefik-gateway
+            - name: traefik-external-gateway
               namespace: network
           filters:
             - type: ExtensionRef
@@ -61,7 +61,7 @@ spec:
           hostnames:
             - prometheus.68cc.io
           parentRefs:
-            - name: traefik-gateway
+            - name: traefik-external-gateway
               namespace: network
           filters:
             - type: ExtensionRef

@@ -10,7 +10,7 @@ spec:
   hostnames:
     - hubble.68cc.io
   parentRefs:
-    - name: traefik-gateway
+    - name: traefik-external-gateway
       namespace: network
   rules:
     - filters:
