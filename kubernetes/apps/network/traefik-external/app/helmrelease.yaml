@@ -121,10 +121,6 @@ spec:
     gatewayClass:
       enabled: true
       name: traefik-external
-      name: traefik-external
-    gatewayClass:
-      enabled: true
-      name: traefik-external
     additionalArguments:
       - --entryPoints.web.http.redirections.entryPoint.to=websecure
       - --entryPoints.web.http.redirections.entryPoint.scheme=https
