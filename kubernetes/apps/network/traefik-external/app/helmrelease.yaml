@@ -122,6 +122,8 @@ spec:
     gatewayClass:
       enabled: true
       name: traefik-external
+      labels:
+        ingress: external
     additionalArguments:
       - --entryPoints.web.http.redirections.entryPoint.to=websecure
       - --entryPoints.web.http.redirections.entryPoint.scheme=https
@@ -159,6 +161,7 @@ spec:
       kubernetesGateway:
         enabled: true
         experimentalChannel: true
+        labelSelector: "ingress=external"
     resources:
       requests:
         cpu: 200m
