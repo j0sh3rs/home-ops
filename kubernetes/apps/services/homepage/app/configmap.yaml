@@ -77,6 +77,13 @@ data:
   docker.yaml: |
     # Docker socket not exposed to homepage; left empty intentionally.
 
+  proxmox.yaml: |
+    # No Proxmox integration; stub to satisfy homepage startup seeding.
+
+  custom.css: ""
+
+  custom.js: ""
+
   services.yaml: |
     # Grafana, Home Assistant, Linkwarden, IT-Tools surface via HTTPRoute
     # gethomepage.dev/* annotations (Gateway API auto-discovery).
