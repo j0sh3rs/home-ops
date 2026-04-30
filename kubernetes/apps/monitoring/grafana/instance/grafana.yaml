@@ -13,10 +13,37 @@ spec:
       check_for_plugin_updates: "false"
       feedback_links_enabled: "false"
       reporting_enabled: "false"
+    # Grafana trusts the X-Forwarded-User header set by the Traefik
+    # oidc-auth0-secure middleware (see
+    # kubernetes/components/traefik-oidc/oidc-auth0-secure.yaml). All
+    # external ingress transits that middleware via the HTTPRoute filter
+    # in instance/httproute.yaml, and there is no Service-level path that
+    # bypasses it, so the auth_proxy whitelist is safe to scope to the
+    # cluster pod CIDR. Auth0 identity (email) becomes the Grafana
+    # username; auto_sign_up creates the Grafana account on first login.
     auth:
-      disable_login_form: "false"
+      # Hide the /login form to force OIDC-only. The admin credential
+      # can still sign in via POST /login?disableLoginForm=false if
+      # needed during emergencies.
+      disable_login_form: "true"
+      # Send the Grafana logout action through Traefik's logout handler
+      # so the OIDC session cookie is cleared at the same time.
+      signout_redirect_url: /oauth2/logout
     auth.anonymous:
+      enabled: "false"
+    auth.proxy:
       enabled: "true"
+      header_name: X-Forwarded-User
+      header_property: email
+      auto_sign_up: "true"
+      # Cilium native routing preserves source IP; the Traefik DaemonSet
+      # pods live in the cluster pod CIDR.
+      whitelist: 10.42.0.0/16
+      # Issue a Grafana login token on first proxy-authed request so the
+      # header isn't re-read on every subsequent request.
+      enable_login_token: "true"
+      # Re-sync user metadata (name/email) from the header every 60s.
+      sync_ttl: "60"
     log:
       mode: console
     metrics:
