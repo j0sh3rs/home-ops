@@ -4,6 +4,8 @@ kind: Kustomization
 resources:
   # Gateway API CRDs, gateway-RBAC, wildcard cert, traefik-secrets, and the
   # network-namespace Middlewares are all provided by traefik-external. This
-  # file only owns the internal Traefik HelmRelease + its chart source.
+  # file only owns the internal Traefik HelmRelease + its chart source +
+  # a Cilium NetworkPolicy restricting ingress to LAN CIDR.
   - ./ocirepository.yaml
   - ./helmrelease.yaml
+  - ./networkpolicy.yaml

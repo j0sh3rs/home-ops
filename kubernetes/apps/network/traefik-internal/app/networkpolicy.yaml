@@ -1,0 +1,38 @@
+---
+# Restrict ingress to traefik-internal pods to LAN (192.168.35.0/24) + cluster
+# pod CIDR (for kube-probe health checks + prom scrape).
+# Traefik-external has no such restriction — it's WAN-reachable via router
+# port-forward on 192.168.35.15.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: traefik-internal-ingress
+  namespace: network
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: traefik-internal-network
+      app.kubernetes.io/name: traefik
+  ingress:
+    - fromCIDR:
+        - 192.168.35.0/24
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+            - port: "443"
+              protocol: UDP
+    # Allow intra-cluster traffic (health probes, ServiceMonitor scrapes,
+    # pod-to-pod calls if any app ever needs it).
+    - fromEntities:
+        - cluster
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+            - port: "9100"
+              protocol: TCP
