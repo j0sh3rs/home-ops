@@ -35,10 +35,13 @@ spec:
       # Forward the Auth0 display name to backends as X-Forwarded-Name so
       # Grafana (and any other proxy-auth consumer) can populate Profile
       # Name automatically. The `profile` scope above already guarantees
-      # the `name` claim is present in the ID token.
+      # the `name` claim is present in the ID token. Standard Go template
+      # form — the README's quadruple-brace example was Helm-escape
+      # context, not a plugin requirement (traefikoidc parses the value
+      # directly at startup and fails the middleware on parse error).
       headers:
         - name: X-Forwarded-Name
-          value: "{{{{.Claims.name}}}}"
+          value: "{{ .Claims.name }}"
 
       strictAudienceValidation: true
 
