@@ -7,3 +7,4 @@ resources:
   - victorialogs-grafanadashboard.yaml
   - tetragon-configmap.yaml
   - tetragon-grafanadashboard.yaml
+  - vm-dashboards.yaml

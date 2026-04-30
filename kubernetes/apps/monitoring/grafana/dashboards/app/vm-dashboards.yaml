@@ -1,0 +1,73 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: vmsingle
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: VictoriaMetrics
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 10229
+    revision: 51
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: vmagent
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: VictoriaMetrics
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 12683
+    revision: 34
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: vmalert
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: VictoriaMetrics
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 14950
+    revision: 18
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: vm-operator
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: VictoriaMetrics
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 17869
+    revision: 8
