@@ -1,0 +1,204 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: traefik-internal
+  namespace: network
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: traefik-internal
+    namespace: network
+  interval: 1h
+  timeout: 2m
+  values:
+    # Secret volume + env mirrored from traefik-external so the same traefikoidc
+    # plugin session-encryption / client-secret works for LAN traffic.
+    volumes:
+      - name: traefik-secrets
+        mountPath: /etc/traefik/secrets
+        type: secret
+        secretName: traefik-secrets
+    envFrom:
+      - secretRef:
+          name: traefik-secrets
+    global:
+      checkNewVersion: false
+      sendAnonymousUsage: false
+    image:
+      # renovate: datasource=docker depName=traefik
+      tag: v3.6.15
+    experimental:
+      plugins:
+        traefikoidc:
+          # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
+          moduleName: "github.com/lukaszraczylo/traefikoidc"
+          version: "v0.8.1"
+      otlpLogs: false
+    ocsp:
+      enabled: true
+    ports:
+      web:
+        port: 80
+        expose:
+          default: true
+        protocol: TCP
+      websecure:
+        port: 443
+        expose:
+          default: true
+        protocol: TCP
+        http3:
+          enabled: true
+        transport:
+          respondingTimeouts:
+            readTimeout: 60
+            writeTimeout: 120
+            idleTimeout: 180
+      metrics:
+        port: 9100
+        expose:
+          default: false
+        protocol: TCP
+    gateway:
+      enabled: true
+      name: traefik-internal-gateway
+      listeners:
+        web:
+          port: 80
+          protocol: HTTP
+          namespacePolicy:
+            from: All
+        websecure:
+          port: 443
+          protocol: HTTPS
+          namespacePolicy:
+            from: All
+          certificateRefs:
+            - name: 68cc-io-tls
+              kind: Secret
+    ingressClass:
+      enabled: true
+      isDefaultClass: false
+      name: traefik-internal
+    gatewayClass:
+      enabled: true
+      name: traefik-internal
+    additionalArguments:
+      - --entryPoints.web.http.redirections.entryPoint.to=websecure
+      - --entryPoints.web.http.redirections.entryPoint.scheme=https
+      - --entryPoints.web.http.redirections.entryPoint.permanent=true
+      - --entryPoints.web.http.middlewares=network-security-headers@kubernetescrd
+      - --entryPoints.web.observability.accessLogs=false
+      - --entryPoints.web.observability.metrics=false
+      - --entryPoints.web.observability.tracing=false
+      - --entryPoints.web.reuseport=true
+      - --entryPoints.web.proxyProtocol=true
+      - --entryPoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entryPoints.websecure.http.middlewares=network-security-headers@kubernetescrd
+      - --entryPoints.websecure.proxyProtocol=true
+      - --entryPoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entryPoints.websecure.reuseport=true
+      - --accesslog.filters.minduration=50ms
+    deployment:
+      kind: DaemonSet
+      revisionHistoryLimit: 3
+      goMemLimitPercentage: 90
+      lifecycle:
+        preStop:
+          exec:
+            command: ["/bin/sh", "-c", "sleep 5"]
+    providers:
+      kubernetesCRD:
+        enabled: true
+        allowCrossNamespace: true
+      kubernetesIngress:
+        enabled: true
+      kubernetesGateway:
+        enabled: true
+        experimentalChannel: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    service:
+      type: LoadBalancer
+      annotations:
+        io.cilium/lb-ipam-ips: "192.168.35.16"
+        service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
+      spec:
+        externalTrafficPolicy: Local
+    metrics:
+      prometheus:
+        enabled: true
+        entryPoint: metrics
+        addEntryPointsLabels: true
+        addRoutersLabels: true
+        addServicesLabels: true
+        serviceMonitor:
+          enabled: true
+          enableHttp2: true
+        prometheusRule:
+          enabled: true
+          rules:
+            - alert: TraefikInternalAbsent
+              expr: absent(traefik_entrypoint_open_connections{service="traefik-internal-metrics"}) == 1
+              for: 5m
+              labels:
+                severity: critical
+                component: ingress
+                instance: internal
+              annotations:
+                summary: "Traefik-internal metrics absent"
+                description: "Traefik-internal has stopped reporting metrics for 5 minutes."
+            - alert: TraefikInternalHighHTTP5xxErrorRate
+              expr: |
+                sum by (entrypoint) (
+                  rate(traefik_entrypoint_requests_total{service="traefik-internal-metrics", code=~"5.."}[5m])
+                )
+                /
+                sum by (entrypoint) (
+                  rate(traefik_entrypoint_requests_total{service="traefik-internal-metrics"}[5m])
+                ) > 0.05
+              for: 5m
+              labels:
+                severity: warning
+                component: ingress
+                instance: internal
+              annotations:
+                summary: "Traefik-internal high 5xx error rate on {{ $labels.entrypoint }}"
+                description: "{{ $value | humanizePercentage }} of requests to {{ $labels.entrypoint }} are returning 5xx errors."
+      otlp:
+        enabled: false
+        http:
+          enabled: false
+    logs:
+      general:
+        level: INFO
+        otlp:
+          enabled: false
+        format: json
+      access:
+        enabled: true
+        format: json
+        otlp:
+          enabled: false
+        fields:
+          general:
+            defaultmode: keep
+            names:
+              ServiceName: keep
+          headers:
+            defaultmode: drop
+    # No dashboard IngressRoute — external Traefik hosts dash.68cc.io.
+    ingressRoute:
+      dashboard:
+        enabled: false
+    tlsOptions:
+      default:
+        sniStrict: true
+        minVersion: VersionTLS13
