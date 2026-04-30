@@ -10,3 +10,21 @@ resources:
   # - ./tetragon/ks.yaml  # Disabled - Tetragon is deployed in kube-system namespace
   # - ./wazuh/ks.yaml  # Removed - Phase 5E: Replaced by Tetragon + VictoriaLogs
   - ./crowdsec/ks.yaml
+# CrowdSec agent DaemonSet mounts /var/log (hostPath), which PodSecurity
+# "baseline" rejects. Label the namespace "privileged" — same approach as
+# the monitoring namespace uses for node-exporter.
+patches:
+  - target:
+      kind: Namespace
+      # Original name from components/common/namespace.yaml; kustomize
+      # rewrites this to "security" via the `namespace:` field above.
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          pod-security.kubernetes.io/enforce: privileged
+          pod-security.kubernetes.io/audit: privileged
+          pod-security.kubernetes.io/warn: privileged
