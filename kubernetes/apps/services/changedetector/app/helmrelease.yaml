@@ -89,6 +89,12 @@ spec:
       app:
         annotations:
           external-dns.alpha.kubernetes.io/target: 192.168.35.15
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: ChangeDetector
+          gethomepage.dev/group: Apps
+          gethomepage.dev/icon: changedetection-io.png
+          gethomepage.dev/description: Website change monitoring
+          gethomepage.dev/href: https://cd.68cc.io
         hostnames: ["cd.68cc.io"]
         parentRefs:
           - name: traefik-external-gateway

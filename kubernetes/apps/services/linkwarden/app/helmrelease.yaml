@@ -66,6 +66,12 @@ spec:
       app:
         annotations:
           external-dns.alpha.kubernetes.io/target: 192.168.35.15
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Linkwarden
+          gethomepage.dev/group: Apps
+          gethomepage.dev/icon: linkwarden.png
+          gethomepage.dev/description: Bookmark manager
+          gethomepage.dev/href: https://links.68cc.io
         hostnames: ["links.68cc.io"]
         parentRefs:
           - name: traefik-external-gateway

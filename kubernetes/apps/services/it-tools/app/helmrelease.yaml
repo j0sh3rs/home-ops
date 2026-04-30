@@ -38,6 +38,12 @@ spec:
       app:
         annotations:
           external-dns.alpha.kubernetes.io/target: 192.168.35.15
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: IT Tools
+          gethomepage.dev/group: Apps
+          gethomepage.dev/icon: it-tools.png
+          gethomepage.dev/description: Developer utilities
+          gethomepage.dev/href: https://tools.68cc.io
         hostnames: ["tools.68cc.io"]
         parentRefs:
           - name: traefik-external-gateway

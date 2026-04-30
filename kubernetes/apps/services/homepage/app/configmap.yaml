@@ -78,11 +78,9 @@ data:
     # Docker socket not exposed to homepage; left empty intentionally.
 
   services.yaml: |
+    # Grafana, Home Assistant, Linkwarden, IT-Tools surface via HTTPRoute
+    # gethomepage.dev/* annotations (Gateway API auto-discovery).
     - Monitoring:
-        - Grafana:
-            href: https://grafana.68cc.io
-            description: Unified dashboards
-            icon: grafana.png
         - Alertmanager:
             href: https://alertmanager.68cc.io
             description: Alert routing + silences
@@ -111,10 +109,6 @@ data:
             icon: postgres.png
 
     - Apps:
-        - Home Assistant:
-            href: https://ha.68cc.io
-            description: Home automation
-            icon: home-assistant.png
         - Ollama:
             href: https://ollama.68cc.io
             description: Local LLM inference (internal)
@@ -127,18 +121,10 @@ data:
             href: https://n8n.68cc.io
             description: Workflow automation
             icon: n8n.png
-        - Linkwarden:
-            href: https://links.68cc.io
-            description: Bookmark manager
-            icon: linkwarden.png
         - Atuin:
             href: https://sh.68cc.io
             description: Shell history sync
             icon: atuin.png
-        - IT-Tools:
-            href: https://tools.68cc.io
-            description: IT utilities
-            icon: it-tools.png
 
     - Infra:
         - Flux:
@@ -155,7 +141,7 @@ data:
             icon: traefik.png
 
     - Storage:
-        - MinIO:
+        - RustFS:
             href: https://s3.68cc.io
             description: S3-compatible object storage
             icon: minio.png
