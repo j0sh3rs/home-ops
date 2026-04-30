@@ -13,6 +13,8 @@ data:
   settings.yaml: |
     title: 68cc.io Home
     headerStyle: clean
+    startUrl: https://68cc.io
+    background: https://assets.68cc.io/68cc_alt_logo.png
     theme: dark
     color: slate
     target: _blank
@@ -53,8 +55,11 @@ data:
           memory: true
           showLabel: true
     - search:
-        provider: duckduckgo
+        provider: custom
         target: _blank
+        url: https://kagi.com/search?q=%s
+        suggestionUrl: https://kagi.com/api/autosuggest?q=%s
+        showSearchSuggestions: true
     - datetime:
         text_size: xl
         format:
@@ -87,34 +92,6 @@ data:
   services.yaml: |
     # Grafana, Home Assistant, Linkwarden, IT-Tools surface via HTTPRoute
     # gethomepage.dev/* annotations (Gateway API auto-discovery).
-    - Monitoring:
-        - Alertmanager:
-            href: https://alertmanager.68cc.io
-            description: Alert routing + silences
-            icon: alertmanager.png
-        - VictoriaLogs:
-            href: https://logs.68cc.io
-            description: Log aggregation (VictoriaLogs)
-            icon: victoriametrics-logo.png
-        - Hubble:
-            href: https://hubble.68cc.io
-            description: Cilium network observability
-            icon: cilium.png
-        - Prometheus:
-            href: https://prometheus.68cc.io
-            description: Metrics (legacy, migrating to VM)
-            icon: prometheus.png
-
-    - Databases:
-        - Dolt:
-            href: https://dolt.68cc.io
-            description: Git-versioned MySQL-compatible DB
-            icon: mysql.png
-        - PostgreSQL:
-            href: https://pg.68cc.io
-            description: CloudNative-PG cluster
-            icon: postgres.png
-
     - Apps:
         - Ollama:
             href: https://ollama.68cc.io
@@ -138,14 +115,6 @@ data:
             href: https://flux-webhook.68cc.io
             description: GitOps webhook receiver
             icon: flux.png
-        - Traefik External:
-            href: https://traefik-external.68cc.io
-            description: External ingress
-            icon: traefik.png
-        - Traefik Internal:
-            href: https://traefik-internal.68cc.io
-            description: Internal ingress
-            icon: traefik.png
 
     - Storage:
         - RustFS:
