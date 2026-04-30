@@ -36,6 +36,12 @@ spec:
       header_name: X-Forwarded-User
       header_property: email
       auto_sign_up: "true"
+      # Additional headers the proxy trusts. The middleware sets
+      # X-Forwarded-Name from the Auth0 `name` claim (see
+      # kubernetes/components/traefik-oidc/oidc-auth0-secure.yaml). The
+      # space-separated `Property:Header` pairs populate matching fields
+      # on the Grafana user on sign-up and every sync_ttl refresh.
+      headers: "Name:X-Forwarded-Name Email:X-Forwarded-User"
       # Cilium native routing preserves source IP; the Traefik DaemonSet
       # pods live in the cluster pod CIDR.
       whitelist: 10.42.0.0/16
@@ -44,6 +50,11 @@ spec:
       enable_login_token: "true"
       # Re-sync user metadata (name/email) from the header every 60s.
       sync_ttl: "60"
+    users:
+      # Auto-created users (from auth.proxy.auto_sign_up) land as org
+      # Admin. Safe because the Traefik middleware's allowedUsers list
+      # only permits j0sh3rs@gmail.com to complete OIDC at all.
+      auto_assign_org_role: Admin
     log:
       mode: console
     metrics:

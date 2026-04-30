@@ -32,6 +32,14 @@ spec:
         - profile
         - email
 
+      # Forward the Auth0 display name to backends as X-Forwarded-Name so
+      # Grafana (and any other proxy-auth consumer) can populate Profile
+      # Name automatically. The `profile` scope above already guarantees
+      # the `name` claim is present in the ID token.
+      headers:
+        - name: X-Forwarded-Name
+          value: "{{{{.Claims.name}}}}"
+
       strictAudienceValidation: true
 
       allowedUsers:
