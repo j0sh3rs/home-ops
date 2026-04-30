@@ -3,7 +3,7 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
-  name: traefik
+  name: traefik-external
   namespace: network
 spec:
   interval: 15m
