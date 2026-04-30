@@ -1,0 +1,161 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config
+  namespace: services
+data:
+  kubernetes.yaml: |
+    mode: cluster
+    ingress: true
+    gateway: true
+
+  settings.yaml: |
+    title: 68cc.io Home
+    headerStyle: clean
+    theme: dark
+    color: slate
+    target: _blank
+    hideVersion: true
+    layout:
+      Monitoring:
+        style: row
+        columns: 4
+      Databases:
+        style: row
+        columns: 3
+      Apps:
+        style: row
+        columns: 4
+      Infra:
+        style: row
+        columns: 4
+      Storage:
+        style: row
+        columns: 3
+
+  widgets.yaml: |
+    - resources:
+        backend: kubernetes
+        expanded: true
+        cpu: true
+        memory: true
+    - kubernetes:
+        cluster:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+          label: "home"
+        nodes:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+    - search:
+        provider: duckduckgo
+        target: _blank
+    - datetime:
+        text_size: xl
+        format:
+          timeStyle: short
+          dateStyle: short
+
+  bookmarks.yaml: |
+    - Developer:
+        - GitHub:
+            - abbr: GH
+              href: https://github.com/j0sh3rs/home-ops
+    - Docs:
+        - Flux:
+            - abbr: FX
+              href: https://fluxcd.io/flux/
+        - Talos:
+            - abbr: TS
+              href: https://www.talos.dev/
+
+  docker.yaml: |
+    # Docker socket not exposed to homepage; left empty intentionally.
+
+  services.yaml: |
+    - Monitoring:
+        - Grafana:
+            href: https://grafana.68cc.io
+            description: Unified dashboards
+            icon: grafana.png
+        - Alertmanager:
+            href: https://alertmanager.68cc.io
+            description: Alert routing + silences
+            icon: alertmanager.png
+        - VictoriaLogs:
+            href: https://logs.68cc.io
+            description: Log aggregation (VictoriaLogs)
+            icon: victoriametrics-logo.png
+        - Hubble:
+            href: https://hubble.68cc.io
+            description: Cilium network observability
+            icon: cilium.png
+        - Prometheus:
+            href: https://prometheus.68cc.io
+            description: Metrics (legacy, migrating to VM)
+            icon: prometheus.png
+
+    - Databases:
+        - Dolt:
+            href: https://dolt.68cc.io
+            description: Git-versioned MySQL-compatible DB
+            icon: mysql.png
+        - PostgreSQL:
+            href: https://pg.68cc.io
+            description: CloudNative-PG cluster
+            icon: postgres.png
+
+    - Apps:
+        - Home Assistant:
+            href: https://ha.68cc.io
+            description: Home automation
+            icon: home-assistant.png
+        - Ollama:
+            href: https://ollama.68cc.io
+            description: Local LLM inference (internal)
+            icon: ollama.png
+        - Open WebUI:
+            href: https://ai.68cc.io
+            description: Web UI for Ollama
+            icon: open-webui.png
+        - N8N:
+            href: https://n8n.68cc.io
+            description: Workflow automation
+            icon: n8n.png
+        - Linkwarden:
+            href: https://links.68cc.io
+            description: Bookmark manager
+            icon: linkwarden.png
+        - Atuin:
+            href: https://sh.68cc.io
+            description: Shell history sync
+            icon: atuin.png
+        - IT-Tools:
+            href: https://tools.68cc.io
+            description: IT utilities
+            icon: it-tools.png
+
+    - Infra:
+        - Flux:
+            href: https://flux-webhook.68cc.io
+            description: GitOps webhook receiver
+            icon: flux.png
+        - Traefik External:
+            href: https://traefik-external.68cc.io
+            description: External ingress
+            icon: traefik.png
+        - Traefik Internal:
+            href: https://traefik-internal.68cc.io
+            description: Internal ingress
+            icon: traefik.png
+
+    - Storage:
+        - MinIO:
+            href: https://s3.68cc.io
+            description: S3-compatible object storage
+            icon: minio.png
