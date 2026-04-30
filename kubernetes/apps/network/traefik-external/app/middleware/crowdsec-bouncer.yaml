@@ -10,7 +10,11 @@ spec:
       enabled: true
       crowdsecLapiHost: crowdsec-service.security.svc.cluster.local:8080
       crowdsecLapiScheme: http
-      crowdsecLapiKey: /etc/traefik/secrets/CROWDSEC_BOUNCER_KEY
+      # Plugin convention for reading a value from a Traefik-accessible
+      # file is the `File` suffix on the variable name; without it the
+      # literal string is sent as the API key. traefik-secrets is mounted
+      # at /etc/traefik/secrets (see traefik HR volumes/secretName).
+      crowdsecLapiKeyFile: /etc/traefik/secrets/CROWDSEC_BOUNCER_KEY
       # crowdsecLapiTlsCertificateAuthorityFile: /etc/traefik/secrets/crowdsec-ca.crt
       # crowdsecLapiTlsCertificateBouncerFile: /etc/traefik/secrets/crowdsec-tls.crt
       # crowdsecLapiTlsCertificateBouncerKeyFile: /etc/traefik/secrets/crowdsec-tls.key
