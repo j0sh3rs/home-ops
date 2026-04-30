@@ -90,6 +90,7 @@ spec:
         protocol: TCP
     gateway:
       enabled: true
+      name: traefik-external-gateway
       listeners:
         web:
           port: 80
