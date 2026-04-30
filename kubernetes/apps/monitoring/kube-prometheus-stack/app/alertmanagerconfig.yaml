@@ -21,14 +21,18 @@ spec:
           - name: alertname
             value: InfoInhibitor
             matchType: =
-      # Parity-soak gate (home-ops-c51): vmalert stamps alerts with the
-      # externalLabel alertSource=vmalert. Blackhole them so Discord isn't
-      # double-paged while Prom alerting is still live. Drop this route
-      # when Prom is decommissioned in home-ops-8bb.
+      # Decom gate (home-ops-8bb stage 1): vmalert is now primary pager.
+      # Prom is still scraping and evaluating but its notifications must go
+      # nowhere to avoid duplicates. Prom alerts carry the external label
+      # prometheus=monitoring/prometheus; vmalert alerts have either no
+      # prometheus label or prometheus=monitoring/vmagent. Blackholing on
+      # the Prom label lets vmalert reach Discord while Prom goes quiet.
+      # Drop this route entirely when kube-prometheus-stack Prometheus is
+      # deleted later in 8bb (stage 2).
       - receiver: blackhole
         matchers:
-          - name: alertSource
-            value: vmalert
+          - name: prometheus
+            value: monitoring/prometheus
             matchType: =
       - receiver: discord
         matchers:
