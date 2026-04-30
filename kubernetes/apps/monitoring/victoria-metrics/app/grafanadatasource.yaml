@@ -12,7 +12,8 @@ spec:
     type: prometheus
     name: vmsingle
     access: proxy
-    isDefault: false
+    # Primary metrics datasource after home-ops-8bb decom of Prom + Thanos.
+    isDefault: true
     url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429
     jsonData:
       prometheusType: Prometheus
