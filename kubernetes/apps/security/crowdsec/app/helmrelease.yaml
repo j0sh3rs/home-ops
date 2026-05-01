@@ -48,6 +48,25 @@ spec:
                 - "10.42.0.0/16"
                 - "10.43.0.0/16"
                 - "192.168.35.0/24"
+      # home-ops-euq: local whitelist parser mounted into agent pods at
+      # /etc/crowdsec/parsers/s02-enrich/home-ops-whitelist.yaml. Runs after
+      # parse + enrich stages, blanks out the Overflow stage for matching IPs.
+      # crowdsecurity/whitelists already covers RFC1918 private ranges; this
+      # adds pod CIDR, service CIDR, and a home-WAN-IP placeholder to flip.
+      parsers:
+        s02-enrich:
+          home-ops-whitelist.yaml: |
+            name: home-ops/local-whitelist
+            description: "Whitelist cluster internals and known good operator IPs"
+            whitelist:
+              reason: "home-ops trusted ranges"
+              ip:
+                - "127.0.0.1"
+                # - "203.0.113.4"  # TODO: set to home WAN IP post-commit
+              cidr:
+                - "10.42.0.0/16"      # Cilium pod CIDR
+                - "10.43.0.0/16"      # k8s service CIDR
+                - "192.168.35.0/24"   # LAN
     lapi:
       enabled: true
       replicas: 1
@@ -96,6 +115,28 @@ spec:
           podName: "grafana-deployment-*"
           program: "grafana"
           poll_without_inotify: true
+        # Expanded coverage (home-ops-ei9). Each acquisition feeds the CRI-logs
+        # parser; `program` label routes downstream to matching collections.
+        - namespace: "monitoring"
+          podName: "victoria-logs-*"
+          program: "victoria-logs"
+          poll_without_inotify: true
+        - namespace: "kube-system"
+          podName: "coredns-*"
+          program: "coredns"
+          poll_without_inotify: true
+        - namespace: "databases"
+          podName: "postgres17-*"
+          program: "postgresql"
+          poll_without_inotify: true
+        - namespace: "databases"
+          podName: "dolt-*"
+          program: "dolt"
+          poll_without_inotify: true
+        - namespace: "services"
+          podName: "*"
+          program: "service"
+          poll_without_inotify: true
       # additionalAcquisition:
       #   - source: victorialogs
       #     mode: tail
@@ -138,5 +179,9 @@ spec:
           source: appsec
       enabled: true
       env:
+        # home-ops-gd7: added appsec-crs-outofband for a 1-week FP observation
+        # window — generates alerts but does not block. Inband + OOB running
+        # together lets us compare FP rates before flipping the bouncer's
+        # crowdsecAppsecFailureBlock to true (tracked in home-ops-bu8).
         - name: COLLECTIONS
-          value: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs-inband"
+          value: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs-inband crowdsecurity/appsec-crs-outofband"
