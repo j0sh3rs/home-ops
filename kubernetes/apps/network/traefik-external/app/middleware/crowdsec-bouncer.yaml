@@ -9,22 +9,24 @@ spec:
     crowdsec-bouncer-traefik-plugin:
       enabled: true
       crowdsecLapiHost: crowdsec-service.security.svc.cluster.local:8080
-      crowdsecLapiScheme: http
-      # Plugin convention for reading a value from a Traefik-accessible
-      # file is the `File` suffix on the variable name; without it the
-      # literal string is sent as the API key. traefik-secrets is mounted
-      # at /etc/traefik/secrets (see traefik HR volumes/secretName).
+      # home-ops-b5w: HTTPS to LAPI. CA cert comes from the mirrored
+      # crowdsec-bouncer-tls secret mounted at /etc/traefik/crowdsec-tls
+      # (see traefik HR volumes). Bouncer still authenticates with its
+      # API key — chart does not enforce bouncer mTLS by default.
+      crowdsecLapiScheme: https
+      crowdsecLapiTlsCertificateAuthorityFile: /etc/traefik/crowdsec-tls/ca.crt
       crowdsecLapiKeyFile: /etc/traefik/secrets/CROWDSEC_BOUNCER_KEY
-      # crowdsecLapiTlsCertificateAuthorityFile: /etc/traefik/secrets/crowdsec-ca.crt
-      # crowdsecLapiTlsCertificateBouncerFile: /etc/traefik/secrets/crowdsec-tls.crt
-      # crowdsecLapiTlsCertificateBouncerKeyFile: /etc/traefik/secrets/crowdsec-tls.key
       crowdsecMode: stream
       MetricsUpdateIntervalSeconds: 60
       remediationStatusCode: 403
       updateIntervalSecond: 60
       crowdsecAppsecEnabled: true
       crowdsecAppsecHost: crowdsec-appsec-service.security.svc.cluster.local:7422
-      crowdsecAppsecFailureBlock: false
+      # home-ops-bu8: fail-closed on AppSec rule-decision errors so a decode
+      # failure or evaluator crash returns 403 instead of allowing the
+      # request through. UnreachableBlock stays false so a full AppSec pod
+      # outage does not wedge the edge — only rule-level failures propagate.
+      crowdsecAppsecFailureBlock: true
       crowdsecAppsecUnreachableBlock: false
       logLevel: INFO
       forwardedHeadersTrustedIPs:

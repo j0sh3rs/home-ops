@@ -21,6 +21,15 @@ spec:
         mountPath: /etc/traefik/secrets
         type: secret
         secretName: traefik-secrets
+      # home-ops-b5w: mount the CrowdSec bouncer cert + CA. The secret is
+      # created by the crowdsec chart in the security namespace (name
+      # crowdsec-bouncer-tls) and reflected into `network` because
+      # tls.bouncer.reflector.namespaces includes `network`. Contents:
+      # ca.crt, tls.crt, tls.key.
+      - name: crowdsec-bouncer-tls
+        mountPath: /etc/traefik/crowdsec-tls
+        type: secret
+        secretName: crowdsec-bouncer-tls
     # Inject traefik-secrets as env vars for OCSP stapling and plugin configuration
     envFrom:
       - secretRef:
@@ -40,7 +49,7 @@ spec:
         traefikoidc:
           # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
           moduleName: "github.com/lukaszraczylo/traefikoidc"
-          version: "v0.8.1"
+          version: "v0.8.27"
         clusterRatelimit:
           moduleName: "github.com/nzin/traefik-cluster-ratelimit"
           version: "v1.2.0"

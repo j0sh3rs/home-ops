@@ -23,19 +23,24 @@ spec:
       repository: crowdsecurity/crowdsec
       pullPolicy: Always
     container_runtime: containerd
-    # tls:
-    #   enabled: false
-    #   insecureSkipVerify: true
-    #   agent:
-    #     tlsClientAuth: true
-    #   appsec:
-    #     tlsClientAuth: true
-    #   certManager:
-    #     enabled: true
-    #   lapi:
-    #     reflector:
-    #       namespaces:
-    #         - network
+    # home-ops-b5w: mutual TLS between agent/appsec/bouncer and LAPI. Chart
+    # auto-provisions a self-signed ClusterIssuer (crowdsec-root-issuer) since
+    # no issuerRef is supplied; internal service DNS names aren't valid LE
+    # inputs. Bouncer secret is reflected into the `network` namespace so the
+    # Traefik middleware can mount the CA cert from /etc/traefik/secrets.
+    tls:
+      enabled: true
+      insecureSkipVerify: false
+      agent:
+        tlsClientAuth: true
+      appsec:
+        tlsClientAuth: true
+      certManager:
+        enabled: true
+      bouncer:
+        reflector:
+          namespaces:
+            - network
     config:
       config.yaml.local: |
         api:
@@ -67,6 +72,28 @@ spec:
                 - "10.42.0.0/16"      # Cilium pod CIDR
                 - "10.43.0.0/16"      # k8s service CIDR
                 - "192.168.35.0/24"   # LAN
+      # home-ops-8ew: trigger scenario that bans requests to ha.68cc.io
+      # from outside US/CA. crowdsecurity/geoip-enrich populates
+      # evt.Enriched.IsoCode from the MaxMind DB shipped with the agent.
+      # Traefik-parsed events expose the hostname via Unmarshaled.traefik.
+      # ServiceName; using Traefik's ServiceName label rather than host
+      # header since the bouncer strips Host on internal routing.
+      scenarios:
+        local-geo-block-ha.yaml: |
+          type: trigger
+          name: home-ops/geo-block-ha
+          description: "Ban non-US/CA access to Home Assistant (ha.68cc.io)"
+          filter: |
+            evt.Meta.log_type == 'http_access_log'
+            && evt.Unmarshaled.traefik.RequestHost == 'ha.68cc.io'
+            && evt.Enriched.IsoCode != ''
+            && evt.Enriched.IsoCode not in ['US','CA']
+          groupby: "evt.Meta.source_ip"
+          blackhole: 30m
+          labels:
+            service: home-assistant
+            type: geographic
+            remediation: true
       # home-ops-ahz: Discord webhook notification for high-severity decisions.
       # The http notifier reads ${DISCORD_WEBHOOK_URL} from LAPI pod env via
       # lapi.envFrom -> alertmanager-secret reflected from monitoring ns.
