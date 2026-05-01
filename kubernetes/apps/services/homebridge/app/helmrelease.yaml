@@ -1,0 +1,100 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app homebridge
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      homebridge:
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: homebridge/homebridge
+              # Homebridge does not publish semver image tags; Renovate
+              # pins by digest. See renovate.json5 pinDigests behavior.
+              # renovate: datasource=docker depName=homebridge/homebridge
+              tag: latest
+            env:
+              TZ: America/New_York
+              # Use in-process ciao advertiser instead of avahi (avoids
+              # mounting host dbus + avahi socket).
+              ENABLE_AVAHI: "0"
+              HOMEBRIDGE_CONFIG_UI: "1"
+              HOMEBRIDGE_CONFIG_UI_PORT: "8581"
+              # Required for Homepage widget + prometheus-exporter plugin
+              # to query accessory state via the UI REST API. Mitigated by
+              # Traefik OIDC at the edge; same posture as home-assistant.
+              HOMEBRIDGE_INSECURE: "1"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+            # No probes: homebridge has no HTTP health endpoint and
+            # first-boot plugin install can take minutes (matches HA).
+            probes:
+              liveness:
+                enabled: false
+              readiness:
+                enabled: false
+              startup:
+                enabled: false
+        # hostNetwork is required for HomeKit mDNS (224.0.0.251:5353) and
+        # HAP TCP pairing (51826). CNI does not forward multicast into pods.
+        # services namespace is already PSA=privileged for this purpose.
+        pod:
+          hostNetwork: true
+          dnsPolicy: ClusterFirstWithHostNet
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: &port 8581
+
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+        hostnames: ["homebridge.68cc.io"]
+        parentRefs:
+          - name: traefik-external-gateway
+            namespace: network
+        rules:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: oidc-auth0-secure
+            backendRefs:
+              - name: *app
+                port: *port
+
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        retain: true
+        globalMounts:
+          - path: /homebridge
