@@ -41,9 +41,6 @@ spec:
           # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
           moduleName: "github.com/lukaszraczylo/traefikoidc"
           version: "v0.8.27"
-        clusterRatelimit:
-          moduleName: "github.com/nzin/traefik-cluster-ratelimit"
-          version: "v1.2.0"
         wrangler:
           moduleName: "github.com/holysoles/bot-wrangler-traefik-plugin"
           version: v0.10.1
@@ -132,22 +129,24 @@ spec:
       - --entryPoints.web.http.redirections.entryPoint.to=websecure
       - --entryPoints.web.http.redirections.entryPoint.scheme=https
       - --entryPoints.web.http.redirections.entryPoint.permanent=true
-      # Chain (home-ops-kd5):
+      # Chain:
       #   1. crowdsec-bouncer — malicious IPs 403'd before any CPU spend
-      #   2. security-headers — STS/XFO/CSP on every response
-      #   3. bot-wrangler — block AI crawlers per robots.txt template
-      #   4. compression — gzip response body last so headers stay plain
-      # cluster-rate-limiter removed — plugin v1.2.0 has a runtime panic
-      # ("interface conversion: string not int64" at rate.go:116) that
-      # 500s every request. Tracked as a separate follow-up.
-      - --entryPoints.web.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd,network-compression@kubernetescrd
+      #   2. rate-limit — Traefik native per-instance rate limit
+      #                   (60 req/s * 3 replicas = ~180 req/s cluster)
+      #   3. security-headers — STS/XFO/CSP on every response
+      #   4. bot-wrangler — block AI crawlers per robots.txt template
+      #   5. compression — gzip response body last so headers stay plain
+      # Previous cluster-rate-limiter (nzin/traefik-cluster-ratelimit v1.2.0)
+      # was removed — Yaegi mistyped a Redis Lua reply (rate.go:116) and
+      # 500'd every request. No maintained Redis-backed alternative exists.
+      - --entryPoints.web.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-rate-limit@kubernetescrd,network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd,network-compression@kubernetescrd
       - --entryPoints.web.observability.accessLogs=false
       - --entryPoints.web.observability.metrics=false
       - --entryPoints.web.observability.tracing=false
       - --entryPoints.web.reuseport=true
       - --entryPoints.web.proxyProtocol=true
       - --entryPoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
-      - --entryPoints.websecure.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd,network-compression@kubernetescrd
+      - --entryPoints.websecure.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-rate-limit@kubernetescrd,network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd,network-compression@kubernetescrd
       - --entryPoints.websecure.proxyProtocol=true
       - --entryPoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
       - --entryPoints.websecure.reuseport=true
