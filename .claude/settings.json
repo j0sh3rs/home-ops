@@ -1,0 +1,48 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | awk 'BEGIN{rc=0} /(^|[[:space:]|&;])(kubectl|helm|flux)([[:space:]]|$)/ { if ($0 !~ /(--context|--kube-context)[=[:space:]]*home/) { print \"Refusing: kubectl/helm/flux command missing --context home. Add --context home to the command.\" > \"/dev/stderr\"; rc=2 } } END { exit rc }'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_input.path // empty' | awk 'BEGIN{rc=0} /\\.sops\\.ya?ml$/ { f=$0; cmd=\"grep -c \\\"ENC\\\\[\\\" \\\"\" f \"\\\" 2>/dev/null\"; cmd | getline n; close(cmd); if (n+0 == 0) { print \"SOPS guard: \" f \" is plaintext after edit. Run: task sops:encrypt-file file=\" f > \"/dev/stderr\"; rc=2 } } END { exit rc }'"
+          }
+        ]
+      }
+    ]
+  }
+}

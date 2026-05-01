@@ -21,7 +21,11 @@ talosconfig
 .DS_Store
 Thumbs.db
 .atmos
-.claude
+.claude/*
+!.claude/agents/
+!.claude/skills/
+!.claude/settings.json
+scripts/.claude/
 kubernetes/apps/**/*.sh
 kubernetes/apps/**/*.md
 kubernetes/apps/**/*.txt
