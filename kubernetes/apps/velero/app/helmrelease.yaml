@@ -20,7 +20,8 @@ spec:
   chart:
     spec:
       chart: velero
-      version: 12.x
+      # renovate: datasource=helm depName=velero repository=https://vmware-tanzu.github.io/helm-charts
+      version: 12.0.1
       sourceRef:
         kind: HelmRepository
         name: vmware-tanzu
@@ -34,7 +35,9 @@ spec:
     remediation:
       retries: 3
   values:
-    # Disable CRD upgrade job (Helm chart handles CRDs via install.crds)
+    # CRDs managed out-of-band by the velero-crds Flux Kustomization
+    # (../crds/app) pinned to the same chart tag as chart.spec.version below.
+    # Keep false so the chart never touches CRDs on upgrade.
     upgradeCRDs: false
 
     # Resource limits per NFR-SCALE-001

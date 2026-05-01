@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+#
+# CRDs vendored from vmware-tanzu/helm-charts @ velero-12.0.1 so that Velero's
+# CRD schema stays in lockstep with the HelmRelease image/chart version. The
+# Helm chart pre-install hook only ships CRDs on *install*, not upgrade, so
+# without this vendored copy the CRD schema drifts and the controller fails
+# with "status.phase Unsupported value" once upstream adds new phase enums
+# (see home-ops-i8m, 2026-04-03..2026-05-01 outage).
+#
+# How to bump:
+#   1. Let Renovate open the PR that bumps the URL below (regex manager #2).
+#   2. Match app/helmrelease.yaml chart.spec.version to the same chart tag.
+#   3. Replace every *.yaml in this directory with the new chart's crds/*.yaml.
+#      `for f in *.yaml; do [ "$f" = kustomization.yaml ] && continue; \
+#         curl -sSLo "$f" \
+#           "https://raw.githubusercontent.com/vmware-tanzu/helm-charts/velero-<TAG>/charts/velero/crds/$f"; \
+#       done`
+#
+# renovate: datasource=github-releases depName=vmware-tanzu/helm-charts extractVersion=^velero-(?<version>.+)$
+# https://github.com/vmware-tanzu/helm-charts/tree/velero-12.0.1/charts/velero/crds
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./backuprepositories.yaml
+  - ./backups.yaml
+  - ./backupstoragelocations.yaml
+  - ./datadownloads.yaml
+  - ./datauploads.yaml
+  - ./deletebackuprequests.yaml
+  - ./downloadrequests.yaml
+  - ./podvolumebackups.yaml
+  - ./podvolumerestores.yaml
+  - ./restores.yaml
+  - ./schedules.yaml
+  - ./serverstatusrequests.yaml
+  - ./volumesnapshotlocations.yaml

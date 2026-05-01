@@ -3,25 +3,19 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app velero
+  name: &app velero-crds
   namespace: flux-system
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  dependsOn:
-    - name: openebs
-      namespace: kube-system
-    - name: velero-crds
-      namespace: flux-system
   interval: 1h
-  path: ./kubernetes/apps/velero/app
-  prune: true
+  path: ./kubernetes/apps/velero/crds/app
+  prune: false
   retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: velero
   timeout: 5m
-  wait: false
+  wait: true
