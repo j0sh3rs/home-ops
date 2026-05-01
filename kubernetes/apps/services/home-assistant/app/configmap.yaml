@@ -33,3 +33,14 @@ data:
         # Cluster service CIDR — covers in-cluster service-to-service
         # calls (e.g. future prometheus sensor hitting ha:8123/api/...).
         - 10.43.0.0/16
+
+  recorder.yaml: |
+    # Recorder → CNPG Postgres. URL resolved at HA startup from the
+    # RECORDER_DB_URL env var injected by home-assistant-db-secret.
+    # CNPG handles durability via barman-cloud; don't need Velero fs-backup
+    # of this DB. SQLite file at /config/home-assistant_v2.db will stop
+    # growing on next restart once recorder switches engines.
+    recorder:
+      db_url: !env_var RECORDER_DB_URL
+      purge_keep_days: 30
+      commit_interval: 10

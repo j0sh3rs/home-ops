@@ -25,6 +25,16 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
+          # Create the homeassistant DB + user on the shared postgres17 CNPG
+          # cluster if they don't exist yet. Reads INIT_POSTGRES_* vars from
+          # the home-assistant-db-secret. Idempotent; safe to re-run.
+          init-db:
+            image:
+              repository: ghcr.io/onedr0p/postgres-init
+              tag: "16"
+            envFrom:
+              - secretRef:
+                  name: home-assistant-db-secret
           # Idempotently wire two blocks into /config/configuration.yaml:
           #
           #   homeassistant:
@@ -87,6 +97,12 @@ spec:
               tag: 2026.4.4
             env:
               TZ: "America/New_York"
+            envFrom:
+              # Exposes RECORDER_DB_URL (and the INIT_POSTGRES_* which HA
+              # itself ignores) so packages/recorder.yaml can reference
+              # !env_var RECORDER_DB_URL.
+              - secretRef:
+                  name: home-assistant-db-secret
             resources:
               requests:
                 cpu: 200m
