@@ -95,10 +95,28 @@ spec:
                 cpu: 2
                 memory: 2Gi
             probes:
+              # Liveness intentionally off — HA occasionally pauses for long
+              # integration setup/teardown (e.g. Sonos discovery). A failing
+              # livenessProbe would send it into a crash loop for what is
+              # actually healthy behavior.
               liveness:
                 enabled: false
+              # Readiness on /manifest.json — always 200 on a running HA,
+              # independent of login state, so the probe doesn't flap when
+              # anonymous auth is disabled. Gates Service endpoint add/drop.
               readiness:
-                enabled: false
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /manifest.json
+                    port: 8123
+                  initialDelaySeconds: 30
+                  periodSeconds: 20
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              # Startup off — HA's first boot with many integrations can
+              # take >2 min; use initialDelaySeconds on readiness instead.
               startup:
                 enabled: false
         # hostNetwork is required for mDNS, UPnP, and local device auto-discovery.
