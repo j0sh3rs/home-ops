@@ -281,7 +281,9 @@ Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{compone
 ## Deployed Applications (services namespace)
 
 - **Atuin** — Shell history sync server
-- **Home Assistant** — Home automation platform
+- **Home Assistant** — Home automation platform (hostNetwork for mDNS/UPnP)
+- **Homebridge** — HomeKit bridge via `homebridge.68cc.io` (hostNetwork for mDNS/HAP; ciao in-process advertiser; `HOMEBRIDGE_INSECURE=1` enables Homepage widget + prometheus-exporter plugin). Pairing PIN shown in pod logs on first boot.
+- **Homepage** — Dashboard at `68cc.io` (root). Service tiles + widgets configured via SOPS-encrypted Secret; widget creds injected via `HOMEPAGE_VAR_*` env vars.
 - **IT-Tools** — Collection of IT utility tools
 - **Linkwarden** — Collaborative bookmark manager
 - **N8N** — Workflow automation platform
