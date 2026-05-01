@@ -74,3 +74,20 @@ spec:
           for: 1m
           labels:
             severity: warning
+        - alert: CNPGStaleBaseBackup
+          annotations:
+            description: >-
+              Cluster last base backup is older than 48h
+              (value: {{ $value | humanizeDuration }}). ScheduledBackup may be
+              frozen — check `kubectl get scheduledbackup -n databases` and
+              compare nextScheduleTime vs now. Ref: home-ops-6cn.
+            summary: CNPG base backup is stale
+          # Guard against the "never backed up" case where the metric is 0 —
+          # that produces a ~56-year delta and would fire on fresh clusters.
+          expr: |-
+            (cnpg_collector_last_available_backup_timestamp > 0)
+              and (time() - cnpg_collector_last_available_backup_timestamp > 48 * 3600)
+          for: 15m
+          labels:
+            severity: critical
+            component: backup
