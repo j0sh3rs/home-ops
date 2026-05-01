@@ -68,7 +68,25 @@ spec:
         controller: *app
         ports:
           http:
+            primary: true
             port: &port 8581
+          metrics:
+            # homebridge-prometheus-exporter plugin listens on this port.
+            # Install via UI: search "prometheus-exporter" (lstrojny),
+            # then add platform block to /homebridge/config.json:
+            #   { "platform": "PrometheusExporter", "port": 36123,
+            #     "pin": "<bridge pin>" }
+            # Scrapes return 404 until that's done; expected.
+            port: &metricsPort 36123
+    serviceMonitor:
+      app:
+        serviceName: *app
+        endpoints:
+          - port: metrics
+            scheme: http
+            path: /metrics
+            interval: 1m
+            scrapeTimeout: 10s
 
     route:
       app:
