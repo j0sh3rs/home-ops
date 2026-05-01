@@ -6,12 +6,6 @@ metadata:
   name: grafana
   annotations:
     external-dns.alpha.kubernetes.io/target: 192.168.35.15
-    gethomepage.dev/enabled: "true"
-    gethomepage.dev/name: Grafana
-    gethomepage.dev/group: Monitoring
-    gethomepage.dev/icon: grafana.png
-    gethomepage.dev/description: Unified dashboards
-    gethomepage.dev/href: https://grafana.68cc.io
 spec:
   hostnames:
     - grafana.68cc.io

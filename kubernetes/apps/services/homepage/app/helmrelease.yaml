@@ -38,6 +38,13 @@ spec:
               # layer (hostname match + OIDC). Allow * here so in-cluster probes
               # (kubelet hits pod IP) + internal service DNS don't get rejected.
               HOMEPAGE_ALLOWED_HOSTS: "*"
+            # Injects HOMEPAGE_VAR_* entries from the Secret as env vars so
+            # `{{HOMEPAGE_VAR_X}}` placeholders inside services.yaml resolve.
+            # Kubelet silently skips keys containing "." (the config filename
+            # keys are still consumed via the subPath volume mounts).
+            envFrom:
+              - secretRef:
+                  name: homepage-config
             resources:
               requests:
                 cpu: 100m

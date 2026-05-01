@@ -63,12 +63,6 @@ spec:
       app:
         annotations:
           external-dns.alpha.kubernetes.io/target: 192.168.35.15
-          gethomepage.dev/enabled: "true"
-          gethomepage.dev/name: Home Assistant
-          gethomepage.dev/group: Apps
-          gethomepage.dev/icon: home-assistant.png
-          gethomepage.dev/description: Home automation
-          gethomepage.dev/href: https://ha.68cc.io
         hostnames: ["ha.68cc.io"]
         parentRefs:
           - name: traefik-external-gateway
