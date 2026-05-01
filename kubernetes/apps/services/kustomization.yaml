@@ -17,6 +17,7 @@ resources:
   - ./linkwarden/ks.yaml
   #  ./memos/ks.yaml
   # - ./metamcp/ks.yaml
+  - ./mosquitto/ks.yaml
   - ./n8n/ks.yaml
   - ./ollama/ks.yaml
   - ./open-webui/ks.yaml
