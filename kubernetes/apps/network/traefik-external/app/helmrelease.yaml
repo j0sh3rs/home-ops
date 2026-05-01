@@ -47,6 +47,10 @@ spec:
         wrangler:
           moduleName: "github.com/holysoles/bot-wrangler-traefik-plugin"
           version: v0.10.1
+        geoblock:
+          moduleName: "github.com/PascalMinder/geoblock"
+          # renovate: datasource=github-releases depName=PascalMinder/geoblock
+          version: v0.3.7
       otlpLogs: false
     ocsp:
       enabled: true

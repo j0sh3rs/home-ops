@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+# Official Traefik dashboards (home-ops-7ij). Imported from grafana.com by
+# id+revision; datasource input rewritten to vmsingle at attach time.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: traefik-kubernetes
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: Network
+  contentCacheDuration: 24h
+  resyncPeriod: 24h
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 17347
+    revision: 9
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: traefik-standalone
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: Network
+  contentCacheDuration: 24h
+  resyncPeriod: 24h
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 17346
+    revision: 9

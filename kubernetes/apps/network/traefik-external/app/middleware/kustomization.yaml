@@ -9,3 +9,4 @@ resources:
   - ./compression.yaml
   - ./crowdsec-bouncer.yaml
   - ./ratelimiter.yaml
+  - ./geoblock.yaml

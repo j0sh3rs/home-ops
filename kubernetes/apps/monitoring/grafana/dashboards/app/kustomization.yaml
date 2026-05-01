@@ -8,3 +8,4 @@ resources:
   - tetragon-configmap.yaml
   - tetragon-grafanadashboard.yaml
   - vm-dashboards.yaml
+  - traefik-dashboards.yaml
