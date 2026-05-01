@@ -9,8 +9,11 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: Security
+  contentCacheDuration: 24h
+  resyncPeriod: 24h
   datasources:
-    - datasourceName: prometheus
+    - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
   url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/LAPI%20Metrics.json
 ---
@@ -24,8 +27,11 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: Security
+  contentCacheDuration: 24h
+  resyncPeriod: 24h
   datasources:
-    - datasourceName: prometheus
+    - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
   url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Overview.json
 ---
@@ -39,8 +45,11 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: Security
+  contentCacheDuration: 24h
+  resyncPeriod: 24h
   datasources:
-    - datasourceName: prometheus
+    - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
   url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Insight.json
 ---
@@ -54,7 +63,10 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: Security
+  contentCacheDuration: 24h
+  resyncPeriod: 24h
   datasources:
-    - datasourceName: prometheus
+    - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
   url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Details%20per%20Machine.json

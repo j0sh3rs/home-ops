@@ -48,6 +48,8 @@ spec:
                 - "10.42.0.0/16"
                 - "10.43.0.0/16"
                 - "192.168.35.0/24"
+            # Accept decisions pushed from app.crowdsec.net (managed blocklists).
+            console_management: true
     lapi:
       enabled: true
       replicas: 1
