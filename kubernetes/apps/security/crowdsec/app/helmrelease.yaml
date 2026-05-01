@@ -67,11 +67,61 @@ spec:
                 - "10.42.0.0/16"      # Cilium pod CIDR
                 - "10.43.0.0/16"      # k8s service CIDR
                 - "192.168.35.0/24"   # LAN
+      # home-ops-ahz: Discord webhook notification for high-severity decisions.
+      # The http notifier reads ${DISCORD_WEBHOOK_URL} from LAPI pod env via
+      # lapi.envFrom -> alertmanager-secret reflected from monitoring ns.
+      # profiles.yaml routes ban decisions for the brute-force + CVE + appsec
+      # scenarios through the discord_default notifier while preserving the
+      # default_ip_remediation behaviour for everything else.
+      notifications:
+        http.yaml: |
+          type: http
+          name: discord_default
+          log_level: info
+          format: |
+            {
+              "content": "🚨 CrowdSec ban — {{range . -}}{{$alert := .}}scenario=`{{.Scenario}}` source=`{{.Source.IP}}` ({{.Source.Scope}}) reason=`{{.Message}}` decisions={{range .Decisions}} {{.Type}} {{.Duration}}{{end}}{{end}}"
+            }
+          url: ${DISCORD_WEBHOOK_URL}
+          method: POST
+          headers:
+            Content-Type: application/json
+      profiles.yaml: |
+        name: security_notify
+        filters:
+          - Alert.Remediation == true && Alert.GetScenario() in [
+              "crowdsecurity/ssh-bf",
+              "crowdsecurity/ssh-slow-bf",
+              "crowdsecurity/http-cve-probing",
+              "crowdsecurity/http-backdoors-attempts",
+              "crowdsecurity/http-admin-interface-probing",
+              "crowdsecurity/http-path-traversal-probing",
+              "crowdsecurity/http-generic-bf",
+              "crowdsecurity/appsec-native"
+            ]
+        notifications:
+          - discord_default
+        on_success: continue
+        ---
+        name: default_ip_remediation
+        filters:
+          - Alert.Remediation == true && Alert.GetScope() == "Ip"
+        decisions:
+          - type: ban
+            duration: 4h
+        on_success: break
     lapi:
       enabled: true
       replicas: 1
       strategy:
         type: Recreate
+      # home-ops-ahz: inject DISCORD_WEBHOOK_URL into the LAPI pod env so the
+      # http notifier plugin can expand ${DISCORD_WEBHOOK_URL} at load time.
+      # Source secret is alertmanager-secret in monitoring ns, mirrored into
+      # security ns via Reflector annotations on the source.
+      envFrom:
+        - secretRef:
+            name: alertmanager-secret
       persistentVolume:
         data:
           enabled: true
