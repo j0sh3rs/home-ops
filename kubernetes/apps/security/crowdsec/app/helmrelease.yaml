@@ -145,8 +145,12 @@ spec:
       #     labels:
       #       type: traefik
       env:
+        # home-ops-6ev: added home-assistant (ha.68cc.io backend) and http-dos
+        # (generic L7 DoS scenarios for any published app). Considered `postgres`
+        # and `whitelist-ingress-k8s` — neither exists upstream; default
+        # crowdsecurity/whitelists already covers RFC1918 private ranges.
         - name: COLLECTIONS
-          value: "crowdsecurity/traefik crowdsecurity/appsec-crs crowdsecurity/http-cve crowdsecurity/appsec-crs-inband crowdsecurity/base-http-scenarios LePresidente/grafana crowdsecurity/unifi"
+          value: "crowdsecurity/traefik crowdsecurity/appsec-crs crowdsecurity/http-cve crowdsecurity/appsec-crs-inband crowdsecurity/base-http-scenarios LePresidente/grafana crowdsecurity/unifi crowdsecurity/home-assistant crowdsecurity/http-dos"
         # Parsers to install
         - name: PARSERS
           value: "crowdsecurity/cri-logs"
