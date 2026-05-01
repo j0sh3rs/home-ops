@@ -1,0 +1,46 @@
+---
+# Home Assistant config-overlay mounted at /config/packages/.
+# HA's `packages:` feature merges every *.yaml in that directory into the
+# main configuration tree at startup, so we can add discrete blocks here
+# without touching /config/configuration.yaml (which HA owns and rewrites
+# via its UI). See home-ops-43h for context.
+#
+# STEP 1 (current): fix the 400-after-OIDC problem by telling HA to trust
+# the Traefik reverse proxy and to read the real client IP from
+# X-Forwarded-For. The trusted_networks auth provider is defined but
+# allow_bypass_login is OFF until we know the admin user UUID to map it
+# to (that UUID only exists after onboarding). The homeassistant provider
+# keeps the local login form working so onboarding completes.
+#
+# STEP 2 (follow-up): flip allow_bypass_login=true and populate
+# trusted_users with the UUID captured from /config/.storage/auth.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: home-assistant-packages
+data:
+  network.yaml: |
+    http:
+      use_x_forwarded_for: true
+      trusted_proxies:
+        # Cilium cluster pod CIDR — all Traefik ingress pods live here.
+        - 10.42.0.0/16
+        # Cluster service CIDR — covers in-cluster service-to-service
+        # calls (e.g. future prometheus sensor hitting ha:8123/api/...).
+        - 10.43.0.0/16
+
+    homeassistant:
+      auth_providers:
+        # Native HA local login — keep first so onboarding can create the
+        # initial admin user. Also acts as emergency fallback once SSO is
+        # wired in step 2.
+        - type: homeassistant
+        # Any request whose real client IP (as reported via the now-trusted
+        # X-Forwarded-For header) falls into the cluster pod CIDR is
+        # considered pre-authenticated. Auth0/Traefik OIDC is the actual
+        # gate — this provider just tells HA to trust the proxy hop. Step 2
+        # will add trusted_users mapping + allow_bypass_login.
+        - type: trusted_networks
+          trusted_networks:
+            - 10.42.0.0/16
+          allow_bypass_login: false
