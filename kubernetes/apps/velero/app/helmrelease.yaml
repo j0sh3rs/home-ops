@@ -72,16 +72,12 @@ spec:
             publicUrl: https://s3.68cc.io
             insecureSkipTLSVerify: "false"
 
-      # CSI snapshot support (integrated in Velero v1.17+)
-      # Left wired for future CSI storage adoption; cluster currently has no
-      # CSI drivers or VolumeSnapshotClass CRDs so the snapshotter silently
-      # no-ops. Actual PV data is captured by the kopia node-agent below.
-      volumeSnapshotLocation:
-        - name: default
-          provider: csi
-
-      # Enable CSI feature flag (integrated plugin since v1.14)
-      features: EnableCSI
+      # CSI snapshot path disabled — the cluster has no CSI drivers and
+      # no external-snapshotter CRDs, so leaving EnableCSI on only produced
+      # noisy "no matches for kind VolumeSnapshot" reconcile errors and a
+      # spurious PartiallyFailed phase on every Backup (see home-ops-ohh
+      # smoke test). PV data is captured by the kopia node-agent below.
+      # Re-enable when/if we adopt a CSI-capable storage class.
 
       # Default backup TTL
       defaultBackupTTL: 720h # 30 days
@@ -103,8 +99,8 @@ spec:
       AWS_SHARED_CREDENTIALS_FILE: /credentials/cloud
       AWS_SDK_LOAD_CONFIG: "false"
 
-    # Backup snapshot configuration (CSI integrated in v1.17+)
-    snapshotsEnabled: true
+    # CSI snapshot feature is off cluster-wide (see configuration above).
+    snapshotsEnabled: false
 
     # Deploy node-agent DaemonSet for kopia fs-level backup (home-ops-ohh).
     # Cluster runs non-CSI storage so this is the only data-path for PV
