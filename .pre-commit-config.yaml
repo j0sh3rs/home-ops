@@ -23,8 +23,10 @@ repos:
     hooks:
       - id: forbid-crlf
       - id: forbid-tabs
+        exclude: '\.cue$'
       - id: remove-crlf
       - id: remove-tabs
+        exclude: '\.cue$'
   - repo: https://github.com/sirosen/fix-smartquotes
     rev: 0.2.0
     hooks:
