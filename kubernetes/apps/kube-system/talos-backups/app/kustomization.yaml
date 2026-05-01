@@ -6,3 +6,4 @@ resources:
   - ./serviceaccount.yaml
   - ./secret.sops.yaml
   - ./cronjob.yaml
+  - ./prometheusrule.yaml

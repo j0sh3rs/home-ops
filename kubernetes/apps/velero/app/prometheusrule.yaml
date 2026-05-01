@@ -34,16 +34,33 @@ spec:
             summary: "Velero backup partially failed for schedule {{ $labels.schedule }}"
             description: "{{ $value }} Velero backup(s) completed with partial failures in the last hour for schedule {{ $labels.schedule }}. Some resources may not be backed up."
 
-        - alert: VeleroBackupNotCompleted
+        - alert: VeleroScheduleStale
+          # Fires if no backup *attempt* has finalized for the schedule in the
+          # last 27h (covers one missed run + overhead). Uses absent() +
+          # increase() to catch the "no Backup CRs at all" case that the
+          # previous `velero_backup_last_status == 0` rule missed during the
+          # 2026-04-03..05-01 outage — empty vector never crossed == 0 so
+          # nothing fired for 28 days.
+          #
+          # We count attempts rather than successes because at home-ops we
+          # currently run without CSI drivers (home-ops-ohh) so every
+          # scheduled backup finalizes as PartiallyFailed. The scheduler
+          # *is* working in that state; we don't want to page every 15m.
+          # VeleroBackupFailure + VeleroBackupPartialFailure cover quality.
           expr: |
-            velero_backup_last_status{schedule!=""} == 0
-          for: 25h
+            absent(velero_backup_attempt_total{schedule="daily-backup"}) == 1
+              or increase(velero_backup_attempt_total{schedule="daily-backup"}[27h]) < 1
+          for: 15m
           labels:
             severity: critical
             component: backup
           annotations:
-            summary: "Velero schedule {{ $labels.schedule }} has not completed a successful backup"
-            description: "Velero schedule {{ $labels.schedule }} last backup status is not Completed. A successful backup has not been recorded in over 25 hours."
+            summary: "Velero schedule daily-backup is stale"
+            description: |-
+              No Velero backup attempt has been observed for schedule
+              daily-backup in the last 27 hours, or the metric is entirely
+              absent (scheduler halted / velero pod down / CRs never created).
+              Check: kubectl get schedule,backup -n velero --context home
 
         - alert: VeleroBackupDurationHigh
           expr: |

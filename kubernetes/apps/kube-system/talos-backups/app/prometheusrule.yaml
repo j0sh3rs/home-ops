@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: talos-backup-alerts
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: talos-backups
+      interval: 1m
+      rules:
+        - alert: TalosEtcdBackupStale
+          # CronJob runs every 12h ("10 0/12 * * *"). Alert if the most
+          # recent successful run is >25h old (covers one missed run +
+          # overhead) or if the metric disappears entirely.
+          expr: |
+            absent(kube_cronjob_status_last_successful_time{cronjob="talos-s3-backup"}) == 1
+              or (time() - kube_cronjob_status_last_successful_time{cronjob="talos-s3-backup"}) > 25 * 3600
+          for: 15m
+          labels:
+            severity: critical
+            component: backup
+          annotations:
+            summary: "Talos etcd backup CronJob is stale"
+            description: |-
+              CronJob talos-s3-backup has not successfully completed in the
+              last 25 hours (schedule is every 12h). Etcd snapshots may not
+              be reaching S3.
+              Check: kubectl -n kube-system get job,pods -l job-name --context home
