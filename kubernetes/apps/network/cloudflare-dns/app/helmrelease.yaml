@@ -39,9 +39,18 @@ spec:
       - --crd-source-kind=DNSEndpoint
       - --gateway-name=traefik-external-gateway
       - --zone-id-filter=$(CF_ZONE_ID)
+      # Public ingress anchor: every HTTPRoute attached to
+      # traefik-external-gateway becomes a CNAME to home.68cc.io.
+      # home.68cc.io itself must resolve to the WAN IP (DDNS / tunnel /
+      # manual A record) — managed outside the cluster.
+      # --force-default-targets overrides each route's
+      # external-dns.alpha.kubernetes.io/target annotation (which stays as
+      # 192.168.35.15 so unifi-dns keeps split-horizon LAN resolution).
+      - --default-targets=home.68cc.io
+      - --force-default-targets
     triggerLoopOnEvent: true
     policy: sync
-    sources: ["crd"]
+    sources: ["crd", "gateway-httproute"]
     txtOwnerId: default
     txtPrefix: k8s.
     domainFilters: ["68cc.io", "*.68cc.io"]
