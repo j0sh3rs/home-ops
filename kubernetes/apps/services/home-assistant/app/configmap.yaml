@@ -19,6 +19,11 @@ kind: ConfigMap
 metadata:
   name: home-assistant-packages
 data:
+  # Only keys HA permits inside a package belong here. `homeassistant.auth_providers`
+  # must live in the primary configuration.yaml (HA rejects it from packages
+  # with a "Package network contains invalid customize" warning) — the
+  # enable-auth-providers initContainer in the HelmRelease writes that block
+  # directly onto the PVC at pod start.
   network.yaml: |
     http:
       use_x_forwarded_for: true
@@ -28,19 +33,3 @@ data:
         # Cluster service CIDR — covers in-cluster service-to-service
         # calls (e.g. future prometheus sensor hitting ha:8123/api/...).
         - 10.43.0.0/16
-
-    homeassistant:
-      auth_providers:
-        # Native HA local login — keep first so onboarding can create the
-        # initial admin user. Also acts as emergency fallback once SSO is
-        # wired in step 2.
-        - type: homeassistant
-        # Any request whose real client IP (as reported via the now-trusted
-        # X-Forwarded-For header) falls into the cluster pod CIDR is
-        # considered pre-authenticated. Auth0/Traefik OIDC is the actual
-        # gate — this provider just tells HA to trust the proxy hop. Step 2
-        # will add trusted_users mapping + allow_bypass_login.
-        - type: trusted_networks
-          trusted_networks:
-            - 10.42.0.0/16
-          allow_bypass_login: false

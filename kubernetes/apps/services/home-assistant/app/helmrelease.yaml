@@ -25,12 +25,21 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
-          # Idempotently wire HA's packages feature into /config/configuration.yaml.
-          # HA owns that file and rewrites it via the UI, but only when the user
-          # edits via Settings → YAML. Appending a single `homeassistant:` block
-          # with `packages: !include_dir_named packages` stays untouched across
-          # HA's own writes. Guarded by grep so the block is never duplicated.
-          enable-packages:
+          # Idempotently wire two blocks into /config/configuration.yaml:
+          #
+          #   homeassistant:
+          #     packages: !include_dir_named packages   # merges packages/*.yaml
+          #     auth_providers:                         # must be at root, not in a package
+          #       - type: homeassistant
+          #       - type: trusted_networks
+          #         trusted_networks: [10.42.0.0/16]
+          #         allow_bypass_login: false           # step 2 will flip to true + map user
+          #
+          # HA owns configuration.yaml and rewrites it via the UI, but this
+          # initContainer only appends when the marker string isn't present,
+          # so re-applies are no-ops. Delete the block manually if you need
+          # to re-seed from scratch.
+          enable-ha-config:
             image:
               repository: docker.io/library/busybox
               tag: 1.37.0
@@ -40,12 +49,25 @@ spec:
               - |
                 set -eu
                 CFG=/config/configuration.yaml
+                MARK='# BEGIN home-ops-managed (home-ops-43h)'
                 [ -f "$CFG" ] || { echo "$CFG missing, skipping"; exit 0; }
-                if grep -qE '^homeassistant:[[:space:]]*$' "$CFG"; then
-                  echo "packages include already wired"; exit 0
+                if grep -qF "$MARK" "$CFG"; then
+                  echo "home-ops-managed block already present; skipping"
+                  exit 0
                 fi
-                printf '\nhomeassistant:\n  packages: !include_dir_named packages\n' >> "$CFG"
-                echo "appended homeassistant.packages include to $CFG"
+                {
+                  printf '\n%s\n' "$MARK"
+                  printf 'homeassistant:\n'
+                  printf '  packages: !include_dir_named packages\n'
+                  printf '  auth_providers:\n'
+                  printf '    - type: homeassistant\n'
+                  printf '    - type: trusted_networks\n'
+                  printf '      trusted_networks:\n'
+                  printf '        - 10.42.0.0/16\n'
+                  printf '      allow_bypass_login: false\n'
+                  printf '# END home-ops-managed (home-ops-43h)\n'
+                } >> "$CFG"
+                echo "appended home-ops-managed block to $CFG"
         containers:
           app:
             image:
@@ -110,7 +132,7 @@ spec:
         globalMounts:
           - path: /config
       # YAML overlay files merged into HA's config tree via its packages
-      # feature (wired by the enable-packages initContainer above). Mounted
+      # feature (wired by the enable-ha-config initContainer above). Mounted
       # read-only; all overlay content lives in configmap.yaml.
       packages:
         type: configMap
