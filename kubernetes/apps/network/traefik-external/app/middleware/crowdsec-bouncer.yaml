@@ -9,12 +9,11 @@ spec:
     crowdsec-bouncer-traefik-plugin:
       enabled: true
       crowdsecLapiHost: crowdsec-service.security.svc.cluster.local:8080
-      # home-ops-b5w: HTTPS to LAPI. CA cert comes from the mirrored
-      # crowdsec-bouncer-tls secret mounted at /etc/traefik/crowdsec-tls
-      # (see traefik HR volumes). Bouncer still authenticates with its
-      # API key — chart does not enforce bouncer mTLS by default.
-      crowdsecLapiScheme: https
-      crowdsecLapiTlsCertificateAuthorityFile: /etc/traefik/crowdsec-tls/ca.crt
+      # Plain HTTP — in-cluster traffic is already masqueraded by Cilium
+      # eBPF, and enabling chart TLS hits a secretTemplate=null bug in
+      # chart 0.23.0 (tracked via home-ops-b5w reopen). Bouncer
+      # authenticates to LAPI via its API key.
+      crowdsecLapiScheme: http
       crowdsecLapiKeyFile: /etc/traefik/secrets/CROWDSEC_BOUNCER_KEY
       crowdsecMode: stream
       MetricsUpdateIntervalSeconds: 60

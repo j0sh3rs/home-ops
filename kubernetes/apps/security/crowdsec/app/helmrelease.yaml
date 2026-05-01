@@ -23,24 +23,13 @@ spec:
       repository: crowdsecurity/crowdsec
       pullPolicy: Always
     container_runtime: containerd
-    # home-ops-b5w: mutual TLS between agent/appsec/bouncer and LAPI. Chart
-    # auto-provisions a self-signed ClusterIssuer (crowdsec-root-issuer) since
-    # no issuerRef is supplied; internal service DNS names aren't valid LE
-    # inputs. Bouncer secret is reflected into the `network` namespace so the
-    # Traefik middleware can mount the CA cert from /etc/traefik/secrets.
-    tls:
-      enabled: true
-      insecureSkipVerify: false
-      agent:
-        tlsClientAuth: true
-      appsec:
-        tlsClientAuth: true
-      certManager:
-        enabled: true
-      bouncer:
-        reflector:
-          namespaces:
-            - network
+    # home-ops-b5w deferred: enabling tls triggered a chart bug where
+    # Certificate.cert-manager.io "crowdsec-agent" rendered with
+    # spec.secretTemplate: null, which cert-manager CRD rejects. Chart 0.23.0
+    # issue. Internal .svc.cluster.local traffic is already protected by
+    # Cilium eBPF masquerade, so TLS is a defense-in-depth polish — revisit
+    # when the chart fixes secretTemplate handling or we pin the upstream
+    # certificate with explicit values.
     config:
       config.yaml.local: |
         api:
