@@ -49,14 +49,23 @@ spec:
               - |
                 set -eu
                 CFG=/config/configuration.yaml
-                MARK='# BEGIN home-ops-managed (home-ops-43h)'
+                BEGIN='# BEGIN home-ops-managed (home-ops-43h)'
+                END='# END home-ops-managed (home-ops-43h)'
+                # Admin user UUID captured after first-run onboarding —
+                # this maps any request from the cluster pod CIDR to that
+                # user, which is the actual SSO bypass. Auth0/Traefik-OIDC
+                # remains the edge gate; this just skips HA's own login.
+                # Rotate by recreating the admin user and updating here.
+                ADMIN_UUID='a1757624734047ec82b7e2f1d845b3ac'
                 [ -f "$CFG" ] || { echo "$CFG missing, skipping"; exit 0; }
-                if grep -qF "$MARK" "$CFG"; then
-                  echo "home-ops-managed block already present; skipping"
-                  exit 0
+                # Strip any prior marker-fenced block (idempotent re-seed).
+                if grep -qF "$BEGIN" "$CFG"; then
+                  sed -i "/$BEGIN/,/$END/d" "$CFG"
+                  # Also trim trailing blank lines left behind.
+                  sed -i -e :a -e '/^$/{$d;N;ba' -e '}' "$CFG"
                 fi
                 {
-                  printf '\n%s\n' "$MARK"
+                  printf '\n%s\n' "$BEGIN"
                   printf 'homeassistant:\n'
                   printf '  packages: !include_dir_named packages\n'
                   printf '  auth_providers:\n'
@@ -64,10 +73,12 @@ spec:
                   printf '    - type: trusted_networks\n'
                   printf '      trusted_networks:\n'
                   printf '        - 10.42.0.0/16\n'
-                  printf '      allow_bypass_login: false\n'
-                  printf '# END home-ops-managed (home-ops-43h)\n'
+                  printf '      trusted_users:\n'
+                  printf '        10.42.0.0/16: %s\n' "$ADMIN_UUID"
+                  printf '      allow_bypass_login: true\n'
+                  printf '%s\n' "$END"
                 } >> "$CFG"
-                echo "appended home-ops-managed block to $CFG"
+                echo "re-seeded home-ops-managed block in $CFG"
         containers:
           app:
             image:
