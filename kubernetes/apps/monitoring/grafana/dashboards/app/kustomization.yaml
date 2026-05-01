@@ -9,3 +9,4 @@ resources:
   - tetragon-grafanadashboard.yaml
   - vm-dashboards.yaml
   - traefik-dashboards.yaml
+  - homebridge-grafanadashboard.yaml

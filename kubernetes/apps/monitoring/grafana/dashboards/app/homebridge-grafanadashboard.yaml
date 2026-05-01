@@ -1,0 +1,263 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: homebridge
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  folder: Homebridge
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  json: |
+    {
+      "title": "Homebridge",
+      "uid": "homebridge-overview",
+      "tags": ["homebridge", "homekit"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "editable": true,
+      "refresh": "1m",
+      "time": {"from": "now-6h", "to": "now"},
+      "templating": {
+        "list": [
+          {
+            "name": "DS_PROMETHEUS",
+            "type": "datasource",
+            "query": "prometheus",
+            "current": {"text": "vmsingle", "value": "vmsingle"},
+            "hide": 0
+          },
+          {
+            "name": "bridge",
+            "type": "query",
+            "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+            "query": "label_values({__name__=~\"homebridge_.+\"}, bridge)",
+            "includeAll": true,
+            "multi": true,
+            "refresh": 2
+          },
+          {
+            "name": "accessory",
+            "type": "query",
+            "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+            "query": "label_values({__name__=~\"homebridge_.+\",bridge=~\"$bridge\"}, name)",
+            "includeAll": true,
+            "multi": true,
+            "refresh": 2
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Scrape Health",
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "up{job=\"homebridge\"}", "refId": "A"}],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}}},
+                {"type": "value", "options": {"1": {"text": "UP", "color": "green"}}}
+              ],
+              "color": {"mode": "thresholds"},
+              "thresholds": {"mode": "absolute", "steps": [
+                {"color": "red", "value": null},
+                {"color": "green", "value": 1}
+              ]}
+            }
+          },
+          "options": {"colorMode": "background", "graphMode": "none"}
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Scrape Duration",
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "scrape_duration_seconds{job=\"homebridge\"}", "refId": "A"}],
+          "fieldConfig": {"defaults": {"unit": "s", "decimals": 2}}
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Accessory Count",
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "count(count by (name) ({__name__=~\"homebridge_.+\",bridge=~\"$bridge\"}))", "refId": "A"}]
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Unique Metric Series",
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "count(count by (__name__) ({__name__=~\"homebridge_.+\",bridge=~\"$bridge\"}))", "refId": "A"}]
+        },
+
+        {
+          "id": 10,
+          "type": "timeseries",
+          "title": "Temperatures (°C)",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "{__name__=~\"homebridge_.+_current_temperature_celsius\",bridge=~\"$bridge\",name=~\"$accessory\"}",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {"defaults": {"unit": "celsius"}}
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Humidity (%)",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "{__name__=~\"homebridge_.+_current_relative_humidity\",bridge=~\"$bridge\",name=~\"$accessory\"}",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {"defaults": {"unit": "percent"}}
+        },
+
+        {
+          "id": 20,
+          "type": "stat",
+          "title": "Lights ON",
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "sum({__name__=~\"homebridge_lightbulb_on\",bridge=~\"$bridge\"}) OR on() vector(0)", "refId": "A"}]
+        },
+        {
+          "id": 21,
+          "type": "stat",
+          "title": "Switches ON",
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "sum({__name__=~\"homebridge_switch_on\",bridge=~\"$bridge\"}) OR on() vector(0)", "refId": "A"}]
+        },
+        {
+          "id": 22,
+          "type": "stat",
+          "title": "Outlets ON",
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "sum({__name__=~\"homebridge_outlet_on\",bridge=~\"$bridge\"}) OR on() vector(0)", "refId": "A"}]
+        },
+        {
+          "id": 23,
+          "type": "stat",
+          "title": "Motion Detected",
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{"expr": "sum({__name__=~\"homebridge_motion_sensor_motion_detected\",bridge=~\"$bridge\"}) OR on() vector(0)", "refId": "A"}]
+        },
+
+        {
+          "id": 30,
+          "type": "timeseries",
+          "title": "Battery Levels (%)",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "{__name__=~\"homebridge_battery_service_battery_level\",bridge=~\"$bridge\",name=~\"$accessory\"}",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {"mode": "absolute", "steps": [
+                {"color": "red", "value": null},
+                {"color": "orange", "value": 20},
+                {"color": "green", "value": 50}
+              ]}
+            }
+          }
+        },
+        {
+          "id": 31,
+          "type": "table",
+          "title": "Low Battery Accessories",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "{__name__=~\"homebridge_battery_service_status_low_battery\",bridge=~\"$bridge\"} == 1",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }],
+          "transformations": [{
+            "id": "organize",
+            "options": {
+              "excludeByName": {"Time": true, "__name__": true, "endpoint": true, "job": true, "namespace": true, "pod": true, "service": true, "instance": true, "device_id": true},
+              "renameByName": {"name": "Accessory", "manufacturer": "Maker", "model": "Model", "Value": "Low"}
+            }
+          }]
+        },
+
+        {
+          "id": 40,
+          "type": "timeseries",
+          "title": "Air Quality — PM2.5 (µg/m³)",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "{__name__=~\"homebridge_air_quality_sensor_pm2_5_density\",bridge=~\"$bridge\",name=~\"$accessory\"}",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {"defaults": {"unit": "µg/m³"}}
+        },
+        {
+          "id": 41,
+          "type": "timeseries",
+          "title": "Contact / Occupancy / Leak / Smoke State",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "{__name__=~\"homebridge_(contact_sensor_contact_sensor_state|occupancy_sensor_occupancy_detected|leak_sensor_leak_detected|smoke_sensor_smoke_detected)\",bridge=~\"$bridge\",name=~\"$accessory\"}",
+            "legendFormat": "{{name}} ({{__name__}})",
+            "refId": "A"
+          }]
+        },
+
+        {
+          "id": 50,
+          "type": "table",
+          "title": "Accessory Inventory",
+          "gridPos": {"h": 10, "w": 24, "x": 0, "y": 32},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "count by (bridge, name, manufacturer, model, firmware_revision, serial_number) ({__name__=~\"homebridge_.+\",bridge=~\"$bridge\"})",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }],
+          "transformations": [{
+            "id": "organize",
+            "options": {
+              "excludeByName": {"Time": true, "Value": true},
+              "renameByName": {
+                "bridge": "Bridge",
+                "name": "Name",
+                "manufacturer": "Maker",
+                "model": "Model",
+                "firmware_revision": "Firmware",
+                "serial_number": "Serial"
+              }
+            }
+          }]
+        }
+      ]
+    }
