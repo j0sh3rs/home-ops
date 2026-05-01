@@ -1,5 +1,14 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# home-ops-1h2: Internal Traefik intentionally does NOT include the CrowdSec
+# bouncer middleware in its entrypoint chain. Internal gateway is reachable
+# only via the LAN LoadBalancer IP 192.168.35.17 (UniFi split-horizon DNS);
+# external ingress goes through traefik-external which has the bouncer. The
+# homelab threat model (see talos/patches/README.md) assumes a trusted LAN,
+# single operator, no PHI/PCI workloads — adding a bouncer here is
+# defense-in-depth against compromised LAN devices but adds complexity for
+# minimal return. Revisit if the cluster hosts regulated data or the LAN is
+# shared with untrusted users.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:

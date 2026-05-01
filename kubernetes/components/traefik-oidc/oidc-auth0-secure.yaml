@@ -25,6 +25,14 @@ spec:
       logoutURL: /oauth2/logout
       postLogoutRedirectURI: /
 
+      # Back-Channel Logout (home-ops-a95): Auth0 POSTs a signed logout_token
+      # JWT to backchannelLogoutURL when the user logs out of Auth0 directly.
+      # Plugin verifies the token via OIDC discovery and invalidates the
+      # associated session in DragonflyDB. Requires a matching Back-Channel
+      # Logout URI configured on the Auth0 application side (per host).
+      enableBackchannelLogout: true
+      backchannelLogoutURL: /oauth2/backchannel-logout
+
       forceHTTPS: true
 
       scopes:
