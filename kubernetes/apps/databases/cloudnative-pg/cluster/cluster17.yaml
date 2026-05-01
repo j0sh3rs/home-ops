@@ -9,6 +9,13 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:17
   description: "Shared PG17 Cluster"
   primaryUpdateStrategy: unsupervised
+  # Exclude CNPG PVCs from Velero fs-backup — data is already shipped to
+  # s3://cloudnative-pg via barmanObjectStore and PITR is driven from WAL
+  # archives, so a raw kopia copy would be both redundant and potentially
+  # inconsistent (live pgdata mid-write). See home-ops-ohh.
+  inheritedMetadata:
+    labels:
+      velero.io/exclude-from-backup: "true"
   storage:
     size: 40Gi
   superuserSecret:

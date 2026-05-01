@@ -73,6 +73,9 @@ spec:
             insecureSkipTLSVerify: "false"
 
       # CSI snapshot support (integrated in Velero v1.17+)
+      # Left wired for future CSI storage adoption; cluster currently has no
+      # CSI drivers or VolumeSnapshotClass CRDs so the snapshotter silently
+      # no-ops. Actual PV data is captured by the kopia node-agent below.
       volumeSnapshotLocation:
         - name: default
           provider: csi
@@ -82,6 +85,14 @@ spec:
 
       # Default backup TTL
       defaultBackupTTL: 720h # 30 days
+
+      # Opt-out fs-level backup — every PV is captured via kopia unless the
+      # PVC carries the velero.io/exclude-from-backup="true" label. Excluded
+      # at home-ops: CNPG pgdata (barman), vmsingle/victoria-logs/alertmanager
+      # (loss-acceptable hot stores), grafana (dashboards in Git), crowdsec
+      # (rebuilt from hub), dragonflydb (in-mem cache). See home-ops-ohh.
+      defaultVolumesToFsBackup: true
+      uploaderType: kopia
 
     # Credentials for S3 access (from SOPS-encrypted secret)
     credentials:
@@ -95,8 +106,28 @@ spec:
     # Backup snapshot configuration (CSI integrated in v1.17+)
     snapshotsEnabled: true
 
-    # Deploy node-agent (formerly restic) for file-level backups
-    deployNodeAgent: false # Not needed for CSI snapshots
+    # Deploy node-agent DaemonSet for kopia fs-level backup (home-ops-ohh).
+    # Cluster runs non-CSI storage so this is the only data-path for PV
+    # backups. Single-node-per-volume topology means no cross-host dedup,
+    # but kopia still does content-address dedup per repo.
+    deployNodeAgent: true
+    nodeAgent:
+      # Talos default kubelet pods dir — required for node-agent to access
+      # pod volume bind-mounts.
+      podVolumePath: /var/lib/kubelet/pods
+      privileged: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
+      # Node-agent pods are per-node, tolerate control-plane taints so etcd
+      # node PVs (if any) would be covered too.
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
 
     # ServiceMonitor for Prometheus metrics (NFR-OPER-001)
     metrics:
