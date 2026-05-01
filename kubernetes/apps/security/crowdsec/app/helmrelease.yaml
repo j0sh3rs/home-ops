@@ -179,9 +179,10 @@ spec:
           source: appsec
       enabled: true
       env:
-        # home-ops-gd7: added appsec-crs-outofband for a 1-week FP observation
-        # window — generates alerts but does not block. Inband + OOB running
-        # together lets us compare FP rates before flipping the bouncer's
-        # crowdsecAppsecFailureBlock to true (tracked in home-ops-bu8).
+        # home-ops-gd7: appsec-crs-outofband does not exist upstream — hub
+        # only publishes the inband variant. For FP observation, use the
+        # existing inband CRS and rely on the Traefik bouncer's
+        # crowdsecAppsecFailureBlock=false (current config) to keep OOB
+        # semantics at the bouncer layer. Revisit via home-ops-bu8.
         - name: COLLECTIONS
-          value: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs-inband crowdsecurity/appsec-crs-outofband"
+          value: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs-inband"
