@@ -44,3 +44,38 @@ data:
       db_url: !env_var RECORDER_DB_URL
       purge_keep_days: 30
       commit_interval: 10
+
+  prometheus.yaml: |
+    # Cluster health surfaces from VMsingle (PromQL-compatible endpoint).
+    # Scraped every 30-60s by HA's rest platform. Extend with more sensors
+    # as needed; each rest sensor fires one HTTP call per scan_interval.
+    sensor:
+      - platform: rest
+        name: cluster_cpu_usage_percent
+        unique_id: cluster_cpu_usage_percent
+        resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
+        params:
+          query: "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)"
+        value_template: "{{ value_json.data.result[0].value[1] | float | round(1) }}"
+        unit_of_measurement: "%"
+        scan_interval: 30
+
+      - platform: rest
+        name: cluster_memory_used_gb
+        unique_id: cluster_memory_used_gb
+        resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
+        params:
+          query: "sum(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 1024 / 1024 / 1024"
+        value_template: "{{ value_json.data.result[0].value[1] | float | round(1) }}"
+        unit_of_measurement: "GB"
+        scan_interval: 30
+
+      - platform: rest
+        name: cluster_nodes_up
+        unique_id: cluster_nodes_up
+        resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
+        params:
+          query: "count(up{job=\"node-exporter\"} == 1)"
+        value_template: "{{ value_json.data.result[0].value[1] | int }}"
+        unit_of_measurement: "nodes"
+        scan_interval: 60
