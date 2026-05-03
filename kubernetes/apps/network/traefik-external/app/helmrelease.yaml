@@ -207,7 +207,9 @@ spec:
           enabled: true
           rules:
             - alert: TraefikAbsent
-              expr: absent(traefik_entrypoint_open_connections) == 1
+              # Traefik v3 renamed traefik_entrypoint_open_connections to
+              # traefik_open_connections with an 'entrypoint' label.
+              expr: absent(traefik_open_connections{service="traefik-external-metrics"}) == 1
               for: 5m
               labels:
                 severity: critical
@@ -264,7 +266,8 @@ spec:
                 summary: "TLS cert expiring soon: {{ $labels.cn }}"
                 description: "TLS certificate for {{ $labels.cn }} (SANs: {{ $labels.sans }}) expires in less than 7 days."
             - alert: TraefikHighOpenConnections
-              expr: sum by (entrypoint) (traefik_entrypoint_open_connections) > 1000
+              # v3 rename: traefik_entrypoint_open_connections -> traefik_open_connections
+              expr: sum by (entrypoint) (traefik_open_connections{service="traefik-external-metrics"}) > 1000
               for: 5m
               labels:
                 severity: warning

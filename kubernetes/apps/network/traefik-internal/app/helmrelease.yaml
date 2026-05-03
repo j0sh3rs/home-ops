@@ -162,7 +162,9 @@ spec:
           enabled: true
           rules:
             - alert: TraefikInternalAbsent
-              expr: absent(traefik_entrypoint_open_connections{service="traefik-internal-metrics"}) == 1
+              # Traefik v3 renamed traefik_entrypoint_open_connections to
+              # traefik_open_connections with an 'entrypoint' label.
+              expr: absent(traefik_open_connections{service="traefik-internal-metrics"}) == 1
               for: 5m
               labels:
                 severity: critical
