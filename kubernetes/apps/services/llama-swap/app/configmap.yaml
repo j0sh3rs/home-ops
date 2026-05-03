@@ -68,3 +68,18 @@ data:
           - "fast"
           - "small"
         ttl: 300
+
+      # Larger reasoning / coding model enabled by 16 GiB UMA bump.
+      # Weights ~8.4 GiB, ctx 8192 at q8_0 KV keeps total footprint under
+      # UMA ceiling. Slower (5-8 tok/s expected) but higher quality output.
+      "qwen3-14b":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen3-14B-Q4_K_M.gguf
+          --ctx-size 8192
+          --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
+          --presence-penalty 1.0
+        aliases:
+          - "large"
+          - "reasoning"
+        ttl: 300

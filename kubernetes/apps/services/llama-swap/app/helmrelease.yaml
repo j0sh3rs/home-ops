@@ -90,6 +90,13 @@ spec:
                   "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
                   "Qwen3-1.7B-Q5_K_M.gguf" \
                   1300000000
+                # Qwen3-14B Q4_K_M (~8.4 GiB) — enabled after UMA bump 3G->16G.
+                # Fits cleanly in 16 GiB UMA with 8k+ context; unlocks larger
+                # reasoning/coding workloads without GTT spillover.
+                fetch \
+                  "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf?download=true" \
+                  "Qwen3-14B-Q4_K_M.gguf" \
+                  8400000000
                 echo "[finished] model staging complete"
                 ls -la /models
             env:
