@@ -38,21 +38,42 @@ spec:
               - |
                 set -eu
                 cd /models
+                human() {
+                  # Pretty-print bytes in SI (MiB/GiB) without bc.
+                  awk -v b="$1" 'BEGIN{
+                    split("B KiB MiB GiB TiB",u," ");
+                    i=1; while (b>=1024 && i<5) { b=b/1024; i++ }
+                    printf "%.2f %s", b, u[i]
+                  }'
+                }
                 fetch() {
-                  local url="$1"; local out="$2"; local min_bytes="$3"
+                  url="$1"; out="$2"; min_bytes="$3"
                   if [ -f "$out" ]; then
-                    local have
                     have=$(stat -c %s "$out" 2>/dev/null || echo 0)
                     if [ "$have" -ge "$min_bytes" ]; then
-                      echo "[skip] $out exists ($have bytes)"
+                      echo "[skip] $out exists ($(human $have))"
                       return 0
                     fi
                     echo "[retry] $out too small ($have < $min_bytes), re-fetching"
                     rm -f "$out"
                   fi
                   echo "[fetch] $out"
-                  curl -sLf -o "$out.part" "$url"
+                  # Background curl; tail size every 5s until it exits.
+                  # --no-progress-meter keeps stderr clean; we do our own reporting.
+                  curl --no-progress-meter -Lf -o "$out.part" "$url" &
+                  cpid=$!
+                  while kill -0 "$cpid" 2>/dev/null; do
+                    sleep 5
+                    if [ -f "$out.part" ]; then
+                      cur=$(stat -c %s "$out.part" 2>/dev/null || echo 0)
+                      echo "[progress] $out: $(human $cur)"
+                    fi
+                  done
+                  # Propagate curl exit status.
+                  wait "$cpid"
+                  final=$(stat -c %s "$out.part" 2>/dev/null || echo 0)
                   mv "$out.part" "$out"
+                  echo "[done]  $out: $(human $final)"
                 }
                 # Qwen3-4B-Instruct-2507 Q4_K_M (~2.33 GiB)
                 fetch \
@@ -69,7 +90,7 @@ spec:
                   "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
                   "Qwen3-1.7B-Q5_K_M.gguf" \
                   1300000000
-                echo "[done] model staging complete"
+                echo "[finished] model staging complete"
                 ls -la /models
             env:
               # Override HF_HUB_OFFLINE from main container — init must
