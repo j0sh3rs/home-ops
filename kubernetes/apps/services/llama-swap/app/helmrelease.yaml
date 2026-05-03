@@ -1,0 +1,208 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app llama-swap
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      llama-swap:
+        annotations:
+          # Reload pod when the config ConfigMap changes.
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          model-fetch:
+            # One-shot GGUF downloader. Idempotent — skips files that
+            # already exist and match the expected size. Uses the same
+            # /models PVC as the main container so weights persist across
+            # restarts. curlimages/curl is 12 MiB and pins to a known
+            # digest pattern (see renovate annotation).
+            image:
+              repository: curlimages/curl
+              # renovate: datasource=docker depName=curlimages/curl
+              tag: 8.11.1
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                set -eu
+                cd /models
+                fetch() {
+                  local url="$1"; local out="$2"; local min_bytes="$3"
+                  if [ -f "$out" ]; then
+                    local have
+                    have=$(stat -c %s "$out" 2>/dev/null || echo 0)
+                    if [ "$have" -ge "$min_bytes" ]; then
+                      echo "[skip] $out exists ($have bytes)"
+                      return 0
+                    fi
+                    echo "[retry] $out too small ($have < $min_bytes), re-fetching"
+                    rm -f "$out"
+                  fi
+                  echo "[fetch] $out"
+                  curl -sLf -o "$out.part" "$url"
+                  mv "$out.part" "$out"
+                }
+                # Qwen3-4B-Instruct-2507 Q4_K_M (~2.33 GiB)
+                fetch \
+                  "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf?download=true" \
+                  "Qwen3-4B-Instruct-2507-Q4_K_M.gguf" \
+                  2300000000
+                # Qwen2.5-Coder-3B-Instruct Q4_K_M (~1.9 GiB)
+                fetch \
+                  "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf?download=true" \
+                  "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf" \
+                  1800000000
+                # Qwen3-1.7B Q5_K_M (~1.4 GiB)
+                fetch \
+                  "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
+                  "Qwen3-1.7B-Q5_K_M.gguf" \
+                  1300000000
+                echo "[done] model staging complete"
+                ls -la /models
+            env:
+              # Override HF_HUB_OFFLINE from main container — init must
+              # reach HuggingFace.
+              HF_HUB_OFFLINE: "0"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+            securityContext:
+              runAsNonRoot: false
+              runAsUser: 0
+        containers:
+          app:
+            image:
+              repository: ghcr.io/mostlygeek/llama-swap
+              # Vulkan build ships /app/llama-server with Vulkan enabled.
+              # renovate: datasource=docker depName=ghcr.io/mostlygeek/llama-swap
+              tag: v179-vulkan-b7565
+            args:
+              - --config
+              - /app/config.yaml
+              - --listen
+              - 0.0.0.0:8080
+            env:
+              # Pin Vulkan to the one iGPU exposed by amd-gpu device plugin.
+              GGML_VK_VISIBLE_DEVICES: "0"
+              # Prevent accidental outbound HF fetches from llama-server;
+              # GGUF files are pre-staged by the model-init Job.
+              HF_HUB_OFFLINE: "1"
+            resources:
+              requests:
+                cpu: 500m
+                memory: 4Gi
+              limits:
+                # 12 GiB covers the largest model + KV cache.
+                memory: 12Gi
+                amd.com/gpu: "1"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8080
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8080
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+              startup:
+                enabled: false
+            securityContext:
+              # llama-swap image runs as root; /dev/kfd + /dev/dri access
+              # is mediated by the AMD device plugin, not privileged mode.
+              runAsNonRoot: false
+              runAsUser: 0
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: &port 8080
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        hostnames: ["llm.68cc.io"]
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: oidc-auth0-secure
+            backendRefs:
+              - name: *app
+                port: *port
+    persistence:
+      # Persistent GGUF cache; shared with the first-boot init Job.
+      # Explicit name so the init Job can mount the same claim without
+      # relying on bjw-s naming conventions.
+      models:
+        type: persistentVolumeClaim
+        name: llama-swap-models
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 50Gi
+        retain: true
+        globalMounts:
+          - path: /models
+      # llama-swap config.yaml from ConfigMap in this kustomization.
+      config:
+        type: configMap
+        name: llama-swap-config
+        globalMounts:
+          - path: /app/config.yaml
+            subPath: config.yaml
+            readOnly: true
+    defaultPodOptions:
+      # Pin to bee-jms-03 (Cezanne 8CU + memory-tier=high). Soft failover
+      # to any Cezanne (device-id 1638). Required amd.com/gpu.family label
+      # excludes any non-GPU node added later.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: amd.com/gpu.family
+                    operator: Exists
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: ["bee-jms-03"]
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: amd.com/gpu.device-id
+                    operator: In
+                    values: ["1638"]

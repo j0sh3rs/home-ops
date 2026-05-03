@@ -31,9 +31,14 @@ spec:
               # renovate: datasource=github-releases depName=open-webui/open-webui
               tag: v0.9.2
             env:
-              # Point at internal Ollama service (same namespace)
-              OLLAMA_BASE_URL: "http://ollama:11434"
-              ENABLE_OLLAMA_API: "true"
+              # Point at llama-swap OpenAI-compatible endpoint (same namespace).
+              # Ollama API disabled — llama-swap does not implement /api/tags.
+              OPENAI_API_BASE_URL: "http://llama-swap:8080/v1"
+              # llama-swap has no auth configured; open-webui requires a
+              # non-empty key to send the Authorization header at all.
+              OPENAI_API_KEY: "sk-local-llama-swap"
+              ENABLE_OPENAI_API: "true"
+              ENABLE_OLLAMA_API: "false"
               # Disable outbound telemetry
               DO_NOT_TRACK: "true"
               ANONYMIZED_TELEMETRY: "false"

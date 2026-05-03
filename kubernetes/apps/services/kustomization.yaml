@@ -19,7 +19,7 @@ resources:
   # - ./metamcp/ks.yaml
   - ./mosquitto/ks.yaml
   - ./n8n/ks.yaml
-  - ./ollama/ks.yaml
+  - ./llama-swap/ks.yaml
   - ./open-webui/ks.yaml
   #  - ./paperless/ks.yaml
 

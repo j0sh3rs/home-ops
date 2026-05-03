@@ -1,0 +1,69 @@
+---
+# yaml-language-server: $schema=https://kubernetesjsonschema.dev/master/configmap-v1.json
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llama-swap-config
+data:
+  config.yaml: |
+    # llama-swap config for home-ops
+    # Docs: https://github.com/mostlygeek/llama-swap
+    #
+    # Single Cezanne APU iGPU (3 GiB UMA + GTT spill). One model loaded at a
+    # time; each model auto-unloads after 5 min idle (ttl=300).
+    healthCheckTimeout: 180
+    logLevel: info
+    startPort: 5800
+
+    macros:
+      # Shared llama-server invocation. --jinja uses the GGUF-embedded chat
+      # template. KV cache quantized to q8_0 to stretch the small VRAM.
+      "llama-vulkan": >-
+        /app/llama-server
+        --host 0.0.0.0 --port ${PORT}
+        -ngl 99
+        --flash-attn
+        --jinja
+        --cache-type-k q8_0 --cache-type-v q8_0
+
+    models:
+      # Default chat / tool use / long context.
+      # Qwen3-4B-Instruct-2507: MMLU-Pro 69.6, GPQA 62.0, IFEval 83.4.
+      "qwen3-4b":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf
+          --ctx-size 32768
+          --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
+          --presence-penalty 1.0
+        aliases:
+          - "default"
+          - "chat"
+          - "gpt-4o-mini"
+        ttl: 300
+
+      # Coding specialist. Qwen2.5-Coder-3B tops the 3B class on HumanEval,
+      # MBPP, and HumanEval-FIM.
+      "qwen-coder":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf
+          --ctx-size 16384
+          --temp 0.2 --top-p 0.95
+        aliases:
+          - "code"
+          - "coder"
+        ttl: 300
+
+      # Fast small model for routing, classification, autocomplete.
+      # Matches older Qwen2.5-3B at half the parameter count.
+      "qwen3-1.7b":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen3-1.7B-Q5_K_M.gguf
+          --ctx-size 16384
+          --temp 0.7 --top-p 0.8
+        aliases:
+          - "fast"
+          - "small"
+        ttl: 300

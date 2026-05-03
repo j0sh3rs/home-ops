@@ -3,14 +3,14 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app ollama
+  name: &app llama-swap
   namespace: &namespace services
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   interval: 1h
-  path: ./kubernetes/apps/services/ollama/app
+  path: ./kubernetes/apps/services/llama-swap/app
   prune: true
   retryInterval: 2m
   sourceRef:
@@ -18,5 +18,5 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  timeout: 10m
+  timeout: 15m
   wait: false
