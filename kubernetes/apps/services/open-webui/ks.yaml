@@ -11,7 +11,7 @@ spec:
       app.kubernetes.io/name: *app
   interval: 1h
   dependsOn:
-    - name: ollama
+    - name: llama-swap
       namespace: *namespace
   path: ./kubernetes/apps/services/open-webui/app
   prune: true
