@@ -26,6 +26,13 @@ tasks:
       - talosctl config info
       - test -f {{.TALOSCONFIG}}
       - which talhelper talosctl yq
+    # Quorum safety: all 3 bee-jms nodes are control-plane members. Rebooting
+    # one drops etcd 3->2. A second failure during the maintenance window is
+    # cluster-down. Verify every OTHER control-plane node is healthy before
+    # touching this one. Runs as a task dep so it fails loudly before apply.
+    deps:
+      - task: etcd-quorum-precheck
+        vars: { IP: "{{.IP}}" }
 
   upgrade-node:
     desc: Upgrade Talos on a single node [IP=required]
@@ -43,6 +50,28 @@ tasks:
       - talosctl config info
       - test -f {{.TALOSCONFIG}}
       - which kubectl talhelper talosctl yq
+    deps:
+      - task: etcd-quorum-precheck
+        vars: { IP: "{{.IP}}" }
+
+  etcd-quorum-precheck:
+    desc: Verify all OTHER control-plane peers are healthy before rebooting [IP=required]
+    internal: true
+    dir: '{{.TALOS_DIR}}'
+    requires:
+      vars: [IP]
+    cmds:
+      # List every control-plane IP except the target, then query etcd status
+      # against each peer in a single talosctl call. talosctl etcd status
+      # exits non-zero if any member is unhealthy or behind the leader.
+      - |
+        PEERS=$(yq '.nodes[] | select(.controlPlane == true) | .ipAddress' talconfig.yaml | grep -v '^{{.IP}}$' | tr '\n' ',' | sed 's/,$//')
+        if [ -z "$PEERS" ]; then
+          echo "ERROR: no control-plane peers found in talconfig.yaml for IP={{.IP}}" >&2
+          exit 1
+        fi
+        echo "Checking etcd quorum on peers: $PEERS"
+        talosctl --nodes "$PEERS" etcd status
 
   upgrade-k8s:
     desc: Upgrade Kubernetes

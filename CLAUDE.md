@@ -96,6 +96,17 @@ task talos:upgrade-k8s                           # Upgrade Kubernetes version
 task talos:reset                                 # Reset all nodes (DESTRUCTIVE, prompts)
 ```
 
+**Quorum safety (all 3 nodes are control-plane members):**
+
+Rebooting any node drops etcd 3→2. A second failure during that window is cluster-down. `talos:apply-node` and `talos:upgrade-node` now run an `etcd-quorum-precheck` dep that calls `talosctl --nodes <peers> etcd status` before touching the target — the task fails loudly if any OTHER control-plane peer is behind or unhealthy.
+
+Operational rules:
+
+- **Never run two node-mutating tasks in parallel.** One at a time. Wait for the target to rejoin and report healthy before touching the next.
+- **Never reboot, reset, or power-off a node manually without first cordoning it** — the taskfile prechecks are bypassed, and you lose the quorum gate.
+- If `etcd-quorum-precheck` fails: investigate via `talosctl --nodes <peer> etcd status` and `talosctl --nodes <peer> dmesg | grep -i etcd` before overriding.
+- Ad-hoc `talosctl reboot` / `talosctl shutdown` have no built-in quorum check. Cordon + drain the node in Kubernetes first, then confirm peer etcd health manually before the Talos-level command.
+
 ### SOPS Secret Management
 
 ```bash
@@ -235,6 +246,26 @@ task sops:verify  # Check all *.sops.yaml files are properly encrypted
 - **Velero** — Cluster-level S3-backed snapshots (daily 02:00 UTC, 30-day retention)
 
 Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{component}-s3-secret`).
+
+#### Storage class selection
+
+Pick the storage class based on the workload's latency sensitivity and whether the data must survive node reschedule. When in doubt, favor `openebs-hostpath`: node-pinning is an acceptable cost for the latency win, and S3 backups provide the durability layer.
+
+| Workload shape | Class | Why |
+|----------------|-------|-----|
+| Database data dirs (Postgres, Dolt, DragonflyDB) | `openebs-hostpath` | Local NVMe; sub-ms IO; backup separately via S3 |
+| Model weights, embedding caches (llama-swap, Ollama) | `openebs-hostpath` | Large cold reads; local disk avoids NFS throughput cap |
+| Log shards, TSDB blocks (vmsingle, victoria-logs) | `openebs-hostpath` | Write-heavy, append-only; NFS metadata ops too costly |
+| Grafana dashboards/plugins on-disk cache | `openebs-hostpath` | Startup-read-heavy; tolerable node-pinning |
+| Config-heavy apps needing RWO but mobile (CrowdSec, AlertManager state) | `nfs-client` | Survives pod reschedule across nodes; low write rate |
+| Shared read-mostly state across replicas | `nfs-client` | Only class supporting effective multi-node access patterns |
+
+Rules of thumb:
+
+- **RWX required** → `nfs-client` (openebs-hostpath is RWO + node-local)
+- **Pod must reschedule without data loss + low write volume** → `nfs-client`
+- **Performance-critical + tolerates pod being pinned to one node** → `openebs-hostpath`
+- **Durability** is never the PVC's job here — S3 backups (Velero, CNPG, Minio replicas) are the answer
 
 ### Observability
 
