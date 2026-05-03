@@ -162,12 +162,10 @@ spec:
               - name: *app
                 port: *port
     persistence:
-      # Persistent GGUF cache; shared with the first-boot init Job.
-      # Explicit name so the init Job can mount the same claim without
-      # relying on bjw-s naming conventions.
+      # Persistent GGUF cache. bjw-s auto-names the PVC "llama-swap-models"
+      # from the release name + volume key. Shared with the init container.
       models:
         type: persistentVolumeClaim
-        name: llama-swap-models
         storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
         size: 50Gi
