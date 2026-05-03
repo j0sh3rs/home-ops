@@ -23,6 +23,16 @@ customization:
     - amd_iommu=on
     - iommu.passthrough=1
 
+    # --- AMD GPU memory expansion ---
+    # GTT (Graphics Translation Table) lets the amdgpu driver map pageable
+    # system RAM into the GPU address space on demand. Raising the cap lets
+    # ROCm spill model weights beyond the BIOS-reserved UMA VRAM (typically
+    # 2 GiB on Renoir/Cezanne) so larger models (7B+ Q4) can load.
+    # Value is MiB. 16384 = 16 GiB — bounded to leave headroom on 32 GiB nodes.
+    # Does NOT increase memory bandwidth (still DDR4-3200 shared with CPU);
+    # strictly raises model-size ceiling, not tokens/sec.
+    - amdgpu.gttsize=16384
+
   systemExtensions:
     officialExtensions:
       - siderolabs/nfsrahead # NFS read-ahead tuning for NFS provisioner

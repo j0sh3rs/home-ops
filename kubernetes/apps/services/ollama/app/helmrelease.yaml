@@ -33,6 +33,20 @@ spec:
               # Allow longer context windows at the cost of VRAM
               OLLAMA_NUM_PARALLEL: "2"
               OLLAMA_MAX_LOADED_MODELS: "2"
+              # ROCm workaround for gfx90c (Renoir/Cezanne APU iGPU):
+              # ROCm ships no Tensile DB entry for gfx90c → rocBLAS init fails
+              # with "Illegal seek" on TensileLibrary.dat. Masquerade as gfx900
+              # (Vega10) which has precompiled kernels. Without this, ollama
+              # silently falls back to CPU inference.
+              HSA_OVERRIDE_GFX_VERSION: "9.0.0"
+              # Bound ROCm to the single iGPU exposed by amd-gpu device plugin.
+              ROCR_VISIBLE_DEVICES: "0"
+              HIP_VISIBLE_DEVICES: "0"
+              # Small-VRAM APU tuning: flash attention + quantized KV cache
+              # reduces KV memory ~2x so more of the 2 GiB UMA is free for
+              # model weights. Safe with recent ROCm on gfx900.
+              OLLAMA_FLASH_ATTENTION: "1"
+              OLLAMA_KV_CACHE_TYPE: "q8_0"
             resources:
               requests:
                 cpu: 500m
@@ -95,3 +109,29 @@ spec:
         retain: true
         globalMounts:
           - path: /models
+    defaultPodOptions:
+      # GPU node scheduling:
+      # - require an AMD GPU node (excludes any non-GPU node added later)
+      # - soft-prefer bee-jms-03 (Cezanne 8CU + memory-tier: high) for best tok/s
+      # - soft-exclude bee-jms-01 (Renoir, older 7CU, device-id 1636) as fallback
+      # Soft affinity keeps failover to bee-jms-02 if bee-jms-03 is down.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: amd.com/gpu.family
+                    operator: Exists
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: ["bee-jms-03"]
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: amd.com/gpu.device-id
+                    operator: In
+                    values: ["1638"]
