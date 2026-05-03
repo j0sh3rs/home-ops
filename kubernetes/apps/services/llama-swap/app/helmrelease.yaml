@@ -97,6 +97,28 @@ spec:
                   "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf?download=true" \
                   "Qwen3-14B-Q4_K_M.gguf" \
                   8400000000
+                # Qwen2.5-Coder-7B Q4_K_M (~4.4 GiB) — larger coding specialist
+                # for multi-file review, refactoring, longer generations where
+                # 3B-Coder lacks structure. Fits alongside 1.7B/4B in always-on
+                # group during use.
+                fetch \
+                  "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf?download=true" \
+                  "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf" \
+                  4400000000
+                # nomic-embed-text-v1.5 Q4_K_M (~87 MB) — embedding model for
+                # RAG, semantic search, vector workflows. Always-on in
+                # llama-swap groups config.
+                fetch \
+                  "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf?download=true" \
+                  "nomic-embed-text-v1.5.Q4_K_M.gguf" \
+                  87000000
+                # bge-reranker-v2-m3 Q4_K_M (~280 MB) — cross-encoder reranker
+                # for high-quality RAG retrieval on top of embeddings.
+                # Always-on in llama-swap groups config.
+                fetch \
+                  "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q4_K_M.gguf?download=true" \
+                  "bge-reranker-v2-m3-Q4_K_M.gguf" \
+                  280000000
                 echo "[finished] model staging complete"
                 ls -la /models
             env:

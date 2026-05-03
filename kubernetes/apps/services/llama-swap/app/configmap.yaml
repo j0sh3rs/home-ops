@@ -10,14 +10,15 @@ data:
     # Docs: https://github.com/mostlygeek/llama-swap
     #
     # Single Cezanne APU iGPU (16 GiB UMA + GTT spill, bumped 2026-05-03).
-    # One model loaded at a time; each model auto-unloads after 5 min idle.
+    # Chat models hot-swap through the 'chat' group (exclusive loading).
+    # Embedding + reranker stay resident in the 'always-on' group.
     healthCheckTimeout: 180
     logLevel: info
     startPort: 5800
 
     macros:
-      # Shared llama-server invocation. --jinja uses the GGUF-embedded chat
-      # template. KV cache quantized to q8_0 to stretch VRAM.
+      # Shared llama-server invocation for chat/coder models. --jinja uses the
+      # GGUF-embedded chat template. KV cache quantized to q8_0 to stretch VRAM.
       # --flash-attn takes a value (on/off/auto) since llama.cpp b7565.
       "llama-vulkan": >-
         /app/llama-server
@@ -27,7 +28,17 @@ data:
         --jinja
         --cache-type-k q8_0 --cache-type-v q8_0
 
+      # Embedding-only invocation. --embedding restricts to the embedding
+      # use case; drops chat completion endpoint for this slot.
+      "llama-embed": >-
+        /app/llama-server
+        --host 0.0.0.0 --port ${PORT}
+        -ngl 99
+        --embedding
+
     models:
+      # ==================== CHAT GROUP (exclusive swap) ====================
+
       # Default chat / tool use / long context.
       # Qwen3-4B-Instruct-2507: MMLU-Pro 69.6, GPQA 62.0, IFEval 83.4.
       "qwen3-4b":
@@ -43,8 +54,8 @@ data:
           - "gpt-4o-mini"
         ttl: 300
 
-      # Coding specialist. Qwen2.5-Coder-3B tops the 3B class on HumanEval,
-      # MBPP, and HumanEval-FIM.
+      # Small coding specialist. Qwen2.5-Coder-3B tops the 3B class on
+      # HumanEval, MBPP, HumanEval-FIM. Fast path for short functions.
       "qwen-coder":
         cmd: |
           ${llama-vulkan}
@@ -54,7 +65,20 @@ data:
         aliases:
           - "code"
           - "coder"
-        ttl: 300
+        ttl: 600
+
+      # Larger coding specialist. Qwen2.5-Coder-7B handles multi-file review,
+      # refactoring, and longer generations where 3B-Coder lacks structure.
+      "qwen-coder-7b":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+          --ctx-size 16384
+          --temp 0.2 --top-p 0.95
+        aliases:
+          - "code-large"
+          - "coder-7b"
+        ttl: 600
 
       # Fast small model for routing, classification, autocomplete.
       # Matches older Qwen2.5-3B at half the parameter count.
@@ -67,11 +91,11 @@ data:
         aliases:
           - "fast"
           - "small"
-        ttl: 300
+        ttl: 900
 
       # Larger reasoning / coding model enabled by 16 GiB UMA bump.
-      # Weights ~8.4 GiB, ctx 8192 at q8_0 KV keeps total footprint under
-      # UMA ceiling. Slower (5-8 tok/s expected) but higher quality output.
+      # Weights ~8.4 GiB, ctx 8192 at q8_0 KV keeps footprint under UMA.
+      # Slower (~5 tok/s decode). Reserve for complex reasoning tasks.
       "qwen3-14b":
         cmd: |
           ${llama-vulkan}
@@ -82,4 +106,58 @@ data:
         aliases:
           - "large"
           - "reasoning"
-        ttl: 300
+        ttl: 120
+
+      # ==================== ALWAYS-ON GROUP (no swap) ====================
+
+      # Embedding model for RAG, semantic search, vector workflows.
+      # 87 MB weights; stays resident since swap cost > load cost.
+      "embed-nomic":
+        cmd: |
+          ${llama-embed}
+          --model /models/nomic-embed-text-v1.5.Q4_K_M.gguf
+          --ctx-size 8192
+        aliases:
+          - "embed"
+          - "embedding"
+          - "text-embedding-ada-002"
+        ttl: 0
+
+      # Cross-encoder reranker for 5-10x better RAG retrieval quality
+      # on top of embedding model. 280 MB weights; stays resident.
+      "rerank-bge":
+        cmd: |
+          ${llama-embed}
+          --model /models/bge-reranker-v2-m3-Q4_K_M.gguf
+          --ctx-size 8192
+          --pooling rank
+          --reranking
+        aliases:
+          - "rerank"
+          - "reranker"
+        ttl: 0
+
+    groups:
+      # Chat models swap exclusively against each other. Only one can hold
+      # the ~5-10 GiB slice of UMA at a time; others unload on swap.
+      "chat":
+        swap: true
+        exclusive: true
+        members:
+          - "qwen3-4b"
+          - "qwen-coder"
+          - "qwen-coder-7b"
+          - "qwen3-1.7b"
+          - "qwen3-14b"
+
+      # Embedding + reranker stay loaded together; small footprint, high
+      # hit rate. swap: false = members do not unload each other.
+      # persistent: true = llama-swap preloads them at startup instead of
+      # waiting for first request.
+      "always-on":
+        swap: false
+        exclusive: false
+        persistent: true
+        members:
+          - "embed-nomic"
+          - "rerank-bge"
