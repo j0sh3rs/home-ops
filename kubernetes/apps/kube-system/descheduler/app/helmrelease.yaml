@@ -77,6 +77,11 @@ spec:
                 excludeOwnerKinds:
                   - 'Job'
                 minPodLifetimeSeconds: 3600
+            # Descheduler v0.30+ requires a pluginConfig entry for every
+            # plugin referenced under profiles.plugins.*.enabled. Missing
+            # this entry crashes startup with:
+            #   "unable to find RemoveDuplicates plugin config"
+            - name: RemoveDuplicates
           plugins:
             balance:
               enabled:

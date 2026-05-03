@@ -19,6 +19,12 @@ spec:
       memory: 256Mi
     limits:
       memory: 1Gi
+  # bee-jms-01 apiserver /metrics response exceeds the default 16 MiB cap
+  # (large ServiceAccount/Lease churn + verbose workqueue histograms).
+  # 64 MiB gives headroom for all 3 control-plane scrapes without masking
+  # a real regression. Other targets nowhere near this size.
+  extraArgs:
+    promscrape.maxScrapeSize: "64MiB"
   serviceScrapeSpec:
     endpoints:
       - port: http

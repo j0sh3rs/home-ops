@@ -194,6 +194,12 @@ spec:
         addEntryPointsLabels: true
         addRoutersLabels: true
         addServicesLabels: true
+        # Dedicated ClusterIP metrics Service. Without this the chart's
+        # ServiceMonitor has no Service to scrape — the LoadBalancer
+        # Service intentionally does not expose :9100. ClusterIP keeps
+        # /metrics off the public VIP while vmagent can still reach it.
+        service:
+          enabled: true
         serviceMonitor:
           enabled: true
           enableHttp2: true
