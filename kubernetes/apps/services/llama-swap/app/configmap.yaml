@@ -9,20 +9,21 @@ data:
     # llama-swap config for home-ops
     # Docs: https://github.com/mostlygeek/llama-swap
     #
-    # Single Cezanne APU iGPU (3 GiB UMA + GTT spill). One model loaded at a
-    # time; each model auto-unloads after 5 min idle (ttl=300).
+    # Single Cezanne APU iGPU (16 GiB UMA + GTT spill, bumped 2026-05-03).
+    # One model loaded at a time; each model auto-unloads after 5 min idle.
     healthCheckTimeout: 180
     logLevel: info
     startPort: 5800
 
     macros:
       # Shared llama-server invocation. --jinja uses the GGUF-embedded chat
-      # template. KV cache quantized to q8_0 to stretch the small VRAM.
+      # template. KV cache quantized to q8_0 to stretch VRAM.
+      # --flash-attn takes a value (on/off/auto) since llama.cpp b7565.
       "llama-vulkan": >-
         /app/llama-server
         --host 0.0.0.0 --port ${PORT}
         -ngl 99
-        --flash-attn
+        --flash-attn on
         --jinja
         --cache-type-k q8_0 --cache-type-v q8_0
 
