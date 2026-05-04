@@ -11,3 +11,4 @@ resources:
   - ./tracingpolicy-kernel-integrity.yaml
   - ./tracingpolicy-container-escape.yaml
   - ./tracingpolicy-package-manager-exec.yaml
+  - ./tracingpolicy-shell-spawn.yaml
