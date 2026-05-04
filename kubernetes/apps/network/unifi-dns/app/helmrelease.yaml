@@ -41,6 +41,8 @@ spec:
     policy: sync
     sources:
       - gateway-httproute
+      - gateway-tcproute
+      - gateway-tlsroute
       - service
     txtOwnerId: main
     txtPrefix: k8s.main.
