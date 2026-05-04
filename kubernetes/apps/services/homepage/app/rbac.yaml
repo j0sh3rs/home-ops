@@ -1,10 +1,7 @@
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: homepage
-  namespace: services
----
+# ServiceAccount is created by the app-template chart (v5+) because the
+# HelmRelease pins controllers.homepage.serviceAccount.name=homepage. The
+# ClusterRoleBinding below still targets that same name.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
