@@ -20,6 +20,23 @@ spec:
     global:
       annotations:
         reloader.stakater.com/auto: "true"
+    defaultPodOptions:
+      annotations:
+        # Velero backup hooks: write per-database dolt SQL dumps to
+        # /var/lib/dolt/backup/<db>.sql before kopia fs-backup captures
+        # the PVC, then clean up after the backup completes.
+        # Restore path: kopia restores the raw dolt chunk store *and*
+        # the portable SQL dumps, so recovery can use either one.
+        # Each db subdir under /var/lib/dolt is its own dolt repository;
+        # `dolt dump -fn` only works from inside a repo, hence the loop.
+        pre.hook.backup.velero.io/command: |
+          ["sh","-c","rm -rf /var/lib/dolt/backup && mkdir -p /var/lib/dolt/backup && for db in $(ls -d /var/lib/dolt/*/ | xargs -n1 basename | grep -v '^backup$'); do cd /var/lib/dolt/$db && dolt dump -f -fn /var/lib/dolt/backup/$db.sql; done"]
+        pre.hook.backup.velero.io/timeout: 5m
+        pre.hook.backup.velero.io/container: app
+        post.hook.backup.velero.io/command: |
+          ["sh","-c","rm -rf /var/lib/dolt/backup"]
+        post.hook.backup.velero.io/timeout: 1m
+        post.hook.backup.velero.io/container: app
     controllers:
       dolt:
         containers:
