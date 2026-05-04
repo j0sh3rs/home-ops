@@ -163,7 +163,9 @@
                 "percentChangeColorMode": "standard",
                 "reduceOptions": {
                     "values": false,
-                    "calcs": ["lastNotNull"],
+                    "calcs": [
+                        "lastNotNull"
+                    ],
                     "fields": ""
                 },
                 "showPercentChange": false,
@@ -223,7 +225,9 @@
                 "percentChangeColorMode": "standard",
                 "reduceOptions": {
                     "values": false,
-                    "calcs": ["lastNotNull"],
+                    "calcs": [
+                        "lastNotNull"
+                    ],
                     "fields": ""
                 },
                 "showPercentChange": false,
@@ -600,12 +604,12 @@
                         "type": "prometheus",
                         "uid": "${DS_PROMETHEUS}"
                     },
-                    "expr": "sum(rate(tetragon_syscalls_total[5m])) by (binary)",
-                    "legendFormat": "{{binary}}",
+                    "expr": "sum(rate(tetragon_syscalls_total[5m])) by (workload)",
+                    "legendFormat": "{{workload}}",
                     "refId": "A"
                 }
             ],
-            "title": "Syscalls Rate by Binary",
+            "title": "Syscalls Rate by Workload",
             "type": "timeseries"
         },
         {
@@ -701,7 +705,11 @@
         }
     ],
     "schemaVersion": 39,
-    "tags": ["tetragon", "security", "ebpf"],
+    "tags": [
+        "tetragon",
+        "security",
+        "ebpf"
+    ],
     "templating": {
         "list": [
             {
