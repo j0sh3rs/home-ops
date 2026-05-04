@@ -1,0 +1,192 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+# VM operator auto-converts PrometheusRule → VMRule. vmalert has
+# selectAllByDefault=true so this fires alerts via the standard AM path.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tetragon-health
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: tetragon
+spec:
+  groups:
+    - name: tetragon-agent-health
+      interval: 1m
+      rules:
+        - alert: TetragonAgentAbsent
+          expr: |
+            absent(up{job="tetragon"}) == 1
+          for: 10m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Tetragon agent is absent"
+            description: "No tetragon agent has reported metrics in 10 minutes. Runtime security observability is offline. Check DaemonSet status."
+
+        - alert: TetragonAgentDown
+          expr: |
+            up{job="tetragon"} == 0
+          for: 10m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Tetragon agent down on {{ $labels.instance }}"
+            description: "Pod {{ $labels.pod }} on {{ $labels.instance }} has been unreachable for 10 minutes."
+
+        - alert: TetragonBpfMissedEventsHigh
+          expr: |
+            rate(tetragon_missed_events_total[5m]) > 0
+          for: 5m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Tetragon BPF ring buffer missing events"
+            description: "Tetragon on {{ $labels.instance }} has dropped {{ $value | humanize }} events/s due to ring buffer pressure. Security events are being lost. Consider raising processCacheSize or investigating event storm."
+
+        - alert: TetragonPolicyLoadError
+          expr: |
+            (tetragon_tracingpolicy_loaded{state!="enabled"}) > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Tetragon policy {{ $labels.policy }} not enabled"
+            description: "Policy {{ $labels.policy }} is in state {{ $labels.state }} rather than enabled. Kernel feature missing or policy config invalid. Check 'tetra tracingpolicy list' and agent logs."
+
+        - alert: TetragonRingbufErrors
+          expr: |
+            rate(tetragon_ringbuf_perf_event_errors_total[5m]) > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Tetragon ring buffer errors on {{ $labels.instance }}"
+            description: "Userspace is falling behind kernel event production. Rate: {{ $value | humanize }} errors/s. Investigate agent CPU saturation."
+
+        - alert: TetragonProcessCacheMissRateHigh
+          expr: |
+            rate(tetragon_process_cache_misses_total[10m])
+              / clamp_min(rate(tetragon_process_cache_total[10m]), 1) > 0.1
+          for: 15m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "Tetragon process cache miss rate >10%"
+            description: "{{ $value | humanizePercentage }} process cache misses on {{ $labels.instance }}. Ancestor enrichment breaks when cache evicts. Raise processCacheSize above current 65536."
+
+        - alert: TetragonEventsExportDropped
+          expr: |
+            rate(tetragon_events_exported_total[5m]) == 0
+            and
+            rate(tetragon_events_total[5m]) > 0
+          for: 10m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Tetragon events produced but not exported"
+            description: "Agent on {{ $labels.instance }} is generating events ({{ $value | humanize }}/s) but exporter is writing zero. exportRateLimit may be saturated or stdout blocked."
+
+    - name: tetragon-policy-firings
+      interval: 30s
+      rules:
+        - alert: TetragonPrivilegeEscalationDetected
+          expr: |
+            sum by (namespace, pod, workload) (
+              rate(tetragon_policy_events_total{policy="monitor-privilege-escalation"}[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: security
+            mitre_attack: "T1548"
+          annotations:
+            summary: "Privilege escalation in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Workload {{ $labels.workload }} triggered setuid/setgid to root. Investigate via 'tetra getevents --pod {{ $labels.pod }}'."
+
+        - alert: TetragonKernelModuleLoadAttempt
+          expr: |
+            sum by (namespace, pod, workload) (
+              rate(tetragon_policy_events_total{policy="monitor-kernel-integrity"}[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: security
+            mitre_attack: "T1547.006"
+          annotations:
+            summary: "Kernel module/bpf activity in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Workload {{ $labels.workload }} invoked kernel_module_request or bpf() from outside the Cilium/Tetragon allowlist. Talos kernel is locked — any such attempt is anomalous."
+
+        - alert: TetragonContainerEscapeAttempt
+          expr: |
+            sum by (namespace, pod, workload) (
+              rate(tetragon_policy_events_total{policy="monitor-container-escape"}[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: security
+            mitre_attack: "T1611"
+          annotations:
+            summary: "Container escape hook in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Workload {{ $labels.workload }} called mount/pivot_root/ptrace from outside the runtime allowlist. Possible container escape attempt."
+
+        - alert: TetragonDoltExec
+          expr: |
+            sum by (namespace, pod, workload) (
+              rate(tetragon_policy_events_total{policy="monitor-dolt-exec"}[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Dolt pod spawned a process"
+            description: "Dolt SQL server never forks in steady-state. Any exec = SQL-layer RCE, in-band shell escape, or attacker-dropped binary. Investigate IMMEDIATELY."
+
+        - alert: TetragonHAPivot
+          expr: |
+            sum by (namespace, pod, workload) (
+              rate(tetragon_policy_events_total{policy="monitor-ha-pivot"}[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Unauthorized pod connecting to Home Assistant"
+            description: "{{ $labels.namespace }}/{{ $labels.pod }} (workload {{ $labels.workload }}) connected to HA ClusterIP. HA trusts pod-CIDR for admin auth; this is a pivot attempt unless the pod is homepage."
+
+        - alert: TetragonPackageManagerExec
+          expr: |
+            sum by (namespace, pod, workload) (
+              rate(tetragon_policy_events_total{policy="monitor-package-manager-exec"}[5m])
+            ) > 0
+          for: 2m
+          labels:
+            severity: high
+            component: security
+          annotations:
+            summary: "Package manager invoked in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Workload {{ $labels.workload }} ran apt/dnf/apk/pip/npm/etc inside a running container. Images should bake deps at build time; runtime install = drift or backdoor staging."
+
+        - alert: TetragonShellSpawn
+          expr: |
+            sum by (namespace, pod, workload) (
+              rate(tetragon_policy_events_total{policy="monitor-shell-spawn"}[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: high
+            component: security
+          annotations:
+            summary: "Shell spawned in {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "Workload {{ $labels.workload }} exec'd sh/bash/zsh. Scope is the services namespace with homepage/home-assistant/homebridge excluded; this is an unexpected shell."
