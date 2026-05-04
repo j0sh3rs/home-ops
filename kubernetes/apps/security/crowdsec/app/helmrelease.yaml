@@ -234,12 +234,39 @@ spec:
       #     labels:
       #       type: traefik
       env:
-        # home-ops-6ev: added home-assistant (ha.68cc.io backend) and http-dos
-        # (generic L7 DoS scenarios for any published app). Considered `postgres`
-        # and `whitelist-ingress-k8s` — neither exists upstream; default
-        # crowdsecurity/whitelists already covers RFC1918 private ranges.
+        # Agent collections — chosen to match what we actually scrape.
+        # Log-processing only (AppSec WAF collections belong under appsec.env
+        # below, NOT here). References: CrowdSec Hub + docs audit 2026-05-04.
+        #
+        # Core HTTP coverage (all via the Traefik access-log acquisition):
+        #   traefik                  : log format + base ingress scenarios
+        #   base-http-scenarios      : scanner/probe detection (not a WAF)
+        #   http-cve                 : known-CVE URI probes (e.g. CVE-2021-41773)
+        #   http-dos                 : L7 DoS rate scenarios
+        #   http-generic-bf          : generic auth bruteforce (required by
+        #                              security_notify profile filter;
+        #                              previously missing, so that rule
+        #                              silently never matched)
+        #
+        # App-specific:
+        #   LePresidente/grafana     : grafana auth bruteforce
+        #   crowdsecurity/unifi      : UniFi syslog + portscan (pulls iptables,
+        #                              sshd, dropbear-logs transitively)
+        #   crowdsecurity/home-assistant : HA auth bruteforce
+        #
+        # Whitelisting (explicit, though whitelist-good-actors also pulls in
+        # cdn-whitelist, seo-bots-whitelist, rdns postoverflows):
+        #   whitelist-good-actors    : benign-bot allowlist
+        #
+        # NOT installed here intentionally:
+        #   appsec-crs / appsec-crs-inband — these are WAF collections; they
+        #     only apply inside the appsec process. Listing them on the agent
+        #     wasted ~2MB of parsed rules with no effect.
+        #   http-bf-wordpress_bf — no WordPress in this cluster.
+        #   postgresql/mysql — cnpg + dolt don't use syslog format that the
+        #     collection parses.
         - name: COLLECTIONS
-          value: "crowdsecurity/traefik crowdsecurity/appsec-crs crowdsecurity/http-cve crowdsecurity/appsec-crs-inband crowdsecurity/base-http-scenarios LePresidente/grafana crowdsecurity/unifi crowdsecurity/home-assistant crowdsecurity/http-dos"
+          value: "crowdsecurity/traefik crowdsecurity/base-http-scenarios crowdsecurity/http-cve crowdsecurity/http-dos crowdsecurity/http-generic-bf LePresidente/grafana crowdsecurity/unifi crowdsecurity/home-assistant crowdsecurity/whitelist-good-actors"
         # Parsers to install
         - name: PARSERS
           value: "crowdsecurity/cri-logs"
@@ -264,7 +291,13 @@ spec:
         registrationTokenKey: registrationToken
     appsec:
       acquisitions:
-        - appsec_config: crowdsecurity/appsec-default
+        # Multi-config: virtual patching runs in-band (blocks immediately),
+        # OWASP CRS runs out-of-band (async analysis + bans on repeat via
+        # the crowdsec-appsec-outofband scenario).
+        # Ref: https://docs.crowdsec.net/docs/appsec/vpatch_and_crs/
+        - appsec_configs:
+            - crowdsecurity/appsec-default
+            - crowdsecurity/crs
           labels:
             type: appsec
           listen_addr: 0.0.0.0:7422
@@ -272,10 +305,23 @@ spec:
           source: appsec
       enabled: true
       env:
-        # home-ops-gd7: appsec-crs-outofband does not exist upstream — hub
-        # only publishes the inband variant. For FP observation, use the
-        # existing inband CRS and rely on the Traefik bouncer's
-        # crowdsecAppsecFailureBlock=false (current config) to keep OOB
-        # semantics at the bouncer layer. Revisit via home-ops-bu8.
+        # AppSec (WAF) collections — two-layer coverage per official guide
+        # https://docs.crowdsec.net/docs/appsec/vpatch_and_crs/
+        #
+        # Layer 1 (inband, blocks immediately, near-zero false positives):
+        #   appsec-virtual-patching  : known-CVE signatures, ~15 rules/month
+        #   appsec-generic-rules     : generic SQLi/XSS/LFI patterns
+        #
+        # Layer 2 (out-of-band, evaluated async, bans repeat offenders via
+        #   crowdsec-appsec-outofband scenario after 5+ matches):
+        #   appsec-crs               : OWASP Core Rule Set — broad coverage
+        #                              of the OWASP Top Ten with reasonable
+        #                              FP rate since it doesn't auto-block.
+        #
+        # We previously used appsec-crs-inband which blocks *every* CRS
+        # match. That's too aggressive for a homelab (high FP rate on
+        # legitimate but unusual user agents / request patterns). Swapping
+        # to the OOB variant keeps CRS detection without blocking valid
+        # traffic — offenders get banned after repeated matches instead.
         - name: COLLECTIONS
-          value: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs-inband"
+          value: "crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs"
