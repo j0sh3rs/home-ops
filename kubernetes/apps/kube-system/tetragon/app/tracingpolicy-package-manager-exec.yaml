@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
+# Runtime package installs inside running containers. Our images bake deps
+# at build; an in-container apt/pip/npm at runtime = drift, supply-chain
+# attack, or backdoor staging.
+#
+# Intentionally does not flag llama-swap model-fetch (uses curl, not a pkg mgr).
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: monitor-package-manager-exec
+  namespace: kube-system
+spec:
+  kprobes:
+    - call: "security_bprm_check"
+      syscall: false
+      args:
+        - index: 0
+          type: "linux_binprm"
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: "Postfix"
+              values:
+                - "/apt"
+                - "/apt-get"
+                - "/dpkg"
+                - "/dnf"
+                - "/yum"
+                - "/rpm"
+                - "/apk"
+                - "/pip"
+                - "/pip3"
+                - "/npm"
+                - "/yarn"
+                - "/pnpm"
+                - "/gem"
+                - "/cargo"
+                - "/go"
+          matchActions:
+            - action: Post

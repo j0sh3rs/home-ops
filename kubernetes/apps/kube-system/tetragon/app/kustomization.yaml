@@ -8,3 +8,6 @@ resources:
   - ./tracingpolicy-sensitive-files.yaml
   - ./tracingpolicy-network-egress.yaml
   - ./tracingpolicy-privilege-escalation.yaml
+  - ./tracingpolicy-kernel-integrity.yaml
+  - ./tracingpolicy-container-escape.yaml
+  - ./tracingpolicy-package-manager-exec.yaml

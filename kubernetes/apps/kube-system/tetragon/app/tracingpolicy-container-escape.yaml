@@ -1,0 +1,56 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
+# Container-escape primitives. Not scoped to workload namespaces via
+# TracingPolicyNamespaced because container-runtime components (runc,
+# containerd-shim, kubelet) legitimately call these in kube-system — we
+# exclude them via matchBinaries NotIn and let every other namespace
+# trigger.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: monitor-container-escape
+  namespace: kube-system
+spec:
+  kprobes:
+    # Mount syscall inside containers. Workload pods should never call mount(2).
+    # Container runtimes use it at container creation; exclude their binaries.
+    - call: "__x64_sys_mount"
+      syscall: true
+      selectors:
+        - matchBinaries:
+            - operator: "NotIn"
+              values:
+                - "/usr/bin/runc"
+                - "/usr/bin/containerd"
+                - "/usr/bin/containerd-shim-runc-v2"
+                - "/usr/bin/crun"
+                - "/usr/local/bin/kubelet"
+                - "/usr/bin/kubelet"
+                - "/usr/bin/mount"
+                - "/bin/mount"
+          matchActions:
+            - action: Post
+    # pivot_root(2). Near-zero false positive outside runtime startup.
+    - call: "__x64_sys_pivot_root"
+      syscall: true
+      selectors:
+        - matchBinaries:
+            - operator: "NotIn"
+              values:
+                - "/usr/bin/runc"
+                - "/usr/bin/containerd"
+                - "/usr/bin/containerd-shim-runc-v2"
+                - "/usr/bin/crun"
+          matchActions:
+            - action: Post
+    # ptrace(2). Debuggers inside running containers (gdb, strace attach) are
+    # suspicious in prod workloads. Extend matchBinaries NotIn as known-legit
+    # tools are identified.
+    - call: "__x64_sys_ptrace"
+      syscall: true
+      args:
+        - index: 0
+          type: "int64"
+      selectors:
+        - matchActions:
+            - action: Post
