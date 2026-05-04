@@ -61,6 +61,13 @@ spec:
                 - "10.43.0.0/16"      # k8s service CIDR
                 - "192.168.35.0/24"   # LAN
                 - "100.0.186.56/32"   # home WAN IP
+                # GitHub webhook hooks range — flux receiver gets OWASP CRS
+                # OOB hits (rce/xss anomaly scores) from legitimate webhook
+                # payloads. Source: https://api.github.com/meta > hooks[]
+                - "140.82.112.0/20"
+                - "143.55.64.0/20"
+                - "192.30.252.0/22"
+                - "185.199.108.0/22"
       # home-ops-8ew: trigger scenario that bans requests to ha.68cc.io
       # from outside US/CA. crowdsecurity/geoip-enrich populates
       # evt.Enriched.IsoCode from the MaxMind DB shipped with the agent.
