@@ -124,10 +124,17 @@ spec:
         # skipped them — WAF hits were one-shot drops with no durable ban,
         # leaving `cscli decisions list --origin crowdsec` empty despite
         # real attacker IPs firing vpatch/CVE rules.
-        # Fix: explicit profile for kind=waf issuing a 4h ban per source IP.
+        # models.Alert has no GetType() method, so match scenario name
+        # prefixes: vpatch-* (virtual patches), appsec-* (AppSec engine),
+        # generic-* (generic waf rules) cover AppSec-origin alerts.
         name: appsec_ban
         filters:
-          - Alert.GetType() == "waf" && Alert.GetScope() == "Ip"
+          - |
+            Alert.GetScope() == "Ip" && (
+              Alert.GetScenario() startsWith "crowdsecurity/vpatch-" ||
+              Alert.GetScenario() startsWith "crowdsecurity/appsec-" ||
+              Alert.GetScenario() startsWith "crowdsecurity/generic-"
+            )
         decisions:
           - type: ban
             duration: 4h
