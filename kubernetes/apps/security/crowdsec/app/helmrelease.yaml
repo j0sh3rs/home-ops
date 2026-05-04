@@ -195,6 +195,18 @@ spec:
           cpu: 150m
           memory: 256Mi
     agent:
+      # Only tail log sources for which we have a matching parser/collection
+      # installed. Pruned 2026-05-04 after audit — previous setup tailed
+      # victoria-logs, coredns, postgres17, dolt, and services/* catch-all,
+      # but no collection parsed those programs. The agent pulled log
+      # lines it could not use, wasting IO + parser CPU cycles.
+      #
+      # Active matches:
+      #   traefik-*        -> crowdsecurity/traefik collection
+      #   grafana-*        -> LePresidente/grafana collection
+      #   home-assistant-* -> crowdsecurity/home-assistant collection
+      #
+      # Re-enable others if/when a matching collection is installed.
       acquisition:
         - namespace: "network"
           podName: "traefik-*"
@@ -204,27 +216,9 @@ spec:
           podName: "grafana-deployment-*"
           program: "grafana"
           poll_without_inotify: true
-        # Expanded coverage (home-ops-ei9). Each acquisition feeds the CRI-logs
-        # parser; `program` label routes downstream to matching collections.
-        - namespace: "monitoring"
-          podName: "victoria-logs-*"
-          program: "victoria-logs"
-          poll_without_inotify: true
-        - namespace: "kube-system"
-          podName: "coredns-*"
-          program: "coredns"
-          poll_without_inotify: true
-        - namespace: "databases"
-          podName: "postgres17-*"
-          program: "postgresql"
-          poll_without_inotify: true
-        - namespace: "databases"
-          podName: "dolt-*"
-          program: "dolt"
-          poll_without_inotify: true
         - namespace: "services"
-          podName: "*"
-          program: "service"
+          podName: "home-assistant-*"
+          program: "home-assistant"
           poll_without_inotify: true
       # additionalAcquisition:
       #   - source: victorialogs
