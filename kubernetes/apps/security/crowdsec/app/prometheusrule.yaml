@@ -1,5 +1,17 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+# CrowdSec alerting layout:
+#
+#   crowdsec-health      — infrastructure: LAPI, agents, bouncers scraping ok
+#   crowdsec-intrusion   — *local* detections: real WAF/scenario hits against
+#                           our apps (NOT the CAPI community blocklist)
+#   crowdsec-decisions   — aggregate ban / decision trends
+#
+# Discord delivery paths:
+#   1. vmalert -> Alertmanager (discord webhook) for metric-trend alerts below.
+#   2. CrowdSec's own http notifier (values.notifications.http.yaml) ships
+#      per-decision context to Discord for high-severity ban events.
+#   Both complement each other; don't collapse.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -23,16 +35,21 @@ spec:
             summary: "CrowdSec LAPI is unavailable"
             description: "CrowdSec Local API has no available replicas for more than 5 minutes. IDS/IPS decisions cannot be distributed to bouncers."
 
+        # Replaced `cs_bouncers_count == 0` (metric does not exist in 1.7.x).
+        # Use the real metric: cs_lapi_bouncer_requests_total. If NO bouncer
+        # has polled LAPI in the last 10 minutes, bouncers are disconnected
+        # or wedged. Traefik bouncer polls every few seconds normally.
         - alert: CrowdSecBouncerNotConnected
           expr: |
-            cs_bouncers_count == 0
-          for: 10m
+            sum(increase(cs_lapi_bouncer_requests_total[10m])) == 0
+            or absent(cs_lapi_bouncer_requests_total)
+          for: 5m
           labels:
             severity: critical
             component: security
           annotations:
-            summary: "No CrowdSec bouncers connected"
-            description: "No bouncers are connected to the CrowdSec LAPI. Blocking decisions are not being enforced."
+            summary: "No CrowdSec bouncers polling LAPI"
+            description: "No bouncer has polled LAPI for decisions in 10 minutes. Blocking decisions are not being enforced at the edge."
 
         - alert: CrowdSecAgentDown
           expr: |
@@ -46,27 +63,104 @@ spec:
             summary: "CrowdSec agents not running on all nodes"
             description: "{{ $value }} CrowdSec agent pod(s) are not running. Some nodes may lack IDS coverage."
 
-    - name: crowdsec-decisions
+        # AppSec scrape target health. If the new ServiceMonitor falls off
+        # or the pod crashes, we lose WAF visibility silently.
+        - alert: CrowdSecAppsecDown
+          expr: |
+            kube_deployment_status_replicas_available{namespace="security", deployment=~"crowdsec-appsec.*"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "CrowdSec AppSec (WAF) is unavailable"
+            description: "CrowdSec AppSec has no available replicas. Traefik's appsec middleware fails-open by config, so requests bypass WAF inspection."
+
+    # Local intrusion detections — the ones you actually want to see.
+    # cs_alerts counts triggered scenarios (per reason). We exclude the
+    # community CTI pull (`origin=CAPI`/`lists`) since those are bulk
+    # blocklist imports, not probes against us.
+    - name: crowdsec-intrusion
       interval: 60s
       rules:
-        - alert: CrowdSecHighBanRate
+        # Any single hit on a high-severity scenario = immediate page.
+        # These are specific, narrow patterns that are rarely false-positive:
+        #   http-cve* / vpatch-* = known CVE signatures
+        #   http-backdoors-attempts = shell/webshell probes
+        #   http-path-traversal-probing = ../../ etc
+        #   ssh-* = SSH brute/exploit (if ever exposed)
+        #   appsec-* (inband/vpatch) = WAF matches on specific CVE rules
+        - alert: CrowdSecCriticalScenario
           expr: |
-            sum(increase(cs_active_decisions{origin="crowdsec", type="ban"}[1h])) > 100
+            increase(cs_alerts{reason=~"crowdsecurity/(http-cve.*|vpatch-.*|http-backdoors-attempts|http-path-traversal-probing|ssh-(bf|slow-bf|exploit)|appsec-.*|http-admin-interface-probing)"}[5m]) > 0
+          for: 0m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "CrowdSec critical scenario: {{ $labels.reason }}"
+            description: "CrowdSec triggered scenario `{{ $labels.reason }}` — a high-severity probe was detected against a locally-hosted app. Check the CrowdSec Insights dashboard and `cscli alerts list` for the source IP."
+
+        # General rate limit on *any* local scenario (to catch novel patterns
+        # not in the critical allowlist above). Threshold 20/5m = sustained
+        # probing. Avoids noise from single drive-by bot hits.
+        - alert: CrowdSecLocalIntrusionSpike
+          expr: |
+            sum(increase(cs_alerts{reason!~"^(CAPI|lists).*"}[5m])) > 20
           for: 5m
           labels:
             severity: warning
             component: security
           annotations:
-            summary: "CrowdSec high ban rate"
-            description: "CrowdSec has issued {{ $value }} ban decisions in the last hour. Possible active attack or misconfigured rules."
+            summary: "CrowdSec local intrusion spike"
+            description: "{{ $value | humanize }} local scenario triggers in the last 5 minutes across all rules. Possible active attack or a new scanner tool. Check `cscli alerts list -s <ts>`."
 
-        - alert: CrowdSecNoDecisionsReceived
+        # AppSec-specific metric (exposed after the new ServiceMonitor).
+        # cs_appsec_block_total increments each time WAF returns 403.
+        # Guard with absent() so this alert silences itself cleanly if the
+        # appsec scrape is offline (CrowdSecAppsecDown covers that case).
+        - alert: CrowdSecAppsecHighBlockRate
           expr: |
-            absent(cs_active_decisions)
-          for: 15m
+            sum(rate(cs_appsec_block_total[5m])) > 2
+            unless on () absent(cs_appsec_block_total)
+          for: 10m
           labels:
             severity: warning
             component: security
           annotations:
-            summary: "CrowdSec not reporting decision metrics"
-            description: "CrowdSec LAPI has not reported decision metrics in 15 minutes. Monitoring may be degraded."
+            summary: "CrowdSec AppSec high block rate"
+            description: "AppSec WAF is blocking {{ $value | humanize }} req/s sustained >10m. Either active attack or a false-positive rule — inspect `cscli appsec decisions list`."
+
+    - name: crowdsec-decisions
+      interval: 60s
+      rules:
+        # Rewrote the old rule: cs_active_decisions is a gauge (total active
+        # bans at eval time), not a counter. `increase()` on a gauge is
+        # nonsense. Use the local-alerts counter that actually measures
+        # recent activity. Exclude CAPI/lists (community blocklist pulls).
+        - alert: CrowdSecHighLocalDecisionRate
+          expr: |
+            sum(increase(cs_alerts{reason!~"^(CAPI|lists).*"}[1h])) > 50
+          for: 5m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "CrowdSec high local ban rate"
+            description: "{{ $value | humanize }} local ban decisions issued in the last hour. Possible active attack, a new bot wave, or an overly-tight local rule."
+
+        # Track bouncer / LAPI communication health — stale decision pulls
+        # are how the edge loses sync with LAPI. Catches wedged bouncers
+        # that have open TCP connections but stopped processing responses.
+        - alert: CrowdSecLAPIBouncerErrors
+          expr: |
+            sum(rate(cs_lapi_bouncer_requests_total{status_code!~"2.."}[5m]))
+            /
+            sum(rate(cs_lapi_bouncer_requests_total[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+            component: security
+          annotations:
+            summary: "CrowdSec LAPI returning errors to bouncers"
+            description: "{{ $value | humanizePercentage }} of bouncer -> LAPI requests failed in the last 5m. Check LAPI logs and DB connectivity."

@@ -8,3 +8,4 @@ resources:
   - ./secret.sops.yaml
   - ./grafanadashboard.yaml
   - ./prometheusrule.yaml
+  - ./servicemonitor.yaml

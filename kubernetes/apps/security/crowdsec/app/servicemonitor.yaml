@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/servicemonitor_v1.json
+# The CrowdSec helm chart auto-creates ServiceMonitors for agent + LAPI
+# (via {agent,lapi}.metrics.serviceMonitor.enabled) but NOT for AppSec.
+# AppSec exposes its own /metrics on port 6060 with cs_appsec_* series —
+# rule matches, WAF block counts, virtual-patching hits. Without this SM
+# the AppSec layer is invisible to Grafana and vmalert.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: crowdsec-appsec-service
+  namespace: security
+spec:
+  attachMetadata:
+    node: true
+  endpoints:
+    - port: metrics
+      interval: 30s
+      relabelings:
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: machine
+  namespaceSelector:
+    matchNames:
+      - security
+  selector:
+    matchLabels:
+      app: crowdsec-appsec-service
