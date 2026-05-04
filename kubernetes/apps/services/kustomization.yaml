@@ -22,6 +22,7 @@ resources:
   - ./llama-swap/ks.yaml
   - ./open-webui/ks.yaml
   #  - ./paperless/ks.yaml
+  - ./tetragon-policies/ks.yaml
 
 # home-assistant needs hostNetwork=true for mDNS/UPnP device auto-discovery.
 # PodSecurity "baseline" rejects host namespaces, so label the namespace
