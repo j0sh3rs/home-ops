@@ -11,7 +11,7 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   datasources:
-    - datasourceName: prometheus
+    - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
   configMapRef:
     name: tetragon-dashboard
