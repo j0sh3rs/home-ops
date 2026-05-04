@@ -190,6 +190,38 @@ spec:
               annotations:
                 summary: "Traefik-internal high 5xx error rate on {{ $labels.entrypoint }}"
                 description: "{{ $value | humanizePercentage }} of requests to {{ $labels.entrypoint }} are returning 5xx errors."
+            # Per-service p99. exported_service = backend k8s Service.
+            - alert: TraefikInternalServiceHighLatency
+              expr: |
+                histogram_quantile(0.99,
+                  sum by (exported_service, le) (
+                    rate(traefik_service_request_duration_seconds_bucket{service="traefik-internal-metrics"}[5m])
+                  )
+                ) > 5
+              for: 10m
+              labels:
+                severity: warning
+                component: ingress
+                instance: internal
+              annotations:
+                summary: "Traefik-internal p99 latency >5s for service {{ $labels.exported_service }}"
+                description: "Backend service {{ $labels.exported_service }} p99 latency is {{ $value | humanizeDuration }} (sustained >10m on internal gateway). Check pod logs / downstream dependencies."
+            # Per-router p99 — identifies the HTTPRoute by name.
+            - alert: TraefikInternalRouterHighLatency
+              expr: |
+                histogram_quantile(0.99,
+                  sum by (router, le) (
+                    rate(traefik_router_request_duration_seconds_bucket{service="traefik-internal-metrics"}[5m])
+                  )
+                ) > 5
+              for: 10m
+              labels:
+                severity: warning
+                component: ingress
+                instance: internal
+              annotations:
+                summary: "Traefik-internal p99 latency >5s on router {{ $labels.router }}"
+                description: "Router {{ $labels.router }} p99 latency is {{ $value | humanizeDuration }} (sustained >10m on internal gateway)."
       otlp:
         enabled: false
         http:

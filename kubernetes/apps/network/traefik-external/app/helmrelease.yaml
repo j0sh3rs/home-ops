@@ -233,20 +233,43 @@ spec:
               annotations:
                 summary: "Traefik high 5xx error rate on {{ $labels.entrypoint }}"
                 description: "{{ $value | humanizePercentage }} of requests to {{ $labels.entrypoint }} are returning 5xx errors."
-            - alert: TraefikHighRequestLatency
+            # Per-service p99 latency. `exported_service` is the backend
+            # k8s Service the request resolved to (e.g.
+            # services-open-webui-http-8080@kubernetesgateway). Tells you
+            # *which app* is slow, not just which entrypoint.
+            # Threshold 5s / 10m window: excludes normal LLM-stream bursts
+            # and model-load latency spikes; still catches sustained pain.
+            - alert: TraefikServiceHighLatency
               expr: |
                 histogram_quantile(0.99,
-                  sum by (le, entrypoint) (
-                    rate(traefik_entrypoint_request_duration_seconds_bucket[5m])
+                  sum by (exported_service, le) (
+                    rate(traefik_service_request_duration_seconds_bucket[5m])
                   )
-                ) > 2
-              for: 5m
+                ) > 5
+              for: 10m
               labels:
                 severity: warning
                 component: ingress
               annotations:
-                summary: "Traefik high p99 latency on {{ $labels.entrypoint }}"
-                description: "p99 request latency on entrypoint {{ $labels.entrypoint }} is {{ $value | humanizeDuration }}."
+                summary: "Traefik p99 latency >5s for service {{ $labels.exported_service }}"
+                description: "Backend service {{ $labels.exported_service }} p99 latency is {{ $value | humanizeDuration }} (sustained >10m). Check pod logs / downstream dependencies."
+            # Per-router p99 — finer granularity (a single service can
+            # have multiple routers across hosts). Router name format:
+            # httproute-<ns>-<name>-gw-... so it identifies the HTTPRoute.
+            - alert: TraefikRouterHighLatency
+              expr: |
+                histogram_quantile(0.99,
+                  sum by (router, le) (
+                    rate(traefik_router_request_duration_seconds_bucket[5m])
+                  )
+                ) > 5
+              for: 10m
+              labels:
+                severity: warning
+                component: ingress
+              annotations:
+                summary: "Traefik p99 latency >5s on router {{ $labels.router }}"
+                description: "Router {{ $labels.router }} p99 latency is {{ $value | humanizeDuration }} (sustained >10m). Router name encodes the HTTPRoute namespace/name."
             - alert: TraefikConfigReloadFailed
               expr: traefik_config_last_reload_failure_time_seconds > traefik_config_last_reload_success_time_seconds
               for: 5m
