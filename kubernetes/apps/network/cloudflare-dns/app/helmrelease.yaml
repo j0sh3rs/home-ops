@@ -50,7 +50,7 @@ spec:
       - --force-default-targets
     triggerLoopOnEvent: true
     policy: sync
-    sources: ["crd", "gateway-httproute"]
+    sources: ["crd", "gateway-httproute", "gateway-tcproute", "gateway-tlsroute"]
     txtOwnerId: default
     txtPrefix: k8s.
     domainFilters: ["68cc.io", "*.68cc.io"]
