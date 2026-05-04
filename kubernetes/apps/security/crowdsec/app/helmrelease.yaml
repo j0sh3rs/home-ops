@@ -266,7 +266,12 @@ spec:
         #   postgresql/mysql — cnpg + dolt don't use syslog format that the
         #     collection parses.
         - name: COLLECTIONS
-          value: "crowdsecurity/traefik crowdsecurity/base-http-scenarios crowdsecurity/http-cve crowdsecurity/http-dos crowdsecurity/http-generic-bf LePresidente/grafana crowdsecurity/unifi crowdsecurity/home-assistant crowdsecurity/whitelist-good-actors"
+          value: "crowdsecurity/traefik crowdsecurity/base-http-scenarios crowdsecurity/http-cve crowdsecurity/http-dos LePresidente/grafana crowdsecurity/unifi crowdsecurity/home-assistant crowdsecurity/whitelist-good-actors"
+        # Standalone scenarios (not packaged into collections above).
+        # http-generic-bf covers generic auth bruteforce against any HTTP
+        # app; referenced by the security_notify profile.
+        - name: SCENARIOS
+          value: "crowdsecurity/http-generic-bf"
         # Parsers to install
         - name: PARSERS
           value: "crowdsecurity/cri-logs"
