@@ -72,12 +72,20 @@ spec:
       processCacheSize: 65536
       exportFilename: /dev/stdout
       exportRateLimit: 1000
-      # Event filtering - exclude platform namespaces, focus on workloads
+      # Event filtering - exclude platform namespaces, focus on workloads.
+      # databases intentionally NOT in denyList (want dolt/postgres exec visibility).
       exportAllowList: |-
         {"event_set":["PROCESS_EXEC", "PROCESS_EXIT", "PROCESS_KPROBE", "PROCESS_TRACEPOINT", "PROCESS_LSM"]}
       exportDenyList: |-
         {"health_check":true}
-        {"namespace":["", "cilium", "kube-system", "flux-system"]}
+        {"namespace":["", "cilium", "kube-system", "flux-system", "monitoring", "network", "velero", "system-upgrade"]}
+      # Process enrichment — ancestor chain + capability + namespace transitions.
+      # Required for useful parent-chain on shell-spawn detection (home-ops-gmt)
+      # and capability/namespace visibility beyond setuid/setgid.
+      processAncestors:
+        enabled: "base,kprobe,lsm"
+      enableProcessCred: true
+      enableProcessNs: true
       grpc:
         enabled: true
         address: "localhost:54321"
@@ -87,7 +95,10 @@ spec:
       prometheus:
         enabled: true
         port: 2112
-        metricsLabelFilter: "namespace,workload,pod,binary"
+        # binary dropped from label filter — unbounded cardinality (every executable
+        # on every node). Per-binary detail moves to event logs when victoria-logs
+        # returns (home-ops-d1e). Workload attribution retained via namespace/workload.
+        metricsLabelFilter: "namespace,workload,pod"
         serviceMonitor:
           enabled: true
           scrapeInterval: 60s

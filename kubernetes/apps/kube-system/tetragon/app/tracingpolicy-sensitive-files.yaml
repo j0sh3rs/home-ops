@@ -7,6 +7,8 @@ metadata:
   namespace: kube-system
 spec:
   kprobes:
+    # Selector 1: real sensitive host files — Prefix match is appropriate here,
+    # these paths are never touched in normal container operation.
     - call: "security_file_open"
       syscall: false
       args:
@@ -21,7 +23,38 @@ spec:
                 - "/etc/passwd"
                 - "/etc/sudoers"
                 - "/root/.ssh"
-                - "/home/*/.ssh/id_"
-                - "/var/run/secrets/kubernetes.io"
+                - "/home/"
+                - "/var/lib/kubelet"
+                - "/var/lib/etcd"
+                - "/etc/kubernetes"
+                - "/var/lib/rancher"
+                - "/root/.docker/config.json"
+          matchActions:
+            - action: Post
+    # Selector 2: kube ServiceAccount token reads. Postfix match on /token so
+    # we only catch actual token reads (not all files under the secrets dir),
+    # and exclude legit SA-consuming binaries to prevent the every-pod-startup
+    # false-positive storm. Extend matchBinaries NotIn as workloads
+    # legitimately consuming the token are identified.
+    - call: "security_file_open"
+      syscall: false
+      args:
+        - index: 0
+          type: "file"
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: "Postfix"
+              values:
+                - "/var/run/secrets/kubernetes.io/serviceaccount/token"
+          matchBinaries:
+            - operator: "NotIn"
+              values:
+                - "/usr/local/bin/kubelet"
+                - "/usr/bin/kubelet"
+                - "/app/homepage/server.js"
+                - "/kube-proxy"
+                - "/manager"
+                - "/operator"
           matchActions:
             - action: Post
