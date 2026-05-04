@@ -57,9 +57,9 @@ spec:
           enabled: true
     tetragon:
       enabled: true
-      image:
-        repository: quay.io/cilium/tetragon
-        tag: v1.7.0
+      # image override removed — chart 1.7.0 ships appVersion 1.7.0 so the
+      # default image (quay.io/cilium/tetragon:v1.7.0) already matches. Chart
+      # bumps track image bumps automatically.
       resources:
         requests:
           cpu: 10m
@@ -88,7 +88,12 @@ spec:
       enableProcessNs: true
       grpc:
         enabled: true
-        address: "localhost:54321"
+        # address override removed — chart 1.7.0 default is
+        # unix:///var/run/tetragon/tetragon.sock (breaking change from 1.6
+        # localhost:54321). Chart mounts /var/run/tetragon as a host-path
+        # volume on every node via the tetragon-run volume (see chart
+        # daemonset.yaml), so the socket is reachable from the node and from
+        # tetra CLI via kubectl exec.
       cri:
         enabled: true
         socketHostPath: /run/containerd/containerd.sock
