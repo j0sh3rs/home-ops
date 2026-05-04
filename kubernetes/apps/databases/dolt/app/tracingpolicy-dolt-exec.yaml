@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
+# Dolt is externally exposed on dolt.68cc.io:3306 via Traefik TCP passthrough
+# with DOLT_ROOT_HOST='%' (root reachable from any source IP). CrowdSec does
+# not inspect raw TCP, so there is no ingress bot-protection layer for Dolt.
+#
+# dolt-sql-server never spawns child processes in steady-state operation.
+# ANY exec inside the dolt pod is a strong signal of compromise: SQL-layer
+# RCE (LOAD DATA INFILE + write primitives, dolt_procedures misuse),
+# attacker-dropped binary execution, or in-band shell escape.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: monitor-dolt-exec
+  namespace: databases
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dolt
+  kprobes:
+    - call: "security_bprm_check"
+      syscall: false
+      args:
+        - index: 0
+          type: "linux_binprm"
+      selectors:
+        - matchActions:
+            - action: Post

@@ -1,0 +1,46 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
+# Home Assistant admin-auth bypass via pod-CIDR trust.
+# HA helmrelease sets allow_bypass_login for 10.42.0.0/16. Any compromised
+# pod in the cluster auto-authenticates to HA as admin. High-value pivot
+# target.
+#
+# Detection: post tcp_connect events targeting the HA ClusterIP
+# (10.43.143.160:8123). podSelector excludes known-legit consumers (homepage
+# widget + HA pod itself). Every other caller is a pivot attempt by
+# definition — HA runs hostNetwork, so in-cluster access to the svc exists
+# only for dashboard widgets.
+#
+# ClusterIP hardcoded here; a ClusterIP rotation would require updating this
+# policy. Trade-off for simplicity over dynamic lookup.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: monitor-ha-pivot
+  namespace: kube-system
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: NotIn
+        values:
+          - home-assistant
+          - homepage
+  kprobes:
+    - call: "tcp_connect"
+      syscall: false
+      args:
+        - index: 0
+          type: "sock"
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: "DAddr"
+              values:
+                - "10.43.143.160/32"
+            - index: 0
+              operator: "DPort"
+              values:
+                - "8123"
+          matchActions:
+            - action: Post

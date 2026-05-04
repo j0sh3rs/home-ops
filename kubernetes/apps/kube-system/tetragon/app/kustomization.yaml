@@ -12,3 +12,4 @@ resources:
   - ./tracingpolicy-container-escape.yaml
   - ./tracingpolicy-package-manager-exec.yaml
   - ./tracingpolicy-shell-spawn.yaml
+  - ./tracingpolicy-ha-pivot.yaml
