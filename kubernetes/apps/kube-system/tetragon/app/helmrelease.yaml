@@ -92,6 +92,12 @@ spec:
       cri:
         enabled: true
         socketHostPath: /run/containerd/containerd.sock
+      # cgidmap uses cgroup IDs for pod association (v1.7+). Required on Talos
+      # cgroupv2 — without it the agent logs 'failed to find cgroup id.
+      # Skipping container' warnings and drops container enrichment on events.
+      # Depends on cri.enabled=true (above).
+      cgidmap:
+        enabled: true
       prometheus:
         enabled: true
         port: 2112
