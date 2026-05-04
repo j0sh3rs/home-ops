@@ -1,0 +1,54 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
+# llama-swap model-fetch initContainer downloads weights to /models (shared
+# PVC) as root via curl from HuggingFace. After init, the main container
+# (llama-server) only READS /models — never writes. Supply-chain attack
+# vector: compromise upstream URL or the helmrelease configmap, attacker
+# stages a malicious GGUF that llama.cpp mmap's.
+#
+# This policy posts any write to /models/* from a process NOT in the
+# expected init-container binary set. matchBinaries NotIn is the enforcement
+# mechanism since Tetragon v1.7 lacks matchContainerIDs for this use case.
+#
+# Expected writers (matchBinaries NotIn allowlist):
+#   /usr/bin/curl  (model-fetch initContainer fetcher)
+#   /bin/curl      (alternate path depending on image base)
+#
+# Any OTHER binary writing to /models/ fires the alert. In steady-state
+# this should be zero. If llama.cpp itself writes (e.g., quantization
+# cache), add it to the NotIn list after confirming via logs.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: monitor-llama-models-write
+  namespace: services
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: llama-swap
+  kprobes:
+    - call: "security_file_permission"
+      syscall: false
+      args:
+        - index: 0
+          type: "file"
+        - index: 1
+          type: "int"
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: "Prefix"
+              values:
+                - "/models/"
+            - index: 1
+              # MAY_WRITE (0x2) — file is being opened/modified for write.
+              operator: "Mask"
+              values:
+                - "2"
+          matchBinaries:
+            - operator: "NotIn"
+              values:
+                - "/usr/bin/curl"
+                - "/bin/curl"
+          matchActions:
+            - action: Post
