@@ -1,5 +1,13 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
+# External TCP egress detection. Previous cluster-wide DAddr 0.0.0.0/0 match
+# posted every outbound connect on every node (kubelet heartbeats, Cilium
+# probes, scheduler, etc.) — a metric cardinality firehose.
+#
+# New scope: exclude RFC1918 (covers cluster pod CIDR 10.42.0.0/16 and service
+# CIDR 10.43.0.0/16), loopback, link-local, CGNAT, multicast/reserved via
+# NotDAddr. Only genuine external egress produces events. rateLimit keeps
+# bursty download patterns (model fetches, apt pulls) from saturating.
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicy
 metadata:
@@ -15,8 +23,16 @@ spec:
       selectors:
         - matchArgs:
             - index: 0
-              operator: "DAddr"
+              operator: "NotDAddr"
               values:
-                - "0.0.0.0/0"
+                - "10.0.0.0/8"
+                - "172.16.0.0/12"
+                - "192.168.0.0/16"
+                - "127.0.0.0/8"
+                - "100.64.0.0/10"
+                - "169.254.0.0/16"
+                - "224.0.0.0/4"
+                - "240.0.0.0/4"
           matchActions:
             - action: Post
+              rateLimit: "5m"
