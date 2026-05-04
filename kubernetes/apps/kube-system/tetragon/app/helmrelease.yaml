@@ -70,8 +70,13 @@ spec:
       securityContext:
         privileged: true
       processCacheSize: 65536
-      exportFilename: /dev/stdout
-      exportRateLimit: 1000
+      # exportFilename + exportRateLimit overrides removed — chart defaults
+      # (exportDirectory=/var/run/cilium/tetragon, exportFilename=tetragon.log,
+      # exportRateLimit=-1 unlimited) write structured events to a file that
+      # the export-stdout sidecar tails. Sidecar re-emits to pod stdout,
+      # Vector captures via /var/log/containers, ships to VictoriaLogs. The
+      # prior /dev/stdout override made the agent bypass the file, leaving
+      # the sidecar dry and PROCESS_* events invisible to VL.
       # Event filtering - exclude platform namespaces, focus on workloads.
       # databases intentionally NOT in denyList (want dolt/postgres exec visibility).
       exportAllowList: |-
