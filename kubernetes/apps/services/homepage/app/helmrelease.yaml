@@ -82,6 +82,11 @@ spec:
             runAsNonRoot: true
             fsGroup: 568
             fsGroupChangePolicy: OnRootMismatch
+    defaultPodOptions:
+      # app-template v5 defaults automountServiceAccountToken to false. Homepage's
+      # kubernetes provider reads the projected token to enumerate pods/services/
+      # ingresses/httproutes for the Kubernetes dashboard tile — opt back in.
+      automountServiceAccountToken: true
     service:
       app:
         controller: *app
