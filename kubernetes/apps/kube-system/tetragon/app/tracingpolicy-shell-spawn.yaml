@@ -1,0 +1,47 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
+# Shell spawn detection via LSM hook. Catches execve of shells/script
+# interpreters regardless of argv path, including from scripting engines
+# (n8n Code node -> child_process.exec, python -c, node -e).
+#
+# Scoped via TracingPolicyNamespaced to services namespace. homepage,
+# home-assistant, homebridge legitimately shell out for config/subprocess
+# workflows, so they're excluded via podSelector NotIn below. Extend the
+# exclusion list only after a false positive is observed and confirmed legit.
+#
+# Action: Post (monitoring-only). After ~2 week baseline, specific pods
+# (n8n, llama-swap, open-webui) could flip to Signal/Sigkill for enforcement.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: monitor-shell-spawn
+  namespace: services
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: NotIn
+        values:
+          - homepage
+          - home-assistant
+          - homebridge
+  kprobes:
+    - call: "security_bprm_check"
+      syscall: false
+      args:
+        - index: 0
+          type: "linux_binprm"
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: "Postfix"
+              values:
+                - "/sh"
+                - "/bash"
+                - "/zsh"
+                - "/ash"
+                - "/dash"
+                - "/ksh"
+                - "/fish"
+          matchActions:
+            - action: Post
