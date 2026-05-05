@@ -1,8 +1,13 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
-# Talos runs a locked, signed kernel. Any module load or BPF program load from
-# a workload pod is anomalous. Tetragon and Cilium legitimately load BPF; we
-# exclude them via matchBinaries NotIn.
+# Talos runs a locked, signed kernel. BPF program load from a workload pod is
+# anomalous — Tetragon and Cilium legitimately load BPF; we exclude them via
+# matchBinaries NotIn.
+#
+# security_kernel_module_request was removed (home-ops-jsl). It fired ~62/hour
+# from legit userspace-driven module auto-loads (netfilter/iptables,
+# filesystem drivers, protocol handlers) — all BLOCKED by Talos at load time,
+# but the request callback still fires. Zero actionable signal.
 apiVersion: cilium.io/v1alpha1
 kind: TracingPolicy
 metadata:
@@ -10,16 +15,6 @@ metadata:
   namespace: kube-system
 spec:
   kprobes:
-    # Kernel module load attempts. On Talos these should never succeed (kernel
-    # is locked), but the attempt itself is high-signal.
-    - call: "security_kernel_module_request"
-      syscall: false
-      args:
-        - index: 0
-          type: "string"
-      selectors:
-        - matchActions:
-            - action: Post
     # User-space bpf() syscall. Legitimate consumers (Cilium agent, Tetragon
     # itself) are on the NotIn allowlist. Anything else invoking bpf() is
     # a strong signal — cryptominer, rootkit, kernel-exploit, or CVE probe.
