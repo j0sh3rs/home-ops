@@ -145,7 +145,7 @@ spec:
               enabled: false
             buffer:
               type: disk
-              max_size: 268435456  # 256MiB — absorbs startup burst without RAM spike
+              max_size: 1073741824  # 1GiB — absorbs startup burst without RAM spike
             request:
               headers:
                 VL-Time-Field: timestamp
