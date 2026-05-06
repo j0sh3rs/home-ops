@@ -105,6 +105,9 @@ spec:
         sources:
           k8s:
             type: kubernetes_logs
+            # Skip log entries older than 1h on startup — prevents reading
+            # gigabytes of kube-apiserver/controller backlog into RAM.
+            ignore_older_secs: 3600
           internal_metrics:
             type: internal_metrics
         transforms:
