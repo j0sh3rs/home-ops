@@ -105,9 +105,17 @@ spec:
         sources:
           k8s:
             type: kubernetes_logs
-            # Skip log entries older than 1h on startup — prevents reading
+            # Skip entries older than 1h on startup — prevents reading
             # gigabytes of kube-apiserver/controller backlog into RAM.
             ignore_older_secs: 3600
+            # Throttle per-file read rate to bound memory during catch-up.
+            max_read_bytes: 2097152
+            # Exclude completed/evicted pod log dirs and velero kopia jobs
+            # which generate enormous volumes of low-signal output.
+            exclude_paths_glob_patterns:
+              - "**/velero_*/**"
+              - "**/kopia-maintain*/**"
+              - "**/kopia-*/**"
           internal_metrics:
             type: internal_metrics
         transforms:
