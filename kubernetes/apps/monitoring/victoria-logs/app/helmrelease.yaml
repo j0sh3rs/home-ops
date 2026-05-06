@@ -82,7 +82,7 @@ spec:
           cpu: 50m
           memory: 256Mi
         limits:
-          memory: 1Gi
+          memory: 2Gi
       args:
         - -w
         - --config-dir
@@ -143,6 +143,9 @@ spec:
             compression: gzip
             healthcheck:
               enabled: false
+            buffer:
+              type: disk
+              max_size: 268435456  # 256MiB — absorbs startup burst without RAM spike
             request:
               headers:
                 VL-Time-Field: timestamp
