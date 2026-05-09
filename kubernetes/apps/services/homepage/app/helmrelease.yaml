@@ -29,7 +29,7 @@ spec:
             image:
               repository: ghcr.io/gethomepage/homepage
               # renovate: datasource=github-releases depName=gethomepage/homepage
-              tag: v1.12.3
+              tag: v1.13.0
             env:
               TZ: America/New_York
               LOG_TARGETS: stdout
