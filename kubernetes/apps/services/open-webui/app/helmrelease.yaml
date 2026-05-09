@@ -29,7 +29,7 @@ spec:
             image:
               repository: ghcr.io/open-webui/open-webui
               # renovate: datasource=github-releases depName=open-webui/open-webui
-              tag: v0.9.2
+              tag: v0.9.4
             env:
               # Point at llama-swap OpenAI-compatible endpoint (same namespace).
               # Ollama API disabled — llama-swap does not implement /api/tags.
