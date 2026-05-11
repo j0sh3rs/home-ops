@@ -1,0 +1,51 @@
+---
+# ExternalName bridge Service. Traefik `errors` middleware requires the
+# fallback Service to live in the same namespace as the middleware; the
+# real oauth2-proxy Service lives in security. This ExternalName is
+# materialized in every opted-in namespace (kube-system, monitoring,
+# services, plus any future namespaces that include the
+# traefik-forwardauth Component).
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-xref
+spec:
+  type: ExternalName
+  externalName: oauth2-proxy.security.svc.cluster.local
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 80
+---
+# oauth2-proxy errors middleware. Catches 401 from oauth2-proxy-auth
+# and serves oauth2-proxy's /oauth2/start via the ExternalName bridge.
+# /oauth2/start emits a 302 to accounts.google.com which the browser
+# follows to complete the OAuth handshake.
+#
+# Usage in HTTPRoute filters (order matters — errors must wrap auth so
+# the 401 from auth is intercepted):
+#
+#   filters:
+#     - type: ExtensionRef
+#       extensionRef:
+#         group: traefik.io
+#         kind: Middleware
+#         name: oauth2-proxy-errors
+#     - type: ExtensionRef
+#       extensionRef:
+#         group: traefik.io
+#         kind: Middleware
+#         name: oauth2-proxy-auth
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: oauth2-proxy-errors
+spec:
+  errors:
+    status:
+      - "401"
+    service:
+      name: oauth2-proxy-xref
+      port: 80
+    query: "/oauth2/start?rd={url}"

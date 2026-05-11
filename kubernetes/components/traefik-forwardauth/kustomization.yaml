@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# Opts the including namespace into the oauth2-proxy forwardAuth Traefik
+# middleware. Gateway API + Traefik both reject cross-namespace
+# ExtensionRef filters (traefik/traefik#11126, gateway-api#3903), so this
+# Component materializes the Middleware into whichever namespace imports
+# it. Replaces the legacy traefik-oidc Component (Auth0 plugin).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - ./oauth2-proxy-auth.yaml
+  - ./oauth2-proxy-errors.yaml

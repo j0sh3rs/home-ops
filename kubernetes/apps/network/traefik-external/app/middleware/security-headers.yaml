@@ -7,16 +7,32 @@ metadata:
 spec:
   headers:
     customResponseHeaders:
-      X-Frame-Options: DENY
-      X-Content-Type-Options: nosniff
-      Referrer-Policy: same-origin
-      X-XSS-Protection: "1; mode=block"
-      Permissions-Policy: camera=(), microphone=(), geolocation=()
+      # Broad Permissions-Policy denylist. `fullscreen=(self)` kept so
+      # dashboard apps (Grafana, Homepage) can still go fullscreen from
+      # their own origin; everything else denied.
+      Permissions-Policy: >-
+        accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(),
+        camera=(), cross-origin-isolated=(), display-capture=(),
+        document-domain=(), encrypted-media=(),
+        execution-while-not-rendered=(), execution-while-out-of-viewport=(),
+        fullscreen=(self), geolocation=(), gyroscope=(), keyboard-map=(),
+        magnetometer=(), microphone=(), midi=(), navigation-override=(),
+        payment=(), picture-in-picture=(), publickey-credentials-get=(),
+        screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(),
+        xr-spatial-tracking=()
+    # Loose CSP kept intentionally: strict CSP breaks Grafana panel plugins,
+    # Home Assistant websocket/inline-style usage, Open WebUI streaming, and
+    # Homepage widget fetches. Tighten per-app later via override middleware.
     contentSecurityPolicy: "default-src 'self' http: https: data: blob: 'unsafe-inline'"
+    # Modern browser default; sends full URL same-origin, origin-only
+    # cross-origin over HTTPS, nothing on HTTPS→HTTP downgrade.
+    referrerPolicy: strict-origin-when-cross-origin
     stsSeconds: 31536000
     stsIncludeSubdomains: true
     stsPreload: true
     forceSTSHeader: true
-    browserXssFilter: true
+    # X-XSS-Protection is deprecated; Chrome removed the XSS auditor and in
+    # some cases the header enabled same-origin info leaks. Explicitly off.
+    browserXssFilter: false
     contentTypeNosniff: true
     frameDeny: true

@@ -7,9 +7,8 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
 resources:
-  # - ./tetragon/ks.yaml  # Disabled - Tetragon is deployed in kube-system namespace
-  # - ./wazuh/ks.yaml  # Removed - Phase 5E: Replaced by Tetragon + VictoriaLogs
   - ./crowdsec/ks.yaml
+  - ./oauth2-proxy/ks.yaml
 # CrowdSec agent DaemonSet mounts /var/log (hostPath), which PodSecurity
 # "baseline" rejects. Label the namespace "privileged" — same approach as
 # the monitoring namespace uses for node-exporter.

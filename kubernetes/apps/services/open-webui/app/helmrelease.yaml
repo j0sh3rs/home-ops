@@ -29,7 +29,7 @@ spec:
             image:
               repository: ghcr.io/open-webui/open-webui
               # renovate: datasource=github-releases depName=open-webui/open-webui
-              tag: v0.9.5
+              tag: v0.9.4
             env:
               # Point at llama-swap OpenAI-compatible endpoint (same namespace).
               # Ollama API disabled — llama-swap does not implement /api/tags.
@@ -85,7 +85,12 @@ spec:
                 extensionRef:
                   group: traefik.io
                   kind: Middleware
-                  name: oidc-auth0-secure
+                  name: oauth2-proxy-errors
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: oauth2-proxy-auth
             backendRefs:
               - name: *app
                 port: *port

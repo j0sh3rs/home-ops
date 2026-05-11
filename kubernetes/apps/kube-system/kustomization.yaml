@@ -7,6 +7,7 @@ components:
   - ../../components/common
   - ../../components/repos/app-template
   - ../../components/traefik-oidc
+  - ../../components/traefik-forwardauth
 resources:
   - ./amd-gpu/ks.yaml
   - ./cilium/ks.yaml

@@ -16,49 +16,68 @@ spec:
     cleanupOnFail: true
     remediation:
       retries: 3
-  valuesFrom:
-    - kind: Secret
-      name: oauth2proxy-secrets
-      valuesKey: client-id
-      targetPath: config.clientID
-    - kind: Secret
-      name: oauth2proxy-secrets
-      valuesKey: client-secret
-      targetPath: config.clientSecret
-    - kind: Secret
-      name: oauth2proxy-secrets
-      valuesKey: cookie-secret
-      targetPath: config.cookieSecret
   values:
     image:
+      # renovate: datasource=docker depName=quay.io/oauth2-proxy/oauth2-proxy
       tag: v7.13.0
       pullPolicy: IfNotPresent
     replicaCount: 1
+    # Use pre-created Secret (oauth2proxy-secrets) rather than stuffing
+    # credentials into values. Chart reads client-id / client-secret /
+    # cookie-secret keys directly from this Secret into env vars —
+    # matches the SOPS-encrypted structure in secret.sops.yaml.
+    config:
+      existingSecret: oauth2proxy-secrets
+    # Chart-managed allowlist ConfigMap. Single user to preserve the old
+    # Auth0 allowedUsers: [j0sh3rs@gmail.com] semantic.
+    authenticatedEmailsFile:
+      enabled: true
+      persistence: configmap
+      restricted_access: |-
+        j0sh3rs@gmail.com
     service:
       type: ClusterIP
       portNumber: 80
     sessionStorage:
       type: redis
       redis:
+        # Point at in-cluster DragonflyDB (Redis-compatible). DB 5 reserved
+        # for oauth2-proxy — AUTH password lives in the reflected
+        # dragonflydb-auth Secret.
+        existingSecret: dragonflydb-auth
+        passwordKey: password
         standalone:
           connectionUrl: "redis://dragonflydb.databases.svc.cluster.local:6379/5"
     extraArgs:
-      provider: oidc
+      provider: google
+      # Cookie + redirect behaviour: .68cc.io domain cookie enables SSO
+      # across all protected *.68cc.io apps via a single sign-in at
+      # auth.68cc.io. whitelist-domain keeps oauth2-proxy's "rd" query
+      # param honoured only for matching sub-origins.
+      redirect-url: https://auth.68cc.io/oauth2/callback
+      cookie-domain: .68cc.io
+      whitelist-domain: .68cc.io
       cookie-secure: "true"
       cookie-httponly: "true"
       cookie-samesite: "lax"
       cookie-refresh: "1h"
       cookie-expire: "4h"
+      # Forward identity headers to backends (X-Auth-Request-Email,
+      # X-Auth-Request-User, X-Auth-Request-Preferred-Username). Traefik
+      # forwardAuth middleware copies these into the upstream request in
+      # Phase 4.
       set-xauthrequest: "true"
       set-authorization-header: "true"
       pass-access-token: "true"
       pass-authorization-header: "true"
+      # pass-user-headers emits X-Forwarded-User / X-Forwarded-Email /
+      # X-Forwarded-Preferred-Username — consumed by Grafana's
+      # auth.proxy (header_name=X-Forwarded-User).
+      pass-user-headers: "true"
       email-domain: "*"
-      skip-provider-button: "true"
       reverse-proxy: "true"
       real-client-ip-header: "X-Forwarded-For"
       silence-ping-logging: "true"
-
     securityContext:
       enabled: true
       allowPrivilegeEscalation: false
@@ -98,8 +117,7 @@ spec:
       port: 44180
       servicemonitor:
         enabled: true
+    # Disable chart's bundled Redis subchart — using external DragonflyDB.
     redis:
       enabled: false
-
-    # Store sensitive values as secrets, not environment variables
     proxyVarsAsSecrets: true

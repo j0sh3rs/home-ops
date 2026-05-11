@@ -34,7 +34,12 @@ spec:
               extensionRef:
                 group: traefik.io
                 kind: Middleware
-                name: oidc-auth0-secure
+                name: oauth2-proxy-errors
+            - type: ExtensionRef
+              extensionRef:
+                group: traefik.io
+                kind: Middleware
+                name: oauth2-proxy-auth
       alertmanagerSpec:
         alertmanagerConfiguration:
           name: alertmanager

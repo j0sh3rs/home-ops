@@ -1,0 +1,47 @@
+---
+# oauth2-proxy forwardAuth middleware. Phase 4 of the Auth0 → Google
+# migration. Materialized per-namespace via Kustomize Component so
+# HTTPRoute filters can ExtensionRef it in-namespace (Gateway API +
+# Traefik both reject cross-ns extensionRef — traefik/traefik#11126,
+# gateway-api#3903).
+#
+# Flow:
+#   1. Client hits protected route. Traefik forwards the original
+#      request headers (X-Forwarded-Host, X-Forwarded-Uri, ...) to
+#      oauth2-proxy /oauth2/auth. `trustForwardHeader: true` tells
+#      oauth2-proxy to honour the forwarded host.
+#   2. oauth2-proxy /oauth2/auth result:
+#        - Valid session → 202 + X-Auth-Request-* headers. Traefik
+#          copies authResponseHeaders into the upstream request and
+#          proxies to the backend.
+#        - No session    → 401. The oauth2-proxy-errors middleware
+#          intercepts and redirects the browser to
+#          https://auth.68cc.io/oauth2/start?rd=<original>, which
+#          302s to accounts.google.com.
+#
+# Backend address points at the public hostname (auth.68cc.io) rather
+# than the in-cluster Service so that oauth2-proxy's own session-cookie
+# domain matches what the browser presents. A cluster-local address
+# would work for /oauth2/auth itself but makes the flow harder to
+# reason about when debugging the 401 → /oauth2/start chain.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: oauth2-proxy-auth
+spec:
+  forwardAuth:
+    address: https://auth.68cc.io/oauth2/auth
+    trustForwardHeader: true
+    authResponseHeaders:
+      - X-Auth-Request-Email
+      - X-Auth-Request-User
+      - X-Auth-Request-Preferred-Username
+      - X-Auth-Request-Access-Token
+      # X-Forwarded-User + X-Forwarded-Email are emitted by oauth2-proxy
+      # with --pass-user-headers=true (default). Grafana's auth.proxy
+      # expects X-Forwarded-User (header_name in grafana.yaml); do not
+      # remove without updating Grafana config in lockstep.
+      - X-Forwarded-User
+      - X-Forwarded-Email
+      - X-Forwarded-Preferred-Username
+      - Authorization
