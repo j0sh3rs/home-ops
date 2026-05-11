@@ -1,6 +1,6 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tlsroute_v1alpha2.json
-apiVersion: gateway.networking.k8s.io/v1alpha2
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/tlsroute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: postgres-external
