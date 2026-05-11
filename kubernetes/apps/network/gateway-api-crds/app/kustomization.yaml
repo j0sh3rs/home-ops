@@ -1,0 +1,34 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Gateway API experimental-channel CRDs, pinned to the traefik-helm-chart
+# tag in use by traefik-external/traefik-internal. Bump this tag alongside
+# chart bumps.
+#
+# Previously embedded in traefik-external/app/kustomization.yaml pointing at
+# refs/heads/master — an unpinned drift bomb that silently shipped whatever
+# Gateway API bundle happened to be on master. On chart v40.0.0 the bundle
+# added a ValidatingAdmissionPolicy (safe-upgrades) that refused to let the
+# existing standard-channel CRDs transition to experimental, self-blocking
+# every reconcile.
+#
+# This Kustomization owns the CRDs, excludes the VAP/Binding (single-operator
+# homelab has no use for the guardrail), and lives on prune: false so the
+# CRDs survive any upstream refactor.
+resources:
+  - https://raw.githubusercontent.com/traefik/traefik-helm-chart/v40.0.0/traefik-crds/crds-files/gatewayAPI/gateway-experimental-install.yaml
+
+patches:
+  # Drop VAP + Binding — see header comment.
+  - patch: |
+      $patch: delete
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: ValidatingAdmissionPolicy
+      metadata:
+        name: safe-upgrades.gateway.networking.k8s.io
+  - patch: |
+      $patch: delete
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: ValidatingAdmissionPolicyBinding
+      metadata:
+        name: safe-upgrades.gateway.networking.k8s.io

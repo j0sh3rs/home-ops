@@ -5,6 +5,8 @@ kind: Kustomization
 metadata:
   name: traefik-external
 spec:
+  dependsOn:
+    - name: gateway-api-crds
   interval: 1h
   path: ./kubernetes/apps/network/traefik-external/app
   prune: true
