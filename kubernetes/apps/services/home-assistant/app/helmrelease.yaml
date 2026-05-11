@@ -157,12 +157,44 @@ spec:
           - name: traefik-external-gateway
             namespace: network
         rules:
-          - filters:
+          # API + auth + static paths bypass oauth2-proxy. HA Companion
+          # apps (iOS/Android) authenticate to /api/* and /api/websocket
+          # via long-lived bearer tokens stored in the keychain; the
+          # Google OAuth redirect flow would kill them. HA's own login
+          # form lives at /auth/authorize and serves /static + /local
+          # as public assets — those must remain reachable without a
+          # Google session to render the login UI.
+          #
+          # Rule ordering: Gateway API matches longest-prefix first so
+          # these specific prefixes hit before the root `/` rule below.
+          - matches:
+              - path: { type: PathPrefix, value: /api }
+              - path: { type: PathPrefix, value: /auth }
+              - path: { type: PathPrefix, value: /static }
+              - path: { type: PathPrefix, value: /local }
+              - path: { type: PathPrefix, value: /frontend_latest }
+              - path: { type: PathPrefix, value: /hacsfiles }
+              - path: { type: PathPrefix, value: /manifest.json }
+              - path: { type: PathPrefix, value: /service_worker.js }
+            backendRefs:
+              - name: *app
+                port: *port
+          # Dashboard + everything else: Google OAuth gate. Browser
+          # users hit / (Lovelace) or /config / /developer-tools and
+          # get redirected to auth.68cc.io for Google sign-in.
+          - matches:
+              - path: { type: PathPrefix, value: / }
+            filters:
               - type: ExtensionRef
                 extensionRef:
                   group: traefik.io
                   kind: Middleware
-                  name: oidc-auth0-secure
+                  name: oauth2-proxy-errors
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: oauth2-proxy-auth
             backendRefs:
               - name: *app
                 port: *port

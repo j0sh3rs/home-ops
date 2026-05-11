@@ -128,6 +128,11 @@ spec:
       kubernetesCRD:
         enabled: true
         allowCrossNamespace: true
+        # Required for the oauth2-proxy-errors Middleware to reference
+        # the oauth2-proxy-xref ExternalName Service (bridge to the
+        # real oauth2-proxy in the security namespace). Traefik v3
+        # disables this by default since CVE-2023-47633.
+        allowExternalNameServices: true
       kubernetesIngress:
         enabled: true
       kubernetesGateway:
