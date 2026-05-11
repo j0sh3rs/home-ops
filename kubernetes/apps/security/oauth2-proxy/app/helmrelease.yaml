@@ -19,9 +19,19 @@ spec:
   values:
     image:
       # renovate: datasource=docker depName=quay.io/oauth2-proxy/oauth2-proxy
-      tag: v7.13.0
+      tag: v7.15.2
       pullPolicy: IfNotPresent
-    replicaCount: 1
+    replicaCount: 2
+    # Single-replica deployment — chart default PDB (minAvailable: 1) would
+    # deadlock node drains (Talos upgrades) because sole pod cannot be evicted.
+    podDisruptionBudget:
+      enabled: true
+    # External DragonflyDB handles session storage; chart's bundled
+    # waitForRedis initContainer targets an in-cluster redis service that
+    # does not exist, causing wasted startup time.
+    initContainers:
+      waitForRedis:
+        enabled: false
     # Use pre-created Secret (oauth2proxy-secrets) rather than stuffing
     # credentials into values. Chart reads client-id / client-secret /
     # cookie-secret keys directly from this Secret into env vars —
@@ -68,7 +78,6 @@ spec:
       # Phase 4.
       set-xauthrequest: "true"
       set-authorization-header: "true"
-      pass-access-token: "true"
       pass-authorization-header: "true"
       # pass-user-headers emits X-Forwarded-User / X-Forwarded-Email /
       # X-Forwarded-Preferred-Username — consumed by Grafana's
@@ -115,9 +124,12 @@ spec:
     metrics:
       enabled: true
       port: 44180
-      servicemonitor:
+      # Chart key is camelCase `serviceMonitor`; lowercase `servicemonitor`
+      # silently no-ops and no SM gets created.
+      serviceMonitor:
         enabled: true
-    # Disable chart's bundled Redis subchart — using external DragonflyDB.
-    redis:
+    # Chart v10 renamed `redis` subchart to `redis-ha`. Using external
+    # DragonflyDB, so keep subchart disabled under the new key.
+    redis-ha:
       enabled: false
     proxyVarsAsSecrets: true

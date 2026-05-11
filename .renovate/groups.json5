@@ -133,5 +133,17 @@
         commitMessageTopic: "{{{groupName}}} group",
       },
     },
+    {
+      description: "OAuth2 Proxy - Security Infrastructure",
+      groupName: "OAuth2 Proxy",
+      matchDatasources: ["docker", "helm"],
+      matchPackageNames: ["/oauth2-proxy/"],
+      stabilityDays: 3,
+      automerge: false,
+      labels: ["type/security", "risk/high"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+    },
   ],
 }

@@ -11,6 +11,6 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    # renovate: datasource=helm registryUrl=https://oauth2-proxy.github.io/manifests depName=oauth2-proxy
-    tag: 9.0.1
+    # renovate: datasource=docker depName=ghcr.io/oauth2-proxy/charts/oauth2-proxy
+    tag: 10.4.3
   url: oci://ghcr.io/oauth2-proxy/charts/oauth2-proxy
