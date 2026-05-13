@@ -40,14 +40,23 @@ spec:
       - --gateway-name=traefik-external-gateway
       - --zone-id-filter=$(CF_ZONE_ID)
       # Public ingress anchor: every HTTPRoute attached to
-      # traefik-external-gateway becomes a CNAME to home.68cc.io.
-      # home.68cc.io itself must resolve to the WAN IP (DDNS / tunnel /
-      # manual A record) — managed outside the cluster.
+      # traefik-external-gateway becomes a CNAME to the Cloudflare
+      # tunnel hostname. cloudflared (kubernetes/apps/network/cloudflared)
+      # runs the tunnel in-cluster; the tunnel's public ingress config
+      # forwards *.68cc.io to traefik-external.network.svc:443 where
+      # Traefik + oauth2-proxy take over.
+      #
       # --force-default-targets overrides each route's
-      # external-dns.alpha.kubernetes.io/target annotation (which stays as
-      # 192.168.35.15 so unifi-dns keeps split-horizon LAN resolution).
-      - --default-targets=home.68cc.io
+      # external-dns.alpha.kubernetes.io/target annotation (which stays
+      # 192.168.35.15 so unifi-dns keeps writing LAN records pointing
+      # at the traefik-external VIP — split-horizon DNS).
+      #
+      # --cloudflare-proxied orange-clouds every managed record so it
+      # terminates at the Cloudflare edge before hitting the tunnel.
+      # Required for the tunnel CNAME to actually route traffic.
+      - --default-targets=3ecf7dee-f421-46df-bcc1-1ea7ff24155c.cfargotunnel.com
       - --force-default-targets
+      - --cloudflare-proxied
     triggerLoopOnEvent: true
     policy: sync
     sources: ["crd", "gateway-httproute", "gateway-tcproute", "gateway-tlsroute"]
