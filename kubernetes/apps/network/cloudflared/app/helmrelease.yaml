@@ -129,3 +129,62 @@ spec:
             path: /metrics
             interval: 1m
             scrapeTimeout: 30s
+    # Tunnel health alerts. cloudflared exposes
+    # `cloudflared_tunnel_ha_connections` as a gauge per replica — each
+    # pod normally maintains 4 connections to distinct Cloudflare colos.
+    # Two replicas → typical sum is 8. If the sum hits 0 the tunnel is
+    # dead and every *.68cc.io public hostname returns 530 from the
+    # Cloudflare edge (origin unreachable).
+    prometheusRule:
+      app:
+        groups:
+          - name: cloudflared
+            rules:
+              - alert: CloudflaredTunnelAbsent
+                # scrape target vanished — pods down, service broken,
+                # or ServiceMonitor mis-wired
+                expr: absent(cloudflared_tunnel_ha_connections) == 1
+                for: 5m
+                labels:
+                  severity: critical
+                  component: ingress
+                annotations:
+                  summary: "cloudflared metrics absent"
+                  description: >-
+                    No cloudflared pod has reported metrics for 5
+                    minutes. Public ingress via the home tunnel is
+                    likely down.
+              - alert: CloudflaredTunnelDown
+                # All replicas detached from the Cloudflare edge.
+                # Public services on *.68cc.io will return 530 at the
+                # edge. Liveness probe should already be recycling pods;
+                # firing this alert means the recycle loop hasn't
+                # recovered.
+                expr: sum(cloudflared_tunnel_ha_connections) == 0
+                for: 2m
+                labels:
+                  severity: critical
+                  component: ingress
+                annotations:
+                  summary: "Cloudflare tunnel has zero active connections"
+                  description: >-
+                    Every cloudflared replica is disconnected from the
+                    Cloudflare edge. Public traffic is failing. Check
+                    pod logs: kubectl -n network logs -l
+                    app.kubernetes.io/name=cloudflared --tail=100
+              - alert: CloudflaredTunnelDegraded
+                # Fewer connections than expected. Typical = 4 per
+                # replica * 2 replicas = 8. Alert below half so a single
+                # pod restart doesn't flap — one full replica gone for
+                # 10 minutes is worth investigating.
+                expr: sum(cloudflared_tunnel_ha_connections) < 4
+                for: 10m
+                labels:
+                  severity: warning
+                  component: ingress
+                annotations:
+                  summary: "cloudflared HA connections below threshold"
+                  description: >-
+                    Active Cloudflare tunnel connections dropped below
+                    4 (expected 8 with 2 replicas). One replica may be
+                    unhealthy.
