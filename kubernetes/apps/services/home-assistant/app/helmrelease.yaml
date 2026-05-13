@@ -151,10 +151,17 @@ spec:
     route:
       app:
         annotations:
-          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+          # Internal-only: ha.68cc.io is served from traefik-internal
+          # (VIP 192.168.35.17) behind UniFi split-horizon DNS. The
+          # Cloudflare tunnel publishes only traefik-external-gateway,
+          # so this route does NOT get a public CNAME — HA remains
+          # LAN-only until the security posture of exposing it publicly
+          # is evaluated (HA Companion apps hold long-lived bearer
+          # tokens; a leaked token equals full house-control).
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
         hostnames: ["ha.68cc.io"]
         parentRefs:
-          - name: traefik-external-gateway
+          - name: traefik-internal-gateway
             namespace: network
         rules:
           # API + auth + static paths bypass oauth2-proxy. HA Companion
