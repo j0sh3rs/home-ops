@@ -1,0 +1,132 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+#
+# cloudflared runs as a Deployment in the network namespace connecting the
+# existing "home" tunnel (id 3ecf7dee-f421-46df-bcc1-1ea7ff24155c) to
+# Cloudflare's edge. Tunnel ingress config is managed remotely via the
+# Cloudflare dashboard / API (not via this repo) — the tunnel config
+# points every *.68cc.io hostname at
+# traefik-external.network.svc.cluster.local:443, where the normal
+# Traefik + oauth2-proxy pipeline takes over.
+#
+# Phase 1 of the Cloudflare tunnel rollout. See CLAUDE.md + the
+# accompanying PR for the architecture write-up.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app cloudflared
+spec:
+  interval: 1h
+  timeout: 10m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+    namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      cloudflared:
+        replicas: 2
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/cloudflare/cloudflared
+              # renovate: datasource=docker depName=docker.io/cloudflare/cloudflared
+              tag: 2026.5.0
+            args:
+              - tunnel
+              - --no-autoupdate
+              - --loglevel
+              - info
+              - --metrics
+              - 0.0.0.0:2000
+              - run
+            env:
+              NO_AUTOUPDATE: "true"
+              TUNNEL_METRICS: 0.0.0.0:2000
+            envFrom:
+              - secretRef:
+                  name: cloudflared-secret
+            # /ready returns 200 iff cloudflared has an active connection
+            # to the Cloudflare edge. liveness kills pods that detached
+            # from the edge so the Deployment brings them back.
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ready
+                    port: &metricsPort 2000
+                  failureThreshold: 1
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ready
+                    port: *metricsPort
+                  failureThreshold: 3
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+              startup:
+                enabled: false
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+        pod:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+            # ICMP ping from cloudflared (rare but required for some
+            # origins that rely on pathping health). 65532 is the
+            # nonroot uid/gid used by the distroless base.
+            sysctls:
+              - name: net.ipv4.ping_group_range
+                value: "65532 65532"
+          # Spread replicas across nodes so a single-node failure
+          # doesn't black-hole public traffic.
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: *app
+    service:
+      app:
+        controller: *app
+        ports:
+          metrics:
+            port: *metricsPort
+    serviceMonitor:
+      app:
+        serviceName: *app
+        endpoints:
+          - port: metrics
+            scheme: http
+            path: /metrics
+            interval: 1m
+            scrapeTimeout: 30s

@@ -140,11 +140,17 @@ spec:
       - --entryPoints.web.observability.metrics=false
       - --entryPoints.web.observability.tracing=false
       - --entryPoints.web.reuseport=true
+      # PROXY protocol trusted only from the LAN CIDR so the UniFi LB can
+      # forward real client IP. Pod CIDR (10.42.0.0/16) is intentionally
+      # NOT trusted — cloudflared pods speak plain HTTP/2 (not PROXY), and
+      # trusting the pod CIDR would cause Traefik to fail-parse PROXY
+      # headers on those connections. End-user IP over the tunnel is
+      # preserved by the CF-Connecting-IP header instead.
       - --entryPoints.web.proxyProtocol=true
-      - --entryPoints.web.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entryPoints.web.proxyProtocol.trustedIPs=192.168.35.0/24
       - --entryPoints.websecure.http.middlewares=network-crowdsec-bouncer@kubernetescrd,network-rate-limit@kubernetescrd,network-security-headers@kubernetescrd,network-bot-wrangler@kubernetescrd,network-compression@kubernetescrd
       - --entryPoints.websecure.proxyProtocol=true
-      - --entryPoints.websecure.proxyProtocol.trustedIPs=10.42.0.0/16,192.168.35.0/24
+      - --entryPoints.websecure.proxyProtocol.trustedIPs=192.168.35.0/24
       - --entryPoints.websecure.reuseport=true
       # Drop sub-50ms access log entries (kube-probe health checks complete in <10ms)
       - --accesslog.filters.minduration=50ms
