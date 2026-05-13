@@ -9,6 +9,17 @@ ROOT_DIR = "{{config_root}}"
 SCRIPTS_DIR = "{{config_root}}/scripts"
 TALOS_DIR = "{{config_root}}/talos"
 
+# Route bd at the local shared Dolt server (spawned by bd at
+# ~/.beads/shared-server/ on 127.0.0.1:3306). Overrides any stale
+# BEADS_DOLT_SERVER_* env vars that point at dolt.68cc.io.
+# Requires `eval "$(mise env)"` in shell; mise activation in ~/.zshrc
+# makes this automatic when cd'ing into the repo.
+BEADS_DOLT_SERVER_HOST = "127.0.0.1"
+BEADS_DOLT_SERVER_PORT = "3306"
+BEADS_DOLT_SERVER_USER = "root"
+BEADS_DOLT_PASSWORD = ""
+BEADS_DOLT_SHARED_SERVER = "1"
+
 [tools]
 "python" = "3.14.5"
 "pipx:makejinja" = "2.8.2"

@@ -29,6 +29,10 @@
           {
             "type": "command",
             "command": "jq -r '.tool_input.command // empty' | awk 'BEGIN{rc=0} { stripped=$0; gsub(/\"[^\"]*\"/, \"\", stripped); gsub(/\\x27[^\\x27]*\\x27/, \"\", stripped); n=split(stripped, segs, /(&&|\\|\\||;)/); for (i=1; i<=n; i++) { seg=segs[i]; sub(/^[[:space:]]+/, \"\", seg); sub(/^rtk[[:space:]]+/, \"\", seg); sub(/^sudo[[:space:]]+/, \"\", seg); if (seg ~ /^(kubectl|helm|flux)([[:space:]]|$)/) { if (seg !~ /(--context|--kube-context)[=[:space:]]*home/) { print \"Refusing: kubectl/helm/flux command missing --context home. Add --context home.\" > \"/dev/stderr\"; rc=2 } } } } END { exit rc }'"
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | awk 'BEGIN{rc=0} { cmd=$0; stripped=cmd; gsub(/\"[^\"]*\"/, \"\", stripped); gsub(/\\x27[^\\x27]*\\x27/, \"\", stripped); n=split(stripped, segs, /(&&|\\|\\||;)/); for (i=1; i<=n; i++) { seg=segs[i]; sub(/^[[:space:]]+/, \"\", seg); sub(/^rtk[[:space:]]+/, \"\", seg); sub(/^sudo[[:space:]]+/, \"\", seg); if (seg ~ /^git[[:space:]]+commit([[:space:]]|$)/) { r=system(\"task sops:verify >/dev/null 2>&1\"); if (r != 0) { print \"SOPS guard: task sops:verify FAILED. Plaintext secret staged. Run: task sops:verify\" > \"/dev/stderr\"; rc=2 } } } } END { exit rc }'"
           }
         ]
       }
