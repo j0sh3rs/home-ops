@@ -22,8 +22,8 @@ spec:
   interval: 1h
   timeout: 2m
   values:
-    # Secret volume + env mirrored from traefik-external so the same traefikoidc
-    # plugin session-encryption / client-secret works for LAN traffic.
+    # Secret volume + env mirrored from traefik-external for CrowdSec
+    # bouncer API key + TLS certs used by the crowdsec-bouncer plugin.
     volumes:
       - name: traefik-secrets
         mountPath: /etc/traefik/secrets
@@ -39,11 +39,6 @@ spec:
       # renovate: datasource=docker depName=traefik
       tag: v3.7.1
     experimental:
-      plugins:
-        traefikoidc:
-          # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
-          moduleName: "github.com/lukaszraczylo/traefikoidc"
-          version: "v0.8.27"
       otlpLogs: false
     ocsp:
       enabled: true

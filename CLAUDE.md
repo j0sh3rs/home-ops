@@ -233,7 +233,7 @@ task sops:verify  # Check all *.sops.yaml files are properly encrypted
 
 ### Networking
 
-- **Traefik** — Gateway API ingress controller. Handles HTTPRoute (HTTP/HTTPS), TCPRoute (raw TCP), and TLSRoute (TLS terminate/passthrough). Wildcard cert `68cc-io-tls` in `network` namespace covers `*.68cc.io`. OIDC auth middleware `oidc-auth0-secure` (Auth0 + DragonflyDB session store) available for protecting services. Gateway name: `traefik-gateway` in `network` namespace.
+- **Traefik** — Gateway API ingress controller. Two instances: `traefik-external` (public-facing, VIP `192.168.35.15`, gateway `traefik-external-gateway`) and `traefik-internal` (LAN-only, VIP `192.168.35.17`, gateway `traefik-internal-gateway`). Both terminate TLS using the wildcard cert `68cc-io-tls` in `network` namespace (covers `*.68cc.io`). HTTPRoutes opt into one gateway via `parentRefs` and set `external-dns.alpha.kubernetes.io/target` to the matching VIP. oauth2-proxy forwardAuth Middleware (`oauth2-proxy-auth` + `oauth2-proxy-errors`, from component `kubernetes/components/traefik-forwardauth`) is the cluster auth gate; legacy Auth0 middleware was removed.
 - **Cloudflare DNS** — External DNS integration via external-dns; use annotation `external-dns.alpha.kubernetes.io/target: 192.168.35.15` on HTTPRoutes
 - **unifi-dns** — Split-horizon DNS for internal cluster resolution via UniFi
 - **cert-manager** — TLS certificate automation; cluster wildcard cert `68cc-io-tls` in `network` namespace
@@ -290,7 +290,7 @@ Rules of thumb:
 
 - **Tetragon** — Runtime security observability with eBPF (`kube-system` and `security` namespaces)
 - **CrowdSec** — Collaborative IDS/IPS for threat detection and blocking; Traefik bouncer middleware applied globally on `web` and `websecure` entrypoints
-- **Auth0 OIDC** — Service-level authentication via `oidc-auth0-secure` Traefik middleware; backed by DragonflyDB session store
+- **oauth2-proxy + Google OIDC** — Service-level authentication. Traefik `oauth2-proxy-auth` forwardAuth Middleware calls oauth2-proxy `/oauth2/auth`; unauthenticated requests bounce through `auth.68cc.io/oauth2/start` to Google, then back. Session cookies scoped to `.68cc.io`. Applied per-HTTPRoute via Gateway API `ExtensionRef` filters. See `kubernetes/components/traefik-forwardauth/` and `kubernetes/apps/security/oauth2-proxy/`. Replaced the legacy Auth0 + traefikoidc plugin in a prior migration.
 
 ### System Components (`kube-system`)
 
