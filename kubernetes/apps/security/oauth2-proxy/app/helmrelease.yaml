@@ -87,6 +87,7 @@ spec:
       reverse-proxy: "true"
       real-client-ip-header: "X-Forwarded-For"
       silence-ping-logging: "true"
+      skip-provider-button: "true"
     securityContext:
       enabled: true
       allowPrivilegeEscalation: false
