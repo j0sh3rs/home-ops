@@ -12,7 +12,11 @@
       "args": ["-y", "@upstash/context7-mcp@latest"]
     },
     "cloudflare-api": {
-      "url": "https://mcp.cloudflare.com/mcp"
+      "type": "http",
+      "url": "https://mcp.cloudflare.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${CLOUDFLARE_API_TOKEN}"
+      }
     }
   }
 }

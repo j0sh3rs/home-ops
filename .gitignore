@@ -5,6 +5,7 @@
 /age.key
 /cloudflare-tunnel.json
 cloudflare-tunnel.json.old
+/cloudflare-mcp.env
 /github-deploy.key
 /github-deploy.key.pub
 /github-push-token.txt

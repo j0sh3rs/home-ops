@@ -1,5 +1,9 @@
 [env]
 _.python.venv = { path = "{{config_root}}/.venv", create = true }
+# Repo-local secrets file. Loaded by mise on shell activation. Keep out
+# of git (.gitignored below). Expected contents:
+#   export CLOUDFLARE_API_TOKEN=...   # scoped per Phase 4.3 runbook
+_.file = { path = "{{config_root}}/cloudflare-mcp.env", redact = true }
 KUBECONFIG = "{{config_root}}/kubeconfig"
 SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
 TALOSCONFIG = "{{config_root}}/talos/clusterconfig/talosconfig"
