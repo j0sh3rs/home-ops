@@ -171,6 +171,8 @@ spec:
 
 Helm repository definitions live in `kubernetes/flux/meta/repos/`.
 
+**`chartRef.namespace` gotcha**: Omit the `namespace:` field in `chartRef` when the OCIRepository lives in the HR's own namespace (via `components/repos/app-template`). Setting `namespace: flux-system` makes Flux look for the OCIRepository in `flux-system` and fail reconcile with `OCIRepository "app-template" not found`. The shared `app-template` OCIRepository is materialized per-namespace via the Component, not globally in flux-system.
+
 **When adding a new app, ALWAYS check for an OCI-published chart first.** Most upstreams now publish to `ghcr.io` or `oci://` registries. Only fall back to `HelmRepository` + `sourceRef` when the upstream has no OCI artifact available. If you're copying an existing legacy-pattern app as a template, migrate it to `OCIRepository` + `chartRef` during the copy.
 
 **Legacy `HelmRepository` + `sourceRef` apps pending OCI migration** (migrate opportunistically when touching them):
@@ -229,12 +231,16 @@ All secrets MUST be encrypted before committing. Name encrypted files `*.sops.ya
 task sops:verify  # Check all *.sops.yaml files are properly encrypted
 ```
 
+**Cloudflare API MCP** authenticates via `CLOUDFLARE_API_TOKEN` env loaded from `cloudflare-mcp.env` (gitignored, mise `_.file` directive in `.mise.toml`). Token requires `Zone:Rulesets:Edit`, `Zone:Zone Settings:Edit`, `Zone:Bot Management:Edit`, `Zone:DNS:Edit`, `Account:Cloudflare Tunnel:Edit` scoped to `68cc.io` + `BTH Account`. The OAuth flow via `mcp.cloudflare.com/mcp` has insufficient scope for rulesets — bearer token is mandatory for Phase 4+ work. See `docs/runbooks/cloudflare-waf.md`.
+
 ## Architecture
 
 ### Networking
 
 - **Traefik** — Gateway API ingress controller. Two instances: `traefik-external` (public-facing, VIP `192.168.35.15`, gateway `traefik-external-gateway`) and `traefik-internal` (LAN-only, VIP `192.168.35.17`, gateway `traefik-internal-gateway`). Both terminate TLS using the wildcard cert `68cc-io-tls` in `network` namespace (covers `*.68cc.io`). HTTPRoutes opt into one gateway via `parentRefs` and set `external-dns.alpha.kubernetes.io/target` to the matching VIP. oauth2-proxy forwardAuth Middleware (`oauth2-proxy-auth` + `oauth2-proxy-errors`, from component `kubernetes/components/traefik-forwardauth`) is the cluster auth gate; legacy Auth0 middleware was removed.
-- **Cloudflare DNS** — External DNS integration via external-dns; use annotation `external-dns.alpha.kubernetes.io/target: 192.168.35.15` on HTTPRoutes
+- **Traefik `proxyProtocol.trustedIPs`**: LAN CIDR only (`192.168.35.0/24`). Pod CIDR (`10.42.0.0/16`) is intentionally NOT trusted — cloudflared speaks plain HTTP, not PROXY, and Traefik fail-parses if the pod CIDR is trusted. End-user IP over the tunnel is preserved via the `CF-Connecting-IP` HTTP header instead.
+- **Cloudflare tunnel** (`home`, id `3ecf7dee-f421-46df-bcc1-1ea7ff24155c`) runs in-cluster at `kubernetes/apps/network/cloudflared/`. Tunnel ingress config is managed **remotely** via the Cloudflare dashboard/API (not this repo). Origin: `https://traefik-external.network.svc.cluster.local:443` with `originServerName: 68cc.io` (matches wildcard cert SAN). Verify via Cloudflare MCP — see `docs/runbooks/cloudflare-waf.md`.
+- **External-DNS split-horizon**: `cloudflare-dns` writes CNAMEs to `<tunnel-id>.cfargotunnel.com` with `--cloudflare-proxied` for every route on `traefik-external-gateway`. `unifi-dns` writes LAN A records pointing at the VIP matching each route's `external-dns.alpha.kubernetes.io/target` annotation. Internal-only routes (`traefik-internal-gateway`, target `192.168.35.17`) get only a LAN record — no Cloudflare record.
 - **unifi-dns** — Split-horizon DNS for internal cluster resolution via UniFi
 - **cert-manager** — TLS certificate automation; cluster wildcard cert `68cc-io-tls` in `network` namespace
 
@@ -389,6 +395,7 @@ flux build kustomization {name} --path kubernetes/apps/{path} --dry-run
 - **SOPS + age** — Git-native encryption, no external dependency
 - **Immutable infrastructure** — Talos nodes are API-configured, never SSH'd into
 - **eBPF-native** — Cilium CNI + Tetragon security for kernel-level observability
+- **Cloudflare Free plan** — 5 custom WAF rules, 1 rate-limiting rule (new engine). Bot Fight Mode is tunnel-hostile (breaks cloudflared with `websocket: bad handshake`) — keep OFF. `ai_bots_protection: block` is safe and on. Managed Rules / Super Bot Fight Mode / multi-rule rate-limit need Pro ($25/mo/zone) — not currently justified for this threat model.
 
 ## Debugging Cheat Sheet
 
