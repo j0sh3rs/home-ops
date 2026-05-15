@@ -6,8 +6,8 @@
 # Cloudflare's edge. Tunnel ingress config is managed remotely via the
 # Cloudflare dashboard / API (not via this repo) — the tunnel config
 # points every *.68cc.io hostname at
-# traefik-external.network.svc.cluster.local:443, where the normal
-# Traefik + oauth2-proxy pipeline takes over.
+# traefik-external.network.svc.cluster.local:443, where Traefik + the
+# google-oidc-secure middleware (traefikoidc plugin) take over.
 #
 # Phase 1 of the Cloudflare tunnel rollout. See CLAUDE.md + the
 # accompanying PR for the architecture write-up.

@@ -164,7 +164,7 @@ spec:
           - name: traefik-internal-gateway
             namespace: network
         rules:
-          # API + auth + static paths bypass oauth2-proxy. HA Companion
+          # API + auth + static paths bypass the OIDC middleware. HA Companion
           # apps (iOS/Android) authenticate to /api/* and /api/websocket
           # via long-lived bearer tokens stored in the keychain; the
           # Google OAuth redirect flow would kill them. HA's own login

@@ -37,13 +37,12 @@ spec:
       header_name: X-Forwarded-User
       header_property: email
       auto_sign_up: "true"
-      # Additional headers the proxy trusts. oauth2-proxy emits
-      # X-Forwarded-Preferred-Username from the Google `name`/`email`
-      # claim (see kubernetes/apps/security/oauth2-proxy/app/helmrelease.yaml
-      # pass-user-headers flag). The space-separated `Property:Header`
-      # pairs populate matching fields on the Grafana user on sign-up
-      # and every sync_ttl refresh.
-      headers: "Name:X-Forwarded-Preferred-Username Email:X-Forwarded-User"
+      # Additional headers the proxy trusts. The traefikoidc plugin emits
+      # X-Forwarded-User (email) and X-Forwarded-Name (Google `name` claim,
+      # via the headers template in components/traefik-oidc/google-oidc-secure.yaml).
+      # The space-separated `Property:Header` pairs populate matching fields
+      # on the Grafana user on sign-up and every sync_ttl refresh.
+      headers: "Name:X-Forwarded-Name Email:X-Forwarded-User"
       # Cilium native routing preserves source IP; the Traefik DaemonSet
       # pods live in the cluster pod CIDR.
       whitelist: 10.42.0.0/16

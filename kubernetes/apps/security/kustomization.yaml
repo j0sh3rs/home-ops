@@ -8,7 +8,6 @@ components:
   - ../../components/repos/app-template
 resources:
   - ./crowdsec/ks.yaml
-  - ./oauth2-proxy/ks.yaml
 # CrowdSec agent DaemonSet mounts /var/log (hostPath), which PodSecurity
 # "baseline" rejects. Label the namespace "privileged" — same approach as
 # the monitoring namespace uses for node-exporter.

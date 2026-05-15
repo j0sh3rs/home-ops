@@ -44,7 +44,7 @@ spec:
       # tunnel hostname. cloudflared (kubernetes/apps/network/cloudflared)
       # runs the tunnel in-cluster; the tunnel's public ingress config
       # forwards *.68cc.io to traefik-external.network.svc:443 where
-      # Traefik + oauth2-proxy take over.
+      # Traefik + the google-oidc-secure middleware take over.
       #
       # --force-default-targets overrides each route's
       # external-dns.alpha.kubernetes.io/target annotation (which stays
