@@ -15,7 +15,11 @@ spec:
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
-  url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/LAPI%20Metrics.json
+  # crowdsecurity/grafana-dashboards publishes no tagged releases. URLs below
+  # are pinned to a commit SHA; Renovate's git-refs datasource bumps the SHA
+  # when upstream pushes to master. Review each PR before merge.
+  # renovate: datasource=git-refs depName=crowdsecurity/grafana-dashboards packageName=https://github.com/crowdsecurity/grafana-dashboards branch=master
+  url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/0d34f686930aab1f11562bdf664ffad60c567e39/dashboards_v5/LAPI%20Metrics.json
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
@@ -33,7 +37,9 @@ spec:
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
-  url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Overview.json
+  # See above — same SHA-pinned upstream.
+  # renovate: datasource=git-refs depName=crowdsecurity/grafana-dashboards packageName=https://github.com/crowdsecurity/grafana-dashboards branch=master
+  url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/0d34f686930aab1f11562bdf664ffad60c567e39/dashboards_v5/Crowdsec%20Overview.json
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
@@ -51,7 +57,9 @@ spec:
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
-  url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Insight.json
+  # See above — same SHA-pinned upstream.
+  # renovate: datasource=git-refs depName=crowdsecurity/grafana-dashboards packageName=https://github.com/crowdsecurity/grafana-dashboards branch=master
+  url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/0d34f686930aab1f11562bdf664ffad60c567e39/dashboards_v5/Crowdsec%20Insight.json
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
@@ -69,4 +77,6 @@ spec:
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
-  url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/refs/heads/master/dashboards_v5/Crowdsec%20Details%20per%20Machine.json
+  # See above — same SHA-pinned upstream.
+  # renovate: datasource=git-refs depName=crowdsecurity/grafana-dashboards packageName=https://github.com/crowdsecurity/grafana-dashboards branch=master
+  url: https://raw.githubusercontent.com/crowdsecurity/grafana-dashboards/0d34f686930aab1f11562bdf664ffad60c567e39/dashboards_v5/Crowdsec%20Details%20per%20Machine.json

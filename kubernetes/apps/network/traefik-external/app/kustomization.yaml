@@ -4,7 +4,8 @@ kind: Kustomization
 resources:
   - ./secret.sops.yaml
   - ./certificate.yaml
-  - https://raw.githubusercontent.com/traefik/traefik/refs/heads/master/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
+  # renovate: datasource=github-releases depName=traefik/traefik
+  - https://raw.githubusercontent.com/traefik/traefik/v3.7.1/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
   - ./middleware/
   - ./ocirepository.yaml
   - ./helmrelease.yaml

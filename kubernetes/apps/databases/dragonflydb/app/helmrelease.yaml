@@ -1,0 +1,58 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+#
+# Dragonfly operator HelmRelease.
+#
+# Replaces the previous "raw URL at main" pattern
+# (https://raw.githubusercontent.com/dragonflydb/dragonfly-operator/main/manifests/dragonfly-operator.yaml)
+# which silently drifted on every Flux reconcile and was opaque to Renovate.
+# The chart pins to a tag (Renovate-tracked via the OCIRepository above) so
+# upgrades are reviewable PRs.
+#
+# fullnameOverride keeps the in-namespace ClusterRole and Role names matching
+# the legacy raw-manifest names (`dragonfly-operator-*`) where the chart's
+# default templating would prefix them with the release name. Pure cosmetic
+# alignment — Flux's first reconcile of this HR happens AFTER a one-shot
+# manual cleanup that deletes the legacy resources, so name collisions are
+# avoided regardless. See README / commit message for the cleanup runbook.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: dragonfly-operator
+spec:
+  interval: 1h
+  timeout: 10m
+  chartRef:
+    kind: OCIRepository
+    name: dragonfly-operator
+  install:
+    remediation:
+      retries: 3
+    crds: CreateReplace
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+    crds: CreateReplace
+  values:
+    fullnameOverride: dragonfly-operator
+    crds:
+      install: true
+      keep: true
+    serviceAccount:
+      create: true
+      # Match the legacy SA name — already used by RoleBinding refs.
+      name: dragonfly-operator-controller-manager
+    serviceMonitor:
+      enabled: true
+    # Disable bundled Grafana dashboards — we don't reference them and the
+    # chart emits a ConfigMapList shape that the Grafana Operator doesn't
+    # auto-discover anyway. Add a separate GrafanaDashboard CR if needed.
+    grafanaDashboard:
+      enabled: false
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
