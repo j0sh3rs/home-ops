@@ -1,0 +1,79 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Descheduler alerting. The chart does not ship a prometheusRule template,
+# so we own these rules in-repo. vmalert runs with selectAllByDefault:
+# true and auto-converts every PrometheusRule into a VMRule, so no
+# additional labels are required for evaluation.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: descheduler
+  namespace: kube-system
+spec:
+  groups:
+    - name: descheduler.rules
+      rules:
+        # CRITICAL: descheduler is gone entirely. Either the Deployment
+        # was scaled to 0, the pod is failing to start, or the metrics
+        # endpoint is unreachable. Without descheduler, pod imbalance
+        # and stuck-on-failed-node pods are not corrected.
+        - alert: DeschedulerAbsent
+          expr: |
+            absent(descheduler_build_info) == 1
+          for: 10m
+          labels:
+            severity: critical
+            component: scheduler
+          annotations:
+            summary: Descheduler metrics absent
+            description: >-
+              The descheduler has not reported the descheduler_build_info
+              metric for 10 minutes. The Deployment may be down, the
+              ServiceMonitor may have lost its scrape target, or the pod
+              is in CrashLoopBackOff. Check
+              `kubectl get pods -n kube-system -l app.kubernetes.io/name=descheduler`.
+
+        # WARNING: descheduler reconcile loop has stalled. The
+        # descheduler_loops_total counter should advance once per
+        # deschedulingInterval (5m). If it stops advancing, the loop is
+        # wedged inside a strategy (rare — usually informer cache
+        # corruption or apiserver auth flap). Pod liveness probe
+        # eventually catches this but the alert fires sooner.
+        - alert: DeschedulerLoopStalled
+          expr: |
+            increase(descheduler_loops_total[15m]) == 0
+          for: 5m
+          labels:
+            severity: warning
+            component: scheduler
+          annotations:
+            summary: Descheduler reconcile loop stalled
+            description: >-
+              descheduler_loops_total has not advanced in the last 15
+              minutes despite a 5m deschedulingInterval. The loop may be
+              wedged in an informer or strategy. Check pod logs with
+              `kubectl logs -n kube-system -l app.kubernetes.io/name=descheduler`.
+
+        # WARNING: descheduler is evicting an unusually high rate of
+        # pods. A sustained eviction storm usually means LowNodeUtilization
+        # thresholds are too aggressive (pods churning between nodes
+        # because the simulated post-eviction state still violates the
+        # threshold), or RemovePodsHavingTooManyRestarts is firing on a
+        # genuinely broken app. >5 evictions/hour sustained for 30m is
+        # well above the normal homelab baseline of 0–2/hour.
+        - alert: DeschedulerHighEvictionRate
+          expr: |
+            sum(rate(descheduler_pods_evicted_total[30m])) * 3600 > 5
+          for: 30m
+          labels:
+            severity: warning
+            component: scheduler
+          annotations:
+            summary: Descheduler evicting >5 pods/hour
+            description: >-
+              Descheduler has evicted {{ $value | humanize }} pods/hour
+              over the last 30 minutes. Sustained churn usually means
+              LowNodeUtilization thresholds are too aggressive or a
+              CrashLooping app is being repeatedly evicted. Investigate
+              with `kubectl get events -n kube-system | grep -i evict`.
