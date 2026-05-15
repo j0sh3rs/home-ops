@@ -135,7 +135,7 @@ spec:
               # Tag scheme is `<tika>.<server>` (e.g. 2.9.1.0), NOT hyphenated.
               repository: apache/tika
               # renovate: datasource=docker depName=apache/tika
-              tag: 2.9.1.0
+              tag: 2.9.2.1
             resources:
               requests:
                 cpu: 100m
