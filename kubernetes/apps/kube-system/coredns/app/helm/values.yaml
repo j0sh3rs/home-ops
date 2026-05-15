@@ -58,3 +58,15 @@ tolerations:
   - key: node-role.kubernetes.io/control-plane
     operator: Exists
     effect: NoSchedule
+# Spread the 2 replicas across nodes. ScheduleAnyway so a single-node
+# failure doesn't block the surviving replica from rescheduling somewhere
+# (which would be DNS-fatal). All 3 nodes are control-plane so the
+# nodeAffinity above doesn't restrict the spread.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        k8s-app: kube-dns
+        app.kubernetes.io/name: coredns

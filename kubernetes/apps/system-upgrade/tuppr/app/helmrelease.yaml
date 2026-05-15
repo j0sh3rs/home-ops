@@ -14,3 +14,17 @@ spec:
     monitoring:
       serviceMonitor:
         enabled: true
+    # tuppr's chart has no topologySpreadConstraints field — use
+    # podAntiAffinity via the chart's `affinity:` knob instead. Preferred
+    # (not required) so a node failure doesn't block the surviving
+    # replica from being placed somewhere — leader election still picks
+    # one active controller regardless of co-location.
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: tuppr
+              topologyKey: kubernetes.io/hostname

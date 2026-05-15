@@ -79,6 +79,18 @@ operator:
       enabled: true
   replicas: 2
   rollOutPods: true
+  # ScheduleAnyway (not DoNotSchedule) so a single-node failure doesn't
+  # block the second replica from rescheduling. Pairs with descheduler's
+  # RemovePodsViolatingTopologySpreadConstraint plugin to keep the
+  # replicas spread across nodes during steady-state.
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          io.cilium/app: operator
+          name: cilium-operator
 prometheus:
   enabled: true
   serviceMonitor:

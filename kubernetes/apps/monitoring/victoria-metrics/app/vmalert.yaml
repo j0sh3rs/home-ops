@@ -30,3 +30,15 @@ spec:
       memory: 128Mi
     limits:
       memory: 512Mi
+  # Spread the 2 replicas across nodes. ScheduleAnyway so a single-node
+  # failure (rare on the 3-node Talos control plane) doesn't block the
+  # surviving replica from rescheduling. Pre-rollout state had both
+  # replicas on the same node (bee-jms-01 + bee-jms-03 spread by chance).
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: vmalert
+          app.kubernetes.io/instance: vmalert

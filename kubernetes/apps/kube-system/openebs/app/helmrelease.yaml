@@ -20,6 +20,22 @@ spec:
         image:
           registry: quay.io/
         basePath: &hostPath /var/mnt/local-hostpath
+        # The localpv-provisioner sub-chart does not expose
+        # topologySpreadConstraints (only `nodeSelector`, `tolerations`,
+        # `affinity` per its values.yaml). Use podAntiAffinity instead so
+        # the 3 replicas land on 3 different nodes — preferred (not
+        # required) so a single-node failure doesn't block scheduling.
+        # Live state pre-rollout: 2 replicas were on bee-jms-03 because
+        # the chart had no spread directive at all.
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      openebs.io/component-name: openebs-localpv-provisioner
+                  topologyKey: kubernetes.io/hostname
       hostpathClass:
         enabled: true
         name: openebs-hostpath

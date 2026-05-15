@@ -27,21 +27,60 @@ spec:
     keepHistory: false
   values:
     podAnnotations:
-      reloader.stakater.com/auto: 'true'
-    timeZone: 'America/New_York'
+      reloader.stakater.com/auto: "true"
+    timeZone: America/New_York
     kind: CronJob
-    schedule: '*/30 * * * *'
+    schedule: "*/30 * * * *"
+    # startingDeadlineSeconds: bound how late a missed run is still scheduled.
+    # Without it, missing >100 schedule windows in a row permanently disables
+    # the CronJob (controller marks it stuck — symptom: TooManyMissedTimes
+    # warning event). 200s gives a healthy buffer for transient apiserver
+    # blips while still letting the controller skip runs older than that.
+    startingDeadlineSeconds: 200
+    # ttlSecondsAfterFinished: clean up Job objects 10min after completion so
+    # they don't accumulate in the namespace. Each run takes ~5s so the
+    # window is generous.
+    ttlSecondsAfterFinished: 600
+    # Keep one historical Job each. The chart default is 3 successful + 1
+    # failed; for a homelab one is plenty for forensics — pair this with the
+    # ServiceMonitor below for actual observability.
+    successfulJobsHistoryLimit: 1
+    failedJobsHistoryLimit: 1
     deschedulerPolicy:
       profiles:
         - name: Default
           pluginConfig:
             - name: DefaultEvictor
               args:
-                evictFailedBarePods: true
+                # Allow descheduler to consider Pods backed by PVCs. Every
+                # stateful workload here has at least one openebs-hostpath
+                # or nfs-client PVC; without this, the only evictable pods
+                # are the handful of stateless ones (cilium-operator,
+                # vmalert, tuppr) and descheduler can't actually rebalance.
+                ignorePvcPods: false
+                # Permit eviction of Pods using local emptyDir / hostPath
+                # so log-shipper / sidecar-cache patterns don't lock pods
+                # to a node. PVC handling is governed by ignorePvcPods
+                # above; this knob is independent.
                 evictLocalStoragePods: true
-                evictSystemCriticalPods: true
+                # Protect system-cluster-critical workloads (kube-apiserver,
+                # etcd, kube-scheduler, controller-manager, descheduler
+                # itself). Eviction of these has caused control-plane
+                # outages on similarly-sized clusters; not worth the
+                # marginal balance gain. Default is false; we explicitly
+                # affirm it.
+                evictSystemCriticalPods: false
+                # Bare Pods (no controller) are typically `kubectl run` /
+                # `kubectl debug` pods the operator created on purpose.
+                # Don't evict them out from under in-progress debugging.
+                evictFailedBarePods: false
+                # nodeFit: before evicting, simulate whether the pod can
+                # actually be scheduled onto another node. RWO openebs-
+                # hostpath PVCs pin pods to their current node, so
+                # nodeFit=true will (correctly) refuse to evict those.
+                # Keeps descheduler from making the situation worse by
+                # evicting pods that can't be rescheduled.
                 nodeFit: true
-                ignorePvcPods: true
             - name: RemovePodsViolatingInterPodAntiAffinity
             - name: RemovePodsViolatingNodeAffinity
               args:
@@ -50,32 +89,53 @@ spec:
             - name: RemovePodsViolatingNodeTaints
             - name: RemovePodsViolatingTopologySpreadConstraint
               args:
+                # Both DoNotSchedule and ScheduleAnyway respected — see
+                # the multi-replica Deployment patches landing alongside
+                # this commit which add ScheduleAnyway TSC to
+                # cilium-operator, coredns, openebs-localpv-provisioner,
+                # vmalert, and tuppr. Without those, this plugin has
+                # nothing to act on (only cloudflared had a TSC before).
                 constraints:
                   - DoNotSchedule
                   - ScheduleAnyway
             - name: RemovePodsHavingTooManyRestarts
               args:
-                podRestartThreshold: 3
+                # Upstream default is 100. The previous value of 3 evicted
+                # pods that were CrashLooping due to app bugs / OOMKills,
+                # which only delays the next crash on a different node.
+                # 100 lets short-lived blips self-heal before descheduler
+                # interferes.
+                podRestartThreshold: 100
                 includingInitContainers: true
                 states:
                   - CrashLoopBackOff
                   - Running
             - name: LowNodeUtilization
               args:
+                # Tightened from 40/70 → 25/60 so the plugin actually has
+                # work to do. Cluster nodes typically sit at 20-30% CPU,
+                # 25-35% memory; with 40% under-threshold every node was
+                # classified "underutilized" and the plugin no-op'd
+                # ("All nodes are underutilized, nothing to do here").
+                # Adding `pods:` because the real imbalance on this cluster
+                # is in pod count (30/35/48 spread observed pre-rollout),
+                # not raw CPU/memory.
                 thresholds:
-                  memory: 40
-                  cpu: 40
+                  cpu: 25
+                  memory: 25
+                  pods: 25
                 targetThresholds:
-                  memory: 70
-                  cpu: 70
-            - name: 'RemoveFailedPods'
+                  cpu: 60
+                  memory: 60
+                  pods: 60
+            - name: RemoveFailedPods
               args:
                 reasons:
-                  - 'OutOfcpu'
-                  - 'CreateContainerConfigError'
+                  - OutOfcpu
+                  - CreateContainerConfigError
                 includingInitContainers: true
                 excludeOwnerKinds:
-                  - 'Job'
+                  - Job
                 minPodLifetimeSeconds: 3600
             # Descheduler v0.30+ requires a pluginConfig entry for every
             # plugin referenced under profiles.plugins.*.enabled. Missing
@@ -95,9 +155,14 @@ spec:
                 - RemovePodsViolatingNodeTaints
                 - RemovePodsHavingTooManyRestarts
                 - RemoveFailedPods
+    # Service required by the chart's ServiceMonitor template. Cluster-
+    # local; doesn't expose externally.
     service:
-      enabled: false
+      enabled: true
     serviceMonitor:
-      enabled: false
+      enabled: true
+      # vmagent runs with selectAllByDefault: true, so it auto-converts any
+      # ServiceMonitor in any namespace into a VMServiceScrape — no
+      # additionalLabels selector match needed.
     leaderElection:
       enabled: false
