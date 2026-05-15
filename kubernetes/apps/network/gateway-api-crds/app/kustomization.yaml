@@ -1,23 +1,32 @@
 ---
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Gateway API experimental-channel CRDs, pinned to the traefik-helm-chart
-# tag in use by traefik-external/traefik-internal. Bump this tag alongside
-# chart bumps.
+# Gateway API experimental-channel CRDs, pulled directly from the upstream
+# kubernetes-sigs/gateway-api release artifact. Same 12 CRDs the
+# traefik-helm-chart bundle ships — Traefik just rebundles upstream — so
+# tracking the canonical source removes a layer of indirection.
 #
-# Previously embedded in traefik-external/app/kustomization.yaml pointing at
-# refs/heads/master — an unpinned drift bomb that silently shipped whatever
-# Gateway API bundle happened to be on master. On chart v40.0.0 the bundle
-# added a ValidatingAdmissionPolicy (safe-upgrades) that refused to let the
-# existing standard-channel CRDs transition to experimental, self-blocking
-# every reconcile.
+# Previously this resource lived inline in traefik-external/app/kustomization.yaml
+# pointing at refs/heads/master — an unpinned drift bomb that silently shipped
+# whatever Gateway API bundle was on master.
 #
-# This Kustomization owns the CRDs, excludes the VAP/Binding (single-operator
-# homelab has no use for the guardrail), and lives on prune: false so the
-# CRDs survive any upstream refactor.
+# On chart v40.0.0 the bundle gained a ValidatingAdmissionPolicy
+# (safe-upgrades) that refused to let the existing standard-channel CRDs
+# transition to experimental, self-blocking every reconcile. The upstream
+# project does not ship that VAP, so the patches below become a no-op
+# safety net rather than a load-bearing fix.
+#
+# Then on chart v40.1.0 traefik-helm-chart split traefik-crds into a
+# separately-released sub-chart tagged `crds_vX.Y.Z`, breaking the previous
+# URL pattern (`v40.X.Y/traefik-crds/...`) entirely. Tracking the upstream
+# Gateway API release sidesteps that churn — Renovate auto-bumps a single
+# stable tag scheme.
+#
+# This Kustomization owns the CRDs and lives on prune: false so the CRDs
+# survive any upstream refactor.
 resources:
-  # renovate: datasource=github-releases depName=traefik/traefik-helm-chart
-  - https://raw.githubusercontent.com/traefik/traefik-helm-chart/v40.2.0/traefik-crds/crds-files/gatewayAPI/gateway-experimental-install.yaml
+  # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
+  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml
 
 patches:
   # Drop VAP + Binding — see header comment.

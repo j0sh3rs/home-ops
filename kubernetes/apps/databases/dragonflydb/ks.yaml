@@ -1,16 +1,52 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+#
+# Two-stage Flux Kustomizations: the operator chart installs the
+# `dragonflies.dragonflydb.io` CRD, and the Dragonfly CR depends on that
+# CRD existing before kustomize-controller will apply it. A single
+# Kustomization that bundled both would race — Flux applies all manifests
+# in one server-side dry-run pass and the CR's apply fails with
+# "no matches for kind Dragonfly" because the chart hasn't materialised
+# the CRD yet.
+#
+# Split: operator first (wait: true so its HelmRelease becomes Ready
+# before instance reconciles), then instance (dependsOn the operator
+# Kustomization).
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app dragonflydb
+  name: &app dragonflydb-operator
   namespace: &namespace databases
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   interval: 1h
-  path: ./kubernetes/apps/databases/dragonflydb/app
+  path: ./kubernetes/apps/databases/dragonflydb/operator
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
+  timeout: 10m
+  # wait: true blocks until the HelmRelease reports Ready, ensuring the
+  # CRD is installed before the instance Kustomization tries to apply
+  # the Dragonfly CR.
+  wait: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app dragonflydb-instance
+  namespace: &namespace databases
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  interval: 1h
+  path: ./kubernetes/apps/databases/dragonflydb/instance
   prune: true
   retryInterval: 2m
   sourceRef:
@@ -20,3 +56,6 @@ spec:
   targetNamespace: *namespace
   timeout: 5m
   wait: false
+  dependsOn:
+    - name: dragonflydb-operator
+      namespace: databases
