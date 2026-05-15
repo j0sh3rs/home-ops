@@ -9,21 +9,66 @@ spec:
     customResponseHeaders:
       # Broad Permissions-Policy denylist. `fullscreen=(self)` kept so
       # dashboard apps (Grafana, Homepage) can still go fullscreen from
-      # their own origin; everything else denied.
+      # their own origin; everything else denied. Includes opt-outs for
+      # FLoC/Topics, Attribution Reporting API, Private State Tokens,
+      # and Protected Audience (FLEDGE) — drop-in privacy hardening.
       Permissions-Policy: >-
-        accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(),
-        camera=(), cross-origin-isolated=(), display-capture=(),
-        document-domain=(), encrypted-media=(),
-        execution-while-not-rendered=(), execution-while-out-of-viewport=(),
-        fullscreen=(self), geolocation=(), gyroscope=(), keyboard-map=(),
-        magnetometer=(), microphone=(), midi=(), navigation-override=(),
-        payment=(), picture-in-picture=(), publickey-credentials-get=(),
-        screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(),
-        xr-spatial-tracking=()
-    # Loose CSP kept intentionally: strict CSP breaks Grafana panel plugins,
-    # Home Assistant websocket/inline-style usage, Open WebUI streaming, and
-    # Homepage widget fetches. Tighten per-app later via override middleware.
-    contentSecurityPolicy: "default-src 'self' http: https: data: blob: 'unsafe-inline'"
+        accelerometer=(), ambient-light-sensor=(), attribution-reporting=(),
+        autoplay=(), battery=(), browsing-topics=(), camera=(),
+        cross-origin-isolated=(), display-capture=(), document-domain=(),
+        encrypted-media=(), execution-while-not-rendered=(),
+        execution-while-out-of-viewport=(), fullscreen=(self),
+        geolocation=(), gyroscope=(), interest-cohort=(),
+        join-ad-interest-group=(), keyboard-map=(), magnetometer=(),
+        microphone=(), midi=(), navigation-override=(), payment=(),
+        picture-in-picture=(), private-state-token-issuance=(),
+        private-state-token-redemption=(), publickey-credentials-get=(),
+        run-ad-auction=(), screen-wake-lock=(), sync-xhr=(), unload=(),
+        usb=(), web-share=(), xr-spatial-tracking=()
+      # COOP same-origin-allow-popups: top-level browsing context isolation
+      # while leaving OAuth/OIDC popup flows functional. `same-origin` would
+      # break the Google sign-in popup pattern; `unsafe-none` (default) gives
+      # no isolation at all. allow-popups is the pragmatic middle ground.
+      Cross-Origin-Opener-Policy: same-origin-allow-popups
+      # CORP same-site: any *.68cc.io subdomain may embed assets cross-origin
+      # (e.g., Homepage pulling icons from a sibling service host). External
+      # sites cannot hot-link our resources. `cross-origin` would allow that;
+      # `same-origin` would break Homepage widget fetches across subdomains.
+      Cross-Origin-Resource-Policy: same-site
+      # COEP intentionally NOT set: `require-corp` requires every cross-origin
+      # asset (CDN images, OAuth popup origin, gravatar, GitHub avatars,
+      # Grafana plugin CDN) to opt in via CORP, which they don't. Earning
+      # crossOriginIsolated isn't worth that breakage for a home-lab.
+    # Pragmatic CSP baseline. `'unsafe-inline'` + `'unsafe-eval'` retained
+    # because every app currently shipping requires them at runtime:
+    #   - Grafana: panel plugins eval, inline styles
+    #   - Home Assistant: inline styles, blob workers
+    #   - Open WebUI: streaming + inline event handlers
+    #   - n8n / Monaco editor: eval + blob workers
+    # The previous `default-src 'self' http: https: data: blob: 'unsafe-inline'`
+    # was a no-op (open-scheme everywhere). This policy:
+    #   - removes the http:/https: open scheme on default-src
+    #   - adds frame-ancestors 'none' (CSP equivalent of XFO; browsers
+    #     prefer CSP over XFO when both are present)
+    #   - keeps form-action restricted to same origin (the OIDC flow uses
+    #     302 redirects, not form POSTs, so accounts.google.com isn't needed)
+    #   - upgrade-insecure-requests rewrites stray http:// in HTML to https://
+    contentSecurityPolicy: >-
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval';
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob: https:;
+      font-src 'self' data:;
+      connect-src 'self' wss: https:;
+      media-src 'self' data: blob:;
+      frame-src 'self';
+      worker-src 'self' blob:;
+      manifest-src 'self';
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none';
+      upgrade-insecure-requests
     # Modern browser default; sends full URL same-origin, origin-only
     # cross-origin over HTTPS, nothing on HTTPS→HTTP downgrade.
     referrerPolicy: strict-origin-when-cross-origin
@@ -35,4 +80,7 @@ spec:
     # some cases the header enabled same-origin info leaks. Explicitly off.
     browserXssFilter: false
     contentTypeNosniff: true
+    # frameDeny: true emits X-Frame-Options: DENY. Redundant given CSP
+    # frame-ancestors 'none' (browsers honour CSP over XFO when both present)
+    # but kept for legacy crawler / scanner compatibility — harmless overlap.
     frameDeny: true
