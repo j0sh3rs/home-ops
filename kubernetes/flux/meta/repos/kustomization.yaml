@@ -9,7 +9,6 @@ resources:
   - ./cloudnative-pg.yaml
   - ./cloudflare.yaml
   - ./descheduler.yaml
-  - ./dragonflydb.yaml
   - ./external-dns.yaml
   - ./grafana.yaml
   - ./jetstack.yaml
