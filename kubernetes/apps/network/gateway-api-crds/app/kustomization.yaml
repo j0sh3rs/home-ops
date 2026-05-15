@@ -17,7 +17,7 @@ kind: Kustomization
 # CRDs survive any upstream refactor.
 resources:
   # renovate: datasource=github-releases depName=traefik/traefik-helm-chart
-  - https://raw.githubusercontent.com/traefik/traefik-helm-chart/v40.0.0/traefik-crds/crds-files/gatewayAPI/gateway-experimental-install.yaml
+  - https://raw.githubusercontent.com/traefik/traefik-helm-chart/v40.2.0/traefik-crds/crds-files/gatewayAPI/gateway-experimental-install.yaml
 
 patches:
   # Drop VAP + Binding — see header comment.
