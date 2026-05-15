@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# Opts the including namespace into the Google OIDC Traefik middleware
+# (plugin: github.com/lukaszraczylo/traefikoidc). Replaces the
+# traefik-forwardauth Component (oauth2-proxy forwardAuth + errors pair)
+# which was broken by Traefik's `errors` middleware returning 401 with
+# the oauth2-proxy /oauth2/start body instead of following its 302 —
+# browsers rendered the "Found" hyperlink fallback instead of redirecting.
+#
+# The plugin emits native 302s from inside Traefik, so no errors-middleware
+# wrapper is needed and the redirect chain "just works".
+#
+# Gateway API + Traefik reject cross-namespace ExtensionRef filters
+# (traefik/traefik#11126, gateway-api#3903), so this Component materializes
+# the Middleware into whichever namespace imports it. The backing Secret
+# (`traefik-secrets` in the `network` namespace) is mirrored into each
+# opted-in namespace by Reflector.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - ./google-oidc-secure.yaml

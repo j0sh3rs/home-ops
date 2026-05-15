@@ -39,6 +39,11 @@ spec:
       # renovate: datasource=docker depName=traefik
       tag: v3.7.1
     experimental:
+      plugins:
+        traefikoidc:
+          moduleName: "github.com/lukaszraczylo/traefikoidc"
+          # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
+          version: v1.0.10
       otlpLogs: false
     ocsp:
       enabled: true

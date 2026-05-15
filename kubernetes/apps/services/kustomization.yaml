@@ -6,7 +6,7 @@ namespace: services
 components:
   - ../../components/common
   - ../../components/repos/app-template
-  - ../../components/traefik-forwardauth
+  - ../../components/traefik-oidc
 resources:
   - ./atuin/ks.yaml
   # - ./changedetector/ks.yaml

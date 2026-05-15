@@ -18,12 +18,7 @@ spec:
           extensionRef:
             group: traefik.io
             kind: Middleware
-            name: oauth2-proxy-errors
-        - type: ExtensionRef
-          extensionRef:
-            group: traefik.io
-            kind: Middleware
-            name: oauth2-proxy-auth
+            name: google-oidc-secure
       backendRefs:
         - name: grafana-service
           port: 3000

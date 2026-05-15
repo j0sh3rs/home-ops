@@ -186,9 +186,10 @@ spec:
             backendRefs:
               - name: *app
                 port: *port
-          # Dashboard + everything else: Google OAuth gate. Browser
-          # users hit / (Lovelace) or /config / /developer-tools and
-          # get redirected to auth.68cc.io for Google sign-in.
+          # Dashboard + everything else: Google OAuth gate via the
+          # traefikoidc plugin. Browser users hit / (Lovelace) or /config
+          # / /developer-tools and get redirected to accounts.google.com
+          # with ha.68cc.io/oauth2/callback as the return URI.
           - matches:
               - path: { type: PathPrefix, value: / }
             filters:
@@ -196,12 +197,7 @@ spec:
                 extensionRef:
                   group: traefik.io
                   kind: Middleware
-                  name: oauth2-proxy-errors
-              - type: ExtensionRef
-                extensionRef:
-                  group: traefik.io
-                  kind: Middleware
-                  name: oauth2-proxy-auth
+                  name: google-oidc-secure
             backendRefs:
               - name: *app
                 port: *port

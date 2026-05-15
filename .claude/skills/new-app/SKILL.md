@@ -21,7 +21,7 @@ Scaffold a new Flux-managed application. Enforces repo conventions — blocks le
    - **a. Upstream OCI chart** (preferred): user provides `oci://ghcr.io/...` URL + semver tag
    - **b. bjw-s app-template**: reuse shared OCIRepository (`kubernetes/components/repos/app-template`)
    - **c. HelmRepository fallback** — ONLY if upstream publishes no OCI artifact. Flag loudly and require user confirmation.
-4. **externally exposed?** — if yes, ask hostname + OIDC protection (yes/no) + internal vs external gateway
+4. **externally exposed?** — if yes, ask hostname + OIDC protection (yes/no) + internal vs external gateway. If OIDC protection = yes, the app's HTTPRoute must `ExtensionRef` the `google-oidc-secure` Middleware (component `kubernetes/components/traefik-oidc/`) — namespace must opt in by including `../../components/traefik-oidc` in its `kustomization.yaml`. **Google Console redirect URI registration is mandatory** — see Stage 7.
 
 ## Workflow
 
@@ -202,6 +202,18 @@ All three must succeed. Any error → fix before handing control back.
 Single-line reminder:
 
 > Scaffolded `<ns>/<app>`. Renovate will track `<tag>` via the comment. To deploy: commit + push + `task flux:reconcile-ks name=<app>`.
+
+**If the app uses `google-oidc-secure` (OIDC-protected HTTPRoute), STOP and emit this BLOCKING reminder before handing back:**
+
+> ⚠️ Google OAuth redirect URI not yet registered. Before reconcile:
+>
+> 1. Open https://console.cloud.google.com/apis/credentials
+> 2. Edit OAuth 2.0 Client ID `646413134670-858iibc27dm7vrg40m0f35rp5h0gnoj0`
+> 3. Add to **Authorized redirect URIs**: `https://<hostname>/oauth2/callback`
+> 4. (Optional / usually unneeded for server-side flow) Authorized JavaScript origins: `https://<hostname>`
+> 5. Save.
+>
+> Without this step, every browser hit on `<hostname>` will dead-end at Google's "Error 400: redirect_uri_mismatch" page. The plugin builds redirect URIs from the inbound request host (per-host), so each new protected hostname needs its own entry. There is no shared `auth.68cc.io` callback — that pattern was retired with the oauth2-proxy migration; the traefikoidc plugin does not support a centralized redirect URI (Google does not implement RFC 7591 Dynamic Client Registration, ruling out auto-registration).
 
 ## Non-negotiable rules
 

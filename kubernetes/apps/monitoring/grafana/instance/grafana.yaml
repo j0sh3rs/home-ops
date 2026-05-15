@@ -14,8 +14,8 @@ spec:
       feedback_links_enabled: "false"
       reporting_enabled: "false"
     # Grafana trusts the X-Forwarded-User header set by the Traefik
-    # oauth2-proxy-auth forwardAuth middleware (see
-    # kubernetes/components/traefik-forwardauth/oauth2-proxy-auth.yaml).
+    # google-oidc-secure middleware (plugin: lukaszraczylo/traefikoidc,
+    # see kubernetes/components/traefik-oidc/google-oidc-secure.yaml).
     # All external ingress transits that middleware via the HTTPRoute
     # filter in instance/httproute.yaml, and there is no Service-level
     # path that bypasses it, so the auth_proxy whitelist is safe to

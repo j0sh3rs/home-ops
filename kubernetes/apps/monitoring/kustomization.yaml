@@ -5,7 +5,7 @@ namespace: monitoring
 components:
   - ../../components/common
   - ../../components/repos/app-template
-  - ../../components/traefik-forwardauth
+  - ../../components/traefik-oidc
 resources:
   - ./referencegrant.yaml
   - ./grafana/ks.yaml
