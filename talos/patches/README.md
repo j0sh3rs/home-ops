@@ -35,3 +35,39 @@ If any of these need to be re-enabled for a specific workload:
 1. Update `talos/patches/global/machine-kernel.yaml` (kernel args are managed here, **not** in `schematic.yaml`).
 2. Run `task talos:generate-config` to regenerate per-node configs.
 3. Roll through nodes with `task talos:apply-node IP=<ip>` and reboot.
+
+## Schematic Hash Regeneration
+
+`talos/talconfig.yaml` references the Talos Factory installer image by content
+hash (`talosImageURL: factory.talos.dev/installer/<sha256>`). The hash is
+derived deterministically from `talos/schematic.yaml` (extension list + kernel
+args + meta values), so **any edit to `schematic.yaml` requires regenerating
+the hash and updating `talconfig.yaml` in the same PR**, otherwise nodes
+continue booting from the previous installer image and the schematic change
+silently has no effect.
+
+Renovate cannot bump these hashes — there is no datasource that maps schematic
+content → installer hash. Manual workflow:
+
+```bash
+# 1. Edit talos/schematic.yaml as needed
+# 2. POST the schematic to the Talos Factory and capture the returned hash
+curl -sfX POST --data-binary @talos/schematic.yaml \
+    https://factory.talos.dev/schematics
+#    -> {"id":"<new-sha256-hash>"}
+# 3. Replace every `talosImageURL: factory.talos.dev/installer/<old-hash>`
+#    in talos/talconfig.yaml with the new hash.
+# 4. task talos:generate-config
+# 5. Roll through nodes one at a time (etcd quorum precheck applies):
+#    task talos:upgrade-node IP=<ip>
+```
+
+Drift symptoms if you forget step 3: `talosctl --nodes <ip> get extensions`
+won't show the new extension, `dmesg` lacks the new kernel args, and Talos
+upgrade tasks happily report success because they're applying the *old*
+installer image referenced in talconfig.
+
+(Renovate-tracked: the **Talos version** itself in `talos/talenv.yaml`. That
+bumps independently of schematic hash. A Talos minor version bump generally
+does not require a schematic regen unless the Factory rebuilds extensions
+incompatibly — rare.)

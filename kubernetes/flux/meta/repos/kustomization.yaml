@@ -4,7 +4,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ./amd-gpu.yaml
-  - ./bjw-s.yaml
   - ./cilium.yaml
   - ./cloudnative-pg.yaml
   - ./cloudflare.yaml
@@ -13,7 +12,4 @@ resources:
   - ./grafana.yaml
   - ./jetstack.yaml
   - ./nfs-external-provisioner.yaml
-  - ./prometheus-community.yaml
   - ./traefik.yaml
-  - ./toolhive-operator-crds.yaml
-  - ./toolhive-operator.yaml

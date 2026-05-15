@@ -35,6 +35,7 @@ spec:
           app:
             image:
               repository: ghcr.io/metatool-ai/metamcp
+              # renovate: datasource=docker depName=ghcr.io/metatool-ai/metamcp
               tag: 2.4.22
             envFrom:
               - secretRef:

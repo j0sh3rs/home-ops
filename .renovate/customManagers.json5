@@ -23,5 +23,25 @@
       ],
       datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
     },
+    {
+      customType: "regex",
+      description: "Bump aqua-managed tool versions in .mise.toml",
+      // Renovate's built-in `mise` manager handles `tools = "x"` syntax in
+      // .tool-versions but not the .mise.toml `[tools]` table with quoted
+      // `aqua:<owner>/<repo>` keys. Match those explicitly via custom regex.
+      fileMatch: [
+        "(^|/)\\.mise\\.toml$",
+      ],
+      matchStrings: [
+        // "aqua:budimanjojo/talhelper" = "3.1.10"
+        // "aqua:siderolabs/talos" = "1.13.2"
+        "\"aqua:(?<depName>[^\"]+)\"\\s*=\\s*\"(?<currentValue>[^\"]+)\"",
+      ],
+      datasourceTemplate: "github-releases",
+      // Aqua tool versions are typically the upstream release tag without
+      // the leading 'v' (e.g. talos 1.13.2 vs release tag v1.13.2). Add
+      // the prefix when generating the comparison so Renovate matches.
+      extractVersionTemplate: "^v?(?<version>.+)$",
+    },
   ],
 }

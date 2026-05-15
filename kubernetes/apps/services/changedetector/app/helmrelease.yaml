@@ -27,6 +27,7 @@ spec:
           app:
             image:
               repository: ghcr.io/dgtlmoon/changedetection.io
+              # renovate: datasource=docker depName=ghcr.io/dgtlmoon/changedetection.io
               tag: 0.55.3
             securityContext:
               allowPrivilegeEscalation: false
@@ -50,6 +51,7 @@ spec:
           browser-chrome:
             image:
               repository: selenium/standalone-chrome
+              # renovate: datasource=docker depName=selenium/standalone-chrome
               tag: "147.0"
             securityContext:
               privileged: true
@@ -65,7 +67,12 @@ spec:
           playwright-chrome:
             image:
               repository: dgtlmoon/sockpuppetbrowser
-              tag: latest
+              # Upstream publishes only 0.0.1, 0.0.2, 0.0.3, and `latest`.
+              # `latest` was a drift bomb (silent rebuild on every restart).
+              # Pin to the highest semver tag; Renovate auto-bumps when 0.0.4
+              # ships.
+              # renovate: datasource=docker depName=dgtlmoon/sockpuppetbrowser
+              tag: "0.0.3"
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { add: ["SYS_ADMIN"] }
