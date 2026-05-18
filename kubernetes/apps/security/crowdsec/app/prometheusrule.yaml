@@ -149,18 +149,21 @@ spec:
             summary: "CrowdSec high local ban rate"
             description: "{{ $value | humanize }} local ban decisions issued in the last hour. Possible active attack, a new bot wave, or an overly-tight local rule."
 
-        # Track bouncer / LAPI communication health — stale decision pulls
-        # are how the edge loses sync with LAPI. Catches wedged bouncers
-        # that have open TCP connections but stopped processing responses.
-        - alert: CrowdSecLAPIBouncerErrors
-          expr: |
-            sum(rate(cs_lapi_bouncer_requests_total{status_code!~"2.."}[5m]))
-            /
-            sum(rate(cs_lapi_bouncer_requests_total[5m])) > 0.05
-          for: 10m
-          labels:
-            severity: warning
-            component: security
-          annotations:
-            summary: "CrowdSec LAPI returning errors to bouncers"
-            description: "{{ $value | humanizePercentage }} of bouncer -> LAPI requests failed in the last 5m. Check LAPI logs and DB connectivity."
+        # CrowdSecLAPIBouncerErrors (was here) deleted. CrowdSec 1.7.x
+        # does not expose an HTTP status code label on
+        # cs_lapi_bouncer_requests_total, so the original status_code-
+        # based ratio query was always-true (the !~"2.." filter matches
+        # series with no status_code label, making numerator equal
+        # denominator). A latency-based replacement was tried but
+        # `/v1/decisions/stream` is a long-poll endpoint that always sits
+        # >30s by design, and several admin endpoints
+        # (/v1/usage-metrics, /v1/watchers/login) are infrequent enough
+        # that any single slow call pushes p99 past 1s.
+        #
+        # Coverage left in place:
+        #   - CrowdSecLAPIDown          — Deployment available replicas == 0
+        #   - CrowdSecBouncerNotConnected — no polling activity in 10m
+        # These catch the actual failure modes (LAPI dead, bouncer
+        # disconnected) better than any error-rate proxy in 1.7.x. If
+        # CrowdSec adds a status_code label upstream, revisit a
+        # ratio-based alert here.

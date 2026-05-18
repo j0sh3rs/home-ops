@@ -22,8 +22,14 @@ spec:
         initContainers:
           init-db:
             image:
-              repository: ghcr.io/onedr0p/postgres-init
-              tag: 17
+              # ghcr.io/onedr0p/postgres-init was archived upstream — the
+              # registry no longer serves manifests for any tag. The
+              # home-operations org (onedr0p's continuation) publishes the
+              # drop-in replacement. Tag scheme matches the CNPG cluster's
+              # PG major version (postgres17-rw).
+              repository: ghcr.io/home-operations/postgres-init
+              # renovate: datasource=docker depName=ghcr.io/home-operations/postgres-init
+              tag: "17"
             envFrom:
               - secretRef:
                   name: metamcp-secrets
@@ -42,9 +48,10 @@ spec:
                   name: metamcp-secrets
             resources:
               requests:
-                cpu: 500m
+                cpu: 100m
+                memory: 512Mi
               limits:
-                memory: 6Gi
+                memory: 2Gi
                 cpu: 2
     service:
       app:
@@ -56,12 +63,54 @@ spec:
     route:
       app:
         annotations:
-          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+          # LAN-only — internal VIP. cloudflare-dns owns the
+          # `traefik-external-gateway` namespace and only publishes
+          # CNAMEs to the tunnel for routes attached there. Routing via
+          # `traefik-internal-gateway` here means unifi-dns publishes a
+          # split-horizon LAN A record to 192.168.35.17 and the
+          # hostname is unreachable from outside the LAN. Reasoning:
+          # MCP is a high-trust client interface (full tool execution
+          # against the cluster + remote services) and there is no
+          # business case yet for reaching it off-network.
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
         hostnames: ["mcp.68cc.io"]
         parentRefs:
-          - name: traefik-external-gateway
+          - name: traefik-internal-gateway
             namespace: network
         rules:
-          - backendRefs:
+          # MCP traffic — programmatic clients (Claude Code, mcp-proxy)
+          # cannot complete an interactive Google OAuth redirect, so the
+          # MCP endpoint paths bypass the OIDC middleware. MetaMCP's
+          # per-namespace API keys (header `Authorization: Bearer ...`
+          # or query `?api_key=...`) are the auth mechanism on these
+          # paths instead. Path layout (per upstream README):
+          #   /metamcp/<endpoint>/sse           — SSE transport
+          #   /metamcp/<endpoint>/mcp           — Streamable HTTP
+          #   /metamcp/<endpoint>/api           — OpenAPI export
+          #   /mcp-proxy/...                    — built-in MCP inspector
+          # Rule ordering: Gateway API matches longest-prefix first, so
+          # these specific prefixes hit before the root `/` rule below.
+          - matches:
+              - path: { type: PathPrefix, value: /metamcp }
+              - path: { type: PathPrefix, value: /mcp-proxy }
+            backendRefs:
+              - name: *app
+                port: *port
+          # Admin UI + everything else: Google OAuth gate. Browser
+          # users hit / (login + namespace management) and get
+          # redirected to accounts.google.com with
+          # mcp.68cc.io/oauth2/callback as the return URI. Adds
+          # defence-in-depth on top of the LAN-only exposure since the
+          # admin UI controls every MCP server's configuration and
+          # secrets.
+          - matches:
+              - path: { type: PathPrefix, value: / }
+            filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: google-oidc-secure
+            backendRefs:
               - name: *app
                 port: *port
