@@ -43,7 +43,7 @@ spec:
         traefikoidc:
           moduleName: "github.com/lukaszraczylo/traefikoidc"
           # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
-          version: v1.0.10
+          version: v1.0.11
       otlpLogs: false
     ocsp:
       enabled: true
