@@ -22,8 +22,8 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 | 2 | _free_ | — | _(stub registry previously claimed Grafana; verified WRONG — Grafana has no Redis backend in this cluster)_ | — |
 | 3 | _free_ | — | — | — |
 | 4 | LiteLLM | `ai/litellm` | Response cache (per-request key, TTL 600s). Default key prefix. | `kubernetes/apps/ai/litellm/app/{configmap,helmrelease,secret.sops}.yaml` |
-| 5 | traefikoidc plugin | `network/traefik-{external,internal}` + `components/traefik-oidc` | OIDC session store (Google login state, refresh tokens). Heavy hit ratio (~90%). Key prefix `traefikoidc:google:`. Single shared store across all opted-in namespaces — same user across all sites. | `kubernetes/components/traefik-oidc/google-oidc-secure.yaml` |
-| 6 | _free_ | — | — | — |
+| 5 | _(retired)_ | — | Previously: traefikoidc plugin OIDC session store (key prefix `traefikoidc:google:`). Plugin replaced by Authentik forwardAuth (2026-05-21). DB 5 is now free — no consumer. | — |
+| 6 | Authentik | `security/authentik` | Celery broker, Django cache, django-channels WebSocket layer. Key prefix default (Authentik-managed). | `kubernetes/apps/security/authentik/app/helmrelease.yaml` |
 | 7 | _free_ | — | — | — |
 | 8 | _free_ | — | — | — |
 | 9 | _free_ | — | — | — |
@@ -42,8 +42,8 @@ When deploying any of the following, allocate the next free DB and update this t
 
 | Likely consumer | Suggested DB | Notes |
 |-----------------|--------------|-------|
-| AnythingLLM (RAG cache) | 6 | Phase 2 of AI stack rollout. Pgvector handles embeddings; Redis only for ephemeral cache. |
-| Mem0 / Letta | 7 | Phase 6 memory layer. May not need Redis if Postgres-backed. |
+| AnythingLLM (RAG cache) | 7 | Phase 2 of AI stack rollout. Pgvector handles embeddings; Redis only for ephemeral cache. DB 6 now taken by Authentik. |
+| Mem0 / Letta | 8 | Phase 6 memory layer. May not need Redis if Postgres-backed. |
 | Paperless (re-enabled) | 8 | Currently disabled. Historical config used default DB 0 (`PAPERLESS_REDIS=redis://...:6379` with no `/N` selector) — re-enable means moving to a dedicated index. |
 | n8n queue mode | 9 | n8n currently uses Postgres for state. Switch to BullMQ would consume a Redis DB. |
 | Open WebUI session cache | 10 | OWUI uses SQLite/Postgres for chat history; Redis would be opt-in for distributed cache. |
@@ -64,7 +64,7 @@ Expected output shape:
 # Keyspace
 db0:keys=0,expires=0,...     # transient — DO NOT store here
 db4:keys=N,expires=N,...     # LiteLLM cache
-db5:keys=N,expires=N,...     # traefikoidc sessions
+db6:keys=N,expires=N,...     # Authentik (Celery broker/cache/channels)
 ```
 
 Identify which client is connected to which DB:
@@ -102,5 +102,5 @@ curl -s http://127.0.0.1:19999/metrics | grep '^dragonfly_db_keys'
 ## Related documentation
 
 - LiteLLM REDIS_URL gotchas (URL-encoding, no quotes, DB selector required): memory `project_ai_stack_plan.md`
-- traefikoidc plugin auth pattern: memory `project_auth_traefikoidc.md`
+- Authentik forwardAuth pattern: `kubernetes/components/authentik-forwardauth/` + design spec `docs/superpowers/specs/2026-05-21-authentik-central-auth-design.md`
 - Grafana dashboard: monitoring ns, dashboard "Dragonfly Dashboard" (uid `xDLNRKUWz`), backed by upstream JSON in `kubernetes/apps/monitoring/grafana/dashboards/app/dragonflydb-dashboard.json` (last upstream pull: 2026-05-21).
