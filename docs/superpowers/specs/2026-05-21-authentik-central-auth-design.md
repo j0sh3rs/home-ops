@@ -21,7 +21,7 @@ Browser
 Traefik (traefik-external-gateway or traefik-internal-gateway)
   │  forwardAuth → authentik-forwardauth Middleware (materialized per-namespace via Component)
   ▼
-Authentik embedded outpost  (security/authentik-proxy, port 9000)
+Authentik embedded outpost  (security/authentik-server, svc port 80 → container 9000)
   │  unauthenticated → 302 to auth.68cc.io/outpost.goauthentik.io/start?rd=<original-url>
   │  authenticated   → 200 + identity headers forwarded to backend
   ▼
@@ -62,7 +62,7 @@ metadata:
   name: authentik-forwardauth
 spec:
   forwardAuth:
-    address: http://authentik-proxy.security.svc.cluster.local:9000/outpost.goauthentik.io/auth/traefik
+    address: http://authentik-server.security.svc.cluster.local/outpost.goauthentik.io/auth/traefik
     trustForwardHeader: true
     authResponseHeaders:
       - X-authentik-username
