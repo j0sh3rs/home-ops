@@ -91,3 +91,110 @@ spec:
           labels:
             severity: critical
             component: backup
+        # ----------------------------------------------------------------
+        # Availability + capacity alerts added 2026-05-21 to support AI
+        # workload scaling (LiteLLM, AnythingLLM future, n8n, etc.).
+        # ----------------------------------------------------------------
+        - alert: CNPGInstanceDown
+          annotations:
+            description: >-
+              CNPG instance {{ $labels.pod }} has been unreachable by the
+              metrics collector for >2m. Check `kubectl describe pod {{
+              $labels.pod }} -n databases` and operator logs.
+            summary: CNPG pod is not exposing metrics
+          expr: |-
+            up{job="databases/postgres17"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: availability
+        - alert: CNPGNoPrimary
+          annotations:
+            description: >-
+              No instance reports cnpg_pg_replication_in_recovery == 0 — the
+              cluster appears to have no primary. Writes are blocked.
+              Inspect `kubectl get cluster postgres17 -n databases -o
+              yaml --context home` and operator logs.
+            summary: CNPG cluster has no primary
+          # Sum of (in_recovery == 0) — i.e. count of primaries — must be 1.
+          expr: |-
+            sum(cnpg_pg_replication_in_recovery == bool 0) != 1
+          for: 1m
+          labels:
+            severity: critical
+            component: availability
+        - alert: CNPGConnectionsNearLimit
+          annotations:
+            description: >-
+              {{ $labels.pod }} has {{ $value }} active backends. The
+              cluster is configured for max_connections=500 (see
+              cluster17.yaml). Sustained >400 = ~80% saturation; add a
+              Pooler (PgBouncer) before adoption pushes past 450.
+            summary: CNPG backend count nearing max_connections
+          # max_connections is hardcoded at 500 in cluster17.yaml. Hardcode
+          # the threshold here too rather than relying on a metric that
+          # cnpg's collector doesn't emit (cnpg_pg_settings_setting).
+          # If max_connections changes in cluster17.yaml, update both.
+          expr: |-
+            sum by (pod) (cnpg_backends_total) > 400
+          for: 5m
+          labels:
+            severity: warning
+            component: capacity
+        - alert: CNPGSlowQuerySpike
+          annotations:
+            description: >-
+              {{ $labels.pod }} has > 5 queries running > 60s. This often
+              indicates a missing index, a query plan change after stats
+              shift, or lock contention. Inspect via `pg_stat_activity`.
+            summary: Slow query backlog on CNPG instance
+          expr: |-
+            cnpg_backends_max_tx_duration_seconds > 60
+              and on(pod) cnpg_backends_total > 5
+          for: 2m
+          labels:
+            severity: warning
+            component: performance
+        - alert: CNPGWALArchiveBacklog
+          annotations:
+            description: >-
+              WAL archiving on {{ $labels.pod }} has been failing for {{ $value
+              | humanizeDuration }}. PITR is at risk. Check S3 (RustFS at
+              s3.68cc.io) reachability + barman logs.
+            summary: CNPG WAL archive backlog growing
+          expr: |-
+            (cnpg_pg_stat_archiver_last_failed_time - cnpg_pg_stat_archiver_last_archived_time) > 600
+          for: 5m
+          labels:
+            severity: critical
+            component: backup
+        - alert: CNPGCacheHitRatioLow
+          annotations:
+            description: >-
+              {{ $labels.pod }} buffer cache hit ratio is {{ $value |
+              humanizePercentage }} — below 95%. Either shared_buffers is
+              too small, or working set has grown. AI vector workloads can
+              push this down quickly. Bump shared_buffers or
+              effective_cache_size.
+            summary: CNPG buffer cache hit ratio low
+          expr: |-
+            (
+              rate(cnpg_pg_stat_database_blks_hit{datname!~"template.*|postgres"}[5m])
+              /
+              (
+                rate(cnpg_pg_stat_database_blks_hit{datname!~"template.*|postgres"}[5m])
+                + rate(cnpg_pg_stat_database_blks_read{datname!~"template.*|postgres"}[5m])
+              )
+            ) < 0.95
+          for: 15m
+          labels:
+            severity: warning
+            component: performance
+        # Note: dead-tuple + per-statement latency alerts are intentionally
+        # omitted from this ruleset — the cnpg metrics exporter does NOT
+        # emit `cnpg_pg_stat_user_tables_*` or
+        # `cnpg_pg_stat_statements_*` by default. Adding them requires
+        # configuring `monitoring.customQueries` on the Cluster CR with
+        # a custom SQL query map (see cnpg docs: "User-defined Metrics").
+        # That's PR 2 (perf-tuning), not this PR (alerts on existing
+        # metrics only).
