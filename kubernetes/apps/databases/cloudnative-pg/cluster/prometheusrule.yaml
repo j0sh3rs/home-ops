@@ -127,16 +127,16 @@ spec:
           annotations:
             description: >-
               {{ $labels.pod }} has {{ $value }} active backends. The
-              cluster is configured for max_connections=500 (see
-              cluster17.yaml). Sustained >400 = ~80% saturation; add a
-              Pooler (PgBouncer) before adoption pushes past 450.
+              cluster is configured for max_connections=200 (see
+              cluster17.yaml). Sustained >160 = ~80% saturation; add a
+              Pooler (PgBouncer) before adoption pushes past 180.
             summary: CNPG backend count nearing max_connections
-          # max_connections is hardcoded at 500 in cluster17.yaml. Hardcode
+          # max_connections is hardcoded at 200 in cluster17.yaml. Hardcode
           # the threshold here too rather than relying on a metric that
           # cnpg's collector doesn't emit (cnpg_pg_settings_setting).
           # If max_connections changes in cluster17.yaml, update both.
           expr: |-
-            sum by (pod) (cnpg_backends_total) > 400
+            sum by (pod) (cnpg_backends_total) > 160
           for: 5m
           labels:
             severity: warning

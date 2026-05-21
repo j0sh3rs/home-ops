@@ -13,17 +13,27 @@ metadata:
 spec:
   image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.38.1
   replicas: 1
+  # Resource bump 2026-05-21 (phase 2 audit). AI workloads (LiteLLM cache +
+  # future AnythingLLM RAG cache) plus traefikoidc sessions are projected
+  # to push cache use past the 2 Gi limit. 4 Gi gives headroom and
+  # 2 Gi memory request avoids opportunistic eviction by the scheduler.
   resources:
     requests:
       cpu: 500m
-      memory: 500Mi
+      memory: 2Gi
     limits:
       cpu: 1
-      memory: 2Gi
+      memory: 4Gi
   args:
     - --logtostderr
     - --memcached_port=11211
     - --default_lua_flags=allow-undeclared-keys
+    # Cache mode = LRU eviction when reaching maxmemory. Without this
+    # dragonfly errors writes once full (noeviction-equivalent), which
+    # would cascade to LiteLLM/traefikoidc errors instead of degraded
+    # cache hit ratio. Acceptable trade-off because every consumer here
+    # is a *cache* user — losing old entries is fine.
+    - --cache_mode=true
     # Admin port (9999) exposes Prometheus metrics on /metrics with no auth.
     # The operator already sets these by default but listing here makes the
     # config self-documenting:
@@ -35,6 +45,23 @@ spec:
     passwordFromSecret:
       name: dragonflydb-auth
       key: password
+  # Periodic snapshot every 30 min into a 5 Gi PVC. On pod restart the
+  # operator auto-loads the snapshot — caches start warm instead of cold.
+  # Loss window = 30 min, acceptable for cache (traefikoidc sessions
+  # re-auth, LiteLLM repopulates on first request).
+  # `enableOnMasterOnly: true` means replicas (if added later) don't
+  # write competing snapshots into the same PVC.
+  snapshot:
+    cron: "*/30 * * * *"
+    dir: /dragonfly/snapshots
+    enableOnMasterOnly: true
+    persistentVolumeClaimSpec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+      storageClassName: openebs-hostpath
 ---
 apiVersion: v1
 kind: Service
