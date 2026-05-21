@@ -1,16 +1,19 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
-# CloudNativePG dashboard. The cnpg Helm chart already produces a ConfigMap
-# `cnpg-grafana-dashboard` in the `databases` namespace (key `cnp.json`)
-# when `monitoring.grafanaDashboard.create=true`. We surface it as a
-# GrafanaDashboard CR in the `monitoring` namespace, with
-# allowCrossNamespaceImport so the Grafana Operator can read the ConfigMap
-# from `databases`.
+# CloudNativePG dashboard. The cnpg Helm chart produces a ConfigMap
+# `cnpg-grafana-dashboard` in this namespace (databases) with key
+# `cnp.json` when `monitoring.grafanaDashboard.create=true` is set on the
+# operator HelmRelease. The CR lives here in `databases` (same namespace
+# as the source ConfigMap) because the GrafanaDashboard CRD's
+# `configMapRef` is a LocalObjectReference — it has no `namespace` field.
+# `allowCrossNamespaceImport: true` lets the Grafana Operator (running in
+# `monitoring`) discover this CR via instance selector regardless of the
+# CR's namespace.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: cloudnative-pg
-  namespace: monitoring
+  namespace: databases
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
@@ -21,5 +24,4 @@ spec:
       inputName: DS_PROMETHEUS
   configMapRef:
     name: cnpg-grafana-dashboard
-    namespace: databases
     key: cnp.json
