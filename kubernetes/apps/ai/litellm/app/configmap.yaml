@@ -1,0 +1,140 @@
+---
+# LiteLLM proxy_config rendered as a ConfigMap and mounted by the chart at
+# /app/config.yaml. The chart can also build this ConfigMap inline from
+# `proxy_config:` Helm values; we keep it separate so renovate-tracked
+# upstream model identifiers can be diffed cleanly without re-rendering
+# the whole HelmRelease.
+#
+# Three logical tiers:
+#   1. local-*       — llama-swap-backed local GGUFs (always-on, $0)
+#   2. cloud-*       — Anthropic/OpenAI hosted models (commented OFF;
+#                      enable per-model after wiring API keys via secret)
+#   3. router_settings.fallbacks — cloud → cloud chains (also OFF until
+#                                  a multi-cloud key set exists)
+#
+# The local-* aliases are stable identifiers you wire into n8n credentials
+# and homepage tiles. Renaming a llama-swap model below requires a
+# corresponding edit here, NOT a credential rotation in consumers.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-proxy-config
+data:
+  config.yaml: |
+    # ------------------------------------------------------------------
+    # Models exposed by /v1/models. Each entry maps a public alias
+    # (model_name) to a backend (litellm_params.model + api_base).
+    # ------------------------------------------------------------------
+    # NOTE: `model:` value MUST match a llama-swap model key OR alias from
+    # kubernetes/apps/ai/llama-swap/app/configmap.yaml. Don't use the GGUF
+    # filename — llama-swap exposes its own model identifiers, not the file.
+    model_list:
+      # ---- Local (llama-swap, port 8080, no auth required) ----
+      - model_name: local-fast
+        litellm_params:
+          model: openai/qwen3-1.7b
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
+
+      - model_name: local-balanced
+        litellm_params:
+          model: openai/qwen3-4b
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
+
+      - model_name: local-coder-small
+        litellm_params:
+          model: openai/qwen-coder
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
+
+      - model_name: local-coder
+        litellm_params:
+          model: openai/qwen-coder-7b
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
+
+      - model_name: local-large
+        litellm_params:
+          model: openai/qwen3-14b
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
+
+      - model_name: local-embed
+        litellm_params:
+          model: openai/embed-nomic
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
+
+      - model_name: local-rerank
+        litellm_params:
+          model: openai/rerank-bge
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
+
+      # ---- Cloud providers (DISABLED — enable after wiring keys) ----
+      # Uncomment a stanza after adding the matching API key to the
+      # litellm-secrets Secret. LiteLLM resolves `os.environ/<KEY>` at
+      # request time, so a missing env results in a clean 5xx instead
+      # of a startup crash.
+      #
+      # - model_name: cloud-haiku
+      #   litellm_params:
+      #     model: anthropic/claude-haiku-4-5
+      #     api_key: os.environ/ANTHROPIC_API_KEY
+      #
+      # - model_name: cloud-sonnet
+      #   litellm_params:
+      #     model: anthropic/claude-sonnet-4-6
+      #     api_key: os.environ/ANTHROPIC_API_KEY
+      #
+      # - model_name: cloud-gpt-mini
+      #   litellm_params:
+      #     model: openai/gpt-4o-mini
+      #     api_key: os.environ/OPENAI_API_KEY
+
+    # ------------------------------------------------------------------
+    # General proxy settings: master-key auth, DB-backed key/team store,
+    # and "store_model_in_db" lets the admin UI hot-add models without
+    # editing this ConfigMap (overrides merge in-memory at request time).
+    # ------------------------------------------------------------------
+    general_settings:
+      master_key: os.environ/LITELLM_MASTER_KEY
+      database_url: os.environ/DATABASE_URL
+      store_model_in_db: true
+      # Disable the budget-tracker prompt-DB writes in the request hot
+      # path; we don't bill internally and the writes contend with the
+      # CNPG primary on every completion. Re-enable when reporting is
+      # actually consumed.
+      disable_spend_logs: true
+
+    # ------------------------------------------------------------------
+    # Default LiteLLM routing/cache behaviour applied to all requests.
+    # `drop_params: true` strips OpenAI-only kwargs that local backends
+    # reject (e.g. `parallel_tool_calls`). The redis cache is keyed on
+    # request hash + model + temperature; identical retried prompts
+    # short-circuit before hitting the upstream.
+    # ------------------------------------------------------------------
+    litellm_settings:
+      drop_params: true
+      set_verbose: false
+      cache: true
+      cache_params:
+        type: redis
+        # REDIS_URL is the only env LiteLLM honors for the redis client;
+        # do NOT split into REDIS_HOST/PORT/PASSWORD or both will be set.
+        redis_url: os.environ/REDIS_URL
+        ttl: 600
+
+    # ------------------------------------------------------------------
+    # Router (multi-deployment routing across model_name aliases).
+    # `simple-shuffle` is the default — random pick across deployments
+    # of the same alias. Fallbacks are commented OFF until at least two
+    # cloud providers have keys wired (otherwise a fallback to a missing
+    # key just produces a different 5xx).
+    # ------------------------------------------------------------------
+    router_settings:
+      routing_strategy: simple-shuffle
+      # fallbacks:
+      #   - cloud-sonnet: ["cloud-haiku"]
+      #   - cloud-haiku: ["local-balanced"]

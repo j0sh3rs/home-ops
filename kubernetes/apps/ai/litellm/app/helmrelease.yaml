@@ -1,0 +1,179 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app litellm
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: litellm
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # We override the default `litellm-database` image with the regular
+    # `litellm` image at a Renovate-pinned tag. Both ship Prisma, so the
+    # chart's migrationJob still works.
+    image:
+      repository: ghcr.io/berriai/litellm
+      # renovate: datasource=docker depName=ghcr.io/berriai/litellm
+      # NOTE: LiteLLM dropped the `main-vX.Y.Z` naming in 2025; current
+      # tags are plain `vX.Y.Z` (and `X.Y.Z` without prefix). Don't
+      # revert this back to `main-v…` — that pattern only exists for
+      # older builds and Renovate will silently lose track.
+      tag: v1.85.1
+      pullPolicy: IfNotPresent
+
+    deploymentAnnotations:
+      reloader.stakater.com/auto: "true"
+
+    # ----------------------------------------------------------------
+    # Use the LITELLM_MASTER_KEY field of our Secret as the chart's
+    # PROXY_MASTER_KEY env source. Without these two settings the chart
+    # auto-creates its own `<release>-masterkey` Secret with a random
+    # value, which would diverge from the LITELLM_MASTER_KEY that
+    # consumers (open-webui, n8n) read from litellm-secrets.
+    # ----------------------------------------------------------------
+    masterkeySecretName: litellm-secrets
+    masterkeySecretKey: LITELLM_MASTER_KEY
+
+    # ----------------------------------------------------------------
+    # External Postgres (cnpg cluster17 in the `databases` namespace).
+    # The chart's migrationJob runs Prisma against this DB — but Prisma
+    # does NOT create the DB or role. Those are created by the init-db
+    # Job below (rendered via extraResources with helm pre-install /
+    # pre-upgrade hooks so it runs BEFORE the migrationJob).
+    # ----------------------------------------------------------------
+    db:
+      useExisting: true
+      deployStandalone: false
+      endpoint: postgres17-rw.databases.svc.cluster.local
+      database: litellm
+      secret:
+        name: litellm-secrets
+        usernameKey: INIT_POSTGRES_USER
+        passwordKey: INIT_POSTGRES_PASS
+    # Disable bundled Bitnami postgres entirely.
+    postgresql:
+      enabled: false
+
+    # Use existing dragonflydb instance via REDIS_URL in litellm-secrets.
+    redis:
+      enabled: false
+
+    # ----------------------------------------------------------------
+    # Inject our own Secret (master key, salt, DATABASE_URL, REDIS_URL,
+    # cloud-provider keys, postgres-init creds) as env vars on the
+    # main pod AND the migration Job.
+    # ----------------------------------------------------------------
+    environmentSecrets:
+      - litellm-secrets
+
+    # ----------------------------------------------------------------
+    # Use our hand-authored ConfigMap rather than letting the chart
+    # render `proxy_config:` from values. Keeps model-list churn out of
+    # the HelmRelease values diff.
+    # ----------------------------------------------------------------
+    proxyConfigMap:
+      create: false
+      name: litellm-proxy-config
+      key: config.yaml
+
+    service:
+      type: ClusterIP
+      port: 4000
+
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      scrapeTimeout: 10s
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi
+
+    migrationJob:
+      enabled: true
+      retries: 5
+      backoffLimit: 6
+      ttlSecondsAfterFinished: 300
+      hooks:
+        # Disable argocd hook annotations (we use Flux). Enable helm
+        # pre-install/pre-upgrade hooks so Prisma runs to completion
+        # BEFORE the deployment rolls out — avoids first-rollout 5xx
+        # while the proxy waits on schema.
+        argocd:
+          enabled: false
+        helm:
+          enabled: true
+          # weight=1 keeps it AFTER our litellm-init-db job (weight=-5).
+          weight: "1"
+
+    # ----------------------------------------------------------------
+    # extraResources: ad-hoc k8s objects rendered by the chart.
+    #
+    #   1. HTTPRoute on traefik-internal-gateway for litellm.68cc.io
+    #      (LAN-only, OIDC-protected). Placed here so it lives with
+    #      the chart and is GC'd alongside it.
+    #   2. init-db Job: creates the `litellm` role + DB on the cnpg
+    #      cluster using the `postgres-init` image and INIT_POSTGRES_*
+    #      env from litellm-secrets. Helm pre-install/pre-upgrade hook
+    #      with weight=-5 ensures it completes BEFORE the chart's
+    #      migrationJob (which has the default weight 0).
+    # ----------------------------------------------------------------
+    extraResources:
+      - apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: litellm
+          annotations:
+            external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        spec:
+          hostnames:
+            - litellm.68cc.io
+          parentRefs:
+            - name: traefik-internal-gateway
+              namespace: network
+          rules:
+            - filters:
+                - type: ExtensionRef
+                  extensionRef:
+                    group: traefik.io
+                    kind: Middleware
+                    name: google-oidc-secure
+              backendRefs:
+                - name: litellm
+                  port: 4000
+
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: litellm-init-db
+          annotations:
+            # Run before all other resources (migrationJob has the
+            # default helm-hook-weight=0).
+            "helm.sh/hook": pre-install,pre-upgrade
+            "helm.sh/hook-weight": "-5"
+            "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        spec:
+          backoffLimit: 6
+          ttlSecondsAfterFinished: 300
+          template:
+            spec:
+              restartPolicy: OnFailure
+              containers:
+                - name: init-db
+                  image: ghcr.io/home-operations/postgres-init:18
+                  envFrom:
+                    - secretRef:
+                        name: litellm-secrets
