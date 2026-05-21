@@ -16,12 +16,15 @@
         // version: 1.15.1
         // # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
         // KUBERNETES_VERSION=v1.31.1
-        "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: (?:repository|registryUrl)=(?<registryUrl>\\S+))?\\n.+(:\\s|=)(&\\S+\\s)?(?<currentValue>\\S+)",
+        // # renovate: datasource=docker depName=docker.io/rocm/k8s-device-plugin/labeller versioning=regex:^labeller-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\.(?<build>\d+)$
+        // tag: labeller-1.31.0.10
+        "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: (?:repository|registryUrl)=(?<registryUrl>\\S+))?(?: versioning=(?<versioning>\\S+))?\\n.+(:\\s|=)(&\\S+\\s)?(?<currentValue>\\S+)",
         // # renovate: datasource=docker depName=ghcr.io/prometheus-operator/prometheus-operator
         // https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.80.0/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagerconfigs.yaml
         "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.+/(?<currentValue>(v|\\d)[^/]+)",
       ],
       datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
+      versioningTemplate: "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}",
     },
     {
       customType: "regex",

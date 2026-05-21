@@ -1,0 +1,52 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: amd-gpu-overview
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  configMapRef:
+    name: amd-gpu-overview-dashboard
+    key: amd-gpu-overview-dashboard.json
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: amd-gpu-detail
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  configMapRef:
+    name: amd-gpu-detail-dashboard
+    key: amd-gpu-detail-dashboard.json
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: amd-gpu-node
+  namespace: monitoring
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  configMapRef:
+    name: amd-gpu-node-dashboard
+    key: amd-gpu-node-dashboard.json

@@ -8,6 +8,7 @@ components:
   - ../../components/traefik-oidc
 resources:
   - ./referencegrant.yaml
+  - ./amd-device-metrics-exporter/ks.yaml
   - ./grafana/ks.yaml
   - ./grafana/dashboards/ks.yaml
   - ./kube-prometheus-stack/ks.yaml

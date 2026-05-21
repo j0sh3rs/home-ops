@@ -32,6 +32,13 @@ customization:
     # Does NOT increase memory bandwidth (still DDR4-3200 shared with CPU);
     # strictly raises model-size ceiling, not tokens/sec.
     - amdgpu.gttsize=16384
+    # TTM (Translation Table Manager) global page-cap. Default of 50% RAM is
+    # fine for 32 GiB nodes today, but caps spillover when GTT is heavily
+    # used and pre-emptively limits a future dGPU (6900XT 16 GiB / Navi 31
+    # 24 GiB). 33554432 pages × 4 KiB = 128 GiB — leaves system RAM
+    # untouched but removes TTM from the bottleneck path. Sidero's AMD GPU
+    # guide recommends this for "large model inference".
+    - ttm.pages_limit=33554432
 
   systemExtensions:
     officialExtensions:

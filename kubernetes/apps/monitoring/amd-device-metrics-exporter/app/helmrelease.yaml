@@ -1,0 +1,60 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: amd-device-metrics-exporter
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: device-metrics-exporter-charts
+      version: v1.5.0
+      sourceRef:
+        kind: HelmRepository
+        name: amd-device-metrics-exporter
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    platform: k8s
+    # Schedule on every AMD GPU node. amd.com/gpu.family label is set by
+    # the amd-gpu chart's labeller (only present on GPU-bearing nodes), so
+    # this acts as both selector and gate.
+    nodeSelector:
+      amd.com/gpu.family: RV
+    # Image tag tracked by Renovate via the helm chart bump (chart appVersion
+    # == image tag). Keep explicit so that any drift between chart and image
+    # is visible.
+    image:
+      repository: docker.io/rocm/device-metrics-exporter
+      tag: v1.5.0
+      pullPolicy: IfNotPresent
+    monitor:
+      resources:
+        gpu: true
+        nic: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+    service:
+      type: ClusterIP
+      ClusterIP:
+        port: 5000
+    # vmagent picks this up via its `selectAllByDefault: true` setting
+    # (see kubernetes/apps/monitoring/victoria-metrics/app/vmagent.yaml).
+    # No extra label match required.
+    serviceMonitor:
+      enabled: true
+      interval: "30s"
+      honorLabels: true
+      honorTimestamps: true

@@ -10,3 +10,16 @@ resources:
   - vm-dashboards.yaml
   - traefik-dashboards.yaml
   - homebridge-grafanadashboard.yaml
+  - amd-gpu-grafanadashboards.yaml
+configMapGenerator:
+  - name: amd-gpu-overview-dashboard
+    files:
+      - amd-gpu-overview-dashboard.json
+  - name: amd-gpu-detail-dashboard
+    files:
+      - amd-gpu-detail-dashboard.json
+  - name: amd-gpu-node-dashboard
+    files:
+      - amd-gpu-node-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
