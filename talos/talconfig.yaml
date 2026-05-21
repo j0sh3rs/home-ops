@@ -24,7 +24,7 @@ nodes:
     installDisk: "/dev/nvme0n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/7ef48f88a2498d3083eba3b522a42c6e27d5ae5edeadf9ee8e105ce84e959e9a
+    talosImageURL: factory.talos.dev/installer/9cc3b6b49c5bdf86905d1999fc8c2ec28aa03b3422377f4e86cb7ed5635b910b
     controlPlane: true
     nodeLabels:
       node.kubernetes.io/cpu-tier: zen3
@@ -46,7 +46,7 @@ nodes:
     installDisk: "/dev/nvme0n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/7ef48f88a2498d3083eba3b522a42c6e27d5ae5edeadf9ee8e105ce84e959e9a
+    talosImageURL: factory.talos.dev/installer/9cc3b6b49c5bdf86905d1999fc8c2ec28aa03b3422377f4e86cb7ed5635b910b
     controlPlane: true
     nodeLabels:
       node.kubernetes.io/cpu-tier: zen2
@@ -68,7 +68,7 @@ nodes:
     installDisk: "/dev/nvme0n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/7ef48f88a2498d3083eba3b522a42c6e27d5ae5edeadf9ee8e105ce84e959e9a
+    talosImageURL: factory.talos.dev/installer/9cc3b6b49c5bdf86905d1999fc8c2ec28aa03b3422377f4e86cb7ed5635b910b
     controlPlane: true
     nodeLabels:
       node.kubernetes.io/cpu-tier: zen3

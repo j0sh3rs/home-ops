@@ -231,9 +231,10 @@ spec:
             subPath: config.yaml
             readOnly: true
     defaultPodOptions:
-      # Pin to bee-jms-03 (Cezanne 8CU + memory-tier=high). Soft failover
-      # to any Cezanne (device-id 1638). Required amd.com/gpu.family label
-      # excludes any non-GPU node added later.
+      # Pin to bee-jms-03 (Cezanne 8CU + memory-tier=high + 16G UMA).
+      # `amd.com/gpu.vram In ["16G"]` is REQUIRED — node-01 has 7CU/3G UMA
+      # which OOMs on the larger models in the model-fetch list (Qwen3-14B,
+      # Coder-7B). Soft preference still pins to -03 over a future 16G dGPU.
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -241,6 +242,9 @@ spec:
               - matchExpressions:
                   - key: amd.com/gpu.family
                     operator: Exists
+                  - key: amd.com/gpu.vram
+                    operator: In
+                    values: ["16G"]
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
               preference:
