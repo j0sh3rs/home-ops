@@ -24,6 +24,13 @@ spec:
     - --logtostderr
     - --memcached_port=11211
     - --default_lua_flags=allow-undeclared-keys
+    # Admin port (9999) exposes Prometheus metrics on /metrics with no auth.
+    # The operator already sets these by default but listing here makes the
+    # config self-documenting:
+    #   --admin_port=9999  (passed by operator)
+    #   --admin_nopass     (passed by operator — admin port skips auth)
+    #   --primary_port_http_enabled=false  (operator default — keeps :6379 pure RESP)
+    # Scraping is wired via the dragonflydb-metrics Service + ServiceMonitor below.
   authentication:
     passwordFromSecret:
       name: dragonflydb-auth
@@ -53,3 +60,54 @@ spec:
     role: master
   sessionAffinity: None
   type: ClusterIP
+---
+# Sidecar Service exposing the admin port (9999) for Prometheus scraping.
+# The operator-managed `dragonflydb` Service exposes only :6379 (RESP) and we
+# can't extend it without forking the CR. Selector mirrors the master pod so
+# only the active master is scraped (avoids double-counting on replicas).
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dragonflydb
+    app.kubernetes.io/component: Dragonfly
+    app.kubernetes.io/instance: dragonflydb
+    app.kubernetes.io/part-of: dragonfly-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-metrics
+  name: dragonflydb-metrics
+  namespace: databases
+spec:
+  ports:
+  - name: metrics
+    port: 9999
+    protocol: TCP
+    targetPort: 9999
+  selector:
+    app: dragonflydb
+    app.kubernetes.io/name: dragonfly
+    role: master
+  sessionAffinity: None
+  type: ClusterIP
+---
+# vmagent (selectAllByDefault: true) ingests this. dragonfly admin port has
+# NO auth — `--admin_nopass` is set by the operator. Path is /metrics on
+# the same port. The operator runs Prometheus exposition format natively;
+# no exporter sidecar required.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dragonflydb
+  namespace: databases
+  labels:
+    app.kubernetes.io/name: dragonfly-metrics
+    app.kubernetes.io/instance: dragonflydb
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dragonfly-metrics
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
