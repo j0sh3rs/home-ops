@@ -22,14 +22,68 @@ spec:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
   postgresql:
+    # Parameter tuning rationale (2026-05-21 audit, see
+    # docs/runbooks/database-tuning-recommendations.md):
+    #
+    # - shared_buffers 512MB → 1GB: 25% of the 4Gi limit. Bigger PG
+    #   buffer cache → better hit ratio for the AI/RAG read patterns.
+    # - effective_cache_size 4GB (default) → 3GB: should reflect
+    #   memory available to the pod minus shared_buffers minus OS.
+    # - work_mem 4MB → 16MB: RAG sort-merges + GIN scans + large IN
+    #   lists spill to disk at 4MB. 16MB × concurrency stays in budget.
+    # - maintenance_work_mem 64MB → 256MB: faster vacuum + index build
+    #   on growing tables.
+    # - max_connections 500 → 200: 500 backends × ~10MB ≈ 5GB ceiling
+    #   that exceeds the pod limit. Pair with the Pooler when
+    #   `CNPGConnectionsNearLimit` fires (threshold updated below).
+    # - random_page_cost 4 (default) → 1.1: NVMe (openebs-hostpath)
+    #   responds in single-digit µs; default is HDD-tuned.
+    # - track_io_timing off → on: pg_stat_statements without IO timing
+    #   hides whether a slow query is CPU- or IO-bound.
+    # - track_activity_query_size 1024 → 4096: RAG queries with
+    #   embedded vectors get truncated in pg_stat_activity at 1KB.
+    # - shared_preload_libraries: cnpg already auto-loads
+    #   pg_stat_statements when monitoring is enabled. Adding
+    #   auto_explain explicitly so the controller picks it up too.
+    # - auto_explain.* : log EXPLAIN (analyze, buffers) for queries
+    #   exceeding 1s. sample_rate 0.5 keeps the log volume bounded
+    #   when many slow queries fire at once.
+    # - jit on (default) → off: PG17 default is on, but JIT only
+    #   wins on long analytical queries. Most workloads here are
+    #   short OLTP; JIT compilation is overhead-positive.
+    # - wal_compression on: lz4 available on the talos kernel.
+    #   Smaller WAL → faster replay + less S3 transfer for barman.
+    # shared_preload_libraries is managed via the dedicated field below,
+    # NOT via parameters{}. Setting it in parameters{} is rejected by the
+    # cnpg validator: "Can't set fixed configuration parameter".
+    shared_preload_libraries:
+      - pg_stat_statements  # cnpg auto-injects this when monitoring is on,
+                            # but listing it explicitly avoids surprise
+                            # when someone toggles monitoring off.
+      - auto_explain        # logs EXPLAIN (analyze, buffers) for slow queries
     parameters:
-      max_connections: "500"
-      shared_buffers: 512MB
+      max_connections: "200"
+      shared_buffers: 1GB
+      effective_cache_size: 3GB
+      work_mem: 16MB
+      maintenance_work_mem: 256MB
+      random_page_cost: "1.1"
+      track_io_timing: "on"
+      track_activity_query_size: "4096"
+      auto_explain.log_min_duration: 1s
+      auto_explain.log_analyze: "on"
+      auto_explain.log_buffers: "on"
+      auto_explain.log_format: json
+      auto_explain.log_nested_statements: "on"
+      auto_explain.sample_rate: "0.5"
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: all
+      jit: "off"
+      wal_compression: "on"
   resources:
     requests:
-      cpu: 500m
+      cpu: "1"
+      memory: 2Gi
     limits:
       memory: 4Gi
   monitoring:
