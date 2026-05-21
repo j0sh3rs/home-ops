@@ -198,7 +198,7 @@ components:
   - ../../components/repos/app-template  # ← required to use app-template
 ```
 
-Currently opted in: `services`, `databases`. The OCIRepository is at `kubernetes/components/repos/app-template/ocirepository.yaml`.
+Currently opted in: `ai`, `services`, `databases`. The OCIRepository is at `kubernetes/components/repos/app-template/ocirepository.yaml`.
 
 ### Flux Variable Substitution
 
@@ -237,7 +237,7 @@ task sops:verify  # Check all *.sops.yaml files are properly encrypted
 
 ### Networking
 
-- **Traefik** — Gateway API ingress controller. Two instances: `traefik-external` (public-facing, VIP `192.168.35.15`, gateway `traefik-external-gateway`) and `traefik-internal` (LAN-only, VIP `192.168.35.17`, gateway `traefik-internal-gateway`). Both terminate TLS using the wildcard cert `68cc-io-tls` in `network` namespace (covers `*.68cc.io`). HTTPRoutes opt into one gateway via `parentRefs` and set `external-dns.alpha.kubernetes.io/target` to the matching VIP. oauth2-proxy forwardAuth Middleware (`oauth2-proxy-auth` + `oauth2-proxy-errors`, from component `kubernetes/components/traefik-forwardauth`) is the cluster auth gate; legacy Auth0 middleware was removed.
+- **Traefik** — Gateway API ingress controller. Two instances: `traefik-external` (public-facing, VIP `192.168.35.15`, gateway `traefik-external-gateway`) and `traefik-internal` (LAN-only, VIP `192.168.35.17`, gateway `traefik-internal-gateway`). Both terminate TLS using the wildcard cert `68cc-io-tls` in `network` namespace (covers `*.68cc.io`). HTTPRoutes opt into one gateway via `parentRefs` and set `external-dns.alpha.kubernetes.io/target` to the matching VIP. Service-level auth is the **traefikoidc plugin** Middleware `google-oidc-secure`, materialized per-namespace via the `kubernetes/components/traefik-oidc/` Component. Apps reference it via Gateway API `ExtensionRef` filters.
 - **Traefik `proxyProtocol.trustedIPs`**: LAN CIDR only (`192.168.35.0/24`). Pod CIDR (`10.42.0.0/16`) is intentionally NOT trusted — cloudflared speaks plain HTTP, not PROXY, and Traefik fail-parses if the pod CIDR is trusted. End-user IP over the tunnel is preserved via the `CF-Connecting-IP` HTTP header instead.
 - **Cloudflare tunnel** (`home`, id `3ecf7dee-f421-46df-bcc1-1ea7ff24155c`) runs in-cluster at `kubernetes/apps/network/cloudflared/`. Tunnel ingress config is managed **remotely** via the Cloudflare dashboard/API (not this repo). Origin: `https://traefik-external.network.svc.cluster.local:443` with `originServerName: 68cc.io` (matches wildcard cert SAN). Verify via Cloudflare MCP — see `docs/runbooks/cloudflare-waf.md`.
 - **External-DNS split-horizon**: `cloudflare-dns` writes CNAMEs to `<tunnel-id>.cfargotunnel.com` with `--cloudflare-proxied` for every route on `traefik-external-gateway`. `unifi-dns` writes LAN A records pointing at the VIP matching each route's `external-dns.alpha.kubernetes.io/target` annotation. Internal-only routes (`traefik-internal-gateway`, target `192.168.35.17`) get only a LAN record — no Cloudflare record.
@@ -260,7 +260,7 @@ Pick the storage class based on the workload's latency sensitivity and whether t
 | Workload shape | Class | Why |
 |----------------|-------|-----|
 | Database data dirs (Postgres, Dolt, DragonflyDB) | `openebs-hostpath` | Local NVMe; sub-ms IO; backup separately via S3 |
-| Model weights, embedding caches (llama-swap, Ollama) | `openebs-hostpath` | Large cold reads; local disk avoids NFS throughput cap |
+| Model weights, embedding caches (llama-swap) | `openebs-hostpath` | Large cold reads; local disk avoids NFS throughput cap |
 | Log shards, TSDB blocks (vmsingle, victoria-logs) | `openebs-hostpath` | Write-heavy, append-only; NFS metadata ops too costly |
 | Grafana dashboards/plugins on-disk cache | `openebs-hostpath` | Startup-read-heavy; tolerable node-pinning |
 | Config-heavy apps needing RWO but mobile (CrowdSec, AlertManager state) | `nfs-client` | Survives pod reschedule across nodes; low write rate |
@@ -296,7 +296,7 @@ Rules of thumb:
 
 - **Tetragon** — Runtime security observability with eBPF (`kube-system` and `security` namespaces)
 - **CrowdSec** — Collaborative IDS/IPS for threat detection and blocking; Traefik bouncer middleware applied globally on `web` and `websecure` entrypoints
-- **oauth2-proxy + Google OIDC** — Service-level authentication. Traefik `oauth2-proxy-auth` forwardAuth Middleware calls oauth2-proxy `/oauth2/auth`; unauthenticated requests bounce through `auth.68cc.io/oauth2/start` to Google, then back. Session cookies scoped to `.68cc.io`. Applied per-HTTPRoute via Gateway API `ExtensionRef` filters. See `kubernetes/components/traefik-forwardauth/` and `kubernetes/apps/security/oauth2-proxy/`. Replaced the legacy Auth0 + traefikoidc plugin in a prior migration.
+- **traefikoidc plugin + Google OIDC** — Service-level authentication via the `traefikoidc` Traefik plugin (github.com/lukaszraczylo/traefikoidc). Materialized per-namespace as `Middleware/google-oidc-secure` by the `kubernetes/components/traefik-oidc/` Component (Gateway API + Traefik reject cross-namespace ExtensionRef filters — traefik/traefik#11126, gateway-api#3903 — so the Middleware lives in each opted-in namespace). Backing Secret `traefik-secrets` lives in `network` namespace and is mirrored into each opted-in namespace by Reflector (allowed-namespaces annotation). Session cookies scoped to `.68cc.io`. Applied per-HTTPRoute via Gateway API `ExtensionRef`. The plugin emits native 302 redirects inside Traefik. Namespaces opt in by adding `../../components/traefik-oidc` to their kustomization `components:` list.
 
 ### System Components (`kube-system`)
 
@@ -313,7 +313,46 @@ Rules of thumb:
 
 ### Application Namespaces
 
-`cert-manager`, `databases`, `flux-system`, `kube-system`, `monitoring`, `network`, `security`, `services`, `system-upgrade`, `velero`
+`ai`, `cert-manager`, `databases`, `flux-system`, `kube-system`, `monitoring`, `network`, `security`, `services`, `system-upgrade`, `velero`
+
+## Deployed Applications (ai namespace)
+
+Unified AI workloads. Topology: clients (Open WebUI, n8n, Continue.dev, future kid accounts) → **LiteLLM** (gateway, single OpenAI-compatible endpoint) → fan-out to **llama-swap** (local GGUFs on AMD GPU) and — once API keys land — Anthropic / OpenAI. State sits on shared `postgres17` cluster (DB `litellm`); response cache in `dragonflydb`. All routes LAN-only via `traefik-internal-gateway`, OIDC-protected via `google-oidc-secure` Middleware.
+
+### Currently deployed
+
+- **LiteLLM** — OpenAI-compatible gateway at `litellm.68cc.io`. Image `ghcr.io/berriai/litellm:vX.Y.Z` (renovate-tracked); chart `oci://ghcr.io/berriai/litellm-helm`. Master key + virtual keys per consumer (open-webui, n8n, kid accounts) stored in `litellm-secrets`. Model aliases:
+  - `local-fast` → llama-swap `qwen3-1.7b` (routing/classification)
+  - `local-balanced` → `qwen3-4b` (default chat)
+  - `local-coder-small` → `qwen-coder` (3B, fast autocomplete)
+  - `local-coder` → `qwen-coder-7b` (7B, refactor/multi-file)
+  - `local-large` → `qwen3-14b` (slow reasoning, ~5 tok/s on APU)
+  - `local-embed` → `embed-nomic` (RAG embeddings, always-on)
+  - `local-rerank` → `rerank-bge` (cross-encoder reranker, always-on)
+  - `cloud-haiku` / `cloud-sonnet` / `cloud-gpt-mini` — commented OFF in `configmap.yaml`; uncomment + add API key to enable.
+  - **Important**: the `model:` value in litellm's model_list MUST be a llama-swap model key OR alias, NOT a GGUF filename. See `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for the source of truth.
+- **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bee-jms-03` (Cezanne APU, 16 GiB UMA, 8 CU) via nodeAffinity requiring `amd.com/gpu.vram In ["16G"]`. Direct UI at `llm.68cc.io` for debugging only — clients should go through LiteLLM. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC.
+- **Open WebUI** — chat UI at `ai.68cc.io`, public via Cloudflare tunnel + OIDC. `OPENAI_API_BASE_URL=http://litellm:4000/v1`; `OPENAI_API_KEY` is a LiteLLM virtual key minted via `POST /key/generate` and stored in `open-webui-secrets`.
+- **n8n** — workflow automation at `n8n.68cc.io` (public via Cloudflare tunnel + OIDC). External Postgres state (DB `n8n` on `postgres17`). LLM creds wired manually inside n8n credentials UI — point HTTP/OpenAI nodes at `http://litellm:4000/v1` with a virtual key from LiteLLM.
+
+### Planned (not yet deployed)
+
+The end-state vision is "personal-assistant + family-chat + coding-assistant + RAG-over-docs." Roadmap:
+
+- **AnythingLLM** — RAG / docs / per-workspace memory. Picked over Khoj because operator has no notes habit, OWUI already covers chat, and AnythingLLM exposes per-workspace OpenAI-compatible endpoints that can be aliased back into LiteLLM (`anythingllm-workspace-X`). Configure: vector store = `pgvector` on shared `postgres17`; embeddings + LLM provider = `liteLLM`; chunk-size 1500/overlap 200; reranker on (bge via llama-swap); PVC 30 GiB `openebs-hostpath`. OIDC at gateway via `google-oidc-secure` (don't enable AnythingLLM's anaemic built-in SSO).
+- **Mem0 OR Letta** — true memory primitive (entity/temporal/decay), exposed to OWUI and AnythingLLM as an MCP tool. Neither AnythingLLM's `memories` module nor Khoj's chat history qualifies as a memory layer. Defer until LiteLLM + AnythingLLM are stable. Mem0 = lighter, library-first; Letta = heavier, full memory architecture.
+- **Continue.dev** (client-side, not cluster) — IDE coding assistant. Inline = `local-coder`, chat = `cloud-sonnet` (fallback to `local-large`). No deployment, just user config pointing at LiteLLM.
+- **Voice stack** — Wyoming protocol services (`whisper.cpp` STT + `piper` TTS), wired into existing Home Assistant Assist. Add when family voice use case justifies it.
+- **Kid-safe layer** — per-kid LiteLLM virtual key with model allow-list (block `cloud-*`, allow `local-balanced` + `local-fast`). Per-kid OWUI account (multi-user mode). Per-kid AnythingLLM workspace with locked system prompt. Content filter middleware on LiteLLM if/when kids start using it heavily. Audit log already on by default in LiteLLM (DB-backed).
+
+### Decisions explicitly rejected (do not relitigate without new evidence)
+
+- **AMD GPU Operator** — wrong fit for Talos + APU + consumer dGPU. KMM-managed DKMS conflicts with in-box `amdgpu` extension; APUs not on Instinct HCL; ANR/NPD/DCM features all require Instinct silicon. See [memory: project-amd-gpu-stack].
+- **ROCm DKMS** — Talos rootfs immutable; no path. ROCm userspace only matters inside workload containers, not at kernel level.
+- **Replacing llama-swap with Ollama** — duplicates the same role; would lose curated GGUF + model-fetch control. One engine policy.
+- **Replacing llama-swap with LiteLLM-only** — LiteLLM does not own model lifecycle. Hot-swap on a single 16 GiB UMA GPU is llama-swap's job. LiteLLM sits IN FRONT, doesn't replace.
+- **Khoj** — operator has no notes habit; Khoj's Obsidian round-trip is its main lever and would be wasted. Stable line stalled at v0.2.0; no first-party Helm chart. AnythingLLM ships steady, has in-tree chart with HTTPRoute template.
+- **vLLM** — needs ROCm gfx10+; APU performance is BW-bound, vLLM's compute wins don't materialize. Revisit only if/when an Instinct or large dGPU is added.
 
 ## Deployed Applications (services namespace)
 
@@ -323,9 +362,6 @@ Rules of thumb:
 - **Homepage** — Dashboard at `68cc.io` (root). Service tiles + widgets configured via SOPS-encrypted Secret; widget creds injected via `HOMEPAGE_VAR_*` env vars.
 - **IT-Tools** — Collection of IT utility tools
 - **Linkwarden** — Collaborative bookmark manager
-- **N8N** — Workflow automation platform
-- **Ollama** — Local LLM inference server
-- **Open WebUI** — Web interface for Ollama
 
 Currently disabled (commented out in `kubernetes/apps/services/kustomization.yaml`):
 - ~~ChangeDetector~~ — Website change monitoring

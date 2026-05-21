@@ -3,19 +3,27 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app n8n
-  namespace: &namespace services
+  name: &app litellm
+  namespace: &namespace ai
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   interval: 1h
   dependsOn:
+    # Postgres for state (model/key/team tables, spend logs).
     - name: cloudnative-pg
       namespace: &cnpg-ns databases
     - name: cloudnative-pg-cluster
       namespace: *cnpg-ns
-  path: ./kubernetes/apps/services/n8n/app
+    # DragonflyDB (Redis-compatible) for proxy response cache.
+    - name: dragonflydb-instance
+      namespace: *cnpg-ns
+    # llama-swap is the local upstream that LiteLLM proxies to. Wait for
+    # it so the model_list endpoints don't 502 on first reconcile.
+    - name: llama-swap
+      namespace: *namespace
+  path: ./kubernetes/apps/ai/litellm/app
   prune: true
   retryInterval: 2m
   sourceRef:
@@ -23,5 +31,5 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  timeout: 5m
+  timeout: 10m
   wait: false

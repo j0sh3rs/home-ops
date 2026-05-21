@@ -31,12 +31,11 @@ spec:
               # renovate: datasource=github-releases depName=open-webui/open-webui
               tag: v0.9.5
             env:
-              # Point at llama-swap OpenAI-compatible endpoint (same namespace).
-              # Ollama API disabled — llama-swap does not implement /api/tags.
-              OPENAI_API_BASE_URL: "http://llama-swap:8080/v1"
-              # llama-swap has no auth configured; open-webui requires a
-              # non-empty key to send the Authorization header at all.
-              OPENAI_API_KEY: "sk-local-llama-swap"
+              # Point at LiteLLM gateway (same namespace). LiteLLM fronts
+              # llama-swap + cloud providers behind a single OpenAI-compat
+              # endpoint. Ollama API disabled — neither LiteLLM nor
+              # llama-swap implement /api/tags.
+              OPENAI_API_BASE_URL: "http://litellm:4000/v1"
               ENABLE_OPENAI_API: "true"
               ENABLE_OLLAMA_API: "false"
               # Disable outbound telemetry
@@ -49,6 +48,11 @@ spec:
               # Data directory
               DATA_DIR: "/app/backend/data"
             envFrom:
+              # WEBUI_SECRET_KEY (session signing) plus OPENAI_API_KEY
+              # which is a LiteLLM virtual key (sk-...) that open-webui
+              # sends as the Authorization bearer to LiteLLM. Generate via
+              # `POST /key/generate` against the LiteLLM admin API after
+              # the gateway is running, then add to this Secret.
               - secretRef:
                   name: open-webui-secrets
             resources:

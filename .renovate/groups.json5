@@ -160,5 +160,22 @@
         commitMessageTopic: "{{{groupName}}} group",
       },
     },
+    {
+      description: "AI Stack - LiteLLM gateway + local inference + UI + workflow automation",
+      groupName: "AI Stack",
+      matchDatasources: ["docker", "helm", "github-releases"],
+      matchPackageNames: [
+        "/berriai\\/litellm/",
+        "/berriai\\/litellm-helm/",
+        "/open-webui\\/open-webui/",
+        "/mostlygeek\\/llama-swap/",
+        "n8nio/n8n",
+      ],
+      stabilityDays: 3,
+      labels: ["type/app", "risk/low"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+    },
   ],
 }

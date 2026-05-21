@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# AI workloads namespace: LiteLLM gateway + local inference (llama-swap),
+# UI (open-webui), workflow automation (n8n). LiteLLM fronts llama-swap
+# and (eventually) cloud providers behind a single OpenAI-compatible API.
+#
+# Components:
+#   - common                 — namespace + cluster-secrets + sops-age
+#   - repos/app-template     — bjw-s app-template OCIRepository in this ns
+#                              (open-webui, llama-swap, n8n use it)
+#   - traefik-oidc           — google-oidc-secure Middleware materialized
+#                              in-namespace; HTTPRoutes ExtensionRef it
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai
+components:
+  - ../../components/common
+  - ../../components/repos/app-template
+  - ../../components/traefik-oidc
+resources:
+  - ./litellm/ks.yaml
+  - ./llama-swap/ks.yaml
+  - ./n8n/ks.yaml
+  - ./open-webui/ks.yaml

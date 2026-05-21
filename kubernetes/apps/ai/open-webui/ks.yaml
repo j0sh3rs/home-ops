@@ -3,14 +3,20 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app llama-swap
-  namespace: &namespace services
+  name: &app open-webui
+  namespace: &namespace ai
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   interval: 1h
-  path: ./kubernetes/apps/services/llama-swap/app
+  dependsOn:
+    # open-webui now talks to LiteLLM (which fronts llama-swap + cloud
+    # providers) rather than llama-swap directly. LiteLLM has its own
+    # dependency chain on the cnpg cluster + dragonflydb cache.
+    - name: litellm
+      namespace: *namespace
+  path: ./kubernetes/apps/ai/open-webui/app
   prune: true
   retryInterval: 2m
   sourceRef:
@@ -18,5 +24,5 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  timeout: 15m
+  timeout: 5m
   wait: false
