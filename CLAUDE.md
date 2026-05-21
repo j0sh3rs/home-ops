@@ -186,8 +186,6 @@ Helm repository definitions live in `kubernetes/flux/meta/repos/`.
 - `kubernetes/apps/kube-system/tetragon/` — has local `helmrepository.yaml`; check for OCI
 - `kubernetes/flux/meta/repos/{prometheus-community,bjw-s}.yaml` — already `oci://` URLs but declared as `HelmRepository`; migrate to `OCIRepository` where charts consume them
 
-Note: `kubernetes/flux/meta/repos/{toolhive-operator,toolhive-operator-crds}.yaml` are the reference examples — already `OCIRepository` with `chartRef` in their HelmReleases.
-
 ### app-template (bjw-s) for apps without a Helm chart
 
 The `bjw-s/app-template` chart (`oci://ghcr.io/bjw-s-labs/helm/app-template`, v4.6.2) is used for apps that don't have their own Helm chart. It is **not** globally available — each namespace kustomization must opt in:

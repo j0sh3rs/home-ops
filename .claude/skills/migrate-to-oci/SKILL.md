@@ -20,7 +20,7 @@ Per `CLAUDE.md`, these are known candidates (verify before starting — list may
 - `kubernetes/apps/kube-system/nfs-external-provisioner/`
 - `kubernetes/apps/kube-system/tetragon/`
 
-Reference examples (already migrated — mirror their structure): `kubernetes/flux/meta/repos/toolhive-operator.yaml` + its HelmRelease.
+Reference examples: check `kubernetes/flux/meta/repos/` for existing OCIRepository definitions to mirror their structure.
 
 ## Usage
 
