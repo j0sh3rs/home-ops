@@ -12,6 +12,7 @@ resources:
   - homebridge-grafanadashboard.yaml
   - amd-gpu-grafanadashboards.yaml
   - dragonflydb-grafanadashboard.yaml
+  - cnpg-grafanadashboard.yaml
 configMapGenerator:
   - name: amd-gpu-overview-dashboard
     files:

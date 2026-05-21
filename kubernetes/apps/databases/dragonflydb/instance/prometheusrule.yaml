@@ -1,0 +1,196 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+# DragonflyDB alert rules. Metrics scraped from `dragonflydb-metrics:9999`
+# via the ServiceMonitor in instance.yaml. Field names verified against
+# `/metrics` (see docs/runbooks/dragonflydb-db-allocation.md).
+#
+# Threat model: dragonfly is a CACHE — losing data is acceptable but
+# unavailability cascades to consumers (LiteLLM cache miss = upstream load,
+# traefikoidc session miss = re-auth). Alerts focus on availability,
+# saturation, and replication health (in case we ever scale to >1 replica).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: dragonflydb-rules
+  namespace: databases
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: dragonflydb.rules
+      rules:
+        - alert: DragonflyInstanceDown
+          annotations:
+            description: >-
+              The dragonflydb-metrics ServiceMonitor has not produced
+              `dragonfly_uptime_in_seconds` for >2m. The cache pod is
+              unreachable or crashed. Consumers (LiteLLM cache,
+              traefikoidc sessions) will degrade gracefully — they don't
+              depend on dragonfly for primary data.
+            summary: DragonflyDB metrics endpoint unreachable
+          expr: |-
+            absent(dragonfly_uptime_in_seconds) == 1
+          for: 2m
+          labels:
+            severity: warning
+            component: availability
+
+        - alert: DragonflyMemoryHigh
+          annotations:
+            description: >-
+              DragonflyDB is using {{ $value | humanizePercentage }} of its
+              configured maxmemory. Eviction is imminent. Audit DB
+              allocation in `docs/runbooks/dragonflydb-db-allocation.md`
+              and consider raising memory limit on the Dragonfly CR.
+            summary: DragonflyDB memory pressure
+          expr: |-
+            (
+              dragonfly_memory_used_bytes
+              /
+              dragonfly_memory_max_bytes
+            ) > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            component: capacity
+
+        - alert: DragonflyMemoryCritical
+          annotations:
+            description: >-
+              DragonflyDB at {{ $value | humanizePercentage }} of maxmemory
+              — eviction is happening or about to. Cache effectiveness
+              tanking; consumer latency will rise.
+            summary: DragonflyDB memory critically high
+          expr: |-
+            (
+              dragonfly_memory_used_bytes
+              /
+              dragonfly_memory_max_bytes
+            ) > 0.95
+          for: 2m
+          labels:
+            severity: critical
+            component: capacity
+
+        - alert: DragonflyHighEvictionRate
+          annotations:
+            description: >-
+              DragonflyDB is evicting > 100 keys/sec on {{ $labels.instance
+              }} sustained for 5m. Either memory limit is too small for
+              the working set or a consumer is mis-using TTL. Check
+              `dragonfly_evicted_keys_total` rate per DB.
+            summary: DragonflyDB eviction rate high
+          expr: |-
+            rate(dragonfly_evicted_keys_total[5m]) > 100
+          for: 5m
+          labels:
+            severity: warning
+            component: capacity
+
+        - alert: DragonflyClientCountHigh
+          annotations:
+            description: >-
+              Connected clients = {{ $value }}. Client cap is 64000 (default
+              `--max_clients`). At >1000 sustained, suspect a consumer
+              leaking connections (no client-side pooling, no idle
+              eviction). Check `CLIENT LIST` for the offending peer.
+            summary: DragonflyDB connected clients high
+          expr: |-
+            sum(dragonfly_connected_clients) > 1000
+          for: 10m
+          labels:
+            severity: warning
+            component: capacity
+
+        - alert: DragonflyHitRatioLow
+          annotations:
+            description: >-
+              5m keyspace hit ratio = {{ $value | humanizePercentage }} —
+              below 70%. The cache is under-warmed or undersized. If this
+              persists post-deploy, the workload may not benefit from
+              caching at all and the consumer config is wrong.
+            summary: DragonflyDB cache hit ratio low
+          expr: |-
+            (
+              sum(rate(dragonfly_keyspace_hits_total[5m]))
+              /
+              (
+                sum(rate(dragonfly_keyspace_hits_total[5m]))
+                + sum(rate(dragonfly_keyspace_misses_total[5m]))
+              )
+            ) < 0.70
+          for: 15m
+          labels:
+            severity: warning
+            component: performance
+
+        - alert: DragonflyAvgCommandLatencyHigh
+          annotations:
+            description: >-
+              Avg command duration on {{ $labels.instance }} > 5ms over
+              5m. Healthy dragonfly responds in sub-ms; sustained 5ms+
+              suggests CPU saturation, slow lua scripts, or memory
+              fragmentation. Triage with `redis-cli -a $PASS LATENCY
+              DOCTOR`. Note: dragonfly emits a counter (sum of
+              durations), not a histogram, so we cannot extract p99 —
+              this is the average across all command types.
+            summary: DragonflyDB average command latency degraded
+          # rate(sum_seconds) / rate(count) = avg seconds per command,
+          # summed across cmd labels.
+          expr: |-
+            (
+              sum(rate(dragonfly_commands_duration_seconds[5m]))
+              /
+              sum(rate(dragonfly_commands_total[5m]))
+            ) > 0.005
+          for: 5m
+          labels:
+            severity: warning
+            component: performance
+
+        - alert: DragonflyPipelineQueueGrowing
+          annotations:
+            description: >-
+              Pipeline queue length = {{ $value }} on {{ $labels.instance
+              }} — clients sending faster than dragonfly can process.
+              Expected to drain quickly under normal load. Sustained >100
+              indicates a stuck command or the server is CPU-bound.
+            summary: DragonflyDB pipeline queue not draining
+          expr: |-
+            dragonfly_pipeline_queue_length > 100
+          for: 5m
+          labels:
+            severity: warning
+            component: performance
+
+        - alert: DragonflyBlockedClients
+          annotations:
+            description: >-
+              {{ $value }} clients blocked on dragonfly {{ $labels.instance
+              }}. Likely a BLPOP / BRPOP / WAIT command stuck. If this
+              fires unexpectedly, a consumer is using a blocking command
+              we don't intend to support.
+            summary: DragonflyDB has blocked clients
+          expr: |-
+            dragonfly_blocked_clients > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: availability
+
+        - alert: DragonflyUnexpectedReplicaPromotion
+          annotations:
+            description: >-
+              `dragonfly_master == 0` — this pod is a replica. The
+              instance.yaml deploys `replicas: 1` (master only); a replica
+              should not exist. Either the operator promoted a phantom
+              replica or someone scaled up. Verify
+              `kubectl get dragonfly -n databases`.
+            summary: DragonflyDB unexpected replica state
+          expr: |-
+            dragonfly_master == 0
+          for: 5m
+          labels:
+            severity: warning
+            component: availability
