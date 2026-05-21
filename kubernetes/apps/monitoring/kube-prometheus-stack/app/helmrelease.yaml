@@ -34,7 +34,7 @@ spec:
               extensionRef:
                 group: traefik.io
                 kind: Middleware
-                name: google-oidc-secure
+                name: authentik-forwardauth
       alertmanagerSpec:
         alertmanagerConfiguration:
           name: alertmanager
