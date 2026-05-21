@@ -12,7 +12,12 @@ resources:
   - homebridge-grafanadashboard.yaml
   - amd-gpu-grafanadashboards.yaml
   - dragonflydb-grafanadashboard.yaml
-  - cnpg-grafanadashboard.yaml
+  # Note: the CloudNativePG GrafanaDashboard CR lives in
+  # `kubernetes/apps/databases/cloudnative-pg/cluster/grafanadashboard.yaml`
+  # because its source ConfigMap (cnpg-grafana-dashboard) is in the
+  # `databases` namespace and the CRD's `configMapRef` is a
+  # LocalObjectReference (no cross-namespace field).
+  # `allowCrossNamespaceImport: true` lets the Grafana Operator pick it up.
 configMapGenerator:
   - name: amd-gpu-overview-dashboard
     files:
