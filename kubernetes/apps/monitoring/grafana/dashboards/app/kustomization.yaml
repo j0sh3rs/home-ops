@@ -11,6 +11,7 @@ resources:
   - traefik-dashboards.yaml
   - homebridge-grafanadashboard.yaml
   - amd-gpu-grafanadashboards.yaml
+  - dragonflydb-grafanadashboard.yaml
 configMapGenerator:
   - name: amd-gpu-overview-dashboard
     files:
@@ -21,5 +22,8 @@ configMapGenerator:
   - name: amd-gpu-node-dashboard
     files:
       - amd-gpu-node-dashboard.json
+  - name: dragonflydb-dashboard
+    files:
+      - dragonflydb-dashboard.json
 generatorOptions:
   disableNameSuffixHash: true
