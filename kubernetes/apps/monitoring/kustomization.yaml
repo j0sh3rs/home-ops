@@ -5,7 +5,7 @@ namespace: monitoring
 components:
   - ../../components/common
   - ../../components/repos/app-template
-  - ../../components/traefik-oidc
+  - ../../components/authentik-forwardauth
 resources:
   - ./referencegrant.yaml
   - ./amd-device-metrics-exporter/ks.yaml

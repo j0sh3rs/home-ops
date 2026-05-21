@@ -6,7 +6,7 @@ namespace: kube-system
 components:
   - ../../components/common
   - ../../components/repos/app-template
-  - ../../components/traefik-oidc
+  - ../../components/authentik-forwardauth
 resources:
   - ./amd-gpu/ks.yaml
   - ./cilium/ks.yaml
