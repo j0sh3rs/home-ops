@@ -138,3 +138,38 @@ spec:
       path: /metrics
       interval: 30s
       scrapeTimeout: 10s
+---
+# The dragonfly operator auto-creates a NetworkPolicy that locks down
+# the admin port (9999) to operator + peer pods only. That blocks
+# vmagent from scraping /metrics. We keep the operator's policy intact
+# (lockdown on 9999 from arbitrary tenants is a feature) and add this
+# sibling policy to additively allow monitoring/vmagent → 9999.
+# Multiple ingress NetworkPolicies are additive, so this unions cleanly
+# with the operator-managed one.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dragonflydb-allow-monitoring-scrape
+  namespace: databases
+  labels:
+    app.kubernetes.io/name: dragonfly-metrics
+    app.kubernetes.io/instance: dragonflydb
+spec:
+  podSelector:
+    matchLabels:
+      app: dragonflydb
+      app.kubernetes.io/name: dragonfly
+      app.kubernetes.io/part-of: dragonfly
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+      ports:
+        - port: 9999
+          protocol: TCP
