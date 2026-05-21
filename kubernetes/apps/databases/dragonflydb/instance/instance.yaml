@@ -95,13 +95,18 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  # Flux's parent Kustomization (kubernetes/apps/databases/dragonflydb/ks.yaml)
+  # injects `commonMetadata.labels.app.kubernetes.io/name: dragonflydb-instance`,
+  # which overwrites any `app.kubernetes.io/name` we set on this Service.
+  # We use a distinct label `home-ops/role: dragonfly-metrics` for the
+  # ServiceMonitor selector so it can't be clobbered by Flux's labelling.
   labels:
     app: dragonflydb
     app.kubernetes.io/component: Dragonfly
     app.kubernetes.io/instance: dragonflydb
     app.kubernetes.io/part-of: dragonfly-operator
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: dragonfly-metrics
+    home-ops/role: dragonfly-metrics
   name: dragonflydb-metrics
   namespace: databases
 spec:
@@ -127,12 +132,12 @@ metadata:
   name: dragonflydb
   namespace: databases
   labels:
-    app.kubernetes.io/name: dragonfly-metrics
+    home-ops/role: dragonfly-metrics
     app.kubernetes.io/instance: dragonflydb
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: dragonfly-metrics
+      home-ops/role: dragonfly-metrics
   endpoints:
     - port: metrics
       path: /metrics
