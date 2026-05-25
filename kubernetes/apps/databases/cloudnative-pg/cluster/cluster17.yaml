@@ -6,7 +6,23 @@ metadata:
   name: postgres17
 spec:
   instances: 2
-  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  # Image is pinned via the ClusterImageCatalog `postgresql` (sibling
+  # imagecatalog.yaml, bookworm digests). To bump the major version,
+  # change `major:` to a value present in that catalog. Patch versions
+  # roll forward when the catalog itself is bumped (separate PR).
+  # Procedure: docs/runbooks/cnpg-major-upgrade.md.
+  #
+  # NOTE: imageName + imageCatalogRef are mutually exclusive at the
+  # cnpg webhook layer. If the live Cluster object still has imageName
+  # set (legacy state pre-this-PR), Flux's apply will fail validation.
+  # Pre-merge step (one-time, documented in runbook):
+  #   kubectl patch cluster postgres17 -n databases --context home \
+  #     --type=json -p='[{"op":"remove","path":"/spec/imageName"}]'
+  imageCatalogRef:
+    apiGroup: postgresql.cnpg.io
+    kind: ClusterImageCatalog
+    name: postgresql
+    major: 17
   description: "Shared PG17 Cluster"
   primaryUpdateStrategy: unsupervised
   # Exclude CNPG PVCs from Velero fs-backup — data is already shipped to

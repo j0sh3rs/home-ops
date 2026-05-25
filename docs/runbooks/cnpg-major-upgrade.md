@@ -13,48 +13,70 @@ These should already exist in the repo (delivered by phase 1 of the upgrade plan
 - `kubernetes/apps/databases/cloudnative-pg/cluster/service-aliases.yaml` — version-stable `postgres-{rw,r,ro}` ExternalName Services aliasing the cnpg-managed `postgres17-{rw,r,ro}`.
 - (Phase 2) Cluster CR uses `imageCatalogRef` instead of `imageName`.
 
-## Upgrade plan: 4 PRs
+## Upgrade plan: 3 PRs
 
-### PR 1 — Image catalog + service aliases (no downtime)
+### PR 1 — Image catalog + service aliases + bullseye→bookworm distro hop (one rolling restart)
 
 **Branch:** `feat/cnpg-imagecatalog-svc-alias`
 
-Adds the `ClusterImageCatalog` and ExternalName Service aliases. Cluster CR continues to use `imageName: …:17` so nothing changes at the operator level. Pure additive.
+Single PR delivers:
+- `ClusterImageCatalog/postgresql` with bookworm digests for major 17 + 18
+- ExternalName Service aliases `postgres-{rw,r,ro}` → cnpg-managed `postgres17-*`
+- Cluster CR switches from `imageName: …:17` (moving tag, bullseye) to `imageCatalogRef` at major 17 (digest-pinned, **bookworm**)
 
-After merge: `kubectl get clusterimagecatalog postgresql -o yaml` shows the catalog. `nslookup postgres-rw.databases.svc.cluster.local` from any pod resolves to the cnpg-managed Service.
+This effects a same-major distro hop (PG17 bullseye → PG17 bookworm) in a single rolling restart. The distro hop is required by cnpg before any major-version upgrade — operator rejects bullseye→bookworm and PG17→PG18 simultaneously per the OS-compatibility constraint.
 
-### PR 2 — Switch Cluster CR to imageCatalogRef (one rolling restart)
+**Manual pre-merge step (defensive, recommended):**
 
-**Manual pre-merge step (REQUIRED):**
+CNPG validation rejects a Cluster CR that has BOTH `imageName` and `imageCatalogRef`. Flux uses server-side apply with its own field manager (`kustomize-controller`), which DOES drop `imageName` correctly when our manifest doesn't include it — verified via dry-run with `--field-manager=kustomize-controller`. Bare `kubectl apply` (different default manager) shows the failure; Flux is fine.
 
-CNPG validation rejects a Cluster CR that has BOTH `imageName` and `imageCatalogRef`. Server-side apply unions fields — Flux's apply will fail with:
-
-```
-The Cluster "postgres17" is invalid: spec: Invalid value: imageName and imageCatalogRef are mutually exclusive
-```
-
-Pre-clear the field on the live object **immediately before** merging the PR:
+Despite Flux being able to handle it, the safer move is to clear `imageName` manually before the merge so the operator's first reconcile sees ONLY `imageCatalogRef` and there's zero ambiguity:
 
 ```bash
 rtk kubectl patch cluster postgres17 -n databases --context home \
   --type=json -p='[{"op":"remove","path":"/spec/imageName"}]'
 ```
 
-The cluster keeps running on the same image (cnpg caches the resolved digest). Then merge the PR. Flux applies `imageCatalogRef`, operator reconciles, sees the catalog points at the same major (17) → resolves to the pinned digest → MAY trigger one rolling restart if the digest differs from what's running on the moving `:17` tag.
+The cluster keeps running on the same image (cnpg caches the resolved digest). Then merge the PR. Flux applies `imageCatalogRef`, operator reconciles, sees the catalog's bookworm digest for major 17 differs from the bullseye digest currently running → triggers a rolling restart that lands on bookworm.
 
-**Expected impact:** ~30s switchover during the rolling restart. Consumers retry.
+If you skip the manual patch and Flux SSA still works as expected, no harm done. If something gets confused mid-reconcile, run the patch and force a reconcile:
+
+```bash
+rtk kubectl patch cluster postgres17 -n databases --context home \
+  --type=json -p='[{"op":"remove","path":"/spec/imageName"}]'
+rtk flux reconcile ks cloudnative-pg-cluster -n flux-system --context home
+```
+
+**Expected impact:** ~30s write-unavailable during primary switchover. Consumers retry. Replicas re-provision their PVCs at the new image.
 
 **Verification post-merge:**
 
 ```bash
-rtk kubectl get cluster postgres17 -n databases --context home -o jsonpath='{.spec.imageCatalogRef}'
+# Confirm bookworm
+rtk kubectl exec -n databases postgres17-2 -c postgres --context home -- \
+  bash -c 'cat /etc/os-release | grep VERSION_CODENAME'
+# VERSION_CODENAME=bookworm
+
+# Confirm catalog ref
+rtk kubectl get cluster postgres17 -n databases --context home \
+  -o jsonpath='{.spec.imageCatalogRef}'
 # {"apiGroup":"postgresql.cnpg.io","kind":"ClusterImageCatalog","name":"postgresql","major":17}
 
-rtk kubectl get pods -n databases -l cnpg.io/cluster=postgres17 --context home
-# 2/2 Running
+# Confirm health
+rtk kubectl get cluster postgres17 -n databases --context home
+# 2/2 Ready, primary set, healthy
+
+# Spot-check consumer connectivity
+for app in litellm n8n authentik home-assistant; do
+  echo "=== $app ==="
+  rtk kubectl logs -n <ns> -l app.kubernetes.io/name=$app --tail=10 --context home | \
+    grep -iE 'error|connection|failed' | head -3 || echo "  ok"
+done
 ```
 
-### PR 3 — Take fresh backup + bump major to 18 (downtime expected)
+**Verification window:** soak the bookworm cluster for at least 24h before proceeding to PR 2. Watch for autovacuum behavior changes, glibc-driven collation surprises (PG17 retains the same default ICU collation across distros, but spot-check `\dC` output if you have queries that depend on collation order), and any consumer warnings.
+
+### PR 2 — Take fresh backup + bump major to 18 (downtime expected)
 
 **Manual pre-merge step (REQUIRED):**
 
@@ -103,7 +125,7 @@ in `kubernetes/apps/databases/cloudnative-pg/cluster/cluster17.yaml`.
 | Linkwarden | UI 5xx; resumes |
 | Memos / Paperless | Disabled, irrelevant |
 
-### PR 4 — Post-upgrade verification (no downtime)
+### PR 3 — Post-upgrade verification (no downtime)
 
 **Manual post-merge steps:**
 
