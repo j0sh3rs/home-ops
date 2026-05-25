@@ -20,11 +20,15 @@ spec:
     global:
       deploymentAnnotations:
         reloader.stakater.com/auto: "true"
+      # envFrom replaces deprecated root-level envFrom (chart >= 2026.5).
+      # Applies to both server and worker. AUTHENTIK_BOOTSTRAP_PASSWORD and
+      # AUTHENTIK_BOOTSTRAP_TOKEN are passed as env vars via this secret.
+      envFrom:
+        - secretRef:
+            name: authentik-secrets
 
     authentik:
       secret_key: "${AUTHENTIK_SECRET_KEY}"
-      bootstrap_password: "${AUTHENTIK_BOOTSTRAP_PASSWORD}"
-      bootstrap_token: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
       log_level: info
       postgresql:
         host: postgres17-rw.databases.svc.cluster.local
@@ -61,14 +65,6 @@ spec:
           cpu: 1
           memory: 512Mi
 
-    # Authentik's bundled Redis subchart disabled — use DragonflyDB db 6
-    redis:
-      enabled: false
-
     # Bundled PostgreSQL subchart disabled — use CNPG postgres17
     postgresql:
       enabled: false
-
-    envFrom:
-      - secretRef:
-          name: authentik-secrets
