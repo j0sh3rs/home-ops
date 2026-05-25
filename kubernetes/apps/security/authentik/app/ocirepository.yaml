@@ -11,6 +11,6 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    # renovate: datasource=docker depName=ghcr.io/goauthentik/helm/authentik
+    # renovate: datasource=docker depName=ghcr.io/goauthentik/helm-charts/authentik
     tag: 2026.2.3
-  url: oci://ghcr.io/goauthentik/helm/authentik
+  url: oci://ghcr.io/goauthentik/helm-charts/authentik
