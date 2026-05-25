@@ -1,0 +1,73 @@
+---
+# Version-stable Service aliases for the cnpg-managed cluster.
+#
+# CNPG creates Service names from the Cluster CR's `metadata.name`:
+#   <cluster-name>-rw  (writable, primary only)
+#   <cluster-name>-r   (read-only, all instances)
+#   <cluster-name>-ro  (read-only, replicas only)
+#
+# Our Cluster is named `postgres17`, so consumers historically reference
+# `postgres17-rw.databases.svc.cluster.local`. Renaming a cnpg Cluster
+# CR is destructive — operator deletes/recreates the StatefulSet — so
+# we keep the underlying name and add ExternalName aliases that don't
+# carry a version. New apps should reference these aliases. Existing
+# apps migrate opportunistically when their secrets are next touched.
+#
+# Aliases:
+#   postgres-rw → postgres17-rw  (write traffic; primary only)
+#   postgres-r  → postgres17-r   (read traffic; all instances incl. primary)
+#   postgres-ro → postgres17-ro  (read traffic; replicas only)
+#
+# When PG18 lands and operator-managed services rename to postgres18-*,
+# we update the externalName here in one place. Consumers' connection
+# strings stay stable.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-rw
+  namespace: databases
+  labels:
+    app.kubernetes.io/component: cnpg-alias
+    app.kubernetes.io/instance: postgres17
+spec:
+  type: ExternalName
+  externalName: postgres17-rw.databases.svc.cluster.local
+  ports:
+    - name: postgres
+      port: 5432
+      protocol: TCP
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-r
+  namespace: databases
+  labels:
+    app.kubernetes.io/component: cnpg-alias
+    app.kubernetes.io/instance: postgres17
+spec:
+  type: ExternalName
+  externalName: postgres17-r.databases.svc.cluster.local
+  ports:
+    - name: postgres
+      port: 5432
+      protocol: TCP
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-ro
+  namespace: databases
+  labels:
+    app.kubernetes.io/component: cnpg-alias
+    app.kubernetes.io/instance: postgres17
+spec:
+  type: ExternalName
+  externalName: postgres17-ro.databases.svc.cluster.local
+  ports:
+    - name: postgres
+      port: 5432
+      protocol: TCP
+      targetPort: 5432

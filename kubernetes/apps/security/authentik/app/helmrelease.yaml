@@ -28,18 +28,7 @@ spec:
             name: authentik-secrets
 
     authentik:
-      secret_key: "${AUTHENTIK_SECRET_KEY}"
       log_level: info
-      postgresql:
-        host: postgres17-rw.databases.svc.cluster.local
-        name: authentik
-        user: authentik
-        password: "${AUTHENTIK_POSTGRES_PASSWORD}"
-      redis:
-        host: dragonflydb.databases.svc.cluster.local
-        port: 6379
-        password: "${DRAGONFLYDB_PASSWORD}"
-        db: 6
 
     server:
       resources:
