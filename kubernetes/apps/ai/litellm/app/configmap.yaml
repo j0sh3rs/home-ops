@@ -125,6 +125,13 @@ data:
         # do NOT split into REDIS_HOST/PORT/PASSWORD or both will be set.
         redis_url: os.environ/REDIS_URL
         ttl: 600
+      # LiteLLM v1.85+ requires Bearer auth on /metrics by default. The
+      # ServiceMonitor scrapes anonymously, which gets 401 with response
+      # body recommending exactly this flag. /metrics on a ClusterIP-only
+      # Service is fine to leave unauthenticated — it carries usage stats,
+      # NOT model output or virtual keys. The proxy itself stays auth-on
+      # for /v1/* endpoints; this only opens the prometheus surface.
+      require_auth_for_metrics_endpoint: false
 
     # ------------------------------------------------------------------
     # Router (multi-deployment routing across model_name aliases).
