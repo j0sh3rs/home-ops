@@ -40,10 +40,6 @@ spec:
         wrangler:
           moduleName: "github.com/holysoles/bot-wrangler-traefik-plugin"
           version: v0.10.1
-        traefikoidc:
-          moduleName: "github.com/lukaszraczylo/traefikoidc"
-          # renovate: datasource=github-releases depName=lukaszraczylo/traefikoidc
-          version: v1.0.22
       otlpLogs: false
     ocsp:
       enabled: true

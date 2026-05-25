@@ -13,15 +13,12 @@ spec:
       check_for_plugin_updates: "false"
       feedback_links_enabled: "false"
       reporting_enabled: "false"
-    # Grafana trusts the X-Forwarded-User header set by the Traefik
-    # google-oidc-secure middleware (plugin: lukaszraczylo/traefikoidc,
-    # see kubernetes/components/traefik-oidc/google-oidc-secure.yaml).
+    # Grafana trusts the X-authentik-email header set by the Authentik
+    # forwardAuth middleware (components/authentik-forwardauth/).
     # All external ingress transits that middleware via the HTTPRoute
-    # filter in instance/httproute.yaml, and there is no Service-level
-    # path that bypasses it, so the auth_proxy whitelist is safe to
-    # scope to the cluster pod CIDR. Google OIDC identity (email)
-    # becomes the Grafana username; auto_sign_up creates the Grafana
-    # account on first login.
+    # filter, and there is no Service-level path that bypasses it.
+    # Authentik identity (email) becomes the Grafana username;
+    # auto_sign_up creates the Grafana account on first login.
     auth:
       # Hide the /login form to force OIDC-only. The admin credential
       # can still sign in via POST /login?disableLoginForm=false if
@@ -29,20 +26,19 @@ spec:
       disable_login_form: "true"
       # Send the Grafana logout action through Traefik's logout handler
       # so the OIDC session cookie is cleared at the same time.
-      signout_redirect_url: /oauth2/logout
+      signout_redirect_url: https://auth.68cc.io/if/flow/default-invalidation-flow/
     auth.anonymous:
       enabled: "false"
     auth.proxy:
       enabled: "true"
-      header_name: X-Forwarded-User
+      header_name: X-authentik-email
       header_property: email
       auto_sign_up: "true"
-      # Additional headers the proxy trusts. The traefikoidc plugin emits
-      # X-Forwarded-User (email) and X-Forwarded-Name (Google `name` claim,
-      # via the headers template in components/traefik-oidc/google-oidc-secure.yaml).
+      # Additional headers the proxy trusts. The Authentik forwardAuth middleware
+      # emits X-authentik-email and X-authentik-name.
       # The space-separated `Property:Header` pairs populate matching fields
       # on the Grafana user on sign-up and every sync_ttl refresh.
-      headers: "Name:X-Forwarded-Name Email:X-Forwarded-User"
+      headers: "Name:X-authentik-name Email:X-authentik-email"
       # Cilium native routing preserves source IP; the Traefik DaemonSet
       # pods live in the cluster pod CIDR.
       whitelist: 10.42.0.0/16

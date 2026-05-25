@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# Opts the including namespace into the Authentik forwardAuth Traefik middleware.
+# Replaces components/traefik-oidc (traefikoidc plugin pattern).
+#
+# Gateway API + Traefik reject cross-namespace ExtensionRef filters
+# (traefik/traefik#11126, gateway-api#3903), so this Component materializes
+# the Middleware into whichever namespace imports it.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - ./authentik-forwardauth.yaml
