@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/postgresql.cnpg.io/clusterimagecatalog_v1.json
+# Cluster-scoped catalog of pinned PG images. Cluster CRs reference this
+# via `spec.imageCatalogRef` + `major: <N>` instead of hardcoding
+# `imageName`. Major upgrades become a one-line `major: 17` → `major: 18`
+# change on the Cluster CR.
+#
+# Images pinned to specific digests (NOT moving tags) so a Renovate-driven
+# tag bump can't silently roll the running cluster — operator only
+# reconciles when this catalog changes. Update procedure: bump tag/digest
+# below in a dedicated PR; Renovate is configured against the upstream
+# `cloudnative-pg/postgresql` Docker tag (see customManagers).
+#
+# Source of truth for image digests:
+#   https://github.com/cloudnative-pg/postgres-containers/blob/main/Debian/ClusterImageCatalog-bullseye.yaml
+#
+# We use the bullseye line (NOT bookworm) because the existing cluster's
+# pgdata is bullseye-built. cnpg requires same-OS for in-place upgrades
+# per https://cloudnative-pg.io/docs/1.29/postgres_upgrades/
+apiVersion: postgresql.cnpg.io/v1
+kind: ClusterImageCatalog
+metadata:
+  name: postgresql
+spec:
+  images:
+    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=loose
+    - major: 17
+      image: ghcr.io/cloudnative-pg/postgresql:17.10-202605180839-system-bullseye@sha256:5656486b022a9c0850f399dfdad37183667c53595d466c232f1d9b58500d958f
+    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=loose
+    - major: 18
+      image: ghcr.io/cloudnative-pg/postgresql:18.4-202605180839-system-bullseye@sha256:70516d5620512874419f653939ea6c672a354172a10ffc6c90c073334b1423ec
