@@ -82,11 +82,20 @@ spec:
               frozen — check `kubectl get scheduledbackup -n databases` and
               compare nextScheduleTime vs now. Ref: home-ops-6cn.
             summary: CNPG base backup is stale
-          # Guard against the "never backed up" case where the metric is 0 —
-          # that produces a ~56-year delta and would fire on fresh clusters.
+          # Backup-timestamp source switched from in-tree
+          # `cnpg_collector_last_available_backup_timestamp` to the plugin's
+          # `barman_cloud_cloudnative_pg_io_last_available_backup_timestamp`
+          # in PR feat/cnpg-standard-flavor-and-plugin-alert. The cnpg
+          # collector's metric stays bound to in-tree state — primary
+          # reports 0 forever under plugin-managed backups, replica reports
+          # the last in-tree value frozen in time.
+          #
+          # `max by (cluster)` collapses the per-pod series so a single
+          # successful backup on either instance counts. Guard against the
+          # "never backed up" case (metric == 0) with the > 0 prefix.
           expr: |-
-            (cnpg_collector_last_available_backup_timestamp > 0)
-              and (time() - cnpg_collector_last_available_backup_timestamp > 48 * 3600)
+            (max by (job) (barman_cloud_cloudnative_pg_io_last_available_backup_timestamp) > 0)
+              and (time() - max by (job) (barman_cloud_cloudnative_pg_io_last_available_backup_timestamp) > 48 * 3600)
           for: 15m
           labels:
             severity: critical

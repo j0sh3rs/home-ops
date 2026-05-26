@@ -12,9 +12,18 @@
 # `cloudnative-pg/postgresql` Docker tag (see customManagers).
 #
 # OS distro: trixie (Debian 13). Migration history:
-#   - bullseye (Debian 11)  — initial cluster state
-#   - bookworm (Debian 12)  — PR feat/cnpg-imagecatalog-svc-alias
-#   - trixie   (Debian 13)  — this PR
+#   - bullseye (Debian 11) system   — initial cluster state
+#   - bookworm (Debian 12) system   — PR feat/cnpg-imagecatalog-svc-alias
+#   - trixie   (Debian 13) system   — PR feat/cnpg-distro-hop-trixie
+#   - trixie   (Debian 13) standard — this PR
+#
+# Image FLAVOR: standard (NOT system). The `system` flavor is deprecated
+# upstream (Sep 2025); ships barman binaries inline in the cluster pod
+# but is being removed. The `standard` flavor doesn't bundle barman —
+# the barman-cloud plugin operator (kubernetes/apps/databases/cnpg-barman-plugin/)
+# handles backups via a sidecar instead. PR 3 (feat/cnpg-barman-plugin)
+# moved cluster CR to spec.plugins[]; this PR drops the unused barman
+# binaries from the cluster pod itself.
 #
 # cnpg requires same-OS for in-place major upgrades:
 #   https://cloudnative-pg.io/docs/1.29/postgres_upgrades/
@@ -22,10 +31,10 @@
 # the PG major bump happens distro-stable.
 #
 # Catalog YAMLs in cnpg-postgres-containers ship only bookworm + bullseye
-# entries today, but the runtime images for trixie ARE published. We
-# pull digests directly from the registry. Verified via:
+# entries today, but the runtime images for trixie ARE published. Digests
+# pulled directly from the registry; verified via:
 #   curl -H "Authorization: Bearer <token>" \
-#     https://ghcr.io/v2/cloudnative-pg/postgresql/manifests/17.10-202605250923-system-trixie
+#     https://ghcr.io/v2/cloudnative-pg/postgresql/manifests/17.10-202605250923-standard-trixie
 apiVersion: postgresql.cnpg.io/v1
 kind: ClusterImageCatalog
 metadata:
@@ -34,7 +43,7 @@ spec:
   images:
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=loose
     - major: 17
-      image: ghcr.io/cloudnative-pg/postgresql:17.10-202605250923-system-trixie@sha256:66269150d761c0cef234eb5a0f6103851b948e043fe4080d9c0e758053c15356
+      image: ghcr.io/cloudnative-pg/postgresql:17.10-202605250923-standard-trixie@sha256:e89d5423983438428ceed39aef567bcc33e28160b6145fe09a40fb0a31a99e5b
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=loose
     - major: 18
-      image: ghcr.io/cloudnative-pg/postgresql:18.4-202605250923-system-trixie@sha256:47bd8dc5695a7f6f0189e205dfdb964aafbfafc337152c792ea62566edf75c33
+      image: ghcr.io/cloudnative-pg/postgresql:18.4-202605250923-standard-trixie@sha256:1e9b7f86a108b8eb472f52b59fc085aafee4cb3841484727ad67c020a8935a86
