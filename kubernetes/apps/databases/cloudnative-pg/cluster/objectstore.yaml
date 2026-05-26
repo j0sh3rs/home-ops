@@ -1,0 +1,59 @@
+---
+# Barman Cloud Plugin ObjectStore CR — replacement for the in-tree
+# spec.backup.barmanObjectStore block on the Cluster CR.
+#
+# The S3 path, retention policy, compression, and credentials all match
+# what was previously inline. `serverName` carries through unchanged so
+# the plugin reads/writes the SAME barman repo at s3://cloudnative-pg/postgres17-v4/.
+# This is critical for backup continuity — same path means PITR archives,
+# previous base backups, and WAL segments remain valid.
+#
+# A second ObjectStore exists for the recovery source (postgres17-v3),
+# referenced by spec.externalClusters in cluster17.yaml.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: postgres17-v4
+  namespace: databases
+spec:
+  configuration:
+    destinationPath: s3://cloudnative-pg/
+    endpointURL: https://s3.68cc.io
+    serverName: postgres17-v4
+    s3Credentials:
+      accessKeyId:
+        name: cloudnative-pg-secret
+        key: S3_ACCESS_KEY_ID
+      secretAccessKey:
+        name: cloudnative-pg-secret
+        key: S3_SECRET_ACCESS_KEY
+    data:
+      compression: bzip2
+    wal:
+      compression: bzip2
+      maxParallel: 8
+  # Retention policy lives on the ObjectStore (was on Cluster.spec.backup
+  # in the in-tree model).
+  retentionPolicy: 30d
+---
+# Recovery-source ObjectStore. cluster17.yaml's spec.bootstrap.recovery
+# references the original postgres17-v3 cluster (pre-current-incarnation).
+# That historical S3 path needs its own ObjectStore so the plugin can
+# read it. Not used for ongoing backups — pure recovery-time config.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: postgres17-v3
+  namespace: databases
+spec:
+  configuration:
+    destinationPath: s3://cloudnative-pg/
+    endpointURL: https://s3.68cc.io
+    serverName: postgres17-v3
+    s3Credentials:
+      accessKeyId:
+        name: cloudnative-pg-secret
+        key: S3_ACCESS_KEY_ID
+      secretAccessKey:
+        name: cloudnative-pg-secret
+        key: S3_SECRET_ACCESS_KEY

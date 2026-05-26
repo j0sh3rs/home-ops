@@ -34,6 +34,11 @@ spec:
   dependsOn:
     - name: cloudnative-pg
       namespace: *namespace
+    # Cluster CR references spec.plugins[barman-cloud.cloudnative-pg.io].
+    # Need the plugin operator running before reconcile, otherwise cnpg
+    # webhook rejects the Cluster as referencing an unknown plugin.
+    - name: cnpg-barman-plugin
+      namespace: *namespace
   interval: 1h
   path: ./kubernetes/apps/databases/cloudnative-pg/cluster
   prune: true

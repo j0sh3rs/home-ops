@@ -11,3 +11,10 @@ spec:
   cluster:
     name: postgres17
   target: "prefer-standby"
+  # Plugin-managed backups (cnpg 1.30 will remove the in-tree path).
+  # The cluster's spec.plugins[] declares the barman-cloud plugin; this
+  # method directs ScheduledBackup runs through it instead of the
+  # default cnpg-internal barman-cloud-backup invocation.
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
