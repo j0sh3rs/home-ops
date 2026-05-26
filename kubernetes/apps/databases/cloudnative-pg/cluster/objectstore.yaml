@@ -2,14 +2,20 @@
 # Barman Cloud Plugin ObjectStore CR — replacement for the in-tree
 # spec.backup.barmanObjectStore block on the Cluster CR.
 #
-# The S3 path, retention policy, compression, and credentials all match
-# what was previously inline. `serverName` carries through unchanged so
-# the plugin reads/writes the SAME barman repo at s3://cloudnative-pg/postgres17-v4/.
-# This is critical for backup continuity — same path means PITR archives,
-# previous base backups, and WAL segments remain valid.
+# Field-placement note (cnpg-i v0.6.0 webhook):
+#   - The S3 location, credentials, and retention live HERE.
+#   - `serverName` lives on the Cluster's spec.plugins[].parameters,
+#     NOT on ObjectStore.spec.configuration. The webhook explicitly
+#     rejects serverName at the ObjectStore level:
+#       "spec.configuration.serverName: Forbidden: use the 'serverName'
+#        plugin parameter in the Cluster resource"
+#   - `barmanObjectName` (the ObjectStore CR's metadata.name) is referenced
+#     from the Cluster's plugin parameters; the same ObjectStore can serve
+#     multiple clusters by varying serverName per consumer.
 #
-# A second ObjectStore exists for the recovery source (postgres17-v3),
-# referenced by spec.externalClusters in cluster17.yaml.
+# Backup continuity: the cluster references serverName=postgres17-v4 in
+# its plugin parameters, so the plugin reads/writes the SAME S3 path at
+# s3://cloudnative-pg/postgres17-v4/ that the in-tree config used.
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
@@ -19,7 +25,6 @@ spec:
   configuration:
     destinationPath: s3://cloudnative-pg/
     endpointURL: https://s3.68cc.io
-    serverName: postgres17-v4
     s3Credentials:
       accessKeyId:
         name: cloudnative-pg-secret
@@ -40,6 +45,8 @@ spec:
 # references the original postgres17-v3 cluster (pre-current-incarnation).
 # That historical S3 path needs its own ObjectStore so the plugin can
 # read it. Not used for ongoing backups — pure recovery-time config.
+# serverName=postgres17-v3 lives in the externalClusters[].plugin.parameters
+# of cluster17.yaml.
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
@@ -49,7 +56,6 @@ spec:
   configuration:
     destinationPath: s3://cloudnative-pg/
     endpointURL: https://s3.68cc.io
-    serverName: postgres17-v3
     s3Credentials:
       accessKeyId:
         name: cloudnative-pg-secret
