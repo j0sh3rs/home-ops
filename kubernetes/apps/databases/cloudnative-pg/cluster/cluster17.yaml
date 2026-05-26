@@ -22,8 +22,8 @@ spec:
     apiGroup: postgresql.cnpg.io
     kind: ClusterImageCatalog
     name: postgresql
-    major: 17
-  description: "Shared PG17 Cluster"
+    major: 18
+  description: "Shared PG cluster"
   primaryUpdateStrategy: unsupervised
   # Exclude CNPG PVCs from Velero fs-backup — data is already shipped to
   # s3://cloudnative-pg via barmanObjectStore and PITR is driven from WAL
@@ -123,8 +123,15 @@ spec:
         # ObjectStore itself, so it has to live on the Cluster's plugin
         # parameters instead. Same ObjectStore CR could serve multiple
         # clusters with different per-cluster serverNames.
-        barmanObjectName: postgres17-v4
-        serverName: postgres17-v4
+        #
+        # Rotated postgres17-v4 -> postgres18-v1 at the PG18 cutover. New
+        # backups land at s3://cloudnative-pg/postgres18-v1/ — clean
+        # separation from the PG17 archives. PITR is invalid across
+        # major-version boundaries so a fresh path avoids ambiguity.
+        # postgres17-v4 ObjectStore still exists for forensic reference;
+        # its archive ages out under the existing 30d retention.
+        barmanObjectName: postgres18-v1
+        serverName: postgres18-v1
   # Recovery source for new instances bootstrapping from S3.
   # `externalClusters[].plugin` replaces the legacy `barmanObjectStore`
   # block — points at the postgres17-v3 ObjectStore CR + its own serverName.

@@ -15,7 +15,13 @@
 #   - bullseye (Debian 11) system   — initial cluster state
 #   - bookworm (Debian 12) system   — PR feat/cnpg-imagecatalog-svc-alias
 #   - trixie   (Debian 13) system   — PR feat/cnpg-distro-hop-trixie
-#   - trixie   (Debian 13) standard — this PR
+#   - trixie   (Debian 13) standard — PR feat/cnpg-standard-trixie
+#
+# PG version progression on this catalog:
+#   - PG 17.10 — initial entry; cluster used until PG18 cutover
+#   - PG 18.4  — current cluster target (PR feat/cnpg-pg18-bump)
+# Both stay in the catalog so a rollback to major: 17 remains a one-line
+# revert without re-resolving image digests.
 #
 # Image FLAVOR: standard (NOT system). The `system` flavor is deprecated
 # upstream (Sep 2025); ships barman binaries inline in the cluster pod
