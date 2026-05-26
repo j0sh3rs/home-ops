@@ -116,10 +116,18 @@ spec:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters:
+        # `barmanObjectName` references the ObjectStore CR by metadata.name
+        # (sibling objectstore.yaml). The ObjectStore carries S3 location +
+        # credentials + retention. Path-within-bucket is set HERE via
+        # `serverName` — the plugin's webhook rejects serverName on the
+        # ObjectStore itself, so it has to live on the Cluster's plugin
+        # parameters instead. Same ObjectStore CR could serve multiple
+        # clusters with different per-cluster serverNames.
         barmanObjectName: postgres17-v4
+        serverName: postgres17-v4
   # Recovery source for new instances bootstrapping from S3.
   # `externalClusters[].plugin` replaces the legacy `barmanObjectStore`
-  # block — points at the postgres17-v3 ObjectStore CR.
+  # block — points at the postgres17-v3 ObjectStore CR + its own serverName.
   bootstrap:
     recovery:
       source: &previousCluster postgres17-v3
@@ -129,3 +137,4 @@ spec:
         name: barman-cloud.cloudnative-pg.io
         parameters:
           barmanObjectName: postgres17-v3
+          serverName: postgres17-v3
