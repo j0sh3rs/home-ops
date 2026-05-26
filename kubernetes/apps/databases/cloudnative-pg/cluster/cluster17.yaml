@@ -104,34 +104,28 @@ spec:
       memory: 4Gi
   monitoring:
     enablePodMonitor: true
-  backup:
-    retentionPolicy: 30d
-    barmanObjectStore: &barmanObjectStore
-      data:
-        compression: bzip2
-      wal:
-        compression: bzip2
-        maxParallel: 8
-      destinationPath: s3://cloudnative-pg/
-      endpointURL: https://s3.68cc.io
-      # Note: serverName version needs to be incremented
-      # when recovering from an existing cnpg cluster
-      serverName: &currentCluster postgres17-v4
-      s3Credentials:
-        accessKeyId:
-          name: cloudnative-pg-secret
-          key: S3_ACCESS_KEY_ID
-        secretAccessKey:
-          name: cloudnative-pg-secret
-          key: S3_SECRET_ACCESS_KEY
-  # Note: previousCluster needs to be set to the name of the previous
-  # cluster when recovering from an existing cnpg cluster
+  # Backups are managed by the cnpg-barman-cloud plugin. The plugin owns
+  # backup config via an ObjectStore CR (sibling objectstore.yaml). The
+  # in-tree spec.backup.barmanObjectStore block was removed in favour of
+  # spec.plugins[]. Plugin reads/writes the same s3://cloudnative-pg/
+  # path with the same serverName=postgres17-v4 — full backup continuity.
+  #
+  # See docs/runbooks/cnpg-major-upgrade.md PR 3 for the migration plan
+  # and docs/runbooks/cnpg-barman-plugin-migration.md for full reference.
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: postgres17-v4
+  # Recovery source for new instances bootstrapping from S3.
+  # `externalClusters[].plugin` replaces the legacy `barmanObjectStore`
+  # block — points at the postgres17-v3 ObjectStore CR.
   bootstrap:
     recovery:
       source: &previousCluster postgres17-v3
-  # Note: externalClusters is needed when recovering from an existing cnpg cluster
   externalClusters:
     - name: *previousCluster
-      barmanObjectStore:
-        <<: *barmanObjectStore
-        serverName: *previousCluster
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: postgres17-v3
