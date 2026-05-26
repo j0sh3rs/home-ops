@@ -1,30 +1,59 @@
 # CNPG Major-Version PostgreSQL Upgrade Runbook
 
-**Status:** procedure documented; PG17 → PG18 upgrade pending.
-**Last reviewed:** 2026-05-25 (cnpg operator 1.29.1, cluster on PG 17.6 bullseye).
+**Status:** PR 1 (bullseye→bookworm + catalog) merged. Trixie distro hop in flight. PG17→PG18 pending.
+**Last reviewed:** 2026-05-26 (cnpg operator 1.29.1, cluster on PG 17.10 bookworm).
 
 Reference: https://cloudnative-pg.io/docs/1.29/postgres_upgrades/
 
-## Prerequisites
+## Prerequisites (already merged)
 
-These should already exist in the repo (delivered by phase 1 of the upgrade plan, branch `feat/cnpg-imagecatalog-svc-alias`):
-
-- `kubernetes/apps/databases/cloudnative-pg/cluster/imagecatalog.yaml` — `ClusterImageCatalog/postgresql` with pinned digests for major 17 and 18 from the bullseye line.
+- `kubernetes/apps/databases/cloudnative-pg/cluster/imagecatalog.yaml` — `ClusterImageCatalog/postgresql` with pinned digests, currently bookworm.
 - `kubernetes/apps/databases/cloudnative-pg/cluster/service-aliases.yaml` — version-stable `postgres-{rw,r,ro}` ExternalName Services aliasing the cnpg-managed `postgres17-{rw,r,ro}`.
-- (Phase 2) Cluster CR uses `imageCatalogRef` instead of `imageName`.
+- Cluster CR uses `imageCatalogRef` (not `imageName`).
 
-## Upgrade plan: 3 PRs
+## Upgrade plan: 4 PRs (revised after bookworm hop completed; trixie hop added)
 
-### PR 1 — Image catalog + service aliases + bullseye→bookworm distro hop (one rolling restart)
+### PR 1 — bullseye→bookworm distro hop + catalog/aliases (DONE)
 
-**Branch:** `feat/cnpg-imagecatalog-svc-alias`
+**Branch:** `feat/cnpg-imagecatalog-svc-alias` — merged.
 
-Single PR delivers:
-- `ClusterImageCatalog/postgresql` with bookworm digests for major 17 + 18
-- ExternalName Service aliases `postgres-{rw,r,ro}` → cnpg-managed `postgres17-*`
-- Cluster CR switches from `imageName: …:17` (moving tag, bullseye) to `imageCatalogRef` at major 17 (digest-pinned, **bookworm**)
+Cluster moved bullseye → bookworm. Catalog + aliases established. PG17 retained.
 
-This effects a same-major distro hop (PG17 bullseye → PG17 bookworm) in a single rolling restart. The distro hop is required by cnpg before any major-version upgrade — operator rejects bullseye→bookworm and PG17→PG18 simultaneously per the OS-compatibility constraint.
+### PR 2 — bookworm→trixie distro hop (one rolling restart)
+
+**Branch:** `feat/cnpg-distro-hop-trixie`
+
+Bumps the catalog digests for major 17 + 18 from bookworm to trixie. Cluster CR is unchanged (still references `major: 17`). The operator detects the catalog change → digest differs → rolling restart lands on trixie.
+
+Trixie is Debian 13, current stable. cnpg-postgres-containers ships trixie images for both PG17.10 and PG18.4 (verified directly against the registry; the catalog YAMLs in cnpg's repo only ship bookworm + bullseye entries but the runtime images for trixie ARE published).
+
+**No pre-merge patch needed** — `imageName` was already removed in PR 1.
+
+**Expected impact:** ~30s write-unavailable during primary switchover. Replicas re-provision PVCs at the new image. Same shape as the bullseye→bookworm hop.
+
+**Verification post-merge:**
+
+```bash
+# Confirm trixie
+rtk kubectl exec -n databases postgres17-2 -c postgres --context home -- \
+  bash -c 'cat /etc/os-release | grep VERSION_CODENAME'
+# VERSION_CODENAME=trixie
+
+# Confirm catalog ref still major 17
+rtk kubectl get cluster postgres17 -n databases --context home \
+  -o jsonpath='{.spec.imageCatalogRef}'
+# {"apiGroup":"postgresql.cnpg.io","kind":"ClusterImageCatalog","name":"postgresql","major":17}
+
+# Confirm PG version unchanged
+rtk kubectl cnpg psql postgres17 -n databases --context home -- -tAc 'SELECT version();'
+# PostgreSQL 17.10 ... (Debian) — note Debian 13 / trixie in the build string
+
+# Confirm health
+rtk kubectl get cluster postgres17 -n databases --context home
+# 2/2 Ready, primary set
+```
+
+**Verification window:** soak the trixie cluster for at least 24h before proceeding to PR 3. Glibc 2.41 in trixie vs 2.36 in bookworm; ICU collations are explicit-version on cnpg images so collation re-indexing is a non-issue, but spot-check sort-dependent queries.
 
 **Manual pre-merge step (defensive, recommended):**
 
@@ -76,7 +105,7 @@ done
 
 **Verification window:** soak the bookworm cluster for at least 24h before proceeding to PR 2. Watch for autovacuum behavior changes, glibc-driven collation surprises (PG17 retains the same default ICU collation across distros, but spot-check `\dC` output if you have queries that depend on collation order), and any consumer warnings.
 
-### PR 2 — Take fresh backup + bump major to 18 (downtime expected)
+### PR 3 — Take fresh backup + bump major to 18 (downtime expected)
 
 **Manual pre-merge step (REQUIRED):**
 
@@ -125,7 +154,7 @@ in `kubernetes/apps/databases/cloudnative-pg/cluster/cluster17.yaml`.
 | Linkwarden | UI 5xx; resumes |
 | Memos / Paperless | Disabled, irrelevant |
 
-### PR 3 — Post-upgrade verification (no downtime)
+### PR 4 — Post-upgrade verification (no downtime)
 
 **Manual post-merge steps:**
 
