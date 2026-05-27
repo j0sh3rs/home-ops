@@ -13,6 +13,7 @@ resources:
   - amd-gpu-grafanadashboards.yaml
   - dragonflydb-grafanadashboard.yaml
   - litellm-grafanadashboard.yaml
+  - authentik-grafanadashboard.yaml
   # Note: the CloudNativePG GrafanaDashboard CR lives in
   # `kubernetes/apps/databases/cloudnative-pg/cluster/grafanadashboard.yaml`
   # because its source ConfigMap (cnpg-grafana-dashboard) is in the
@@ -35,5 +36,8 @@ configMapGenerator:
   - name: litellm-dashboard
     files:
       - litellm-dashboard.json
+  - name: authentik-dashboard
+    files:
+      - authentik-dashboard.json
 generatorOptions:
   disableNameSuffixHash: true
