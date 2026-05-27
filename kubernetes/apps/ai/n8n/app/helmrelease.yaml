@@ -45,13 +45,6 @@ spec:
                 value: "https"
               - name: N8N_HOST
                 value: "0.0.0.0"
-              # Authentik forward-auth gates n8n.68cc.io at Traefik. Skip n8n's
-              # own login — every request lands as the owner. OSS n8n has no
-              # SAML/OIDC (Enterprise-only) and no trusted-header user mapping,
-              # so per-user identity stops at Authentik. Loses per-user audit
-              # inside n8n; access control lives on the Authentik application.
-              - name: N8N_USER_MANAGEMENT_DISABLED
-                value: "true"
               - name: N8N_DIAGNOSTICS_ENABLED
                 value: false
               - name: N8N_HIRING_BANNER_ENABLED
@@ -98,12 +91,6 @@ spec:
           - name: traefik-external-gateway
             namespace: network
         rules:
-          - filters:
-              - type: ExtensionRef
-                extensionRef:
-                  group: traefik.io
-                  kind: Middleware
-                  name: authentik-forwardauth
-            backendRefs:
+          - backendRefs:
               - name: *app
                 port: *port
