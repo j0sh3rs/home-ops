@@ -107,6 +107,9 @@ data:
       # CNPG primary on every completion. Re-enable when reporting is
       # actually consumed.
       disable_spend_logs: true
+      # Admin UI restricted to admin role — SSO via Authentik OIDC.
+      # j0sh3rs@gmail.com is the sole admin (set via PROXY_ADMIN_ID env).
+      ui_access_mode: "admin_only"
 
     # ------------------------------------------------------------------
     # Default LiteLLM routing/cache behaviour applied to all requests.
