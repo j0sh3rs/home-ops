@@ -36,8 +36,5 @@ configMapGenerator:
   - name: litellm-dashboard
     files:
       - litellm-dashboard.json
-  - name: authentik-dashboard
-    files:
-      - authentik-dashboard.json
 generatorOptions:
   disableNameSuffixHash: true
