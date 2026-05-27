@@ -18,13 +18,7 @@ resources:
   #  ./memos/ks.yaml
   - ./metamcp/ks.yaml
   - ./mosquitto/ks.yaml
-  # n8n, llama-swap, open-webui moved to the ai namespace; LiteLLM gateway
-  # was added there as a unified OpenAI-compatible front door for local +
-  # cloud LLMs. See kubernetes/apps/ai/.
-  #  - ./n8n/ks.yaml
-  #  - ./llama-swap/ks.yaml
-  #  - ./open-webui/ks.yaml
-  #  - ./paperless/ks.yaml
+  - ./paperless/ks.yaml
   - ./tetragon-policies/ks.yaml
 
 # home-assistant needs hostNetwork=true for mDNS/UPnP device auto-discovery.
