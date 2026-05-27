@@ -34,8 +34,9 @@ spec:
       metrics:
         enabled: true
         serviceMonitor:
-          create: true
-          interval: 30s
+          # Chart SM silently skips when CRD is outside release ns.
+          # Manual ServiceMonitor in servicemonitor.yaml handles this.
+          create: false
       resources:
         requests:
           cpu: 50m

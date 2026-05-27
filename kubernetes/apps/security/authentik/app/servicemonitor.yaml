@@ -1,0 +1,23 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/servicemonitor_v1.json
+# The Authentik chart creates a `server.metrics.serviceMonitor` but silently
+# skips it when the ServiceMonitor CRD exists outside the release namespace.
+# This manual ServiceMonitor targets the `authentik-server-metrics` Service
+# (port 9300) that the chart does create correctly.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: authentik
+  namespace: security
+spec:
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+  namespaceSelector:
+    matchNames:
+      - security
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: server-metrics
+      app.kubernetes.io/name: authentik
