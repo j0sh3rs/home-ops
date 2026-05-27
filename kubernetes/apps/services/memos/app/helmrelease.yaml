@@ -35,7 +35,7 @@ spec:
             image:
               repository: neosmemo/memos
               # renovate: datasource=docker depName=neosmemo/memos
-              tag: 0.28
+              tag: 0.29
               pullPolicy: IfNotPresent
             env:
               - name: MEMOS_ADDR
