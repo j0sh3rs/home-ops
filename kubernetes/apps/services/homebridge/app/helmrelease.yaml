@@ -97,15 +97,15 @@ spec:
           - name: traefik-internal-gateway
             namespace: network
         rules:
-          # OIDC opt-in: uncomment to gate behind Google sign-in via the
-          # traefikoidc plugin. Currently disabled — Homebridge UI uses
-          # its own session auth and HAP traffic is bearer-token only.
+          # Auth opt-in: uncomment to gate behind Authentik.
+          # Currently disabled — Homebridge UI uses its own session auth
+          # and HAP traffic is bearer-token only.
           # - filters:
           #     - type: ExtensionRef
           #       extensionRef:
           #         group: traefik.io
           #         kind: Middleware
-          #         name: google-oidc-secure
+          #         name: authentik-forwardauth
           - backendRefs:
               - name: *app
                 port: *port
