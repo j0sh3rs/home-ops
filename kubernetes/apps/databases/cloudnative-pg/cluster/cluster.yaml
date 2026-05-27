@@ -3,27 +3,26 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
+  # NOTE: metadata.name stays `postgres17` indefinitely. Renaming a cnpg
+  # Cluster CR is destructive — operator deletes/recreates the StatefulSet,
+  # drops PVCs, and forces a full restore from S3. The version stamp in
+  # the name is therefore a fossil that future-me cannot easily remove.
+  # Consumer-facing access uses the version-stable ExternalName Services
+  # in service-aliases.yaml (postgres-rw / -r / -ro).
   name: postgres17
 spec:
   instances: 2
   # Image is pinned via the ClusterImageCatalog `postgresql` (sibling
-  # imagecatalog.yaml, bookworm digests). To bump the major version,
-  # change `major:` to a value present in that catalog. Patch versions
-  # roll forward when the catalog itself is bumped (separate PR).
-  # Procedure: docs/runbooks/cnpg-major-upgrade.md.
-  #
-  # NOTE: imageName + imageCatalogRef are mutually exclusive at the
-  # cnpg webhook layer. If the live Cluster object still has imageName
-  # set (legacy state pre-this-PR), Flux's apply will fail validation.
-  # Pre-merge step (one-time, documented in runbook):
-  #   kubectl patch cluster postgres17 -n databases --context home \
-  #     --type=json -p='[{"op":"remove","path":"/spec/imageName"}]'
+  # imagecatalog.yaml, trixie standard digests). To bump the major
+  # version, change `major:` to a value present in that catalog. Patch
+  # versions roll forward when the catalog itself is bumped (separate
+  # PR). Procedure: docs/runbooks/cnpg-major-upgrade.md.
   imageCatalogRef:
     apiGroup: postgresql.cnpg.io
     kind: ClusterImageCatalog
     name: postgresql
-    major: 17
-  description: "Shared PG17 Cluster"
+    major: 18
+  description: "Shared PG cluster"
   primaryUpdateStrategy: unsupervised
   # Exclude CNPG PVCs from Velero fs-backup — data is already shipped to
   # s3://cloudnative-pg via barmanObjectStore and PITR is driven from WAL
@@ -121,10 +120,16 @@ spec:
         # credentials + retention. Path-within-bucket is set HERE via
         # `serverName` — the plugin's webhook rejects serverName on the
         # ObjectStore itself, so it has to live on the Cluster's plugin
-        # parameters instead. Same ObjectStore CR could serve multiple
-        # clusters with different per-cluster serverNames.
-        barmanObjectName: postgres17-v4
-        serverName: postgres17-v4
+        # parameters instead.
+        #
+        # Rotated postgres17-v4 -> postgres18-v1 at the PG18 cutover. New
+        # backups land at s3://cloudnative-pg/postgres18-v1/ — clean
+        # separation from the PG17 archives. PITR is invalid across major
+        # boundaries so a fresh path avoids ambiguity. postgres17-v4
+        # ObjectStore stays around as a forensic reference; its archive
+        # ages out under the existing 30d retention.
+        barmanObjectName: postgres18-v1
+        serverName: postgres18-v1
   # Recovery source for new instances bootstrapping from S3.
   # `externalClusters[].plugin` replaces the legacy `barmanObjectStore`
   # block — points at the postgres17-v3 ObjectStore CR + its own serverName.
