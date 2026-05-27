@@ -31,6 +31,11 @@ spec:
       log_level: info
 
     server:
+      metrics:
+        enabled: true
+        serviceMonitor:
+          create: true
+          interval: 30s
       resources:
         requests:
           cpu: 50m
