@@ -27,8 +27,9 @@ spec:
           reloader.stakater.com/auto: "true"
 
         initContainers:
-          # Create the anythingllm Postgres role + DB on the shared CNPG
-          # cluster. Uses the same pattern as LiteLLM's pre-install hook.
+          # Creates the anythingllm Postgres role + DB on the shared CNPG
+          # cluster. Runs as a pre-start init container using the same
+          # postgres-init pattern as LiteLLM.
           init-db:
             image:
               repository: ghcr.io/home-operations/postgres-init
@@ -41,8 +42,11 @@ spec:
           app:
             image:
               repository: mintplexlabs/anythingllm
+              # The pg-* tag ships a Prisma schema with `provider = postgresql`
+              # instead of sqlite. The standard tag hard-codes sqlite.
               # renovate: datasource=docker depName=mintplexlabs/anythingllm
-              tag: 1.13.0
+              # versioning=regex:^pg-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+              tag: pg-1.13.0
             env:
               SERVER_PORT: "3001"
               STORAGE_DIR: /app/server/storage
@@ -60,19 +64,18 @@ spec:
               EMBEDDING_BASE_PATH: "http://litellm:4000/v1"
               EMBEDDING_MODEL_PREF: local-embed
               EMBEDDING_MODEL_MAX_CHUNK_LENGTH: "8192"
-              # Vector store: LanceDB (embedded, zero extra ops)
+              # Vector store: LanceDB (embedded in pod, data on PVC).
+              # Switching to pgvector later = one env var change here.
               VECTOR_DB: lancedb
-              # Chunking defaults (can tune per-workspace in UI)
+              # Chunking defaults (tunable per-workspace in UI)
               TEXT_CHUNK_SIZE: "1500"
               TEXT_CHUNK_OVERLAP: "200"
-              # DB connection assembled from secret env vars below.
-              # DATABASE_URL is set by the anythingllm process using
-              # these Prisma-style vars. Keeping host/port/user/pass
-              # separate so INIT_POSTGRES_* vars can share the secret.
-              DATABASE_CONNECTION_STRING:
+              # Postgres connection string for the pg-* image's Prisma schema.
+              # Env var MUST be DATABASE_URL (not DATABASE_CONNECTION_STRING).
+              DATABASE_URL:
                 secretKeyRef:
                   name: anythingllm-secret
-                  key: DATABASE_CONNECTION_STRING
+                  key: DATABASE_URL
               JWT_SECRET:
                 secretKeyRef:
                   name: anythingllm-secret
@@ -143,6 +146,10 @@ spec:
     route:
       app:
         annotations:
+          # unifi-dns writes a LAN A record pointing at 192.168.35.17
+          # (traefik-internal-gateway VIP). No Cloudflare CNAME — this
+          # route is intentionally LAN-only (RAG data should not be
+          # reachable from the public internet).
           external-dns.alpha.kubernetes.io/target: 192.168.35.17
         hostnames:
           - anythingllm.68cc.io
