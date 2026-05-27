@@ -41,14 +41,11 @@ spec:
             env:
               PAPERLESS_URL: "https://paperless.68cc.io"
               PAPERLESS_PORT: "8000"
-              # DragonflyDB auth. Password from reflected dragonflydb-auth
-              # Secret. DB 2 is the Paperless allocation per
-              # docs/runbooks/dragonflydb-db-allocation.md.
-              PAPERLESS_REDIS: "redis://:$(DRAGONFLYDB_PASSWORD)@dragonflydb.databases.svc.cluster.local:6379/2"
-              DRAGONFLYDB_PASSWORD:
-                secretKeyRef:
-                  name: dragonflydb-auth
-                  key: password
+              # PAPERLESS_REDIS is set via envFrom (paperless-secrets) with the
+              # full pre-built URL including URL-encoded password and /2 DB
+              # selector. Cannot use $(DRAGONFLYDB_PASSWORD) substitution here
+              # because Kubernetes only substitutes $(VAR) from plain value:
+              # env vars, not from valueFrom: secretKeyRef sources.
               PAPERLESS_DBPORT: "5432"
               # Tika + Gotenberg for Office document support
               PAPERLESS_TIKA_ENABLED: "1"
