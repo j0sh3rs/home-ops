@@ -128,7 +128,7 @@ aws --endpoint-url https://s3.68cc.io s3 ls s3://cloudnative-pg/postgres17-v4/ba
 + major: 18
 ```
 
-in `kubernetes/apps/databases/cloudnative-pg/cluster/cluster17.yaml`.
+in `kubernetes/apps/databases/cloudnative-pg/cluster/cluster.yaml`.
 
 **What happens after merge:**
 
@@ -194,7 +194,7 @@ rtk kubectl cnpg backup postgres17 -n databases --context home
 |-------|----------|
 | Before PR 3 merge | Just don't merge. Catalog + aliases are inert. |
 | PR 3 merged but pg_upgrade hasn't completed | Revert the `major: 18 → 17` PR. Operator resumes the old version on the original PGDATA (cnpg's `--link` mode preserves it). |
-| pg_upgrade completed but consumers broken | Revert `major: 18 → 17`. Operator restores from the pre-upgrade backup taken in PR 3 prereq via `bootstrap.recovery`. **Bump `serverName` to `postgres17-v5`** in cluster17.yaml's `spec.backup.barmanObjectStore` so WAL archives don't collide with the old timeline. |
+| pg_upgrade completed but consumers broken | Revert `major: 18 → 17`. Operator restores from the pre-upgrade backup taken in PR 3 prereq via `bootstrap.recovery`. **Bump `serverName` to `postgres17-v5`** in cluster.yaml's `spec.backup.barmanObjectStore` so WAL archives don't collide with the old timeline. |
 | Disaster (data loss) | `bootstrap.recovery.source` from `postgres17-v4` (last pre-upgrade serverName) into a fresh cluster. ~1 GB recovery is fast. |
 
 ## Consumer migration to `postgres-rw` alias (opportunistic)

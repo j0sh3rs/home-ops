@@ -104,7 +104,7 @@ spec:
       secretAccessKey: { name: cloudnative-pg-secret, key: S3_SECRET_ACCESS_KEY }
 ```
 
-### 3. Modify cluster17.yaml
+### 3. Modify cluster.yaml
 
 ```yaml
 spec:
@@ -178,7 +178,7 @@ Revert the commits. Backup data in S3 is **format-compatible** with both the in-
 
 ## Related
 
-- `kubernetes/apps/databases/cloudnative-pg/cluster/cluster17.yaml` — current Cluster CR (still in-tree)
+- `kubernetes/apps/databases/cloudnative-pg/cluster/cluster.yaml` — current Cluster CR (still in-tree)
 - `kubernetes/apps/databases/cloudnative-pg/cluster/scheduledbackup.yaml` — current ScheduledBackup
-- `cluster17.yaml` `spec.bootstrap.recovery.source: postgres17-v3` — needs migration too
+- `cluster.yaml` `spec.bootstrap.recovery.source: postgres17-v3` — needs migration too
 - Memory: `project_cnpg_barman_plugin_migration` (deferred work tracker)

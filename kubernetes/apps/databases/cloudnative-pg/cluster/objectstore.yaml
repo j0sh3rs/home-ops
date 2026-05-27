@@ -41,12 +41,12 @@ spec:
   # in the in-tree model).
   retentionPolicy: 30d
 ---
-# Recovery-source ObjectStore. cluster17.yaml's spec.bootstrap.recovery
+# Recovery-source ObjectStore. cluster.yaml's spec.bootstrap.recovery
 # references the original postgres17-v3 cluster (pre-current-incarnation).
 # That historical S3 path needs its own ObjectStore so the plugin can
 # read it. Not used for ongoing backups — pure recovery-time config.
 # serverName=postgres17-v3 lives in the externalClusters[].plugin.parameters
-# of cluster17.yaml.
+# of cluster.yaml.
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
@@ -63,3 +63,40 @@ spec:
       secretAccessKey:
         name: cloudnative-pg-secret
         key: S3_SECRET_ACCESS_KEY
+---
+# Post-PG18 backup target. Fresh serverName so PG18 backups land at
+# s3://cloudnative-pg/postgres18-v1/ — a clean directory separate from
+# the PG17 archives at s3://cloudnative-pg/postgres17-v4/. Rationale:
+# PITR is invalid across major-version boundaries (PG18 binaries can't
+# replay PG17 WAL), so mixing timelines in the same path is at best
+# confusing and at worst a footgun during recovery. Aligns with cnpg's
+# upstream upgrade docs example (postgres-cluster-pg16 -> -pg17).
+#
+# Migration sequencing:
+#   - This ObjectStore lands BEFORE the major bump (PR 5 of the upgrade
+#     plan) so the cluster CR can reference it atomically.
+#   - First plugin backup post-PG18 lands at the new path.
+#   - postgres17-v4 ObjectStore stays around as a forensic reference
+#     (its S3 archive ages out under the existing 30d retention).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: postgres18-v1
+  namespace: databases
+spec:
+  configuration:
+    destinationPath: s3://cloudnative-pg/
+    endpointURL: https://s3.68cc.io
+    s3Credentials:
+      accessKeyId:
+        name: cloudnative-pg-secret
+        key: S3_ACCESS_KEY_ID
+      secretAccessKey:
+        name: cloudnative-pg-secret
+        key: S3_SECRET_ACCESS_KEY
+    data:
+      compression: bzip2
+    wal:
+      compression: bzip2
+      maxParallel: 8
+  retentionPolicy: 30d
