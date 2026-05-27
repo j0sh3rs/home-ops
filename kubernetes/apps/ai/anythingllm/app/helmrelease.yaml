@@ -1,0 +1,161 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app anythingllm
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    global:
+      annotations:
+        reloader.stakater.com/auto: "true"
+
+    controllers:
+      anythingllm:
+        annotations:
+          reloader.stakater.com/auto: "true"
+
+        initContainers:
+          # Create the anythingllm Postgres role + DB on the shared CNPG
+          # cluster. Uses the same pattern as LiteLLM's pre-install hook.
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: "18"
+            envFrom:
+              - secretRef:
+                  name: anythingllm-secret
+
+        containers:
+          app:
+            image:
+              repository: mintplexlabs/anythingllm
+              # renovate: datasource=docker depName=mintplexlabs/anythingllm
+              tag: 1.13.0
+            env:
+              SERVER_PORT: "3001"
+              STORAGE_DIR: /app/server/storage
+              NODE_ENV: production
+              DISABLE_TELEMETRY: "true"
+              UID: "1000"
+              GID: "1000"
+              # LLM: LiteLLM gateway as a generic-openai provider
+              LLM_PROVIDER: generic-openai
+              GENERIC_OPEN_AI_BASE_PATH: "http://litellm:4000/v1"
+              GENERIC_OPEN_AI_MODEL_PREF: local-balanced
+              GENERIC_OPEN_AI_MAX_TOKENS: "4096"
+              # Embeddings: nomic-embed via LiteLLM
+              EMBEDDING_ENGINE: generic-openai
+              EMBEDDING_BASE_PATH: "http://litellm:4000/v1"
+              EMBEDDING_MODEL_PREF: local-embed
+              EMBEDDING_MODEL_MAX_CHUNK_LENGTH: "8192"
+              # Vector store: LanceDB (embedded, zero extra ops)
+              VECTOR_DB: lancedb
+              # Chunking defaults (can tune per-workspace in UI)
+              TEXT_CHUNK_SIZE: "1500"
+              TEXT_CHUNK_OVERLAP: "200"
+              # DB connection assembled from secret env vars below.
+              # DATABASE_URL is set by the anythingllm process using
+              # these Prisma-style vars. Keeping host/port/user/pass
+              # separate so INIT_POSTGRES_* vars can share the secret.
+              DATABASE_CONNECTION_STRING:
+                secretKeyRef:
+                  name: anythingllm-secret
+                  key: DATABASE_CONNECTION_STRING
+              JWT_SECRET:
+                secretKeyRef:
+                  name: anythingllm-secret
+                  key: JWT_SECRET
+              GENERIC_OPEN_AI_API_KEY:
+                secretKeyRef:
+                  name: anythingllm-secret
+                  key: LITELLM_VIRTUAL_KEY
+              EMBEDDING_API_KEY:
+                secretKeyRef:
+                  name: anythingllm-secret
+                  key: LITELLM_VIRTUAL_KEY
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: "2"
+                memory: 2Gi
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: 3001
+                  initialDelaySeconds: 30
+                  periodSeconds: 15
+                  failureThreshold: 4
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: 3001
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  successThreshold: 2
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: 3001
+                  failureThreshold: 30
+                  periodSeconds: 10
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: &port 3001
+
+    persistence:
+      storage:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 30Gi
+        retain: true
+        globalMounts:
+          - path: /app/server/storage
+
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        hostnames:
+          - anythingllm.68cc.io
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: google-oidc-secure
+            backendRefs:
+              - name: *app
+                port: *port
