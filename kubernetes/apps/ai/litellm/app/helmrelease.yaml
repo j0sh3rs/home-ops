@@ -145,13 +145,7 @@ spec:
             - name: traefik-internal-gateway
               namespace: network
           rules:
-            - filters:
-                - type: ExtensionRef
-                  extensionRef:
-                    group: traefik.io
-                    kind: Middleware
-                    name: authentik-forwardauth
-              backendRefs:
+            - backendRefs:
                 - name: litellm
                   port: 4000
 
