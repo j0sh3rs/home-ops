@@ -171,7 +171,7 @@ spec:
       persistentVolume:
         data:
           enabled: true
-          storageClassName: nfs-client
+          storageClassName: openebs-hostpath
           size: 10Gi
         config:
           enabled: true
