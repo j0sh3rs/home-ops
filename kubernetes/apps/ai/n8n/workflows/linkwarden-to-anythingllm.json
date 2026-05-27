@@ -1,0 +1,156 @@
+{
+  "name": "Linkwarden → AnythingLLM RAG Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read last-synced timestamp from workflow static data.\n// Returns 0 (epoch) on first run so all existing links are ingested.\nconst workflowStaticData = $getWorkflowStaticData('global');\nconst lastSynced = workflowStaticData.lastSyncedAt || 0;\nreturn [{ json: { lastSyncedAt: lastSynced } }];"
+      },
+      "id": "get-cursor",
+      "name": "Get Last Cursor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://linkwarden.services.svc.cluster.local:3000/api/v1/links",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "sort", "value": "createdAt" },
+            { "name": "order", "value": "desc" },
+            { "name": "limit", "value": "100" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-links",
+      "name": "Fetch Links",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "linkwarden-api",
+          "name": "Linkwarden API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter to links created after last sync timestamp.\n// Also flatten nested response.response array.\nconst lastSynced = $input.first().json.lastSyncedAt;\nconst links = $input.last().json.response || [];\n\nconst newLinks = links.filter(link => {\n  const created = new Date(link.createdAt).getTime();\n  return created > lastSynced;\n});\n\nconsole.log(`Found ${links.length} total, ${newLinks.length} new since last sync`);\n\nif (newLinks.length === 0) {\n  // Nothing to do — return empty to halt downstream\n  return [];\n}\n\nreturn newLinks.map(link => ({ json: link }));"
+      },
+      "id": "filter-new",
+      "name": "Filter New Links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format each Linkwarden link as a Markdown document for AnythingLLM.\n// AnythingLLM chunks plain text well; Markdown headers improve retrieval.\nconst link = $input.item.json;\n\nconst tags = (link.tags || []).map(t => t.name).join(', ');\nconst collection = link.collection?.name || 'Uncategorized';\nconst createdDate = new Date(link.createdAt).toISOString().split('T')[0];\n\nconst content = [\n  `# ${link.name || link.url}`,\n  ``,\n  `**URL:** ${link.url}`,\n  `**Saved:** ${createdDate}`,\n  `**Collection:** ${collection}`,\n  tags ? `**Tags:** ${tags}` : null,\n  ``,\n  link.description ? `## Description\\n${link.description}` : null,\n  ``,\n  link.textContent ? `## Content\\n${link.textContent}` : null,\n].filter(Boolean).join('\\n');\n\nreturn [{\n  json: {\n    ...link,\n    markdownContent: content,\n    filename: `linkwarden-${link.id}.md`,\n  }\n}];"
+      },
+      "id": "format-document",
+      "name": "Format as Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://anythingllm.ai.svc.cluster.local:3001/api/v1/document/raw-text",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "textContent",
+              "value": "={{ $json.markdownContent }}"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify({ title: $json.name || $json.url, url: $json.url, source: 'linkwarden', linkId: String($json.id), collection: $json.collection?.name, tags: ($json.tags || []).map(t => t.name).join(','), createdAt: $json.createdAt }) }}"
+            },
+            {
+              "name": "addToWorkspaces",
+              "value": "linkwarden-bookmarks"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "upload-to-anythingllm",
+      "name": "Upload to AnythingLLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anythingllm-api",
+          "name": "AnythingLLM API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// After all items processed, update the cursor to now.\n// This runs once after the loop via the Merge node.\nconst workflowStaticData = $getWorkflowStaticData('global');\nworkflowStaticData.lastSyncedAt = Date.now();\nconsole.log(`Cursor updated to ${new Date(workflowStaticData.lastSyncedAt).toISOString()}`);\nreturn [{ json: { syncedAt: new Date(workflowStaticData.lastSyncedAt).toISOString() } }];"
+      },
+      "id": "update-cursor",
+      "name": "Update Cursor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [[{ "node": "Get Last Cursor", "type": "main", "index": 0 }]]
+    },
+    "Get Last Cursor": {
+      "main": [[{ "node": "Fetch Links", "type": "main", "index": 0 }]]
+    },
+    "Fetch Links": {
+      "main": [[{ "node": "Filter New Links", "type": "main", "index": 0 }]]
+    },
+    "Filter New Links": {
+      "main": [[{ "node": "Format as Markdown", "type": "main", "index": 0 }]]
+    },
+    "Format as Markdown": {
+      "main": [
+        [{ "node": "Upload to AnythingLLM", "type": "main", "index": 0 }]
+      ]
+    },
+    "Upload to AnythingLLM": {
+      "main": [[{ "node": "Update Cursor", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "home-ops"
+  },
+  "tags": [
+    { "name": "rag" },
+    { "name": "linkwarden" },
+    { "name": "anythingllm" }
+  ]
+}
