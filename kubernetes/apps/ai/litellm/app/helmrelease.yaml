@@ -53,7 +53,7 @@ spec:
     db:
       useExisting: true
       deployStandalone: false
-      endpoint: postgres17-rw.databases.svc.cluster.local
+      endpoint: postgres-rw.databases.svc.cluster.local
       database: litellm
       secret:
         name: litellm-secrets
