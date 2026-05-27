@@ -12,7 +12,7 @@ spec:
       grafana.internal/instance: grafana
   datasources:
     - datasourceName: vmsingle
-      inputName: DS_PROMETHEUS
+      inputName: DS_AK-PROM
   grafanaCom:
     # renovate: depName="authentik"
     id: 14837
