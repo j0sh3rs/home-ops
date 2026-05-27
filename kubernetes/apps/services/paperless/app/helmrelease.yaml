@@ -26,8 +26,9 @@ spec:
         initContainers:
           init-db:
             image:
-              repository: ghcr.io/onedr0p/postgres-init
-              tag: 17
+              repository: ghcr.io/home-operations/postgres-init
+              # Tracks the PG major version of the shared CNPG cluster.
+              tag: "18"
             envFrom:
               - secretRef:
                   name: paperless-secrets
@@ -40,10 +41,10 @@ spec:
             env:
               PAPERLESS_URL: "https://paperless.68cc.io"
               PAPERLESS_PORT: "8000"
-              # DragonflyDB now requires AUTH. Password injected via env-var
-              # (DRAGONFLYDB_PASSWORD) from the reflected dragonflydb-auth
-              # Secret; URL expansion happens at container start.
-              PAPERLESS_REDIS: "redis://:$(DRAGONFLYDB_PASSWORD)@dragonflydb.databases.svc.cluster.local:6379"
+              # DragonflyDB auth. Password from reflected dragonflydb-auth
+              # Secret. DB 2 is the Paperless allocation per
+              # docs/runbooks/dragonflydb-db-allocation.md.
+              PAPERLESS_REDIS: "redis://:$(DRAGONFLYDB_PASSWORD)@dragonflydb.databases.svc.cluster.local:6379/2"
               DRAGONFLYDB_PASSWORD:
                 secretKeyRef:
                   name: dragonflydb-auth
@@ -65,6 +66,13 @@ spec:
               PAPERLESS_EXPORT_DIR: "/usr/src/paperless/export"
               # Consumer settings
               PAPERLESS_CONSUMER_POLLING: "60"
+              # ── Gmail IMAP email consumption ──────────────────────────────
+              # Paperless polls the IMAP inbox on the schedule below and
+              # imports each email + attachments as a document. Uses an App
+              # Password (not your main Google password). The App Password
+              # and email address are injected from paperless-secrets.
+              # Generate at: https://myaccount.google.com/apppasswords
+              PAPERLESS_EMAIL_TASK_CRON: "*/10 * * * *"
             envFrom:
               - secretRef:
                   name: paperless-secrets
@@ -107,7 +115,6 @@ spec:
               # renovate: datasource=docker depName=gotenberg/gotenberg
               tag: 8.32.0
             env:
-              # Disable unnecessary modules
               DISABLE_GOOGLE_CHROME: "1"
             resources:
               requests:
@@ -129,10 +136,6 @@ spec:
         containers:
           app:
             image:
-              # Upstream paperless-ngx docker-compose pulls docker.io/apache/tika.
-              # The previous ghcr.io/paperless-ngx/tika repo does not exist —
-              # there is no fork; paperless just runs vanilla apache/tika.
-              # Tag scheme is `<tika>.<server>` (e.g. 2.9.1.0), NOT hyphenated.
               repository: apache/tika
               # renovate: datasource=docker depName=apache/tika
               tag: 3.3.1.0
@@ -152,19 +155,16 @@ spec:
                 enabled: false
 
     service:
-      # Primary service for the web UI
       app:
         controller: paperless
         ports:
           http:
             port: &port 8000
-      # Internal service for Gotenberg (Office→PDF)
       gotenberg:
         controller: gotenberg
         ports:
           http:
             port: 3000
-      # Internal service for Tika (text extraction)
       tika:
         controller: tika
         ports:
@@ -180,12 +180,17 @@ spec:
           - name: traefik-external-gateway
             namespace: network
         rules:
-          - backendRefs:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
               - name: *app
                 port: *port
 
     persistence:
-      # Application data (search index, classification models)
       data:
         type: persistentVolumeClaim
         storageClass: openebs-hostpath
@@ -197,7 +202,6 @@ spec:
             app:
               - path: /usr/src/paperless/data
 
-      # Scanned documents and thumbnails — size generously
       media:
         type: persistentVolumeClaim
         storageClass: openebs-hostpath
@@ -209,7 +213,6 @@ spec:
             app:
               - path: /usr/src/paperless/media
 
-      # Watch folder: drop files here to trigger ingest
       consume:
         type: persistentVolumeClaim
         storageClass: openebs-hostpath
@@ -221,7 +224,6 @@ spec:
             app:
               - path: /usr/src/paperless/consume
 
-      # Bulk export directory
       export:
         type: persistentVolumeClaim
         storageClass: openebs-hostpath

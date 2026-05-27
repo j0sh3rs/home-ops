@@ -19,7 +19,7 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 |----|----------|------------------|---------|-----------|
 | 0 | _(do not assign)_ | — | Default selection on connect; some clients touch it before `SELECT N`. Treat as transient — do NOT store data here. No consumer should target it. | — |
 | 1 | _free_ | — | _(stub registry previously claimed Traefik OIDC; verified WRONG — OIDC actually lives on db 5)_ | — |
-| 2 | _free_ | — | _(stub registry previously claimed Grafana; verified WRONG — Grafana has no Redis backend in this cluster)_ | — |
+| 2 | Paperless-ngx | `services/paperless` | Celery task broker + result backend (document processing, OCR jobs). Redis URL: `redis://...:6379/2`. | `kubernetes/apps/services/paperless/app/helmrelease.yaml` |
 | 3 | _free_ | — | — | — |
 | 4 | LiteLLM | `ai/litellm` | Response cache (per-request key, TTL 600s). Default key prefix. | `kubernetes/apps/ai/litellm/app/{configmap,helmrelease,secret.sops}.yaml` |
 | 5 | _(retired)_ | — | Previously: traefikoidc plugin OIDC session store (key prefix `traefikoidc:google:`). Plugin replaced by Authentik forwardAuth (2026-05-21). DB 5 is now free — no consumer. | — |

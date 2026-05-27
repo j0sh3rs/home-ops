@@ -1,0 +1,226 @@
+{
+  "name": "home-ops → AnythingLLM Full Resync",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/j0sh3rs/home-ops/git/trees/main?recursive=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-repo-tree",
+      "name": "Fetch Repo Tree",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "github-token",
+          "name": "GitHub Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter the full repo tree to only the files we care about.\n// md: CLAUDE.md, docs/**/*.md\n// yaml: kubernetes/**/kustomization.yaml, kubernetes/**/helmrelease.yaml\nconst tree = $input.first().json.tree || [];\n\nconst isMdDoc = f =>\n  f === 'CLAUDE.md' ||\n  (f.startsWith('docs/') && f.endsWith('.md'));\n\nconst isYamlManifest = f =>\n  (f.startsWith('kubernetes/') || f.startsWith('talos/')) &&\n  (f.endsWith('kustomization.yaml') || f.endsWith('helmrelease.yaml'));\n\nconst items = [];\nfor (const entry of tree) {\n  if (entry.type !== 'blob') continue;\n  const file = entry.path;\n  if (isMdDoc(file)) {\n    items.push({ json: { fileType: 'md', file, sha: entry.sha } });\n  } else if (isYamlManifest(file)) {\n    items.push({ json: { fileType: 'yaml', file, sha: entry.sha } });\n  }\n}\n\nconsole.log(`Full resync: ${items.length} files to process (${items.filter(i=>i.json.fileType==='md').length} md, ${items.filter(i=>i.json.fileType==='yaml').length} yaml)`);\nreturn items;"
+      },
+      "id": "filter-target-files",
+      "name": "Filter Target Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/j0sh3rs/home-ops/contents/{{ $json.file }}?ref=main",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github.raw+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "text" } }
+        }
+      },
+      "id": "fetch-file-content",
+      "name": "Fetch File Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "github-token",
+          "name": "GitHub Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Re-attach file metadata from the upstream item and hold raw content.\nconst raw = $input.item.json;\nconst rawContent = typeof raw === 'string' ? raw : (raw.data || raw.body || JSON.stringify(raw));\n\nconst fileType = $('Filter Target Files').item.json.fileType;\nconst file = $('Filter Target Files').item.json.file;\n\nreturn [{ json: { rawContent, fileType, file } }];"
+      },
+      "id": "attach-metadata",
+      "name": "Attach Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "type-is-yaml",
+              "leftValue": "={{ $json.fileType }}",
+              "rightValue": "yaml",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-md-vs-yaml",
+      "name": "MD or YAML?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract comments and key metadata from YAML manifests.\nconst { rawContent, file } = $json;\n\nconst lines = rawContent.split('\\n');\nconst comments = lines\n  .filter(l => l.trim().startsWith('#'))\n  .map(l => l.trim().replace(/^#+\\s?/, ''));\n\nconst extract = (pattern) => {\n  const m = rawContent.match(pattern);\n  return m ? m[1].trim() : null;\n};\n\nconst kind = extract(/^kind:\\s*(.+)/m);\nconst name = extract(/^  name:\\s*(.+)/m) || extract(/^name:\\s*(.+)/m);\nconst namespace = extract(/^  namespace:\\s*(.+)/m) || extract(/^namespace:\\s*(.+)/m);\nconst chart = extract(/(?:chart|url):\\s*oci:\\/\\/([^\\s]+)/m);\nconst imageRepo = extract(/repository:\\s*([^\\s]+)/m);\nconst imageTag = extract(/tag:\\s*([^\\s]+)/m);\n\nconst title = [kind, name].filter(Boolean).join(' / ') || file.replace(/^.*\\//, '').replace(/\\.yaml$/, '');\n\nconst sections = [\n  `# ${title}`,\n  ``,\n  `**File:** \\`${file}\\``,\n  kind ? `**Kind:** ${kind}` : null,\n  name ? `**Name:** ${name}` : null,\n  namespace ? `**Namespace:** ${namespace}` : null,\n  chart ? `**Chart:** ${chart}` : null,\n  (imageRepo && imageTag) ? `**Image:** ${imageRepo}:${imageTag}` : null,\n  ``,\n];\n\nif (comments.length > 0) {\n  sections.push(`## Comments / Intent`);\n  sections.push(``);\n  sections.push(...comments.map(c => `- ${c}`));\n  sections.push(``);\n}\n\nconst textContent = sections.filter(l => l !== null).join('\\n');\n\nreturn [{ json: { textContent, title, file } }];"
+      },
+      "id": "format-yaml-document",
+      "name": "Format YAML Document",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass markdown content through; derive title from first heading or filename.\nconst { rawContent, file } = $json;\n\nconst firstLine = rawContent.split('\\n')[0]?.trim() || '';\nconst titleFromHeading = firstLine.startsWith('#') ? firstLine.replace(/^#+\\s*/, '') : '';\nconst titleFromPath = file.replace(/^.*\\//, '').replace(/\\.md$/, '');\nconst title = titleFromHeading || titleFromPath;\n\nreturn [{ json: { textContent: rawContent, title, file } }];"
+      },
+      "id": "format-md-document",
+      "name": "Format MD Document",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://anythingllm.ai.svc.cluster.local:3001/api/v1/document/raw-text",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "textContent",
+              "value": "={{ $json.textContent }}"
+            },
+            {
+              "name": "addToWorkspaces",
+              "value": "home-ops"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify({ title: $json.title, source: 'home-ops-repo', file: $json.file, syncedAt: new Date().toISOString() }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "push-to-anythingllm",
+      "name": "Push to AnythingLLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anythingllm-api",
+          "name": "AnythingLLM API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all();\nconsole.log(`Full resync complete. Pushed ${results.length} document(s) to AnythingLLM workspace 'home-ops'.`);\nreturn [{ json: { status: 'ok', pushed: results.length, completedAt: new Date().toISOString() } }];"
+      },
+      "id": "done",
+      "name": "Done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Fetch Repo Tree", "type": "main", "index": 0 }]]
+    },
+    "Fetch Repo Tree": {
+      "main": [[{ "node": "Filter Target Files", "type": "main", "index": 0 }]]
+    },
+    "Filter Target Files": {
+      "main": [[{ "node": "Fetch File Content", "type": "main", "index": 0 }]]
+    },
+    "Fetch File Content": {
+      "main": [[{ "node": "Attach Metadata", "type": "main", "index": 0 }]]
+    },
+    "Attach Metadata": {
+      "main": [[{ "node": "MD or YAML?", "type": "main", "index": 0 }]]
+    },
+    "MD or YAML?": {
+      "main": [
+        [{ "node": "Format YAML Document", "type": "main", "index": 0 }],
+        [{ "node": "Format MD Document", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format YAML Document": {
+      "main": [[{ "node": "Push to AnythingLLM", "type": "main", "index": 0 }]]
+    },
+    "Format MD Document": {
+      "main": [[{ "node": "Push to AnythingLLM", "type": "main", "index": 0 }]]
+    },
+    "Push to AnythingLLM": {
+      "main": [[{ "node": "Done", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "home-ops"
+  },
+  "tags": [
+    { "name": "rag" },
+    { "name": "home-ops" },
+    { "name": "anythingllm" },
+    { "name": "github" }
+  ]
+}

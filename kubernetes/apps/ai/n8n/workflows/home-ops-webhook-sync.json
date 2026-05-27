@@ -1,0 +1,276 @@
+{
+  "name": "home-ops → AnythingLLM Webhook Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "home-ops-github-push",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "GitHub Push Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "home-ops-github-push"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate this is a push to main and extract changed/removed files.\n// GitHub delivers commits[].added, commits[].modified, commits[].removed.\nconst payload = $input.first().json.body || $input.first().json;\n\nconst ref = payload.ref || '';\nif (ref !== 'refs/heads/main') {\n  console.log(`Skipping push to non-main ref: ${ref}`);\n  return [];\n}\n\nconst beforeSha = payload.before;\nconst afterSha = payload.after;\nconst repoFullName = payload.repository?.full_name || 'j0sh3rs/home-ops';\n\nconst changedFiles = new Set();\nconst removedFiles = new Set();\n\nfor (const commit of (payload.commits || [])) {\n  for (const f of (commit.added || [])) changedFiles.add(f);\n  for (const f of (commit.modified || [])) changedFiles.add(f);\n  for (const f of (commit.removed || [])) {\n    removedFiles.add(f);\n    changedFiles.delete(f);\n  }\n}\n\nconst isMdDoc = f =>\n  f === 'CLAUDE.md' ||\n  f.startsWith('docs/runbooks/') && f.endsWith('.md') ||\n  f.startsWith('docs/research/') && f.endsWith('.md') ||\n  f.startsWith('docs/') && f.endsWith('.md');\n\nconst isYamlManifest = f =>\n  (f.startsWith('kubernetes/') || f.startsWith('talos/')) &&\n  (f.endsWith('kustomization.yaml') || f.endsWith('helmrelease.yaml'));\n\nconst items = [];\n\nfor (const file of changedFiles) {\n  if (isMdDoc(file)) {\n    items.push({ json: { fileType: 'md', file, repoFullName, afterSha, action: 'upsert' } });\n  } else if (isYamlManifest(file)) {\n    items.push({ json: { fileType: 'yaml', file, repoFullName, afterSha, action: 'upsert' } });\n  }\n}\n\nfor (const file of removedFiles) {\n  if (isMdDoc(file) || isYamlManifest(file)) {\n    items.push({ json: { fileType: 'deleted', file, repoFullName, afterSha, action: 'delete' } });\n  }\n}\n\nconsole.log(`Push to main: ${items.filter(i=>i.json.action==='upsert').length} to upsert, ${items.filter(i=>i.json.action==='delete').length} to delete`);\nreturn items;"
+      },
+      "id": "parse-push-payload",
+      "name": "Parse Push Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "action-is-upsert",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "upsert",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-upsert-vs-delete",
+      "name": "Upsert or Delete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{ $json.repoFullName }}/contents/{{ $json.file }}?ref={{ $json.afterSha }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github.raw+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "responseFormat": "text" } }
+        }
+      },
+      "id": "fetch-file-content",
+      "name": "Fetch File from GitHub",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "github-token",
+          "name": "GitHub Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge file metadata (from the parse node, two items back) with raw content.\n// In n8n, after an HTTP Request node the previous item context is carried in $input.\n// We re-attach metadata from the upstream item via pairedItem.\nconst raw = $input.item.json;\nconst meta = $input.item.pairedItem;\n\n// The HTTP Request with text response puts the body in `data` when responseFormat=text.\n// Fall back gracefully.\nconst rawContent = typeof raw === 'string' ? raw : (raw.data || raw.body || JSON.stringify(raw));\n\n// Re-attach routing metadata from the paired upstream item.\nconst fileType = $('Parse Push Payload').item.json.fileType;\nconst file = $('Parse Push Payload').item.json.file;\n\nreturn [{ json: { rawContent, fileType, file } }];"
+      },
+      "id": "attach-file-metadata",
+      "name": "Attach File Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "type-is-yaml",
+              "leftValue": "={{ $json.fileType }}",
+              "rightValue": "yaml",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-md-vs-yaml",
+      "name": "MD or YAML?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// For Markdown docs: pass content through with title derived from file path.\n// Strips leading # from first heading if present.\nconst { rawContent, file } = $json;\n\nconst firstLine = rawContent.split('\\n')[0]?.trim() || '';\nconst titleFromHeading = firstLine.startsWith('#') ? firstLine.replace(/^#+\\s*/, '') : '';\nconst titleFromPath = file.replace(/^.*\\//, '').replace(/\\.md$/, '');\nconst title = titleFromHeading || titleFromPath;\n\nreturn [{ json: { textContent: rawContent, title, file } }];"
+      },
+      "id": "format-md-document",
+      "name": "Format MD Document",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// For YAML manifests: extract comments + kind/name/namespace metadata.\n// Comments (lines starting with #) often contain intent and context.\nconst { rawContent, file } = $json;\n\nconst lines = rawContent.split('\\n');\nconst comments = lines\n  .filter(l => l.trim().startsWith('#'))\n  .map(l => l.trim().replace(/^#+\\s?/, ''));\n\n// Extract key metadata fields via simple regex scan (not a full YAML parse).\nconst extract = (pattern) => {\n  const m = rawContent.match(pattern);\n  return m ? m[1].trim() : null;\n};\n\nconst kind = extract(/^kind:\\s*(.+)/m);\nconst name = extract(/^  name:\\s*(.+)/m) || extract(/^name:\\s*(.+)/m);\nconst namespace = extract(/^  namespace:\\s*(.+)/m) || extract(/^namespace:\\s*(.+)/m);\nconst chart = extract(/(?:chart|url):\\s*oci:\\/\\/([^\\s]+)/m);\nconst imageRepo = extract(/repository:\\s*([^\\s]+)/m);\nconst imageTag = extract(/tag:\\s*([^\\s]+)/m);\n\nconst title = [kind, name].filter(Boolean).join(' / ') || file.replace(/^.*\\//, '').replace(/\\.yaml$/, '');\n\nconst sections = [\n  `# ${title}`,\n  ``,\n  `**File:** \\`${file}\\``,\n  kind ? `**Kind:** ${kind}` : null,\n  name ? `**Name:** ${name}` : null,\n  namespace ? `**Namespace:** ${namespace}` : null,\n  chart ? `**Chart:** ${chart}` : null,\n  (imageRepo && imageTag) ? `**Image:** ${imageRepo}:${imageTag}` : null,\n  ``,\n];\n\nif (comments.length > 0) {\n  sections.push(`## Comments / Intent`);\n  sections.push(``),\n  sections.push(...comments.map(c => `- ${c}`));\n  sections.push(``);\n}\n\nconst textContent = sections.filter(l => l !== null).join('\\n');\n\nreturn [{ json: { textContent, title, file } }];"
+      },
+      "id": "format-yaml-document",
+      "name": "Format YAML Document",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://anythingllm.ai.svc.cluster.local:3001/api/v1/document/raw-text",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "textContent",
+              "value": "={{ $json.textContent }}"
+            },
+            {
+              "name": "addToWorkspaces",
+              "value": "home-ops"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify({ title: $json.title, source: 'home-ops-repo', file: $json.file, syncedAt: new Date().toISOString() }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "push-to-anythingllm",
+      "name": "Push to AnythingLLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anythingllm-api",
+          "name": "AnythingLLM API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the document title the same way as upsert so the DELETE matches.\nconst { file } = $json;\nconst titleFromPath = file.replace(/^.*\\//, '').replace(/\\.(md|yaml)$/, '');\nreturn [{ json: { deleteTitle: titleFromPath, file } }];"
+      },
+      "id": "build-delete-title",
+      "name": "Build Delete Title",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 440]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=http://anythingllm.ai.svc.cluster.local:3001/api/v1/document/{{ encodeURIComponent($json.deleteTitle) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": { "response": { "neverError": true } }
+        }
+      },
+      "id": "delete-from-anythingllm",
+      "name": "Delete from AnythingLLM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 440],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anythingllm-api",
+          "name": "AnythingLLM API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.all();\nconsole.log(`Sync complete. Processed ${results.length} item(s).`);\nreturn [{ json: { status: 'ok', processed: results.length, completedAt: new Date().toISOString() } }];"
+      },
+      "id": "done",
+      "name": "Done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "GitHub Push Webhook": {
+      "main": [[{ "node": "Parse Push Payload", "type": "main", "index": 0 }]]
+    },
+    "Parse Push Payload": {
+      "main": [[{ "node": "Upsert or Delete?", "type": "main", "index": 0 }]]
+    },
+    "Upsert or Delete?": {
+      "main": [
+        [{ "node": "Fetch File from GitHub", "type": "main", "index": 0 }],
+        [{ "node": "Build Delete Title", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch File from GitHub": {
+      "main": [[{ "node": "Attach File Metadata", "type": "main", "index": 0 }]]
+    },
+    "Attach File Metadata": {
+      "main": [[{ "node": "MD or YAML?", "type": "main", "index": 0 }]]
+    },
+    "MD or YAML?": {
+      "main": [
+        [{ "node": "Format YAML Document", "type": "main", "index": 0 }],
+        [{ "node": "Format MD Document", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format YAML Document": {
+      "main": [[{ "node": "Push to AnythingLLM", "type": "main", "index": 0 }]]
+    },
+    "Format MD Document": {
+      "main": [[{ "node": "Push to AnythingLLM", "type": "main", "index": 0 }]]
+    },
+    "Push to AnythingLLM": {
+      "main": [[{ "node": "Done", "type": "main", "index": 0 }]]
+    },
+    "Build Delete Title": {
+      "main": [
+        [{ "node": "Delete from AnythingLLM", "type": "main", "index": 0 }]
+      ]
+    },
+    "Delete from AnythingLLM": {
+      "main": [[{ "node": "Done", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "home-ops"
+  },
+  "tags": [
+    { "name": "rag" },
+    { "name": "home-ops" },
+    { "name": "anythingllm" },
+    { "name": "github" }
+  ]
+}
