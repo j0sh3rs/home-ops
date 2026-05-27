@@ -162,7 +162,7 @@ spec:
                 extensionRef:
                   group: traefik.io
                   kind: Middleware
-                  name: google-oidc-secure
+                  name: authentik-forwardauth
             backendRefs:
               - name: *app
                 port: *port
