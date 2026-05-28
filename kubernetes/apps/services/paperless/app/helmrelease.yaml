@@ -184,7 +184,9 @@ spec:
                   kind: Middleware
                   name: authentik-forwardauth
             backendRefs:
-              - name: *app
+              # app-template names the service <app>-<controller>, so
+              # "paperless" + controller "paperless" → "paperless-app"
+              - name: paperless-app
                 port: *port
 
     persistence:
