@@ -47,15 +47,11 @@ spec:
               WEBUI_AUTH: "true"
               # Data directory
               DATA_DIR: "/app/backend/data"
-              # Authentik OIDC. Phase 2 lockdown: SSO-only, no local login.
-              # New SSO users auto-activate as 'user'. Admin role comes from
-              # Authentik group mapping (OAUTH_ADMIN_ROLES). Break-glass
-              # requires ENABLE_LOGIN_FORM=true + pod restart.
-              OPENID_PROVIDER_URL: "https://auth.68cc.io/application/o/open-webui/.well-known/openid-configuration"
-              OAUTH_PROVIDER_NAME: "Authentik"
-              OAUTH_SCOPES: "openid email profile"
-              ENABLE_OAUTH_SIGNUP: "true"
-              OAUTH_MERGE_ACCOUNTS_BY_EMAIL: "true"
+              # Authentik forward-auth injects headers; OWUI auto-signs in
+              # the matching User row (matched by email) with no login page.
+              # Break-glass: remove headers + set ENABLE_LOGIN_FORM=true.
+              WEBUI_AUTH_TRUSTED_EMAIL_HEADER: "X-authentik-email"
+              WEBUI_AUTH_TRUSTED_NAME_HEADER: "X-authentik-name"
               ENABLE_LOGIN_FORM: "false"
               DEFAULT_USER_ROLE: "user"
             envFrom:
