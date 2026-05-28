@@ -47,16 +47,17 @@ spec:
               WEBUI_AUTH: "true"
               # Data directory
               DATA_DIR: "/app/backend/data"
-              # Authentik OIDC. Phase 1 (bootstrap): login form + signup
-              # enabled so existing users can sign in and link Authentik.
-              # Phase 2: flip ENABLE_LOGIN_FORM=false, DEFAULT_USER_ROLE=user.
+              # Authentik OIDC. Phase 2 lockdown: SSO-only, no local login.
+              # New SSO users auto-activate as 'user'. Admin role comes from
+              # Authentik group mapping (OAUTH_ADMIN_ROLES). Break-glass
+              # requires ENABLE_LOGIN_FORM=true + pod restart.
               OPENID_PROVIDER_URL: "https://auth.68cc.io/application/o/open-webui/.well-known/openid-configuration"
               OAUTH_PROVIDER_NAME: "Authentik"
               OAUTH_SCOPES: "openid email profile"
               ENABLE_OAUTH_SIGNUP: "true"
               OAUTH_MERGE_ACCOUNTS_BY_EMAIL: "true"
-              ENABLE_LOGIN_FORM: "true"
-              DEFAULT_USER_ROLE: "pending"
+              ENABLE_LOGIN_FORM: "false"
+              DEFAULT_USER_ROLE: "user"
             envFrom:
               # WEBUI_SECRET_KEY (session signing) plus OPENAI_API_KEY
               # which is a LiteLLM virtual key (sk-...) that open-webui
