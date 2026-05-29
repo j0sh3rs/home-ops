@@ -6,3 +6,4 @@ resources:
   - ./vmagent.yaml
   - ./vmalert.yaml
   - ./grafanadatasource.yaml
+  - ./httproute.yaml
