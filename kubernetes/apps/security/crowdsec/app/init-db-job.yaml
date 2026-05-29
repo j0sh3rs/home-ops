@@ -1,0 +1,38 @@
+---
+# Creates the `crowdsec` role + database on the shared CNPG postgres17
+# cluster. CrowdSec's entgo ORM auto-migrates the schema on first LAPI
+# connect but does NOT create the role/DB — this Job provisions them first.
+#
+# Mirrors the litellm-init-db pattern (ghcr.io/home-operations/postgres-init):
+# the image is idempotent (CREATE ROLE/DB IF NOT EXISTS semantics), so it is
+# safe to re-run on every reconcile.
+#
+# Security: INIT_POSTGRES_* (incl. the postgres SUPER password) is sourced
+# from a DEDICATED secret used ONLY by this short-lived Job — deliberately NOT
+# from crowdsec-lapi-secrets. The long-running LAPI pod never receives the
+# superuser credential (least privilege); it only gets CROWDSEC_DB_PASSWORD
+# via its own envFrom. INIT_POSTGRES_PASS must equal CROWDSEC_DB_PASSWORD so
+# the role this Job creates matches the password LAPI authenticates with.
+#
+# Flux ordering: the crowdsec Kustomization (ks.yaml) must depend on the
+# databases Kustomization so postgres17 exists before this Job runs. The Job
+# itself blocks via the postgres-init image's built-in connect retry.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: crowdsec-init-db
+  namespace: security
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: "true"
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init-db
+          image: ghcr.io/home-operations/postgres-init:18
+          envFrom:
+            - secretRef:
+                name: crowdsec-initdb-secrets
