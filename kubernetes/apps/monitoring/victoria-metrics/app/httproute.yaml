@@ -1,0 +1,35 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+# External remote_write ingest for off-cluster agents (e.g. the operator's
+# MacBook running vmagent). LAN-only via traefik-internal-gateway — no
+# Cloudflare record is created, so this is unreachable from the public internet.
+#
+# Path is intentionally scoped to /api/v1/write ONLY. vmsingle's full API
+# includes destructive endpoints (e.g. /api/v1/admin/tsdb/delete_series); since
+# this route carries NO authentication and trusts the LAN perimeter, exposing
+# only the write path keeps the blast radius to "inject junk metrics"
+# (recoverable) rather than "wipe the TSDB".
+#
+# NO OIDC/forwardAuth middleware here: remote_write is machine-to-machine and
+# the Authentik forwardAuth flow 302-redirects to an interactive login page,
+# which breaks programmatic push.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vmsingle-write
+  annotations:
+    external-dns.alpha.kubernetes.io/target: 192.168.35.17
+spec:
+  hostnames:
+    - vm-push.68cc.io
+  parentRefs:
+    - name: traefik-internal-gateway
+      namespace: network
+  rules:
+    - backendRefs:
+        - name: vmsingle-vmsingle
+          port: 8429
+      matches:
+        - path:
+            type: PathPrefix
+            value: /api/v1/write
