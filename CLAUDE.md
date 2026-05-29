@@ -280,7 +280,7 @@ Rules of thumb:
 - **unpoller** — UniFi network device monitoring (2m scrape interval, UniFi API rate-limited).
 - **Tetragon** — Runtime security metrics + Grafana dashboard (deployed in `kube-system`, not `monitoring`).
 
-**Log aggregation is currently disabled.** `victoria-logs` manifests exist but are commented out in `kubernetes/apps/monitoring/kustomization.yaml`. Restoration tracked by `home-ops-d1e`. No application log backend until that lands.
+**Log aggregation: VictoriaLogs (active).** `victoria-logs` is deployed via `kubernetes/apps/monitoring/victoria-logs/ks.yaml` (enabled in `kubernetes/apps/monitoring/kustomization.yaml`). `victoria-logs-server` ingests via a `victoria-logs-vector` DaemonSet on every node; chunks land in the `victoria-logs-chunks` S3 bucket. Query at the VictoriaLogs server in the `monitoring` namespace.
 
 **Note**: Single-replica deployments; S3 provides durability. Prometheus runs 6h local retention with all long-term data in Thanos-managed S3 blocks.
 
@@ -360,12 +360,12 @@ The end-state vision is "personal-assistant + family-chat + coding-assistant + R
 - **Homepage** — Dashboard at `68cc.io` (root). Service tiles + widgets configured via SOPS-encrypted Secret; widget creds injected via `HOMEPAGE_VAR_*` env vars.
 - **IT-Tools** — Collection of IT utility tools
 - **Linkwarden** — Collaborative bookmark manager
+- **Paperless-NGX** — Document management system (OCR + full-text search). Tika + Gotenberg sidecars for document conversion. Uses DragonflyDB **db2** as its Celery task broker + result backend (`redis://...:6379/2`) — see `docs/runbooks/dragonflydb-db-allocation.md`. The idle Celery worker parks on `BRPOP`, which is the expected baseline behind the tuned `DragonflyBlockedClients` / `DragonflyAvgCommandLatencyHigh` alert thresholds.
 
 Currently disabled (commented out in `kubernetes/apps/services/kustomization.yaml`):
 - ~~ChangeDetector~~ — Website change monitoring
 - ~~Memos~~ — Lightweight note-taking service
 - ~~MetaMCP~~ — MCP server
-- ~~Paperless-NGX~~ — Document management system
 
 ## Grafana Operator Pattern
 

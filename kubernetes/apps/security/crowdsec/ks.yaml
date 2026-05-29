@@ -8,6 +8,13 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/security/crowdsec/app
   prune: true
+  # LAPI stores state in the shared CNPG postgres17 cluster; the
+  # crowdsec-init-db Job must not run until the operator and cluster exist.
+  dependsOn:
+    - name: cloudnative-pg
+      namespace: databases
+    - name: cloudnative-pg-cluster
+      namespace: databases
   sourceRef:
     kind: GitRepository
     name: flux-system

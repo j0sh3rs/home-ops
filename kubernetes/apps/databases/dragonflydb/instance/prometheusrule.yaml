@@ -106,18 +106,26 @@ spec:
         - alert: DragonflyHitRatioLow
           annotations:
             description: >-
-              5m keyspace hit ratio = {{ $value | humanizePercentage }} —
-              below 70%. The cache is under-warmed or undersized. If this
-              persists post-deploy, the workload may not benefit from
-              caching at all and the consumer config is wrong.
+              5m keyspace hit ratio on db4 (LiteLLM cache) = {{ $value |
+              humanizePercentage }} — below 70%. The cache is under-warmed
+              or undersized. If this persists post-deploy, the workload may
+              not benefit from caching at all and the consumer config is
+              wrong.
             summary: DragonflyDB cache hit ratio low
+          # Scope to db4 (LiteLLM) ONLY — the single true cache consumer. The
+          # instance is shared (see docs/runbooks/dragonflydb-db-allocation.md):
+          # db2 = Paperless Celery broker, db6 = Authentik Celery broker. Broker
+          # DBs poll for not-yet-existent keys (queue-empty checks) and run a
+          # near-0% hit ratio BY DESIGN, which drags a global ratio below 70%
+          # permanently and fires a false positive. This is an explicit cache
+          # allowlist: add future cache DBs (e.g. db7 AnythingLLM) to the regex.
           expr: |-
             (
-              sum(rate(dragonfly_keyspace_hits_total[5m]))
+              sum(rate(dragonfly_keyspace_hits_total{db=~"db4"}[5m]))
               /
               (
-                sum(rate(dragonfly_keyspace_hits_total[5m]))
-                + sum(rate(dragonfly_keyspace_misses_total[5m]))
+                sum(rate(dragonfly_keyspace_hits_total{db=~"db4"}[5m]))
+                + sum(rate(dragonfly_keyspace_misses_total{db=~"db4"}[5m]))
               )
             ) < 0.70
           for: 15m
@@ -134,15 +142,27 @@ spec:
               fragmentation. Triage with `redis-cli -a $PASS LATENCY
               DOCTOR`. Note: dragonfly emits a counter (sum of
               durations), not a histogram, so we cannot extract p99 —
-              this is the average across all command types.
+              this is the average across non-blocking command types.
             summary: DragonflyDB average command latency degraded
           # rate(sum_seconds) / rate(count) = avg seconds per command,
           # summed across cmd labels.
+          # Exclude blocking commands: dragonfly's commands_duration_seconds
+          # counter INCLUDES the time a client spends parked in a blocking
+          # call. Paperless's Celery worker idles on BRPOP (broker on db2),
+          # so brpop's duration counter climbs by ~1s per call and swamps the
+          # average, firing a permanent false positive even when every real
+          # command runs sub-ms. Drop blpop/brpop/blmove/brpoplpush/wait/
+          # xread (the blocking verbs) from both numerator and denominator so
+          # the metric reflects actual processing latency, not idle wait time.
           expr: |-
             (
-              sum(rate(dragonfly_commands_duration_seconds[5m]))
+              sum(rate(dragonfly_commands_duration_seconds{
+                cmd!~"blpop|brpop|blmove|brpoplpush|wait|xread"
+              }[5m]))
               /
-              sum(rate(dragonfly_commands_total[5m]))
+              sum(rate(dragonfly_commands_total{
+                cmd!~"blpop|brpop|blmove|brpoplpush|wait|xread"
+              }[5m]))
             ) > 0.005
           for: 5m
           labels:
@@ -168,12 +188,19 @@ spec:
           annotations:
             description: >-
               {{ $value }} clients blocked on dragonfly {{ $labels.instance
-              }}. Likely a BLPOP / BRPOP / WAIT command stuck. If this
-              fires unexpectedly, a consumer is using a blocking command
-              we don't intend to support.
+              }} — above the expected baseline of idle broker consumers.
+              Likely a BLPOP / BRPOP / WAIT command stuck beyond the normal
+              Celery idle-wait. Check `CLIENT LIST` for the offending peer.
             summary: DragonflyDB has blocked clients
+          # Baseline is NOT zero: Paperless (db2) and Authentik (db6) both run
+          # Celery workers that idle on BRPOP waiting for jobs — that's one
+          # blocked client per idle worker, by design, permanently. The metric
+          # has no per-db/per-consumer label (instance-global), so we can't
+          # exclude brokers directly; instead alert only when blocked clients
+          # exceed the expected broker baseline, which catches a genuinely
+          # stuck/leaking consumer without firing on normal idle brokers.
           expr: |-
-            dragonfly_blocked_clients > 0
+            dragonfly_blocked_clients > 5
           for: 10m
           labels:
             severity: warning

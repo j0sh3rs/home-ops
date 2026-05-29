@@ -43,8 +43,16 @@ spec:
               Background tasks (email, blueprints, outpost sync) will fail.
 
         - alert: AuthentikOutpostDisconnected
+          # authentik_outposts_connected is exported per gunicorn worker (pid
+          # label). Only ONE worker process holds the websocket to the embedded
+          # outpost; the others permanently export 0. A bare `== 0` matches
+          # the idle-worker series and fires a false positive even though
+          # forwardAuth is fully functional. Aggregate with max() per outpost
+          # so a single connected worker satisfies the check.
           expr: |
-            authentik_outposts_connected{namespace="security"} == 0
+            max by (namespace, outpost) (
+              authentik_outposts_connected{namespace="security"}
+            ) == 0
           for: 2m
           labels:
             severity: critical

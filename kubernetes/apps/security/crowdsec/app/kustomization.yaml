@@ -6,6 +6,7 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./secret.sops.yaml
+  - ./init-db-job.yaml
   - ./grafanadashboard.yaml
   - ./prometheusrule.yaml
   - ./servicemonitor.yaml

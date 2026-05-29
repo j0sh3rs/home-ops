@@ -89,10 +89,15 @@ spec:
       type: ClusterIP
       port: 4000
 
+    # serviceMonitor disabled: LiteLLM only mounts the /metrics route when
+    # `prometheus` is added to litellm_settings.callbacks, and Prometheus
+    # metrics is a LiteLLM Enterprise/premium feature. Without a license the
+    # endpoint returns 404 (verified: GET /metrics and /metrics/ both 404),
+    # so the scrape target is permanently down and fires a TargetDown false
+    # positive. Re-enable IF an enterprise license lands AND the prometheus
+    # callback is added in configmap.yaml — until then the scrape is pointless.
     serviceMonitor:
-      enabled: true
-      interval: 30s
-      scrapeTimeout: 10s
+      enabled: false
 
     resources:
       requests:

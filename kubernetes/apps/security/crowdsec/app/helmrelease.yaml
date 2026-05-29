@@ -32,6 +32,29 @@ spec:
     # certificate with explicit values.
     config:
       config.yaml.local: |
+        # home-ops: LAPI uses the shared CNPG postgres17 cluster (DB `crowdsec`)
+        # instead of a local SQLite file on a PVC. Rationale:
+        #   - eliminates the crowdsec-db PVC entirely (and the openebs-hostpath
+        #     subPath-creation quirk that wedged the pod in
+        #     CreateContainerConfigError on a freshly-provisioned volume);
+        #   - kills SQLite-on-NFS WAL lock contention at the source — that was
+        #     the original bouncer-disconnect bug that drove the abandoned
+        #     hostpath migration (commit 81cd5383);
+        #   - backups ride CNPG's existing Barman→S3, no separate PV snapshot.
+        # CrowdSec's entgo ORM auto-migrates the SCHEMA on first connect, but
+        # does NOT create the role/database — the crowdsec-init-db Job
+        # (extraResources below) provisions those before LAPI starts.
+        # ${CROWDSEC_DB_PASSWORD} is expanded by the chart's docker-start
+        # script via the lapi.envFrom secret (same envsubst path as
+        # ${REGISTRATION_TOKEN}).
+        db_config:
+          type: postgresql
+          host: postgres-rw.databases.svc.cluster.local
+          port: 5432
+          user: crowdsec
+          password: ${CROWDSEC_DB_PASSWORD}
+          db_name: crowdsec
+          sslmode: require
         api:
           server:
             auto_registration: # Enabled - using token-based authentication
@@ -165,14 +188,21 @@ spec:
       # http notifier plugin can expand ${DISCORD_WEBHOOK_URL} at load time.
       # Source secret is alertmanager-secret in monitoring ns, mirrored into
       # security ns via Reflector annotations on the source.
+      # crowdsec-lapi-secrets also carries CROWDSEC_DB_PASSWORD, expanded into
+      # db_config.password in config.yaml.local (postgres backend).
       envFrom:
         - secretRef:
             name: alertmanager-secret
+        - secretRef:
+            name: crowdsec-lapi-secrets
       persistentVolume:
+        # data PVC removed: LAPI state now lives in the shared CNPG postgres17
+        # cluster (db_config in config.yaml.local). No local SQLite file → no
+        # PVC, no openebs-hostpath subPath quirk, no WAL-lock contention.
         data:
-          enabled: true
-          storageClassName: openebs-hostpath
-          size: 10Gi
+          enabled: false
+        # config PVC retained: holds generated local_api_credentials.yaml +
+        # online_api_credentials.yaml. Small, read-mostly, survives reschedule.
         config:
           enabled: true
           storageClassName: nfs-client
@@ -195,6 +225,22 @@ spec:
           value: "kubernetes homelab"
         - name: TZ
           value: "America/New_York"
+        # Auto-register the traefik bouncer on startup. The chart's entrypoint
+        # loops over env vars matching BOUNCER_KEY_* and runs
+        # `cscli bouncers add <name> -k <key>` (name = everything after the
+        # 2nd underscore → "traefik"). The bouncer API key is validated
+        # against the LAPI DATABASE, not a config file — so a fresh DB
+        # (postgres migration, or the earlier hostpath wipe) starts with an
+        # EMPTY bouncer list and the traefik plugin gets 403
+        # (CrowdSecBouncerNotConnected) until re-registered. register_bouncer
+        # is idempotent (skips if the name already exists), so this is safe on
+        # every restart. Key must match traefik-secrets/CROWDSEC_BOUNCER_KEY
+        # in the network namespace (same pre-shared value).
+        - name: BOUNCER_KEY_traefik
+          valueFrom:
+            secretKeyRef:
+              name: crowdsec-bouncer-secrets
+              key: traefik-bouncer-key
       resources:
         limits:
           memory: 2Gi
