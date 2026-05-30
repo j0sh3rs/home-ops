@@ -48,8 +48,8 @@ metadata:
 spec:
   images:
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=loose
-    - major: 17
-      image: ghcr.io/cloudnative-pg/postgresql:17.10-202605250923-standard-trixie@sha256:e89d5423983438428ceed39aef567bcc33e28160b6145fe09a40fb0a31a99e5b
+    - major: 18.4
+      image: ghcr.io/cloudnative-pg/postgresql:18.4-202605250923-standard-trixie@sha256:1e9b7f86a108b8eb472f52b59fc085aafee4cb3841484727ad67c020a8935a86
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=loose
     - major: 18
       image: ghcr.io/cloudnative-pg/postgresql:18.4-202605250923-standard-trixie@sha256:1e9b7f86a108b8eb472f52b59fc085aafee4cb3841484727ad67c020a8935a86
