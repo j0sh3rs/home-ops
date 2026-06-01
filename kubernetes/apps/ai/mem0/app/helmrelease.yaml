@@ -5,6 +5,9 @@ kind: HelmRelease
 metadata:
   name: &app mem0
 spec:
+  # No public image exists for ghcr.io/mem0ai/mem0-server — suspended until upstream publishes one.
+  # Track: https://github.com/mem0ai/mem0/tree/main/server (Dockerfile present, no CI publish workflow)
+  suspend: true
   interval: 1h
   chartRef:
     kind: OCIRepository
@@ -45,7 +48,6 @@ spec:
               MEM0_TELEMETRY: "false"
               AUTH_DISABLED: "false"
               DASHBOARD_URL: "http://localhost:3000"
-              APP_DB_NAME: "mem0_app"
             envFrom:
               - secretRef:
                   name: mem0-secrets
