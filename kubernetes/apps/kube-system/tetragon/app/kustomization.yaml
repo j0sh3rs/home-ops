@@ -13,3 +13,5 @@ resources:
   - ./tracingpolicy-package-manager-exec.yaml
   - ./tracingpolicy-ha-pivot.yaml
   - ./prometheusrule.yaml
+  - ./tetragon-configmap.yaml
+  - ./grafanadashboard.yaml

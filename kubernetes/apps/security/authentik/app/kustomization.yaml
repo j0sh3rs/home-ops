@@ -8,3 +8,4 @@ resources:
   - ./httproute.yaml
   - ./prometheusrule.yaml
   - ./servicemonitor.yaml
+  - ./grafanadashboard.yaml

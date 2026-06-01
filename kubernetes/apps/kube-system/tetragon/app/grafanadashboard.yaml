@@ -3,16 +3,16 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: victorialogs
-  namespace: monitoring
+  name: tetragon
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: Security
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
   configMapRef:
-    name: victorialogs-dashboard
-    key: victorialogs-dashboard.json
+    name: tetragon-dashboard
+    key: tetragon-dashboard.json

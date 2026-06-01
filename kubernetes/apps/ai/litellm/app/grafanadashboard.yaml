@@ -2,19 +2,17 @@
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
 # Upstream LiteLLM dashboard from
 # https://github.com/BerriAI/litellm/blob/main/cookbook/litellm_proxy_server/grafana_dashboard/dashboard_v2/grafana_dashboard.json
-# Pulled into the repo verbatim and surfaced as ConfigMap-generated CR
-# (matches tetragon / amd-gpu / dragonflydb pattern). Title in upstream
-# is "LiteLLM Prod v2", uid `be059pwgrlg5cf`.
+# Title: "LiteLLM Prod v2", uid: be059pwgrlg5cf
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: litellm
-  namespace: monitoring
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: AI
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS

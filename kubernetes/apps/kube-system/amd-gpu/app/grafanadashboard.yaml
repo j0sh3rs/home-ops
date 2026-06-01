@@ -4,12 +4,12 @@ apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: amd-gpu-overview
-  namespace: monitoring
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: GPU
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
@@ -17,16 +17,17 @@ spec:
     name: amd-gpu-overview-dashboard
     key: amd-gpu-overview-dashboard.json
 ---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: amd-gpu-detail
-  namespace: monitoring
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: GPU
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
@@ -34,16 +35,17 @@ spec:
     name: amd-gpu-detail-dashboard
     key: amd-gpu-detail-dashboard.json
 ---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: amd-gpu-node
-  namespace: monitoring
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  folder: GPU
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS

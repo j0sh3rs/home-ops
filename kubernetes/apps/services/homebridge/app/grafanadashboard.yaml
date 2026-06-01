@@ -4,10 +4,9 @@ apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
   name: homebridge
-  namespace: monitoring
 spec:
   allowCrossNamespaceImport: true
-  folder: Homebridge
+  folder: Services
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
@@ -102,7 +101,6 @@ spec:
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{"expr": "count(count by (__name__) ({__name__=~\"homebridge_.+\",bridge=~\"$bridge\"}))", "refId": "A"}]
         },
-
         {
           "id": 10,
           "type": "timeseries",
@@ -129,7 +127,6 @@ spec:
           }],
           "fieldConfig": {"defaults": {"unit": "percent"}}
         },
-
         {
           "id": 20,
           "type": "stat",
@@ -162,7 +159,6 @@ spec:
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{"expr": "sum({__name__=~\"homebridge_motion_sensor_motion_detected\",bridge=~\"$bridge\"}) OR on() vector(0)", "refId": "A"}]
         },
-
         {
           "id": 30,
           "type": "timeseries",
@@ -205,7 +201,6 @@ spec:
             }
           }]
         },
-
         {
           "id": 40,
           "type": "timeseries",
@@ -231,7 +226,6 @@ spec:
             "refId": "A"
           }]
         },
-
         {
           "id": 50,
           "type": "table",
