@@ -9,7 +9,7 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: VictoriaMetrics
+  folder: monitoring
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
@@ -27,7 +27,7 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: VictoriaMetrics
+  folder: monitoring
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
@@ -45,7 +45,7 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: VictoriaMetrics
+  folder: monitoring
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
@@ -63,7 +63,7 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: VictoriaMetrics
+  folder: monitoring
   datasources:
     - datasourceName: vmsingle
       inputName: DS_PROMETHEUS
