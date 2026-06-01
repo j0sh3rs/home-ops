@@ -66,16 +66,9 @@ spec:
         expose:
           default: false
         protocol: TCP
-      syslog:
-        port: 514
-        expose:
-          default: true
-        protocol: TCP
-      syslog-udp:
-        port: 514
-        expose:
-          default: true
-        protocol: UDP
+      # syslog (TCP + UDP) moved to traefik-internal — log ingest is LAN-only
+      # and must not be WAN-reachable (L4 routes bypass the CrowdSec/rate-limit
+      # HTTP middleware chain). See victoria-logs syslog routes.
       mysql:
         port: 3306
         expose:
@@ -98,11 +91,6 @@ spec:
           certificateRefs:
             - name: 68cc-io-tls
               kind: Secret
-        syslog:
-          port: 514
-          namespacePolicy:
-            from: All
-          protocol: TCP
         mysql:
           port: 3306
           namespacePolicy:

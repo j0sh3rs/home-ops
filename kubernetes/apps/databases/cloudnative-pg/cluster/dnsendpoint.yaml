@@ -1,6 +1,9 @@
 ---
-# LAN A record for pg.68cc.io so on-net clients can reach the PostgreSQL
-# TLSRoute on traefik-external without going through Cloudflare.
+# LAN A record for pg.68cc.io so on-net clients reach the PostgreSQL
+# TCPRoute on traefik-internal (VIP 192.168.35.17). LAN-only by design:
+# the record points at the internal VIP and cloudflare-dns never publishes
+# it (the route is no longer on traefik-external-gateway), so postgres is
+# unreachable over the WAN / Cloudflare tunnel.
 # unifi-dns watches the crd source (DNSEndpoint) in addition to
 # gateway-httproute, so this survives the gateway-name=traefik-internal-gateway
 # filter that was added to stop unifi-dns from creating A records for
@@ -8,7 +11,7 @@
 apiVersion: externaldns.k8s.io/v1alpha1
 kind: DNSEndpoint
 metadata:
-  name: postgres-external
+  name: postgres-internal
   namespace: databases
 spec:
   endpoints:
@@ -16,4 +19,4 @@ spec:
       recordTTL: 300
       recordType: A
       targets:
-        - 192.168.35.15
+        - 192.168.35.17

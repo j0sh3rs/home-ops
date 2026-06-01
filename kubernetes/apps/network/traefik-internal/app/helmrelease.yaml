@@ -66,6 +66,21 @@ spec:
         expose:
           default: false
         protocol: TCP
+      postgres:
+        port: 5432
+        expose:
+          default: true
+        protocol: TCP
+      syslog:
+        port: 514
+        expose:
+          default: true
+        protocol: TCP
+      syslog-udp:
+        port: 514
+        expose:
+          default: true
+        protocol: UDP
     gateway:
       enabled: true
       name: traefik-internal-gateway
@@ -83,6 +98,24 @@ spec:
           certificateRefs:
             - name: 68cc-io-tls
               kind: Secret
+        # Plain TCP passthrough for PostgreSQL. NOT a TLS listener: the
+        # postgres wire protocol starts in cleartext and upgrades via its
+        # own SSLRequest, so there is no ClientHello SNI for Traefik to
+        # route on. CNPG terminates TLS itself end-to-end on 5432.
+        postgres:
+          port: 5432
+          namespacePolicy:
+            from: All
+          protocol: TCP
+        # Syslog ingest (TCP) via Gateway API TCPRoute. UDP syslog uses a
+        # Traefik IngressRouteUDP on the syslog-udp entryPoint (port below);
+        # Gateway API UDPRoute is not used. LAN-only — moved off the external
+        # gateway so log ingest is not WAN-reachable (no CrowdSec at L4).
+        syslog:
+          port: 514
+          namespacePolicy:
+            from: All
+          protocol: TCP
     ingressClass:
       enabled: true
       isDefaultClass: false

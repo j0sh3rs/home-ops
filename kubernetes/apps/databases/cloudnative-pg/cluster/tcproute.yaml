@@ -1,0 +1,22 @@
+---
+# LAN-only PostgreSQL exposure. TCPRoute (not TLSRoute): the postgres wire
+# protocol begins in cleartext and upgrades via its own SSLRequest, so there
+# is no ClientHello SNI for Traefik to route on — TLS passthrough cannot work.
+# CNPG terminates TLS end-to-end on 5432. Bound to traefik-internal-gateway
+# (VIP 192.168.35.17) so the cluster is reachable only on the LAN, never via
+# the Cloudflare tunnel / WAN. No forward-auth: that is HTTP-only and the
+# postgres protocol cannot satisfy it; access control is the DB's own auth.
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: postgres-internal
+  namespace: databases
+spec:
+  parentRefs:
+    - name: traefik-internal-gateway
+      namespace: network
+      sectionName: postgres
+  rules:
+    - backendRefs:
+        - name: postgres17-rw
+          port: 5432

@@ -10,5 +10,5 @@ resources:
   - ./scheduledbackup.yaml
   - ./prometheusrule.yaml
   - ./grafanadashboard.yaml
-  - ./tlsroute.yaml
+  - ./tcproute.yaml
   - ./dnsendpoint.yaml

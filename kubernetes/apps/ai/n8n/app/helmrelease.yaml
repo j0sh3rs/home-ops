@@ -91,6 +91,36 @@ spec:
           - name: traefik-external-gateway
             namespace: network
         rules:
-          - backendRefs:
+          # Production webhook endpoints: NO forwardAuth. Headless callers
+          # (GitHub, Stripe, calendar pushes, etc.) have no SSO session and
+          # would be 302'd to Authentik, silently breaking the webhook. Auth
+          # here is the per-webhook secret path/token, enforced by n8n itself.
+          # Gateway API selects the most-specific PathPrefix, so these win
+          # over the "/" catch-all below regardless of rule order.
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /webhook
+              - path:
+                  type: PathPrefix
+                  value: /webhook-test
+              - path:
+                  type: PathPrefix
+                  value: /webhook-waiting
+            backendRefs:
+              - name: *app
+                port: *port
+          # Editor UI and REST API: SSO-gated via Authentik forwardAuth.
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+            filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
               - name: *app
                 port: *port
