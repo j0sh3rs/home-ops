@@ -1,0 +1,8 @@
+---
+machine:
+  udev:
+    rules:
+      # Disable APST on all NVMe drives — prevents 1-10ms wake latency
+      # spikes on first IO after idle (etcd/Postgres tail-latency risk).
+      # yamllint disable-line rule:line-length
+      - 'ACTION=="add|change", SUBSYSTEM=="nvme", KERNEL=="nvme[0-9]*", ATTR{power/control}="on"'

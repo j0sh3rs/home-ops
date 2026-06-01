@@ -14,6 +14,14 @@ spec:
     monitoring:
       serviceMonitor:
         enabled: true
+      prometheusRule:
+        enabled: true
+      dashboards:
+        enabled: true
+        grafanaOperator:
+          enabled: true
+          matchLabels:
+            grafana.internal/instance: grafana
     # tuppr's chart has no topologySpreadConstraints field — use
     # podAntiAffinity via the chart's `affinity:` knob instead. Preferred
     # (not required) so a node failure doesn't block the surviving
