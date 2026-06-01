@@ -27,8 +27,6 @@ spec:
               tag: 2.2.2
               pullPolicy: IfNotPresent
             args:
-              - "--piper"
-              - "/usr/local/bin/piper"
               - "--data-dir"
               - "/data"
               - "--download-dir"
