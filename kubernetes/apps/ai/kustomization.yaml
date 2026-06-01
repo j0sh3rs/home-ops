@@ -24,5 +24,6 @@ resources:
   - ./llama-swap/ks.yaml
   - ./n8n/ks.yaml
   - ./langfuse/ks.yaml
+  - ./mem0/ks.yaml
   - ./open-webui/ks.yaml
   - ./piper/ks.yaml
