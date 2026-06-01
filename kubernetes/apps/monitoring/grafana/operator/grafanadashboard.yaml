@@ -10,8 +10,8 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   datasources:
-    - datasourceName: prometheus
-      inputName: thanos
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
   configMapRef:
     name: grafana-operator-dashboard
     key: grafana-operator.json

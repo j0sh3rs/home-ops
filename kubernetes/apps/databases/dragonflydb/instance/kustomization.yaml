@@ -5,3 +5,10 @@ resources:
   - ./instance.yaml
   - ./prometheusrule.yaml
   - ./secret.sops.yaml
+  - ./grafanadashboard.yaml
+configMapGenerator:
+  - name: dragonflydb-dashboard
+    files:
+      - dragonflydb-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true

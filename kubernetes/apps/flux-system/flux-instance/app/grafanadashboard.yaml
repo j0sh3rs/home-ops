@@ -10,8 +10,8 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   datasources:
-    - datasourceName: prometheus
-      inputName: thanos
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
   # renovate: datasource=github-releases depName=controlplaneio-fluxcd/flux-operator
   url: https://raw.githubusercontent.com/controlplaneio-fluxcd/flux-operator/v0.50.0/config/monitoring/dashboards/flux-k8s-api-performance.json
 ---
@@ -26,8 +26,8 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   datasources:
-    - datasourceName: prometheus
-      inputName: thanos
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
   # renovate: datasource=github-releases depName=controlplaneio-fluxcd/flux-operator
   url: https://raw.githubusercontent.com/controlplaneio-fluxcd/flux-operator/v0.50.0/config/monitoring/dashboards/flux-performance.json
 ---
@@ -42,8 +42,8 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   datasources:
-    - datasourceName: prometheus
-      inputName: thanos
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
   # fluxcd/flux2-monitoring-example publishes no tagged releases, so the
   # URL is pinned to a commit SHA. Renovate's git-refs datasource bumps
   # the SHA when upstream pushes to main; review each PR before merge.
@@ -61,8 +61,8 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   datasources:
-    - datasourceName: prometheus
-      inputName: thanos
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
   # See above — same SHA-pinned upstream.
   # renovate: datasource=git-refs depName=fluxcd/flux2-monitoring-example packageName=https://github.com/fluxcd/flux2-monitoring-example branch=main
   url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/7ab65dc8b90f7a6751d88f18bbb4e1bee33bf334/monitoring/configs/dashboards/control-plane.json

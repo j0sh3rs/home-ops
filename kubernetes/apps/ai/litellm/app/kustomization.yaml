@@ -7,3 +7,10 @@ resources:
   - ./configmap.yaml
   - ./secret.sops.yaml
   - ./helmrelease.yaml
+  - ./grafanadashboard.yaml
+configMapGenerator:
+  - name: litellm-dashboard
+    files:
+      - litellm-dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
