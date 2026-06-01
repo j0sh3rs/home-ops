@@ -1,0 +1,65 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: owui-pipelines-scripts
+data:
+  model_router.py: |
+    """
+    Model router pipeline for Open WebUI -> LiteLLM.
+    Routes by content signal:
+      code keywords  -> local-coder   (Qwen2.5-Coder-7B)
+      short message  -> local-fast    (Qwen3-1.7B, < SHORT_MSG_THRESHOLD chars)
+      default        -> local-balanced (Qwen3-4B)
+    Model names must match LiteLLM public aliases in litellm configmap.
+    """
+    from pydantic import BaseModel
+    from typing import Optional
+    import re
+
+
+    class Pipeline:
+        class Valves(BaseModel):
+            MODEL_FAST: str = "local-fast"
+            MODEL_CODER: str = "local-coder"
+            MODEL_DEFAULT: str = "local-balanced"
+            SHORT_MSG_THRESHOLD: int = 50
+
+        def __init__(self):
+            self.name = "Model Router"
+            self.valves = self.Valves()
+
+        async def on_startup(self):
+            pass
+
+        async def on_shutdown(self):
+            pass
+
+        def _last_user_content(self, messages: list) -> str:
+            for msg in reversed(messages):
+                if msg.get("role") == "user":
+                    content = msg.get("content", "")
+                    return content if isinstance(content, str) else str(content)
+            return ""
+
+        def _is_code_request(self, text: str) -> bool:
+            patterns = [
+                r"\bwrite\b.*\b(function|class|script|code|test)\b",
+                r"\b(debug|fix|refactor|implement)\b.*\b(code|function|script)\b",
+                r"```",
+                r"\bdef \b|\bfunc \b|\bclass \b",
+                r"\b(python|javascript|golang|typescript|rust|bash)\b",
+            ]
+            t = text.lower()
+            return any(re.search(p, t) for p in patterns)
+
+        async def inlet(self, body: dict, user: Optional[dict] = None) -> dict:
+            messages = body.get("messages", [])
+            content = self._last_user_content(messages)
+            if self._is_code_request(content):
+                body["model"] = self.valves.MODEL_CODER
+            elif len(content) < self.valves.SHORT_MSG_THRESHOLD:
+                body["model"] = self.valves.MODEL_FAST
+            else:
+                body["model"] = self.valves.MODEL_DEFAULT
+            return body

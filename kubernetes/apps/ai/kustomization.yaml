@@ -26,4 +26,5 @@ resources:
   - ./langfuse/ks.yaml
   - ./mem0/ks.yaml
   - ./open-webui/ks.yaml
+  - ./owui-pipelines/ks.yaml
   - ./piper/ks.yaml
