@@ -24,7 +24,7 @@ spec:
             image:
               repository: fedirz/faster-whisper-server
               # renovate: datasource=docker depName=fedirz/faster-whisper-server
-              tag: latest-cpu
+              tag: 0.6.0-rc.3-cuda
               pullPolicy: IfNotPresent
             env:
               WHISPER__MODEL: tiny.en

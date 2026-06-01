@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app piper
+  name: &app owui-pipelines
 spec:
   interval: 1h
   chartRef:
@@ -17,31 +17,34 @@ spec:
     remediation:
       retries: 3
   values:
+    global:
+      annotations:
+        reloader.stakater.com/auto: "true"
     controllers:
-      piper:
+      owui-pipelines:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
-              repository: rhasspy/wyoming-piper
-              # renovate: datasource=docker depName=rhasspy/wyoming-piper
-              tag: 2.2.2
+              repository: ghcr.io/open-webui/pipelines
+              # renovate: datasource=docker depName=ghcr.io/open-webui/pipelines
+              # NOTE: pipelines has no semver tags; pinned to latest git-<sha> tag.
+              # Update by checking ghcr.io/v2/open-webui/pipelines/tags/list.
+              tag: git-2bd3ba3
               pullPolicy: IfNotPresent
-            args:
-              - "--piper"
-              - "/usr/local/bin/piper"
-              - "--data-dir"
-              - "/data"
-              - "--download-dir"
-              - "/data"
-              - "--voice"
-              - "en_US-lessac-medium"
+            env:
+              PIPELINES_DIR: /pipelines
+            envFrom:
+              - secretRef:
+                  name: owui-pipelines-secrets
             resources:
               requests:
                 cpu: 50m
-                memory: 128Mi
+                memory: 256Mi
               limits:
                 cpu: "500m"
-                memory: 256Mi
+                memory: 512Mi
             probes:
               liveness:
                 enabled: false
@@ -52,17 +55,12 @@ spec:
     service:
       app:
         controller: *app
-        type: ClusterIP
         ports:
-          wyoming:
-            port: 10200
-            protocol: TCP
+          http:
+            port: &port 9099
     persistence:
-      data:
-        type: persistentVolumeClaim
-        storageClass: openebs-hostpath
-        accessMode: ReadWriteOnce
-        size: 1Gi
-        retain: true
+      pipelines:
+        type: configMap
+        name: owui-pipelines-scripts
         globalMounts:
-          - path: /data
+          - path: /pipelines

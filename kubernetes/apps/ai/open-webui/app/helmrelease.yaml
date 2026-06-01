@@ -35,7 +35,7 @@ spec:
               # llama-swap + cloud providers behind a single OpenAI-compat
               # endpoint. Ollama API disabled — neither LiteLLM nor
               # llama-swap implement /api/tags.
-              OPENAI_API_BASE_URL: "http://litellm:4000/v1"
+              OPENAI_API_BASE_URL: "http://owui-pipelines:9099/v1"
               ENABLE_OPENAI_API: "true"
               ENABLE_OLLAMA_API: "false"
               # Disable outbound telemetry
