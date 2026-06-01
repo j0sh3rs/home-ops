@@ -64,9 +64,12 @@ spec:
               EMBEDDING_BASE_PATH: "http://litellm:4000/v1"
               EMBEDDING_MODEL_PREF: local-embed
               EMBEDDING_MODEL_MAX_CHUNK_LENGTH: "8192"
-              # Vector store: LanceDB (embedded in pod, data on PVC).
-              # Switching to pgvector later = one env var change here.
-              VECTOR_DB: lancedb
+              # pgvector on shared CNPG postgres18. Migrated from LanceDB 2026-06-01.
+              VECTOR_DB: pgvector
+              VECTOR_DB_CONNECTION_STRING:
+                secretKeyRef:
+                  name: anythingllm-secret
+                  key: VECTOR_DB_CONNECTION_STRING
               # Chunking defaults (tunable per-workspace in UI)
               TEXT_CHUNK_SIZE: "1500"
               TEXT_CHUNK_OVERLAP: "200"
