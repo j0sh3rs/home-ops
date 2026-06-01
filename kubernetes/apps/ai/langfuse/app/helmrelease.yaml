@@ -72,11 +72,12 @@ spec:
     # the CLICKHOUSE_PASSWORD key so LangFuse can authenticate.
     clickhouse:
       deploy: false
+      clusterEnabled: false   # single-node — no Keeper, plain MergeTree
       host: clickhouse.databases.svc.cluster.local
       httpPort: 8123
       nativePort: 9000
       auth:
-        username: default
+        username: langfuse
         existingSecret: langfuse-secrets
         existingSecretKey: CLICKHOUSE_PASSWORD
 

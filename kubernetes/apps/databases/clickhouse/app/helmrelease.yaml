@@ -1,5 +1,13 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# Standalone single-node ClickHouse on the OFFICIAL OSS image via bjw-s
+# app-template (StatefulSet). NOT the Bitnami chart — that catalog was
+# frozen to `bitnamilegacy/*` (no patches) in Sep 2025 and forces
+# allowInsecureImages. One pod, one container, no Keeper/ZooKeeper.
+#
+# Single-node contract (IRREVERSIBLE — LangFuse has no clustered<->unclustered
+# migration path): DB uses Atomic engine (CH default), LangFuse runs with
+# CLICKHOUSE_CLUSTER_ENABLED=false → plain MergeTree, no ON CLUSTER, no Keeper.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -8,8 +16,7 @@ spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
-    name: clickhouse
-    namespace: flux-system
+    name: app-template
   install:
     remediation:
       retries: 3
@@ -18,50 +25,113 @@ spec:
     remediation:
       retries: 3
   values:
-    # Single-shard, single-replica — homelab scale, no ZooKeeper needed.
-    # ClickHouse Keeper (built-in Raft) handles coordination for 1 node.
-    shards: 1
-    replicaCount: 1
+    controllers:
+      clickhouse:
+        type: statefulset
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: clickhouse/clickhouse-server
+              # renovate: datasource=docker depName=clickhouse/clickhouse-server
+              tag: "26.3"
+              pullPolicy: IfNotPresent
+            env:
+              # First-boot provisioning of the non-default user + DB. The
+              # official image honours these env vars on initial startup.
+              CLICKHOUSE_DB: default
+              CLICKHOUSE_USER:
+                valueFrom:
+                  secretKeyRef:
+                    name: clickhouse-secret
+                    key: CLICKHOUSE_USER
+              CLICKHOUSE_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: clickhouse-secret
+                    key: CLICKHOUSE_PASSWORD
+              # Grant the user the access LangFuse needs.
+              CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: "2"
+                memory: 2Gi
+            securityContext:
+              # ClickHouse wants these caps; runs without but logs warnings.
+              capabilities:
+                add:
+                  - IPC_LOCK
+                  - SYS_NICE
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: 8123
+                  initialDelaySeconds: 30
+                  periodSeconds: 15
+                  failureThreshold: 4
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: 8123
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: 8123
+                  failureThreshold: 30
+                  periodSeconds: 10
 
-    auth:
-      username: default
-      existingSecret: clickhouse-secret
-      existingSecretKey: CLICKHOUSE_ADMIN_PASSWORD
+    service:
+      app:
+        controller: *app
+        type: ClusterIP
+        ports:
+          http:
+            port: 8123
+          native:
+            port: 9000
+          metrics:
+            port: 9363
+
+    serviceMonitor:
+      app:
+        serviceName: clickhouse
+        endpoints:
+          - port: metrics
+            scheme: http
+            path: /metrics
+            interval: 30s
+            scrapeTimeout: 10s
 
     persistence:
-      enabled: true
-      storageClass: openebs-hostpath
-      size: 20Gi
-
-    zookeeper:
-      enabled: false
-
-    keeper:
-      enabled: true
-
-    resources:
-      requests:
-        cpu: 200m
-        memory: 512Mi
-      limits:
-        cpu: "2"
-        memory: 2Gi
-
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: true
-        namespace: databases
-        labels:
-          prometheus: k8s
-          release: kube-prometheus-stack
-      prometheusRule:
-        enabled: false   # We manage rules in our own PrometheusRule below
-
-    # Expose native (9000) and HTTP (8123) ports — LangFuse uses both
-    service:
-      type: ClusterIP
-      ports:
-        http: 8123
-        native: 9000
-        metrics: 8001
+      data:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 20Gi
+        retain: true
+        globalMounts:
+          - path: /var/lib/clickhouse
+      # config.d drop-in: enable native Prometheus endpoint on :9363
+      config:
+        type: configMap
+        name: clickhouse-config
+        globalMounts:
+          - path: /etc/clickhouse-server/config.d/prometheus.xml
+            subPath: prometheus.xml
+            readOnly: true

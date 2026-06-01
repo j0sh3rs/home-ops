@@ -6,7 +6,6 @@ resources:
   - ./amd-device-metrics-exporter.yaml
   - ./amd-gpu.yaml
   - ./cilium.yaml
-  - ./clickhouse.yaml
   - ./cloudnative-pg.yaml
   - ./cloudflare.yaml
   - ./descheduler.yaml

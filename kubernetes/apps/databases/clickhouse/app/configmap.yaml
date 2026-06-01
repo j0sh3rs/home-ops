@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-config
+data:
+  # Enables ClickHouse's built-in Prometheus exporter on :9363.
+  # Replaces the Bitnami sidecar exporter — these are NATIVE metric names
+  # (ClickHouseProfileEvents_*, ClickHouseMetrics_*, ClickHouseAsyncMetrics_*).
+  prometheus.xml: |
+    <clickhouse>
+      <prometheus>
+        <endpoint>/metrics</endpoint>
+        <port>9363</port>
+        <metrics>true</metrics>
+        <events>true</events>
+        <asynchronous_metrics>true</asynchronous_metrics>
+        <status_info>true</status_info>
+      </prometheus>
+    </clickhouse>
