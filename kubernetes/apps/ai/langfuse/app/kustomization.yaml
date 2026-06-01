@@ -5,3 +5,5 @@ kind: Kustomization
 resources:
   - ./secret.sops.yaml
   - ./helmrelease.yaml
+  - ./init-db-job.yaml
+  - ./httproute.yaml

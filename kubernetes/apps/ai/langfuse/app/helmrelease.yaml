@@ -6,6 +6,10 @@ metadata:
   name: &app langfuse
 spec:
   interval: 1h
+  # EXCEPTION: langfuse chart OCI (ghcr.io/langfuse/helm-charts/langfuse) returns
+  # 403 Forbidden — requires auth not available in cluster. Using HelmRepository
+  # sourceRef as permitted fallback per CLAUDE.md: "Only fall back to HelmRepository
+  # + sourceRef when the upstream has no OCI artifact available."
   chart:
     spec:
       chart: langfuse
@@ -59,52 +63,3 @@ spec:
         existingSecret: langfuse-secrets
         existingSecretPasswordKey: ""
         database: 6
-
-    extraResources:
-      - apiVersion: gateway.networking.k8s.io/v1
-        kind: HTTPRoute
-        metadata:
-          name: langfuse
-          annotations:
-            external-dns.alpha.kubernetes.io/target: 192.168.35.17
-        spec:
-          hostnames:
-            - langfuse.68cc.io
-          parentRefs:
-            - name: traefik-internal-gateway
-              namespace: network
-          rules:
-            - matches:
-                - path:
-                    type: PathPrefix
-                    value: /
-              filters:
-                - type: ExtensionRef
-                  extensionRef:
-                    group: traefik.io
-                    kind: Middleware
-                    name: authentik-forwardauth
-              backendRefs:
-                - name: langfuse-web
-                  port: 3000
-
-      - apiVersion: batch/v1
-        kind: Job
-        metadata:
-          name: langfuse-init-db
-          annotations:
-            "helm.sh/hook": pre-install,pre-upgrade
-            "helm.sh/hook-weight": "-5"
-            "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
-        spec:
-          backoffLimit: 6
-          ttlSecondsAfterFinished: 300
-          template:
-            spec:
-              restartPolicy: OnFailure
-              containers:
-                - name: init-db
-                  image: ghcr.io/home-operations/postgres-init:18
-                  envFrom:
-                    - secretRef:
-                        name: langfuse-secrets
