@@ -78,6 +78,19 @@ spec:
         # would trip the chart's required guard in _helpers.tpl:311.
         database: 6
 
+    # LangFuse v3 requires ClickHouse for event storage.
+    # Using bundled single-node deployment (no Zookeeper needed at this scale).
+    clickhouse:
+      deploy: true
+      auth:
+        username: default
+        existingSecret: langfuse-secrets
+        existingSecretKey: CLICKHOUSE_PASSWORD
+      zookeeper:
+        enabled: false
+      shards: 1
+      replicaCount: 1
+
     extraManifests:
       - apiVersion: batch/v1
         kind: Job
