@@ -1,0 +1,67 @@
+{
+  "__inputs": [{"name": "DS_PROMETHEUS", "label": "Prometheus", "type": "datasource", "pluginId": "prometheus"}],
+  "__requires": [{"type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.0.0"}],
+  "annotations": {"list": []},
+  "description": "ClickHouse metrics overview (homelab). For full dashboard see grafana.com/dashboards/14192",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"lineWidth": 1}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"legend": {"calcs": ["last"], "displayMode": "list"}, "tooltip": {"mode": "multi"}},
+      "title": "TCP Connections",
+      "type": "timeseries",
+      "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ClickHouseMetrics_TCPConnection{namespace=\"databases\"}", "legendFormat": "connections"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "bytes", "custom": {"lineWidth": 1}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {"legend": {"calcs": ["last"], "displayMode": "list"}, "tooltip": {"mode": "multi"}},
+      "title": "Memory Tracking",
+      "type": "timeseries",
+      "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ClickHouseMetrics_MemoryTracking{namespace=\"databases\"}", "legendFormat": "tracked bytes"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "reqps", "custom": {"lineWidth": 1}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "options": {"legend": {"calcs": ["last"], "displayMode": "list"}, "tooltip": {"mode": "multi"}},
+      "title": "Query Rate",
+      "type": "timeseries",
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "rate(ClickHouseProfileEvents_Query{namespace=\"databases\"}[5m])", "legendFormat": "queries/s"},
+        {"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "rate(ClickHouseProfileEvents_FailedQuery{namespace=\"databases\"}[5m])", "legendFormat": "failed/s"}
+      ]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "bytes", "custom": {"lineWidth": 1}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "options": {"legend": {"calcs": ["last"], "displayMode": "list"}, "tooltip": {"mode": "multi"}},
+      "title": "Disk Usage",
+      "type": "timeseries",
+      "targets": [
+        {"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ClickHouseAsyncMetrics_DiskUsed_default{namespace=\"databases\"}", "legendFormat": "used"},
+        {"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ClickHouseAsyncMetrics_DiskAvailable_default{namespace=\"databases\"}", "legendFormat": "available"}
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["clickhouse", "databases"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "title": "ClickHouse Overview",
+  "uid": "clickhouse-homeops",
+  "version": 1
+}

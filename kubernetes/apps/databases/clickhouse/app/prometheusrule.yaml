@@ -1,0 +1,106 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+# ClickHouse alert rules. Metrics sourced from the clickhouse-metrics exporter
+# (bitnami/clickhouse chart built-in, port 8001). Metric names verified
+# against https://clickhouse.com/docs/operations/server-configuration-parameters/settings
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: clickhouse-rules
+  namespace: databases
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: clickhouse.rules
+      rules:
+
+        - alert: ClickHouseDown
+          expr: absent(ClickHouseMetrics_TCPConnection) == 1
+          for: 2m
+          labels:
+            severity: critical
+            component: availability
+          annotations:
+            summary: ClickHouse unreachable
+            description: >-
+              ClickHouse metrics have not been scraped for >2m.
+              LangFuse event storage is unavailable — new traces will be lost.
+
+        - alert: ClickHouseHighMemoryUsage
+          expr: >-
+            (
+              ClickHouseMetrics_MemoryTracking
+              /
+              ClickHouseAsyncMetrics_OSMemoryTotal
+            ) > 0.80
+          for: 5m
+          labels:
+            severity: warning
+            component: capacity
+          annotations:
+            summary: ClickHouse memory usage high
+            description: >-
+              ClickHouse is using {{ $value | humanizePercentage }} of host memory.
+              Consider raising pod memory limit or reducing retention TTL on
+              the langfuse.trace_segments table.
+
+        - alert: ClickHouseDiskHigh
+          expr: >-
+            (
+              ClickHouseAsyncMetrics_DiskUsed_default
+              /
+              (ClickHouseAsyncMetrics_DiskUsed_default + ClickHouseAsyncMetrics_DiskAvailable_default)
+            ) > 0.80
+          for: 10m
+          labels:
+            severity: warning
+            component: capacity
+          annotations:
+            summary: ClickHouse disk usage above 80%
+            description: >-
+              ClickHouse data volume is {{ $value | humanizePercentage }} full.
+              Expand PVC or configure TTL-based retention on LangFuse tables.
+
+        - alert: ClickHouseDiskCritical
+          expr: >-
+            (
+              ClickHouseAsyncMetrics_DiskUsed_default
+              /
+              (ClickHouseAsyncMetrics_DiskUsed_default + ClickHouseAsyncMetrics_DiskAvailable_default)
+            ) > 0.90
+          for: 5m
+          labels:
+            severity: critical
+            component: capacity
+          annotations:
+            summary: ClickHouse disk usage critical (>90%)
+            description: >-
+              ClickHouse data volume is {{ $value | humanizePercentage }} full.
+              Immediate action required — writes will fail when disk is full.
+
+        - alert: ClickHouseReplicationLag
+          expr: ClickHouseMetrics_ReplicatedChecks > 100
+          for: 10m
+          labels:
+            severity: warning
+            component: replication
+          annotations:
+            summary: ClickHouse replication queue growing
+            description: >-
+              {{ $value }} parts queued for replication check. Investigate
+              with SELECT * FROM system.replication_queue on the ClickHouse pod.
+
+        - alert: ClickHouseQueryFailureRate
+          expr: >-
+            rate(ClickHouseProfileEvents_FailedQuery[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+            component: performance
+          annotations:
+            summary: ClickHouse query failure rate elevated
+            description: >-
+              {{ $value | humanize }} failed queries/sec over the last 5m.
+              Check ClickHouse system.query_log for error details.

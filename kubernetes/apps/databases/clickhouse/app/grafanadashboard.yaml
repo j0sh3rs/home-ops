@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+# ClickHouse overview dashboard. JSON sourced from Grafana Labs dashboard ID 14192
+# (ClickHouse Overview by Altinity — https://grafana.com/grafana/dashboards/14192).
+# Fetch latest: curl -s https://grafana.com/api/dashboards/14192/revisions/latest/download > clickhouse-dashboard.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: clickhouse
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: Databases
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  configMapRef:
+    name: clickhouse-dashboard
+    key: clickhouse-dashboard.json

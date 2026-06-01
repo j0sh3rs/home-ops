@@ -78,18 +78,19 @@ spec:
         # would trip the chart's required guard in _helpers.tpl:311.
         database: 6
 
-    # LangFuse v3 requires ClickHouse for event storage.
-    # Using bundled single-node deployment (no Zookeeper needed at this scale).
+    # ClickHouse runs as a standalone HelmRelease in the databases namespace.
+    # See kubernetes/apps/databases/clickhouse/. Password sourced from
+    # clickhouse-secret (databases ns); mirrored into langfuse-secrets via
+    # the CLICKHOUSE_PASSWORD key so LangFuse can authenticate.
     clickhouse:
-      deploy: true
+      deploy: false
+      host: clickhouse.databases.svc.cluster.local
+      httpPort: 8123
+      nativePort: 9000
       auth:
         username: default
         existingSecret: langfuse-secrets
         existingSecretKey: CLICKHOUSE_PASSWORD
-      zookeeper:
-        enabled: false
-      shards: 1
-      replicaCount: 1
 
     extraManifests:
       - apiVersion: batch/v1
