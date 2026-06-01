@@ -1,0 +1,110 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app langfuse
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: langfuse
+      version: 1.5.33
+      sourceRef:
+        kind: HelmRepository
+        name: langfuse
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    langfuse:
+      nextauth:
+        url: https://langfuse.68cc.io
+        secret:
+          secretKeyRef:
+            name: langfuse-secrets
+            key: NEXTAUTH_SECRET
+      salt:
+        secretKeyRef:
+          name: langfuse-secrets
+          key: SALT
+      additionalEnvFrom:
+        - secretRef:
+            name: langfuse-secrets
+
+    postgresql:
+      deploy: false
+      host: postgres-rw.databases.svc.cluster.local
+      port: 5432
+      auth:
+        username: langfuse
+        existingSecret: langfuse-secrets
+        secretKeys:
+          userPasswordKey: INIT_POSTGRES_PASS
+        database: langfuse
+      migration:
+        autoMigrate: true
+
+    redis:
+      deploy: false
+      host: dragonflydb.databases.svc.cluster.local
+      port: 6379
+      auth:
+        username: ""
+        existingSecret: langfuse-secrets
+        existingSecretPasswordKey: ""
+        database: 6
+
+    extraResources:
+      - apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: langfuse
+          annotations:
+            external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        spec:
+          hostnames:
+            - langfuse.68cc.io
+          parentRefs:
+            - name: traefik-internal-gateway
+              namespace: network
+          rules:
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /
+              filters:
+                - type: ExtensionRef
+                  extensionRef:
+                    group: traefik.io
+                    kind: Middleware
+                    name: authentik-forwardauth
+              backendRefs:
+                - name: langfuse-web
+                  port: 3000
+
+      - apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: langfuse-init-db
+          annotations:
+            "helm.sh/hook": pre-install,pre-upgrade
+            "helm.sh/hook-weight": "-5"
+            "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+        spec:
+          backoffLimit: 6
+          ttlSecondsAfterFinished: 300
+          template:
+            spec:
+              restartPolicy: OnFailure
+              containers:
+                - name: init-db
+                  image: ghcr.io/home-operations/postgres-init:18
+                  envFrom:
+                    - secretRef:
+                        name: langfuse-secrets

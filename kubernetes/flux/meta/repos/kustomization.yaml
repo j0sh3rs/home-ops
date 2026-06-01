@@ -13,4 +13,5 @@ resources:
   - ./grafana.yaml
   - ./jetstack.yaml
   - ./nfs-external-provisioner.yaml
+  - ./langfuse.yaml
   - ./traefik.yaml
