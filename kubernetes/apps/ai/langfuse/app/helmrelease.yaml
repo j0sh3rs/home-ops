@@ -37,6 +37,18 @@ spec:
         secretKeyRef:
           name: langfuse-secrets
           key: SALT
+      # REDIS_CONNECTION_STRING is set here so the chart's _helpers.tpl
+      # langfuse.getEnvVar guard skips building its own connection string
+      # from the structured redis.auth.* fields (which would require a bare
+      # password key, not a full DSN). The full DSN (with URL-encoded password)
+      # lives in langfuse-secrets.REDIS_URL — the same secret mounted via
+      # additionalEnvFrom below.
+      additionalEnv:
+        - name: REDIS_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-secrets
+              key: REDIS_URL
       additionalEnvFrom:
         - secretRef:
             name: langfuse-secrets
@@ -60,6 +72,8 @@ spec:
       port: 6379
       auth:
         username: ""
-        existingSecret: langfuse-secrets
-        existingSecretPasswordKey: ""
+        # No existingSecret/password here — auth is handled via
+        # REDIS_CONNECTION_STRING in additionalEnv above. Setting
+        # existingSecret without a valid existingSecretPasswordKey
+        # would trip the chart's required guard in _helpers.tpl:311.
         database: 6
