@@ -8,9 +8,3 @@ resources:
   - ./helmrelease.yaml
   - ./prometheusrule.yaml
   - ./grafanadashboard.yaml
-configMapGenerator:
-  - name: clickhouse-dashboard
-    files:
-      - clickhouse-dashboard.json=./clickhouse-dashboard.json
-    options:
-      disableNameSuffixHash: true
