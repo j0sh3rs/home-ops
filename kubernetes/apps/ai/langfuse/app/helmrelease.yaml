@@ -66,18 +66,6 @@ spec:
       migration:
         autoMigrate: true
 
-    redis:
-      deploy: false
-      host: dragonflydb.databases.svc.cluster.local
-      port: 6379
-      auth:
-        username: ""
-        # No existingSecret/password here — auth is handled via
-        # REDIS_CONNECTION_STRING in additionalEnv above. Setting
-        # existingSecret without a valid existingSecretPasswordKey
-        # would trip the chart's required guard in _helpers.tpl:311.
-        database: 6
-
     # ClickHouse runs as a standalone HelmRelease in the databases namespace.
     # See kubernetes/apps/databases/clickhouse/. Password sourced from
     # clickhouse-secret (databases ns); mirrored into langfuse-secrets via
