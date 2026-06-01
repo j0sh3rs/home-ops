@@ -189,4 +189,10 @@ spec:
             component: security
           annotations:
             summary: "Shell spawned in {{ $labels.namespace }}/{{ $labels.pod }}"
-            description: "Workload {{ $labels.workload }} exec'd sh/bash/zsh. Scope is the services namespace with homepage/home-assistant/homebridge excluded; this is an unexpected shell."
+            description: >-
+              Workload {{ $labels.workload }} exec'd sh/bash/zsh. Scope is
+              the services namespace; homepage/home-assistant/homebridge/
+              gotenberg/paperless/tika are excluded via podSelector. This
+              pod is not in the exclusion list — investigate immediately.
+              Run: tetra getevents --pod {{ $labels.pod }} --namespace
+              {{ $labels.namespace }}

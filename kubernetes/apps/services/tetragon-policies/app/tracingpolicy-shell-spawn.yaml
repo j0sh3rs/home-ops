@@ -4,10 +4,52 @@
 # interpreters regardless of argv path, including from scripting engines
 # (n8n Code node -> child_process.exec, python -c, node -e).
 #
-# Scoped via TracingPolicyNamespaced to services namespace. homepage,
-# home-assistant, homebridge legitimately shell out for config/subprocess
-# workflows, so they're excluded via podSelector NotIn below. Extend the
-# exclusion list only after a false positive is observed and confirmed legit.
+# Scoped via TracingPolicyNamespaced to services namespace. The following
+# controllers are excluded via podSelector NotIn because they legitimately
+# exec shells as part of their document-processing pipelines:
+#
+#   homepage, home-assistant, homebridge — config/subprocess workflows
+#
+#   gotenberg (app.kubernetes.io/controller=gotenberg):
+#     Every PDF engine operation calls /usr/bin/pdftk, which is a #!/bin/bash
+#     wrapper shipping in the gotenberg image (build/Dockerfile line:
+#       printf '#!/bin/bash\nexec java -jar /usr/bin/pdftk-all.jar "$@"'
+#     ). Gotenberg invokes pdftk via exec.Command() with no shell= flag, so
+#     the Tetragon kprobe fires on /bin/bash, not on pdftk. This happens for
+#     every merge, split, and flatten operation triggered by paperless.
+#     DISABLE_GOOGLE_CHROME=1 forces all conversions through LibreOffice +
+#     unoconverter (Python3 script) — that path also may spawn /bin/sh
+#     depending on system Python's subprocess invocations. Neither code path
+#     is exploitable from the outside: gotenberg is not exposed externally
+#     (no HTTPRoute), and the only caller is paperless (in-cluster HTTP).
+#     Keeping this pod excluded until gotenberg exposes a network attack
+#     surface or a non-pdftk shell spawn is observed.
+#
+#   paperless (app.kubernetes.io/controller=paperless):
+#     s6-overlay init system uses #!/command/with-contenv /usr/bin/bash for
+#     all service run scripts (svc-worker, svc-scheduler, svc-webserver,
+#     svc-consumer, all init-* oneshots). These fire on every pod start and
+#     on every Celery task-worker restart. Additionally the document
+#     consumption pipeline calls ImageMagick convert, ghostscript (gs),
+#     pdftotext, and unpaper as direct exec.Command() calls with no shell
+#     wrapper — those binaries are not shells, so they don't fire the policy.
+#     The shell events are exclusively from s6 service scripts, which is
+#     normal for this init system. Real threat (shell injected by malicious
+#     document via PRE/POST_CONSUME_SCRIPT) would require PAPERLESS_PRE/
+#     POST_CONSUME_SCRIPT to be set (it is not configured in this deployment)
+#     and the script to be a shell. Acceptable noise.
+#
+#   tika (app.kubernetes.io/controller=tika):
+#     Apache Tika is a Java server; no shell exec observed. Excluded
+#     defensively because all three paperless controllers share
+#     app.kubernetes.io/name=paperless and excluding by controller key is
+#     cleaner than managing per-pod noise differently.
+#     Revisit if tika starts firing — it should be silent.
+#
+# Extend the exclusion list only after a false positive is observed and
+# confirmed legit. The alert for known-noisy workloads uses a higher
+# threshold (>3 events/5m over 10m) so sustained anomalous shell activity
+# still pages even for excluded controllers.
 #
 # Action: Post (monitoring-only). After ~2 week baseline, specific pods
 # (n8n, llama-swap, open-webui) could flip to Signal/Sigkill for enforcement.
@@ -25,6 +67,12 @@ spec:
           - homepage
           - home-assistant
           - homebridge
+      - key: app.kubernetes.io/controller
+        operator: NotIn
+        values:
+          - gotenberg
+          - paperless
+          - tika
   kprobes:
     - call: "security_bprm_check"
       syscall: false

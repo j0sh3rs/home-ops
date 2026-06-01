@@ -60,18 +60,38 @@ spec:
             summary: "VictoriaLogs PVC filling up"
             description: "VictoriaLogs PVC {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full (>80% threshold, 50Gi capacity). Log retention may need adjustment."
 
-        # Warning: No recent logs ingested
-        # Tuned for scheduled syslog sources (e.g., every 15 minutes)
+        # Critical: VictoriaLogs metric disappears entirely.
+        # Kept separate from the ingestion-rate alert: "server gone" is a
+        # different failure mode from "server up but no logs arriving."
+        - alert: VictoriaLogsMetricAbsent
+          expr: |
+            absent(vl_rows_ingested_total)
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "VictoriaLogs ingestion metric absent"
+            description: >-
+              vl_rows_ingested_total absent for 10m.
+              VictoriaLogs may be down or the scrape target disappeared.
+
+        # Warning: No new rows ingested over a sustained 30-minute window.
+        # Uses increase() over 30m (aligns with the `for:` duration) rather than
+        # rate()[5m]==0, which fires on any quiet 5m window (late-night lull,
+        # Vector disk-buffer holding data, brief network hiccup). A 30m
+        # increase of exactly 0 means the counter has not moved for 30m —
+        # a genuine pipeline stall, not a momentary gap.
+        # The `for: 5m` guard prevents a single bad eval from alerting;
+        # total fire latency is ~35m after ingestion truly stops.
         - alert: VictoriaLogsNoRecentLogs
           expr: |
-            (
-              rate(vl_rows_ingested_total[5m]) == 0
-              or
-              absent(vl_rows_ingested_total)
-            )
-          for: 30m
+            increase(vl_rows_ingested_total[30m]) == 0
+          for: 5m
           labels:
             severity: warning
           annotations:
             summary: "VictoriaLogs not ingesting logs"
-            description: "VictoriaLogs has not ingested any logs in the last 30 minutes. Possible syslog source issue or ingestion problem."
+            description: >-
+              VictoriaLogs ingested zero rows in the last 30 minutes.
+              Possible syslog source issue, Vector pipeline stall,
+              or ingestion problem.
