@@ -19,7 +19,9 @@ components:
   - ../../components/authentik-forwardauth
 resources:
   - ./anythingllm/ks.yaml
+  - ./faster-whisper/ks.yaml
   - ./litellm/ks.yaml
   - ./llama-swap/ks.yaml
   - ./n8n/ks.yaml
   - ./open-webui/ks.yaml
+  - ./piper/ks.yaml
