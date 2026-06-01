@@ -28,9 +28,11 @@ spec:
           app:
             image:
               repository: ghcr.io/open-webui/pipelines
-              # renovate: datasource=github-releases depName=open-webui/open-webui
-              tag: main
-              pullPolicy: Always
+              # renovate: datasource=docker depName=ghcr.io/open-webui/pipelines
+              # NOTE: pipelines has no semver tags; pinned to latest git-<sha> tag.
+              # Update by checking ghcr.io/v2/open-webui/pipelines/tags/list.
+              tag: git-2bd3ba3
+              pullPolicy: IfNotPresent
             env:
               PIPELINES_DIR: /pipelines
             envFrom:
