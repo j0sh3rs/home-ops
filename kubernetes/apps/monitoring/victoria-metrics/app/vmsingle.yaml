@@ -12,6 +12,13 @@ spec:
     # Dedup samples at scrape-level during parallel-run so both Prom remote_write
     # and vmagent-direct scrape don't double-count.
     dedup.minScrapeInterval: "1ms"
+    # Query-path tuning. Default maxConcurrentRequests=16 + maxQueueDuration=10s
+    # was 429-flooding clients (HA REST sensors, Grafana) whose queries queued
+    # past 10s. Node is RAM-bound, so concurrency is raised only modestly;
+    # the bigger lever is a longer queue window so requests wait instead of
+    # getting rejected.
+    search.maxConcurrentRequests: "24"
+    search.maxQueueDuration: "30s"
   storage:
     accessModes: [ReadWriteOnce]
     storageClassName: openebs-hostpath

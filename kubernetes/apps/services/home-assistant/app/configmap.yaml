@@ -47,8 +47,11 @@ data:
 
   prometheus.yaml: |
     # Cluster health surfaces from VMsingle (PromQL-compatible endpoint).
-    # Scraped every 30-60s by HA's rest platform. Extend with more sensors
-    # as needed; each rest sensor fires one HTTP call per scan_interval.
+    # scan_interval raised to 120s (was 30-60s): three sensors hammering
+    # vmsingle every 30s queued past its 10s window and got 429-flooded,
+    # which then spammed "value_json is undefined" template errors. Slower
+    # cadence + value_json guard stops both. Each rest sensor fires one
+    # HTTP call per scan_interval.
     sensor:
       - platform: rest
         name: cluster_cpu_usage_percent
@@ -56,9 +59,15 @@ data:
         resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
         params:
           query: "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)"
-        value_template: "{{ value_json.data.result[0].value[1] | float | round(1) }}"
+        value_template: >-
+          {% if value_json is defined and value_json.data.result | count > 0 %}
+          {{ value_json.data.result[0].value[1] | float | round(1) }}
+          {% else %}
+          {{ states('sensor.cluster_cpu_usage_percent') }}
+          {% endif %}
         unit_of_measurement: "%"
-        scan_interval: 30
+        timeout: 25
+        scan_interval: 120
 
       - platform: rest
         name: cluster_memory_used_gb
@@ -66,9 +75,15 @@ data:
         resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
         params:
           query: "sum(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 1024 / 1024 / 1024"
-        value_template: "{{ value_json.data.result[0].value[1] | float | round(1) }}"
+        value_template: >-
+          {% if value_json is defined and value_json.data.result | count > 0 %}
+          {{ value_json.data.result[0].value[1] | float | round(1) }}
+          {% else %}
+          {{ states('sensor.cluster_memory_used_gb') }}
+          {% endif %}
         unit_of_measurement: "GB"
-        scan_interval: 30
+        timeout: 25
+        scan_interval: 120
 
       - platform: rest
         name: cluster_nodes_up
@@ -76,6 +91,12 @@ data:
         resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
         params:
           query: "count(up{job=\"node-exporter\"} == 1)"
-        value_template: "{{ value_json.data.result[0].value[1] | int }}"
+        value_template: >-
+          {% if value_json is defined and value_json.data.result | count > 0 %}
+          {{ value_json.data.result[0].value[1] | int }}
+          {% else %}
+          {{ states('sensor.cluster_nodes_up') }}
+          {% endif %}
         unit_of_measurement: "nodes"
-        scan_interval: 60
+        timeout: 25
+        scan_interval: 120

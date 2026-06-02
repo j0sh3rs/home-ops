@@ -21,14 +21,27 @@ spec:
       faster-whisper:
         containers:
           app:
+            # Wyoming-protocol STT server (rhasspy/wyoming-whisper). This is
+            # the TCP Wyoming server HA's Wyoming integration speaks to — NOT
+            # the fedirz/faster-whisper-server OpenAI-HTTP image, which does
+            # not implement the Wyoming protocol and silently served nothing
+            # on :10300.
             image:
-              repository: fedirz/faster-whisper-server
-              # renovate: datasource=docker depName=fedirz/faster-whisper-server
-              tag: 0.6.0-rc.3-cuda
+              repository: rhasspy/wyoming-whisper
+              # renovate: datasource=docker depName=rhasspy/wyoming-whisper
+              tag: "3.1.0"
               pullPolicy: IfNotPresent
-            env:
-              WHISPER__MODEL: tiny.en
-              WHISPER__INFERENCE_DEVICE: cpu
+            args:
+              - "--uri"
+              - "tcp://0.0.0.0:10300"
+              - "--model"
+              - "tiny-int8"
+              - "--language"
+              - "en"
+              - "--data-dir"
+              - "/data"
+              - "--download-dir"
+              - "/data"
             resources:
               requests:
                 cpu: 100m
@@ -51,9 +64,6 @@ spec:
           wyoming:
             port: 10300
             protocol: TCP
-          http:
-            port: 8000
-            protocol: TCP
     persistence:
       models:
         type: persistentVolumeClaim
@@ -62,4 +72,4 @@ spec:
         size: 2Gi
         retain: true
         globalMounts:
-          - path: /root/.cache/huggingface
+          - path: /data
