@@ -10,3 +10,21 @@ resources:
   - ./cnpg-barman-plugin/ks.yaml
   - ./clickhouse/ks.yaml
   - ./dragonflydb/ks.yaml
+# ClickHouse requests IPC_LOCK + SYS_NICE capabilities (mlock + thread
+# priority). The baseline PodSecurity standard forbids ALL non-default
+# cap adds, so the databases namespace must run privileged — matching
+# monitoring/services/velero/security namespaces which do the same.
+patches:
+  - target:
+      kind: Namespace
+      # Rewritten to "databases" by the `namespace:` field above.
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          pod-security.kubernetes.io/enforce: privileged
+          pod-security.kubernetes.io/audit: privileged
+          pod-security.kubernetes.io/warn: privileged
