@@ -37,6 +37,31 @@ spec:
         secretKeyRef:
           name: langfuse-secrets
           key: SALT
+      # SSO-only lockdown via chart-structured fields (NOT additionalEnv —
+      # the chart already emits AUTH_DISABLE_SIGNUP / AUTH_DISABLE_USERNAME_PASSWORD
+      # from these, so duplicating them in additionalEnv breaks server-side apply).
+      features:
+        signUpDisabled: true
+      auth:
+        disableUsernamePassword: true
+        # Authentik via the generic CUSTOM OIDC provider (the chart's provider
+        # whitelist has no "authentik" entry — only CUSTOM/GOOGLE/OKTA/etc.).
+        # Renders AUTH_CUSTOM_* env vars.
+        # Redirect URI in Authentik: https://langfuse.68cc.io/api/auth/callback/custom
+        providers:
+          custom:
+            name: "Authentik"
+            clientId:
+              secretKeyRef:
+                name: langfuse-secrets
+                key: AUTH_AUTHENTIK_CLIENT_ID
+            clientSecret:
+              secretKeyRef:
+                name: langfuse-secrets
+                key: AUTH_AUTHENTIK_CLIENT_SECRET
+            issuer: "https://auth.68cc.io/application/o/langfuse/"
+            allowAccountLinking: "true"
+            scope: "openid email profile"
       # REDIS_CONNECTION_STRING is set here so the chart's _helpers.tpl
       # langfuse.getEnvVar guard skips building its own connection string
       # from the structured redis.auth.* fields (which would require a bare
@@ -49,32 +74,6 @@ spec:
             secretKeyRef:
               name: langfuse-secrets
               key: REDIS_URL
-        # ---- Native Authentik OIDC SSO ----
-        # LangFuse runs its own Auth.js session (no forward-auth header trust),
-        # so SSO is configured natively. Authentik is a first-class Auth.js
-        # provider. Redirect URI in Authentik:
-        #   https://langfuse.68cc.io/api/auth/callback/authentik
-        - name: AUTH_AUTHENTIK_CLIENT_ID
-          valueFrom:
-            secretKeyRef:
-              name: langfuse-secrets
-              key: AUTH_AUTHENTIK_CLIENT_ID
-        - name: AUTH_AUTHENTIK_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: langfuse-secrets
-              key: AUTH_AUTHENTIK_CLIENT_SECRET
-        - name: AUTH_AUTHENTIK_ISSUER
-          value: "https://auth.68cc.io/application/o/langfuse/"
-        # Link an SSO login to an existing user with the same email — lets the
-        # Google/Authentik identity attach to the headless-seeded OWNER below.
-        - name: AUTH_AUTHENTIK_ALLOW_ACCOUNT_LINKING
-          value: "true"
-        # Lock down: SSO-only. No email/password form, no self-signup.
-        - name: AUTH_DISABLE_USERNAME_PASSWORD
-          value: "true"
-        - name: AUTH_DISABLE_SIGNUP
-          value: "true"
         # ---- Headless init: seed org + project + OWNER user on first boot ----
         # The init user becomes OWNER of the org. On first SSO login with the
         # matching email, account linking attaches the Authentik identity to
