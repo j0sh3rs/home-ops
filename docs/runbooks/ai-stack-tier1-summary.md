@@ -222,14 +222,18 @@ curl -X POST https://litellm.68cc.io/key/generate   -H "Authorization: Bearer <L
 
 ## DragonflyDB DB Allocation
 
-| DB | Consumer | Namespace |
-|----|----------|-----------|
-| 0–3 | reserved | — |
-| 4 | LiteLLM response cache | ai/litellm |
-| 5 | Authentik sessions | network/traefik-* |
-| 6 | LangFuse job queue | ai/langfuse |
-| 7 | Mem0 cache (when unsuspended) | ai/mem0 |
-| 8+ | available | — |
+**Source of truth:** `docs/runbooks/dragonflydb-db-allocation.md`
+
+| DB | Consumer | Namespace | Purpose |
+|----|----------|-----------|---------|
+| 0 | _(reserved)_ | — | Default selection; transient only — do NOT store data |
+| 1–3 | _free_ | — | — |
+| 4 | LiteLLM | ai/litellm | Response cache (TTL 600s) |
+| 5 | _(retired)_ | — | Previously: traefikoidc OIDC sessions (replaced by Authentik forwardAuth 2026-05-21) |
+| 6 | Authentik | security/authentik | Celery broker, Django cache, channels layer |
+| 7–15 | _free_ | — | — |
+
+**Note:** LangFuse uses configurable Redis DB selector via REDIS_URL secret key (not pinned to a specific DB allocation). Currently empty-selector (default DB 0 transient); future: allocate dedicated DB when LangFuse queue persistence needed. Mem0 (when unsuspended) not yet allocated — will claim DB 7+ when deployed with Redis persistence.
 
 ---
 

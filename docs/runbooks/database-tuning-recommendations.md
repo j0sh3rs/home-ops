@@ -127,7 +127,7 @@ spec:
 - Persistence: none — emptyDir, snapshots not configured
 - Auth: enforced via `dragonflydb-auth` Secret
 - Metrics scrape: ServiceMonitor on admin port `:9999/metrics` (this PR + previous)
-- DB allocation: db 0 (transient), db 4 (LiteLLM cache), db 5 (traefikoidc sessions). See `dragonflydb-db-allocation.md`.
+- DB allocation: db 0 (transient), db 4 (LiteLLM cache), db 6 (Authentik Celery/cache/channels). See `dragonflydb-db-allocation.md`.
 - Alert rules: 0 → 10 in this PR
 
 ### Resource shape
@@ -135,7 +135,7 @@ spec:
 | Resource | Current | Recommended | Why |
 |----------|---------|-------------|-----|
 | `requests.memory` | `500Mi` | `2Gi` | Each LiteLLM-cached request is small but the AI cache grows quickly. 500Mi reserve = swap city under load. |
-| `limits.memory` | `2Gi` | `4Gi` | Doubles room for traefikoidc + LiteLLM + AnythingLLM cache. |
+| `limits.memory` | `2Gi` | `4Gi` | Doubles room for Authentik + LiteLLM + AnythingLLM cache. |
 | `requests.cpu` | `500m` | (keep) | Dragonfly is single-threaded per shard; rarely CPU-bound. |
 | `limits.cpu` | `1` | (keep) | No reason to constrain harder. |
 
@@ -143,7 +143,7 @@ spec:
 
 Dragonfly supports periodic snapshots via `--save_schedule`. Useful because:
 - After a pod restart, all caches start cold → consumer latency spike.
-- traefikoidc sessions cold = users re-authenticate (mild annoyance, not failure).
+- Authentik sessions cold = users re-authenticate (mild annoyance, not failure).
 - LiteLLM cache cold = first hits hit upstream models (slow, expected).
 
 **Recommendation (PR 2):** Add a small (5 GiB) PVC mounted at `/data` and enable `--snapshot_cron=*/30 * * * *` (every 30 min). On pod restart, dragonfly auto-loads the snapshot. Loss window = 30 min, acceptable for cache.
