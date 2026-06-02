@@ -60,12 +60,6 @@ spec:
               limits:
                 cpu: "2"
                 memory: 2Gi
-            securityContext:
-              # ClickHouse wants these caps; runs without but logs warnings.
-              capabilities:
-                add:
-                  - IPC_LOCK
-                  - SYS_NICE
             probes:
               liveness:
                 enabled: true
