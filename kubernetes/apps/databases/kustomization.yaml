@@ -8,12 +8,8 @@ components:
 resources:
   - ./cloudnative-pg/ks.yaml
   - ./cnpg-barman-plugin/ks.yaml
-  - ./clickhouse/ks.yaml
+  # - ./clickhouse/ks.yaml
   - ./dragonflydb/ks.yaml
-# ClickHouse requests IPC_LOCK + SYS_NICE capabilities (mlock + thread
-# priority). The baseline PodSecurity standard forbids ALL non-default
-# cap adds, so the databases namespace must run privileged — matching
-# monitoring/services/velero/security namespaces which do the same.
 patches:
   - target:
       kind: Namespace
