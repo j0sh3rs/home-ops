@@ -17,12 +17,9 @@ spec:
         - path:
             type: PathPrefix
             value: /
-      filters:
-        - type: ExtensionRef
-          extensionRef:
-            group: traefik.io
-            kind: Middleware
-            name: authentik-forwardauth
+      # No forward-auth filter: LangFuse runs native Authentik OIDC SSO
+      # (Auth.js). Gateway-level forward-auth would force a double login.
+      # Still LAN-only via traefik-internal-gateway.
       backendRefs:
         - name: langfuse-web
           port: 3000

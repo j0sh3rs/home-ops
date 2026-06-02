@@ -49,6 +49,64 @@ spec:
             secretKeyRef:
               name: langfuse-secrets
               key: REDIS_URL
+        # ---- Native Authentik OIDC SSO ----
+        # LangFuse runs its own Auth.js session (no forward-auth header trust),
+        # so SSO is configured natively. Authentik is a first-class Auth.js
+        # provider. Redirect URI in Authentik:
+        #   https://langfuse.68cc.io/api/auth/callback/authentik
+        - name: AUTH_AUTHENTIK_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-secrets
+              key: AUTH_AUTHENTIK_CLIENT_ID
+        - name: AUTH_AUTHENTIK_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-secrets
+              key: AUTH_AUTHENTIK_CLIENT_SECRET
+        - name: AUTH_AUTHENTIK_ISSUER
+          value: "https://auth.68cc.io/application/o/langfuse/"
+        # Link an SSO login to an existing user with the same email — lets the
+        # Google/Authentik identity attach to the headless-seeded OWNER below.
+        - name: AUTH_AUTHENTIK_ALLOW_ACCOUNT_LINKING
+          value: "true"
+        # Lock down: SSO-only. No email/password form, no self-signup.
+        - name: AUTH_DISABLE_USERNAME_PASSWORD
+          value: "true"
+        - name: AUTH_DISABLE_SIGNUP
+          value: "true"
+        # ---- Headless init: seed org + project + OWNER user on first boot ----
+        # The init user becomes OWNER of the org. On first SSO login with the
+        # matching email, account linking attaches the Authentik identity to
+        # this OWNER membership → admin access. Idempotent: only creates if
+        # the org/project/user do not already exist.
+        - name: LANGFUSE_INIT_ORG_ID
+          value: "home-ops"
+        - name: LANGFUSE_INIT_ORG_NAME
+          value: "home-ops"
+        - name: LANGFUSE_INIT_PROJECT_ID
+          value: "home-ops"
+        - name: LANGFUSE_INIT_PROJECT_NAME
+          value: "home-ops"
+        - name: LANGFUSE_INIT_PROJECT_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-secrets
+              key: LANGFUSE_PUBLIC_KEY
+        - name: LANGFUSE_INIT_PROJECT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-secrets
+              key: LANGFUSE_SECRET_KEY
+        - name: LANGFUSE_INIT_USER_EMAIL
+          value: "j0sh3rs@gmail.com"
+        - name: LANGFUSE_INIT_USER_NAME
+          value: "Josh"
+        - name: LANGFUSE_INIT_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: langfuse-secrets
+              key: LANGFUSE_INIT_USER_PASSWORD
       additionalEnvFrom:
         - secretRef:
             name: langfuse-secrets
