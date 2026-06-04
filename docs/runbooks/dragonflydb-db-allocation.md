@@ -13,16 +13,16 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 - **URL-encode special chars**: `/` → `%2F`, `@` → `%40`, `:` → `%3A`. Verify with `redis-cli -a "<pwd>" ping` before committing.
 - Admin / metrics port: `9999` (HTTP), no auth (`--admin_nopass`). Service `dragonflydb-metrics:9999` exposes `/metrics` (Prometheus exposition) for the master pod only.
 
-## Allocation table (verified live 2026-05-21)
+## Allocation table (verified live 2026-06-02)
 
 | DB | Consumer | Namespace / app | Purpose | Reference |
 |----|----------|------------------|---------|-----------|
 | 0 | _(do not assign)_ | — | Default selection on connect; some clients touch it before `SELECT N`. Treat as transient — do NOT store data here. No consumer should target it. | — |
-| 1 | _free_ | — | _(stub registry previously claimed Traefik OIDC; verified WRONG — OIDC actually lives on db 5)_ | — |
+| 1 | _free_ | — | _(stub registry previously claimed Traefik OIDC; verified WRONG — OIDC actually lives on db 6)_ | — |
 | 2 | Paperless-ngx | `services/paperless` | Celery task broker + result backend (document processing, OCR jobs). Redis URL: `redis://...:6379/2`. | `kubernetes/apps/services/paperless/app/helmrelease.yaml` |
 | 3 | _free_ | — | — | — |
 | 4 | LiteLLM | `ai/litellm` | Response cache (per-request key, TTL 600s). Default key prefix. | `kubernetes/apps/ai/litellm/app/{configmap,helmrelease,secret.sops}.yaml` |
-| 5 | _(retired)_ | — | Previously: traefikoidc plugin OIDC session store (key prefix `traefikoidc:google:`). Plugin replaced by Authentik forwardAuth (2026-05-21). DB 5 is now free — no consumer. | — |
+| 5 | LangFuse | `ai/langfuse` | Job queue (LangFuse tracing callbacks). Redis URL via secret key REDIS_URL. | `kubernetes/apps/ai/langfuse/app/secret.sops.yaml` |
 | 6 | Authentik | `security/authentik` | Celery broker, Django cache, django-channels WebSocket layer. Key prefix default (Authentik-managed). | `kubernetes/apps/security/authentik/app/helmrelease.yaml` |
 | 7 | _free_ | — | — | — |
 | 8 | _free_ | — | — | — |

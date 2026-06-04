@@ -65,37 +65,58 @@ at 30Gi — shrink or delete it once re-ingest is confirmed successful.
 ---
 
 ### 2. LangFuse — LLM observability
-**Status:** Fix committed (needs push + reconcile). Chart v1.5.33 requires ClickHouse.
-**URL:** https://langfuse.68cc.io (LAN only, Authentik SSO)
+**Status:** Deployed + native OIDC active. Chart v1.5.33 requires ClickHouse.
+**URL:** https://langfuse.68cc.io (LAN only, Authentik native OIDC)
 **Postgres DB:** `langfuse` on postgres18 CNPG
-**DragonflyDB:** DB 6
-**ClickHouse:** bundled single-node (deployed by Helm chart)
+**DragonflyDB:** DB 5 (job queue)
+**ClickHouse:** standalone, `databases/clickhouse` namespace
 
-**Required actions:**
+**Setup Complete:**
+- ✅ Helm chart deployed (v1.5.33)
+- ✅ ClickHouse running (single-node, merged)
+- ✅ Native Authentik OIDC configured (not forwardAuth proxy)
+- ✅ Headless OWNER user seeded on first boot
+- ✅ LiteLLM wired for trace callbacks
+
+**First Login:**
 
 ```
-1. git push  (to trigger Flux reconcile)
-2. Watch reconcile:
-   flux get hr -n ai langfuse --context home --watch
-   Expect: "Helm install succeeded"
-3. ClickHouse pod will take ~3-5 min to become ready on first deploy.
-4. First login:
-   - Browse https://langfuse.68cc.io
-   - Create admin account (Authentik SSO handles auth at gateway level,
-     but LangFuse still needs an internal user for its own session)
-   - Create a project named "home-ops"
-5. Verify traces arriving:
-   - Send any message in Open WebUI
-   - LangFuse UI → Traces — request should appear within ~10 seconds
-6. Optional: rotate LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY to proper
-   random values (currently "pk-lf-homeops-2026" / "sk-lf-homeops-2026"):
-   task sops:edit file=kubernetes/apps/ai/langfuse/app/secret.sops.yaml
-   task sops:edit file=kubernetes/apps/ai/litellm/app/secret.sops.yaml
-   (both must have the same key values)
+1. Browse https://langfuse.68cc.io/auth/signin
+2. Click "Authentik" button → Google OAuth flow
+3. On first SSO login with j0sh3rs@gmail.com:
+   - Account linking auto-activates OWNER privileges
+   - Admin access granted automatically
+4. Verify: Settings → Users should show your email as OWNER
+5. Create project "home-ops" if not auto-created
 ```
 
-**Wiring:** LiteLLM `litellm_settings.success_callback: ["langfuse"]` is live.
-LangFuse host in LiteLLM secret: `http://langfuse-web.ai.svc.cluster.local:3000`.
+**Verify Traces Flowing:**
+```bash
+# Send a message in Open WebUI, then check.
+# Langfuse uses Basic auth: public key as username, secret key as password.
+# Pull both from the secret (never hardcode them in docs):
+#   kubectl get secret langfuse-secrets -n ai --context home \
+#     -o jsonpath='{.data.LANGFUSE_PUBLIC_KEY}' | base64 -d
+#   kubectl get secret langfuse-secrets -n ai --context home \
+#     -o jsonpath='{.data.LANGFUSE_SECRET_KEY}' | base64 -d
+curl -s https://langfuse.68cc.io/api/public/traces \
+  -u "${LANGFUSE_PUBLIC_KEY}:${LANGFUSE_SECRET_KEY}" | jq '.data | length'
+# Should return non-zero trace count within 10s
+```
+
+**Rotate Keys (optional — currently using placeholder strings):**
+```bash
+task sops:edit file=kubernetes/apps/ai/langfuse/app/secret.sops.yaml
+# Update: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
+task sops:edit file=kubernetes/apps/ai/litellm/app/secret.sops.yaml
+# Update: LANGFUSE_API_KEY to match (mirrors LANGFUSE_SECRET_KEY)
+# Restart both pods: k rollout restart -n ai deploy/langfuse-web deploy/litellm
+```
+
+**Auth Architecture:**
+LangFuse uses **native OIDC** (app configures Authentik directly, not gateway forwardAuth). See `docs/runbooks/authentication-architecture.md` for details on two-layer pattern.
+
+**Wiring:** LiteLLM → LangFuse endpoint (`http://langfuse-web.ai.svc.cluster.local:3000`) with API key from `langfuse-secrets`.
 
 ---
 
@@ -222,32 +243,36 @@ curl -X POST https://litellm.68cc.io/key/generate   -H "Authorization: Bearer <L
 
 ## DragonflyDB DB Allocation
 
-**Source of truth:** `docs/runbooks/dragonflydb-db-allocation.md`
-
-| DB | Consumer | Namespace | Purpose |
-|----|----------|-----------|---------|
-| 0 | _(reserved)_ | — | Default selection; transient only — do NOT store data |
-| 1–3 | _free_ | — | — |
-| 4 | LiteLLM | ai/litellm | Response cache (TTL 600s) |
-| 5 | _(retired)_ | — | Previously: traefikoidc OIDC sessions (replaced by Authentik forwardAuth 2026-05-21) |
-| 6 | Authentik | security/authentik | Celery broker, Django cache, channels layer |
-| 7–15 | _free_ | — | — |
-
-**Note:** LangFuse uses configurable Redis DB selector via REDIS_URL secret key (not pinned to a specific DB allocation). Currently empty-selector (default DB 0 transient); future: allocate dedicated DB when LangFuse queue persistence needed. Mem0 (when unsuspended) not yet allocated — will claim DB 7+ when deployed with Redis persistence.
+| DB | Consumer | Namespace |
+|----|----------|-----------|
+| 0–3 | reserved / free | — |
+| 4 | LiteLLM response cache | ai/litellm |
+| 5 | LangFuse job queue | ai/langfuse |
+| 6 | Authentik sessions | security/authentik |
+| 7 | Mem0 cache (when unsuspended) | ai/mem0 |
+| 8+ | available | — |
 
 ---
 
-## Secrets Inventory (ai namespace)
+## Secrets Inventory
+
+### AI Namespace
 
 | Secret | Keys | Used by |
 |--------|------|---------|
 | `litellm-secrets` | master key, DB URL, redis URL, Anthropic/OpenAI keys, LangFuse keys | LiteLLM |
-| `langfuse-secrets` | NEXTAUTH_SECRET, SALT, CLICKHOUSE_PASSWORD, DB URL, Redis URL, LangFuse keypair | LangFuse |
+| `langfuse-secrets` | NEXTAUTH_SECRET, SALT, CLICKHOUSE_PASSWORD, DB URL, Redis URL, Authentik OIDC creds, LangFuse keypair | LangFuse |
 | `anythingllm-secret` | JWT_SECRET, DB URL, VECTOR_DB_CONNECTION_STRING, LiteLLM virtual key | AnythingLLM |
 | `open-webui-secrets` | WEBUI_SECRET_KEY, OPENAI_API_KEY (→ pipelines), MEM0_API_KEY | Open WebUI |
 | `owui-pipelines-secrets` | PIPELINES_API_KEY, OPENAI_API_KEY (LiteLLM master), OPENAI_BASE_URL | OWUI Pipelines |
 | `mem0-secrets` | MEM0_API_KEY, INIT_POSTGRES_*, POSTGRES_URL | Mem0 |
 | `n8n-secrets` | DB URL, encryption key | n8n |
+
+### Authentik (security namespace)
+
+| Secret | Keys | Used by |
+|--------|------|---------|
+| `authentik-secrets` | admin bootstrap key, Postgres creds, DragonflyDB password | Authentik |
 
 ---
 

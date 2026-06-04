@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/storage.k8s.io/storageclass_v1.json
+# Fast local-NVMe tier. Backed by the `local-fast` Talos UserVolume
+# (/var/mnt/local-fast), which is provisioned only on nodes with a non-system
+# NVMe disk. Today that is bigboi-jms-01 (WD SN810 500GB). allowedTopologies +
+# WaitForFirstConsumer guarantee a PVC requesting this class can only bind on a
+# node that actually carries the fast mount — a PVC scheduled elsewhere stays
+# Pending instead of silently writing to the system disk.
+#
+# The default `openebs-hostpath` class (BasePath /var/mnt/local-hostpath) is
+# created by the chart's hostpathClass and is unchanged — on bigboi that path
+# is the Samsung 860 SATA UserVolume; on the bee nodes it is the writable
+# EPHEMERAL partition exactly as before.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: openebs-hostpath-fast
+  annotations:
+    openebs.io/cas-type: local
+    cas.openebs.io/config: |
+      - name: StorageType
+        value: "hostpath"
+      - name: BasePath
+        value: "/var/mnt/local-fast"
+provisioner: openebs.io/local
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: node.68cc.io/storage-tier
+        values:
+          - fast-local

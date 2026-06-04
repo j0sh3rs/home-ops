@@ -1,0 +1,15 @@
+machine:
+  features:
+    # Control-plane-only feature. Talos rejects kubernetesTalosAPIAccess on
+    # worker machines, so it is split out of
+    # patches/global/machine-features.yaml and applied here via
+    # talconfig.yaml's controlPlane.patches list.
+    kubernetesTalosAPIAccess:
+      allowedKubernetesNamespaces:
+        - system-upgrade
+        - action-runner-system
+        - kube-system
+      allowedRoles:
+        - os:admin
+        - os:etcd:backup
+      enabled: true

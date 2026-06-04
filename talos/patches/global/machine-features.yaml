@@ -1,14 +1,9 @@
 machine:
   features:
-    kubernetesTalosAPIAccess:
-      allowedKubernetesNamespaces:
-        - system-upgrade # or the namespace the controller will be installed to
-        - action-runner-system
-        - kube-system
-      allowedRoles:
-        - os:admin
-        - os:etcd:backup
-      enabled: true
+    # NOTE: kubernetesTalosAPIAccess is control-plane-only. Talos rejects it
+    # on worker machines. It now lives in
+    # patches/controller/machine-features.yaml so it applies only to
+    # control-plane nodes, not workers like bigboi-jms-01.
     rbac: true
     hostDNS:
       enabled: true

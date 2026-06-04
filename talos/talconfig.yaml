@@ -87,9 +87,12 @@ nodes:
           ip: "192.168.35.2"
   - hostname: "bigboi-jms-01"
     ipAddress: "192.168.35.4"
-    # Samsung SSD 980 Pro 1TB — fastest drive, used as Talos OS disk.
-    # WD Black 500GB (nvme1n1) and Samsung 860 EVO 1TB (sda) left as raw
-    # block devices for OpenEBS LocalPV.
+    # Samsung SSD 980 Pro 1TB (nvme0n1) — fastest drive, Talos OS/boot disk.
+    # Two extra disks become Talos UserVolumes (auto-formatted XFS, mounted at
+    # /var/mnt/<name>) selected by CEL transport expression — robust against
+    # the sdX rename that happens when the USB install stick is removed:
+    #   Samsung 860 1TB SATA  -> local-hostpath (backs shared openebs-hostpath)
+    #   WD SN810 500GB NVMe   -> local-fast      (backs openebs-hostpath-fast)
     installDisk: "/dev/nvme0n1"
     machineSpec:
       secureboot: false
@@ -98,6 +101,32 @@ nodes:
     nodeLabels:
       node.kubernetes.io/cpu-tier: zen3
       node.kubernetes.io/memory-tier: high
+      # Discrete AMD Navi 21 (RX 6900 XT, device-id 73bf). Disambiguates from
+      # APU nodes that also report amd.com/gpu.vram=16G. See dGPU playbook.
+      node.kubernetes.io/gpu-tier: dgpu
+      # Pins the openebs-hostpath-fast StorageClass (allowedTopologies) to this
+      # node so "fast" PVCs cannot silently land on a node without NVMe backing.
+      node.68cc.io/storage-tier: fast-local
+    # Extra local disks for OpenEBS LocalPV. volumeType omitted == partition
+    # grown to fill the matched disk (Talos default). Only the Samsung SATA is
+    # transport=sata; only the WD is nvme AND not the system disk.
+    userVolumes:
+      - name: local-hostpath
+        provisioning:
+          diskSelector:
+            match: disk.transport == "sata"
+          minSize: 10GiB  # required by talhelper; grow expands to fill disk
+          grow: true
+        filesystem:
+          type: xfs
+      - name: local-fast
+        provisioning:
+          diskSelector:
+            match: disk.transport == "nvme" && !system_disk
+          minSize: 10GiB  # required by talhelper; grow expands to fill disk
+          grow: true
+        filesystem:
+          type: xfs
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "f0:2f:74:cb:dd:b4"
@@ -124,3 +153,4 @@ patches:
 controlPlane:
   patches:
     - "@./patches/controller/cluster.yaml"
+    - "@./patches/controller/machine-features.yaml"
