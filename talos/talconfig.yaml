@@ -85,6 +85,29 @@ nodes:
         mtu: 9000
         vip:
           ip: "192.168.35.2"
+  - hostname: "bigboi-jms-01"
+    ipAddress: "192.168.35.4"
+    # Samsung SSD 980 Pro 1TB — fastest drive, used as Talos OS disk.
+    # WD Black 500GB (nvme1n1) and Samsung 860 EVO 1TB (sda) left as raw
+    # block devices for OpenEBS LocalPV.
+    installDisk: "/dev/nvme0n1"
+    machineSpec:
+      secureboot: false
+    talosImageURL: factory.talos.dev/installer/9cc3b6b49c5bdf86905d1999fc8c2ec28aa03b3422377f4e86cb7ed5635b910b
+    controlPlane: false
+    nodeLabels:
+      node.kubernetes.io/cpu-tier: zen3
+      node.kubernetes.io/memory-tier: high
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "f0:2f:74:cb:dd:b4"
+        dhcp: false
+        addresses:
+          - "192.168.35.4/24"
+        routes:
+          - network: "0.0.0.0/0"
+            gateway: "192.168.35.1"
+        mtu: 9000
 
 # Global patches
 patches:
