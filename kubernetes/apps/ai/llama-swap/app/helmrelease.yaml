@@ -216,7 +216,7 @@ spec:
       # from the release name + volume key. Shared with the init container.
       models:
         type: persistentVolumeClaim
-        storageClass: openebs-hostpath
+        storageClass: openebs-hostpath-fast
         accessMode: ReadWriteOnce
         size: 50Gi
         retain: true
@@ -231,10 +231,11 @@ spec:
             subPath: config.yaml
             readOnly: true
     defaultPodOptions:
-      # Pin to bee-jms-03 (Cezanne 8CU + memory-tier=high + 16G UMA).
-      # `amd.com/gpu.vram In ["16G"]` is REQUIRED — node-01 has 7CU/3G UMA
-      # which OOMs on the larger models in the model-fetch list (Qwen3-14B,
-      # Coder-7B). Soft preference still pins to -03 over a future 16G dGPU.
+      # Prefer bigboi-jms-01 dGPU (Navi 21, 80CU, 16G VRAM, weight 100).
+      # Falls back to bee-jms-03 APU (Cezanne 8CU, 16G UMA, weight 50).
+      # `amd.com/gpu.vram In ["16G"]` is REQUIRED — bee-jms-01/02 have 3G UMA
+      # which OOMs on Qwen3-14B / Coder-7B.
+      # ROCm is non-functional on Talos (HIP ABI mismatch); Vulkan on both.
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -249,12 +250,12 @@ spec:
             - weight: 100
               preference:
                 matchExpressions:
-                  - key: kubernetes.io/hostname
+                  - key: node.kubernetes.io/gpu-tier
                     operator: In
-                    values: ["bee-jms-03"]
+                    values: ["dgpu"]
             - weight: 50
               preference:
                 matchExpressions:
-                  - key: amd.com/gpu.device-id
+                  - key: kubernetes.io/hostname
                     operator: In
-                    values: ["1638"]
+                    values: ["bee-jms-03"]
