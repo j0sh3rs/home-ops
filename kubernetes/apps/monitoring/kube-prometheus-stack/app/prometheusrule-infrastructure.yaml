@@ -196,3 +196,72 @@ spec:
           annotations:
             summary: "Node {{ $labels.node }} has disk pressure"
             description: "Node {{ $labels.node }} is experiencing disk pressure for more than 5 minutes."
+
+    # Discrete GPU (AMD Navi 21 / RX 6900 XT on bigboi-jms-01).
+    # Metrics from amd-device-metrics-exporter (configmap MetricsFieldPrefix
+    # "amd_"; field GPU_X -> metric amd_gpu_x). Label set matches the bundled
+    # AMD dashboards (kube-system/amd-gpu/*.json): hostname / gpu_id / gpu_uuid
+    # / card_model — NOT the kube "node" label, so descriptions key on
+    # $labels.hostname. The dashboards gate amd_gpu_junction_temperature behind
+    # the Instinct card_model list; the 6900 XT is a consumer card and reports
+    # amd_gpu_edge_temperature, so edge is the reliable critical path here and
+    # junction is a best-effort bonus that no-ops if the field is unset.
+    # Thresholds tuned to the 6900 XT: 300W board power, edge throttle ~100C,
+    # junction/hotspot throttle 110C. Exporter runs only on the dgpu node.
+    - name: gpu
+      interval: 30s
+      rules:
+        - alert: GPUEdgeTemperatureCritical
+          expr: |
+            amd_gpu_edge_temperature > 100
+          for: 2m
+          labels:
+            severity: critical
+            component: gpu
+          annotations:
+            summary: "GPU edge temperature critical on {{ $labels.hostname }}"
+            description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 100C for more than 2 minutes — at or past the throttle point. Check airflow and reduce GPU workload."
+
+        - alert: GPUEdgeTemperatureHigh
+          expr: |
+            amd_gpu_edge_temperature > 90
+          for: 5m
+          labels:
+            severity: warning
+            component: gpu
+          annotations:
+            summary: "GPU edge temperature high on {{ $labels.hostname }}"
+            description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 90C for more than 5 minutes. Sustained thermal load — verify cooling before it reaches the ~100C throttle point."
+
+        - alert: GPUJunctionTemperatureCritical
+          expr: |
+            amd_gpu_junction_temperature > 110
+          for: 2m
+          labels:
+            severity: critical
+            component: gpu
+          annotations:
+            summary: "GPU junction temperature critical on {{ $labels.hostname }}"
+            description: "AMD GPU junction (hotspot) temperature on {{ $labels.hostname }} has exceeded 110C for more than 2 minutes — thermal shutdown territory. Reduce GPU workload immediately."
+
+        - alert: GPUPackagePowerHigh
+          expr: |
+            amd_gpu_package_power > 320
+          for: 5m
+          labels:
+            severity: warning
+            component: gpu
+          annotations:
+            summary: "GPU package power high on {{ $labels.hostname }}"
+            description: "AMD GPU package power draw on {{ $labels.hostname }} has exceeded 320W for more than 5 minutes (300W total board power rating). Sustained over-budget draw — check for runaway inference load."
+
+        - alert: GPUMetricsExporterDown
+          expr: |
+            count(up{job=~".*amd.*metrics.*"} == 1) == 0
+          for: 10m
+          labels:
+            severity: warning
+            component: gpu
+          annotations:
+            summary: "AMD GPU metrics exporter is not reporting"
+            description: "No amd-device-metrics-exporter target has been up for 10 minutes. GPU thermal and power alerts are blind until this recovers (gpuagent.sock may be down on the dgpu node)."

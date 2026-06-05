@@ -23,11 +23,15 @@ spec:
       retries: 3
   values:
     platform: k8s
-    # Schedule on every AMD GPU node. amd.com/gpu.family label is set by
-    # the amd-gpu chart's labeller (only present on GPU-bearing nodes), so
-    # this acts as both selector and gate.
+    # Schedule ONLY on discrete-GPU nodes. The bundled gpuagent talks to the
+    # GPU via amd-smi, which does NOT enumerate the integrated Raven/Cezanne
+    # APUs on the bee-* nodes — so the family=RV selector used previously put
+    # the DaemonSet on three nodes where gpuagent.sock never comes up
+    # (`connection refused`, metrics endpoint serves only promhttp internals).
+    # node.kubernetes.io/gpu-tier=dgpu is set in talconfig.yaml only on the
+    # Navi 21 (RX 6900 XT) node, which amd-smi fully supports.
     nodeSelector:
-      amd.com/gpu.family: RV
+      node.kubernetes.io/gpu-tier: dgpu
     # Image tag tracked by Renovate via the helm chart bump (chart appVersion
     # == image tag). Keep explicit so that any drift between chart and image
     # is visible.
