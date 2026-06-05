@@ -233,27 +233,21 @@ spec:
             summary: "GPU edge temperature high on {{ $labels.hostname }}"
             description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 90C for more than 5 minutes. Sustained thermal load — verify cooling before it reaches the ~100C throttle point."
 
-        - alert: GPUJunctionTemperatureCritical
-          expr: |
-            amd_gpu_junction_temperature > 110
-          for: 2m
-          labels:
-            severity: critical
-            component: gpu
-          annotations:
-            summary: "GPU junction temperature critical on {{ $labels.hostname }}"
-            description: "AMD GPU junction (hotspot) temperature on {{ $labels.hostname }} has exceeded 110C for more than 2 minutes — thermal shutdown territory. Reduce GPU workload immediately."
-
+        # No GPUJunctionTemperatureCritical: amd_gpu_junction_temperature is
+        # gated to Instinct card_models in the exporter, and the 6900 XT
+        # reports card_model="" — the metric never populates on this card, so
+        # an alert on it would be permanently dead. Edge temperature above is
+        # the authoritative thermal signal for this consumer GPU.
         - alert: GPUPackagePowerHigh
           expr: |
-            amd_gpu_package_power > 320
+            amd_gpu_average_package_power > 320
           for: 5m
           labels:
             severity: warning
             component: gpu
           annotations:
             summary: "GPU package power high on {{ $labels.hostname }}"
-            description: "AMD GPU package power draw on {{ $labels.hostname }} has exceeded 320W for more than 5 minutes (300W total board power rating). Sustained over-budget draw — check for runaway inference load."
+            description: "AMD GPU average package power draw on {{ $labels.hostname }} has exceeded 320W for more than 5 minutes (300W total board power rating). Sustained over-budget draw — check for runaway inference load. NOTE: the consumer 6900 XT exposes amd_gpu_average_package_power (idle ~60W), not amd_gpu_package_power, which is empty on this card."
 
         - alert: GPUMetricsExporterDown
           expr: |
