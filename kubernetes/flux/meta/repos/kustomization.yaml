@@ -12,6 +12,7 @@ resources:
   - ./external-dns.yaml
   - ./grafana.yaml
   - ./jetstack.yaml
+  - ./k8tz.yaml
   - ./nfs-external-provisioner.yaml
   - ./langfuse.yaml
   - ./traefik.yaml
