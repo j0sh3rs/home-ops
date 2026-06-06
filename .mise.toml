@@ -1,9 +1,15 @@
 [env]
 _.python.venv = { path = "{{config_root}}/.venv", create = true }
-# Repo-local secrets file. Loaded by mise on shell activation. Keep out
+# Repo-local secrets files. Loaded by mise on shell activation. Keep out
 # of git (.gitignored below). Expected contents:
-#   export CLOUDFLARE_API_TOKEN=...   # scoped per Phase 4.3 runbook
-_.file = { path = "{{config_root}}/cloudflare-mcp.env", redact = true }
+#   cloudflare-mcp.env:  export CLOUDFLARE_API_TOKEN=...  # Phase 4.3 runbook
+#   github-personal.env: export GH_TOKEN=... / GITHUB_TOKEN=...  # j0sh3rs PAT
+# github-personal.env overrides the global work GITHUB_TOKEN so `gh`, github
+# MCP tools, and Claude sessions act as the personal account in this dir only.
+_.file = [
+  { path = "{{config_root}}/cloudflare-mcp.env", redact = true },
+  { path = "{{config_root}}/github-personal.env", redact = true },
+]
 KUBECONFIG = "{{config_root}}/kubeconfig"
 SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
 TALOSCONFIG = "{{config_root}}/talos/clusterconfig/talosconfig"

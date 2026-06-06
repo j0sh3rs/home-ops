@@ -8,6 +8,7 @@ spec:
   interval: 1h
   chart:
     spec:
+      # renovate: registryUrl=https://k8tz.github.io/k8tz
       chart: k8tz
       version: 0.19.0
       sourceRef:
