@@ -68,6 +68,22 @@
       },
     },
     {
+      // Groups traefik chart (OCI) + traefik proxy image together so they are
+      // always bumped in the same PR. Chart 40.x caps the proxy image at the
+      // minor version it shipped with (requirements.yaml gate) so independent
+      // auto-merge of the image alone will break HelmRelease reconciliation.
+      description: "Traefik - Ingress Infrastructure",
+      groupName: "Traefik",
+      matchDatasources: ["docker", "helm"],
+      matchPackageNames: ["/traefik/"],
+      stabilityDays: 3,
+      automerge: false,
+      labels: ["type/infrastructure", "risk/high"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+    },
+    {
       description: "Envoy Gateway - High-Risk Infrastructure",
       groupName: "Envoy Gateway",
       matchDatasources: ["docker", "helm"],
