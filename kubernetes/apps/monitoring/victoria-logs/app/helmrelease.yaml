@@ -30,16 +30,6 @@ spec:
         enabled: true
         storageClassName: openebs-hostpath
         size: 50Gi
-      service:
-        extraPorts:
-          - name: syslog-tcp
-            port: 514
-            targetPort: 514
-            protocol: TCP
-          - name: syslog-udp
-            port: 514
-            targetPort: 514
-            protocol: UDP
       route:
         enabled: true
         annotations:
