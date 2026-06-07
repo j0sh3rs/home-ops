@@ -193,5 +193,18 @@
         commitMessageTopic: "{{{groupName}}} group",
       },
     },
+    {
+      description: "llama-swap: only allow vulkan-b tagged builds",
+      matchPackageNames: ["ghcr.io/mostlygeek/llama-swap"],
+      allowedVersions: "/.*-vulkan-b.*/",
+      automerge: false,
+      groupName: null,
+    },
+    {
+      description: "n8n: pin to 2.23.x series",
+      matchPackageNames: ["n8nio/n8n"],
+      allowedVersions: "/^2\\.23\\./",
+      automerge: false,
+    },
   ],
 }

@@ -9,7 +9,7 @@ data:
     # llama-swap config for home-ops
     # Docs: https://github.com/mostlygeek/llama-swap
     #
-    # Single Cezanne APU iGPU (16 GiB UMA + GTT spill, bumped 2026-05-03).
+    # Navi 21 dGPU on bigboi-jms-01 (Radeon RX 6900 XT, 16 GiB VRAM).
     # Chat models hot-swap through the 'chat' group (exclusive loading).
     # Embedding + reranker stay resident in the 'always-on' group.
     healthCheckTimeout: 180

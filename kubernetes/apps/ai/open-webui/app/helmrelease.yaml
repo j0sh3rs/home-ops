@@ -54,13 +54,6 @@ spec:
               WEBUI_AUTH_TRUSTED_NAME_HEADER: "X-authentik-name"
               ENABLE_LOGIN_FORM: "false"
               DEFAULT_USER_ROLE: "user"
-              # Mem0 episodic memory layer
-              MEMORY_PROVIDER: "mem0_server"
-              MEM0_API_BASE_URL: "http://mem0:8000"
-              MEM0_API_KEY:
-                secretKeyRef:
-                  name: open-webui-secrets
-                  key: MEM0_API_KEY
             envFrom:
               # WEBUI_SECRET_KEY (session signing) plus OPENAI_API_KEY
               # which is a LiteLLM virtual key (sk-...) that open-webui

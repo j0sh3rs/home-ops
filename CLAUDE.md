@@ -329,7 +329,7 @@ Unified AI workloads. Topology: clients (Open WebUI, n8n, Continue.dev) → **Li
   - `local-rerank` → `rerank-bge` (cross-encoder reranker, always-on)
   - `cloud-haiku` / `cloud-sonnet` / `cloud-gpt-mini` — commented OFF in `configmap.yaml`; uncomment + add API key to enable.
   - **Important**: the `model:` value in litellm's model_list MUST be a llama-swap model key OR alias, NOT a GGUF filename. See `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for the source of truth.
-- **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bee-jms-03` (Cezanne APU, 16 GiB UMA, 8 CU) via nodeAffinity requiring `amd.com/gpu.vram In ["16G"]`. Direct UI at `llm.68cc.io` for debugging only — clients should go through LiteLLM. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC.
+- **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 21 dGPU, 16 GiB VRAM) via nodeAffinity requiring `amd.com/gpu.vram In ["16G"]`. Direct UI at `llm.68cc.io` for debugging only — clients should go through LiteLLM. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC.
 - **Open WebUI** — chat UI at `ai.68cc.io` (public via Cloudflare tunnel, Authentik forwardAuth). `OPENAI_API_BASE_URL=http://litellm:4000/v1` with LiteLLM virtual key. Multi-user mode supported. Wired to Mem0 for episodic memory (`MEMORY_PROVIDER=mem0_server`, `MEM0_API_BASE_URL=http://mem0:8000`). WEBUI_SECRET_KEY in `open-webui-secrets`.
 - **n8n** — workflow automation at `n8n.68cc.io` (public via Cloudflare tunnel, Authentik forwardAuth). Postgres state (DB `n8n` on `postgres18`). LLM creds wired manually in n8n UI — point HTTP/OpenAI nodes at `http://litellm:4000/v1` with a virtual key from LiteLLM.
 - **LangFuse** — LLM observability at `langfuse.68cc.io` (LAN + Cloudflare, Authentik forwardAuth at gateway; native Authentik OIDC for internal login). Chart v1.5.33. Postgres (DB `langfuse` on `postgres18`). Single-node ClickHouse for analytics (standalone deployment in `databases` namespace; `databases/clickhouse/`). Redis queue in DragonflyDB DB 6. Headless init: seeds org + project + owner user on first boot (`j0sh3rs@gmail.com`; see `kubernetes/apps/ai/langfuse/app/helmrelease.yaml` for config). First SSO login auto-links Authentik identity → admin access.
@@ -362,11 +362,11 @@ Unified AI workloads. Topology: clients (Open WebUI, n8n, Continue.dev) → **Li
 - **IT-Tools** — Collection of IT utility tools
 - **Linkwarden** — Collaborative bookmark manager
 - **Paperless-NGX** — Document management system (OCR + full-text search). Tika + Gotenberg sidecars for document conversion. Uses DragonflyDB **db2** as its Celery task broker + result backend (`redis://...:6379/2`) — see `docs/runbooks/dragonflydb-db-allocation.md`. The idle Celery worker parks on `BRPOP`, which is the expected baseline behind the tuned `DragonflyBlockedClients` / `DragonflyAvgCommandLatencyHigh` alert thresholds.
+- **MetaMCP** — MCP server
 
 Currently disabled (commented out in `kubernetes/apps/services/kustomization.yaml`):
 - ~~ChangeDetector~~ — Website change monitoring
 - ~~Memos~~ — Lightweight note-taking service
-- ~~MetaMCP~~ — MCP server
 
 ## Grafana Operator Pattern
 
