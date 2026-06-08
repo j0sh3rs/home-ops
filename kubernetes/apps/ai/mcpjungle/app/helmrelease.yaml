@@ -1,0 +1,123 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app mcpjungle
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      mcpjungle:
+        # Recreate: MCPJungle holds stdio child processes and in-memory
+        # Streamable HTTP session state. Rolling update causes migration
+        # races and orphaned child processes.
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        replicas: 1
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              # renovate: datasource=docker depName=ghcr.io/home-operations/postgres-init
+              tag: "18"
+            envFrom:
+              - secretRef:
+                  name: mcpjungle-secrets
+        containers:
+          app:
+            image:
+              repository: ghcr.io/mcpjungle/mcpjungle
+              # latest-stdio: includes Node 20 + npx + uv/uvx for stdio MCPs.
+              # :latest is distroless — cannot spawn npm/uvx processes.
+              # renovate: datasource=docker depName=ghcr.io/mcpjungle/mcpjungle
+              tag: latest-stdio
+            envFrom:
+              - secretRef:
+                  name: mcpjungle-secrets
+            env:
+              # Enterprise mode: per-client API key auth + server ACLs.
+              # Dashboard UI is dev-mode only; manage via CLI/REST API.
+              # Docs: SERVER_MODE env var (not MCPJUNGLE_MODE).
+              SERVER_MODE: enterprise
+              # /metrics has no auth (issue #92) — cluster-internal only.
+              OTEL_ENABLED: "true"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                # 6 stdio upstreams x ~150Mi + base ~300Mi headroom.
+                memory: 2Gi
+                cpu: 2
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8080
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8080
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            primary: true
+            port: &port 8080
+
+    route:
+      app:
+        annotations:
+          # LAN-only: unifi-dns A record to 192.168.35.17 (traefik-internal).
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        hostnames: ["mcp.68cc.io"]
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          # MCP + API: API key auth via MCPJungle enterprise mode.
+          # Global /mcp only — Tool Groups broken for Streamable HTTP
+          # until issue #268 closes (PR #269 pending).
+          - matches:
+              - path: {type: PathPrefix, value: /mcp}
+              - path: {type: PathPrefix, value: /api}
+            backendRefs:
+              - name: *app
+                port: *port
+          # Admin + health: Authentik forwardAuth for browser access.
+          - matches:
+              - path: {type: PathPrefix, value: /}
+            filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
+              - name: *app
+                port: *port

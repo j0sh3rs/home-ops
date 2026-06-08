@@ -1,0 +1,85 @@
+---
+# Upstream MCP server configs — one JSON file per server.
+# mcpjungle register -c <file> reads these at bootstrap.
+# ${VAR_NAME} placeholders substituted by CLI process from env vars
+# at Job runtime (documented MCPJungle feature — fails if var unset).
+# Tokens/keys live in mcpjungle-secrets, never stored here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcpjungle-upstream-config
+data:
+  # Remote Streamable HTTP upstreams — no subprocess, no zombie risk.
+  context7.json: |
+    {
+      "name": "context7",
+      "transport": "streamable_http",
+      "description": "Library documentation lookup",
+      "url": "https://mcp.context7.com/mcp",
+      "bearer_token": "${CONTEXT7_API_KEY}"
+    }
+  exa.json: |
+    {
+      "name": "exa",
+      "transport": "streamable_http",
+      "description": "Neural web search",
+      "url": "https://mcp.exa.ai/mcp",
+      "bearer_token": "${EXA_API_KEY}"
+    }
+  # stdio upstreams — require :latest-stdio image (Node 20 + npx).
+  # session_mode: stateless = fresh process per call, prevents zombie
+  # child process accumulation (MCPJungle upstream issue #271).
+  github.json: |
+    {
+      "name": "github",
+      "transport": "stdio",
+      "description": "GitHub repository operations",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      },
+      "session_mode": "stateless"
+    }
+  memory.json: |
+    {
+      "name": "memory",
+      "transport": "stdio",
+      "description": "In-process key-value memory store",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "session_mode": "stateless"
+    }
+  playwright.json: |
+    {
+      "name": "playwright",
+      "transport": "stdio",
+      "description": "Headless browser automation",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--headless"],
+      "session_mode": "stateless"
+    }
+  cloudflare.json: |
+    {
+      "name": "cloudflare",
+      "transport": "stdio",
+      "description": "Cloudflare DNS, WAF, and tunnel management",
+      "command": "npx",
+      "args": ["-y", "@cloudflare/mcp-server-cloudflare"],
+      "env": {
+        "CLOUDFLARE_API_TOKEN": "${CLOUDFLARE_API_TOKEN}"
+      },
+      "session_mode": "stateless"
+    }
+  perplexity.json: |
+    {
+      "name": "perplexity",
+      "transport": "stdio",
+      "description": "Perplexity AI search",
+      "command": "npx",
+      "args": ["-y", "@perplexity-ai/mcp-server"],
+      "env": {
+        "PERPLEXITY_API_KEY": "${PERPLEXITY_API_KEY}"
+      },
+      "session_mode": "stateless"
+    }

@@ -27,3 +27,5 @@ resources:
   - ./open-webui/ks.yaml
   - ./owui-pipelines/ks.yaml
   - ./piper/ks.yaml
+  # - ./claude-code/ks.yaml
+  - ./mcpjungle/ks.yaml
