@@ -27,7 +27,7 @@ spec:
             name: mcpjungle-upstream-config
       initContainers:
         - name: wait-for-mcpjungle
-          image: curlimages/curl:8.11.1
+          image: curlimages/curl:8.20.0
           command:
             - sh
             - -c
