@@ -1,14 +1,16 @@
 ---
-# Idempotent bootstrap: writes ~/.mcpjungle.conf for auth, inits
-# enterprise mode, then registers each upstream MCP server via
-# `mcpjungle register -c <file>`. Already-present servers are skipped.
+# Idempotent bootstrap: inits enterprise mode, then registers each
+# upstream MCP server via `mcpjungle register -c <file>`.
+# Already-present servers are skipped.
 #
-# Auth pattern: init-server writes ~/.mcpjungle.conf (registry_url +
-# access_token). Subsequent commands pick it up automatically — no
-# --api-key flag needed (undocumented/unsupported per CLI reference).
-#
-# ${VAR_NAME} substitution in JSON config files is a documented
-# MCPJungle CLI feature; tokens are injected from env, never in ConfigMap.
+# v0.4.5 notes:
+# - Binary is /mcpjungle (not on PATH). Use absolute path everywhere.
+# - init-server has no --admin-email/--admin-password flags; server
+#   reads MCPJUNGLE_ADMIN_EMAIL/PASSWORD from env automatically.
+# - `list servers` (not bare `list`) returns plain-text numbered list:
+#   "1. name\ndescription\nTransport: ...\n..."
+# - ${VAR_NAME} substitution in JSON config files is a documented
+#   MCPJungle CLI feature; tokens are injected from env, never in ConfigMap.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -56,25 +58,26 @@ spec:
               # init-server is idempotent (|| true) and writes
               # ~/.mcpjungle.conf with registry_url + access_token.
               # All subsequent CLI calls read that file automatically.
-              mcpjungle init-server \
+              # No --admin-email/--admin-password flags in v0.4.5 CLI;
+              # server reads MCPJUNGLE_ADMIN_EMAIL/PASSWORD from env.
+              /mcpjungle init-server \
                 --registry "${MCPJUNGLE_URL}" \
-                --admin-email "${MCPJUNGLE_ADMIN_EMAIL}" \
-                --admin-password "${MCPJUNGLE_ADMIN_PASSWORD}" \
                 || true
 
-              # List existing servers; skip registration if already present.
-              EXISTING=$(mcpjungle list \
+              # List existing servers; output is plain-text numbered list,
+              # e.g. "1. context7\n...". Skip registration if name present.
+              EXISTING=$(/mcpjungle list servers \
                 --registry "${MCPJUNGLE_URL}" 2>/dev/null \
                 || echo "")
 
               reg() {
                 NAME=$1
                 CONFIG=$2
-                if echo "${EXISTING}" | grep -q "\"${NAME}\""; then
+                if echo "${EXISTING}" | grep -q "^[0-9]*\. ${NAME}$"; then
                   echo "skip ${NAME} (exists)"; return 0
                 fi
                 echo "registering ${NAME}..."
-                mcpjungle register \
+                /mcpjungle register \
                   --registry "${MCPJUNGLE_URL}" \
                   -c "${CONFIG}"
               }
