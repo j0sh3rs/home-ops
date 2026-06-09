@@ -57,19 +57,14 @@ spec:
             - |
               set -e
 
-              # init-server is idempotent (|| true). On first run it writes
-              # ~/.mcpjungle.conf; on subsequent runs ("already initialized")
-              # it exits non-zero without writing the conf file.
-              # Always follow with explicit login using MCPJUNGLE_API_KEY
-              # so the conf file is present regardless of init-server outcome.
-              # No --admin-email/--admin-password flags in v0.4.5 CLI;
-              # server reads MCPJUNGLE_ADMIN_EMAIL/PASSWORD from env.
-              /mcpjungle init-server \
-                --registry "${MCPJUNGLE_URL}" \
-                || true
-
-              /mcpjungle login "${MCPJUNGLE_API_KEY}" \
-                --registry "${MCPJUNGLE_URL}"
+              # Write ~/.mcpjungle.conf directly using the admin token stored
+              # in the secret. init-server only writes this file on first run
+              # and does NOT update it on subsequent runs ("already initialized"),
+              # so we cannot rely on it. Writing the conf directly is idempotent.
+              mkdir -p /root
+              printf 'registry_url: %s\naccess_token: %s\n' \
+                "${MCPJUNGLE_URL}" "${MCPJUNGLE_ADMIN_TOKEN}" \
+                > /root/.mcpjungle.conf
 
               # List existing servers; output is plain-text numbered list,
               # e.g. "1. context7\n...". Skip registration if name present.
