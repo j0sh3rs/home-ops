@@ -83,3 +83,11 @@ data:
       },
       "session_mode": "stateless"
     }
+  n8n.json: |
+    {
+      "name": "n8n",
+      "transport": "streamable_http",
+      "description": "n8n local workflow automation",
+      "url": "http://n8n:5678/mcp-server/http",
+      "bearer_token": "${N8N_API_KEY}"
+    }

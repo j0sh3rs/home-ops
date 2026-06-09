@@ -94,5 +94,6 @@ spec:
               reg playwright /config/playwright.json
               reg cloudflare /config/cloudflare.json
               reg perplexity /config/perplexity.json
+              reg n8n /config/n8n.json
 
               echo "bootstrap complete"
