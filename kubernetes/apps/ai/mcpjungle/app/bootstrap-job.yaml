@@ -7,6 +7,8 @@
 # - Binary is /mcpjungle (not on PATH). Use absolute path everywhere.
 # - init-server has no --admin-email/--admin-password flags; server
 #   reads MCPJUNGLE_ADMIN_EMAIL/PASSWORD from env automatically.
+# - init-server does NOT write ~/.mcpjungle.conf when server is already
+#   initialized. Always run `login MCPJUNGLE_API_KEY` after init-server.
 # - `list servers` (not bare `list`) returns plain-text numbered list:
 #   "1. name\ndescription\nTransport: ...\n..."
 # - ${VAR_NAME} substitution in JSON config files is a documented
@@ -55,14 +57,19 @@ spec:
             - |
               set -e
 
-              # init-server is idempotent (|| true) and writes
-              # ~/.mcpjungle.conf with registry_url + access_token.
-              # All subsequent CLI calls read that file automatically.
+              # init-server is idempotent (|| true). On first run it writes
+              # ~/.mcpjungle.conf; on subsequent runs ("already initialized")
+              # it exits non-zero without writing the conf file.
+              # Always follow with explicit login using MCPJUNGLE_API_KEY
+              # so the conf file is present regardless of init-server outcome.
               # No --admin-email/--admin-password flags in v0.4.5 CLI;
               # server reads MCPJUNGLE_ADMIN_EMAIL/PASSWORD from env.
               /mcpjungle init-server \
                 --registry "${MCPJUNGLE_URL}" \
                 || true
+
+              /mcpjungle login "${MCPJUNGLE_API_KEY}" \
+                --registry "${MCPJUNGLE_URL}"
 
               # List existing servers; output is plain-text numbered list,
               # e.g. "1. context7\n...". Skip registration if name present.
