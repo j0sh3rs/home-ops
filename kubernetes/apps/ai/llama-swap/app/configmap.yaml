@@ -1,4 +1,5 @@
 ---
+# yamllint disable rule:line-length
 # yaml-language-server: $schema=https://kubernetesjsonschema.dev/master/configmap-v1.json
 apiVersion: v1
 kind: ConfigMap
@@ -9,17 +10,17 @@ data:
     # llama-swap config for home-ops
     # Docs: https://github.com/mostlygeek/llama-swap
     #
-    # Navi 21 dGPU on bigboi-jms-01 (Radeon RX 6900 XT, 16 GiB VRAM).
-    # Chat models hot-swap through the 'chat' group (exclusive loading).
-    # Embedding + reranker stay resident in the 'always-on' group.
+    # Navi 21 dGPU on bigboi-jms-01 (Radeon RX 6900 XT, 16 GiB GDDR6, 512 GB/s).
+    # Chat models hot-swap through the 'chat' group (exclusive).
+    # Router + embed + rerank stay resident in 'always-on' (~3 GiB total).
     healthCheckTimeout: 180
     logLevel: info
     startPort: 5800
 
     macros:
-      # Shared llama-server invocation for chat/coder models. --jinja uses the
-      # GGUF-embedded chat template. KV cache quantized to q8_0 to stretch VRAM.
-      # --flash-attn takes a value (on/off/auto) since llama.cpp b7565.
+      # Standard chat / agentic models. --jinja uses GGUF-embedded chat template.
+      # --flash-attn on is mandatory for RDNA2 MoE prefill perf (build >=b6272).
+      # KV q8_0 stretches VRAM headroom on all MoE models.
       "llama-vulkan": >-
         /app/llama-server
         --host 0.0.0.0 --port ${PORT}
@@ -28,8 +29,26 @@ data:
         --jinja
         --cache-type-k q8_0 --cache-type-v q8_0
 
-      # Embedding-only invocation. --embedding restricts to the embedding
-      # use case; drops chat completion endpoint for this slot.
+      # FIM / base model invocation. No --jinja: base models have no chat
+      # template; applying one produces garbled infill output.
+      "llama-fim": >-
+        /app/llama-server
+        --host 0.0.0.0 --port ${PORT}
+        -ngl 99
+        --flash-attn on
+        --cache-type-k q8_0 --cache-type-v q8_0
+
+      # gpt-oss-20b (MXFP4 MoE) — flash-attn MUST be off. Vulkan FA path
+      # lacks attention-sink support for this arch; enabling it segfaults or
+      # silently CPU-falls-back (#15100, #15107). KV quant disabled for same
+      # reason (-ctk/-ctv segfaults on gpt-oss).
+      "llama-vulkan-nofa": >-
+        /app/llama-server
+        --host 0.0.0.0 --port ${PORT}
+        -ngl 99
+        --jinja
+
+      # Embedding-only. --embedding restricts to /embedding endpoint.
       "llama-embed": >-
         /app/llama-server
         --host 0.0.0.0 --port ${PORT}
@@ -39,7 +58,7 @@ data:
     models:
       # ==================== CHAT GROUP (exclusive swap) ====================
 
-      # Default chat / tool use / long context.
+      # Default chat / tool use / long context. Confirmed Vulkan on RDNA2.
       # Qwen3-4B-Instruct-2507: MMLU-Pro 69.6, GPQA 62.0, IFEval 83.4.
       "qwen3-4b":
         cmd: |
@@ -54,82 +73,139 @@ data:
           - "gpt-4o-mini"
         ttl: 300
 
-      # Small coding specialist. Qwen2.5-Coder-3B tops the 3B class on
-      # HumanEval, MBPP, HumanEval-FIM. Fast path for short functions.
-      "qwen-coder":
+      # Agentic coder flagship. Pure-attention qwen3_moe — no GatedDeltaNet/SSM.
+      # Benchmarked on RX 6800 gfx1030 (same silicon): pp512 ~610 t/s, tg128
+      # ~120 t/s fully offloaded. Q3_K_S required: Q3_K_M (~14.7 GB) leaves no
+      # KV headroom; IQ3_K is ik_llama.cpp-only and will not load here.
+      # Safe ctx ceiling: 16–24K. Do not exceed 24K until on-node VRAM confirmed.
+      "agentic-coder":
         cmd: |
           ${llama-vulkan}
-          --model /models/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf
+          --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf
           --ctx-size 16384
-          --temp 0.2 --top-p 0.95
+          --temp 0.6 --top-p 0.95
         aliases:
-          - "code"
           - "coder"
-        ttl: 600
-
-      # Larger coding specialist. Qwen2.5-Coder-7B handles multi-file review,
-      # refactoring, and longer generations where 3B-Coder lacks structure.
-      "qwen-coder-7b":
-        cmd: |
-          ${llama-vulkan}
-          --model /models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
-          --ctx-size 16384
-          --temp 0.2 --top-p 0.95
-        aliases:
           - "code-large"
-          - "coder-7b"
-        ttl: 600
+          - "coder-large"
+        ttl: 120
 
-      # Fast small model for routing, classification, autocomplete.
-      # Matches older Qwen2.5-3B at half the parameter count.
-      "qwen3-1.7b":
+      # Deep reasoning. Qwen3-30B-A3B-Thinking-2507: AIME25 85.0, GPQA 73.4,
+      # MMLU-Pro 80.9. MoE 3B-active decode ~107–120 tok/s on gfx1030.
+      # Replaces Qwen3-14B as reasoning primary; 14B demoted to dense floor.
+      "reasoner":
         cmd: |
           ${llama-vulkan}
-          --model /models/Qwen3-1.7B-Q5_K_M.gguf
+          --model /models/Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf
           --ctx-size 16384
           --temp 0.7 --top-p 0.8
         aliases:
-          - "fast"
-          - "small"
-        ttl: 900
+          - "think"
+          - "reasoning"
+          - "thinking"
+        ttl: 120
 
-      # Larger reasoning / coding model enabled by 16 GiB UMA bump.
-      # Weights ~8.4 GiB, ctx 8192 at q8_0 KV keeps footprint under UMA.
-      # Slower (~5 tok/s decode). Reserve for complex reasoning tasks.
+      # Agentic reasoning + tool-calling. GPT-OSS-20B MXFP4 MoE (3.6B active):
+      # best tool-calling for n8n/MCP workflows; adjustable reasoning effort;
+      # 32K–60K ctx fits under 15 GiB due to SWA+GQA (384 MiB KV @16K).
+      # Verified on gfx1030. llama-vulkan-nofa: FA off, no KV quant (mandatory).
+      "reasoner-agentic":
+        cmd: |
+          ${llama-vulkan-nofa}
+          --model /models/gpt-oss-20b-mxfp4.gguf
+          --ctx-size 32768
+          --temp 0.7
+        aliases:
+          - "tool-agent"
+          - "gpt-oss"
+        ttl: 120
+
+      # FIM autocomplete for Continue.dev. Qwen2.5-Coder-3B BASE (not Instruct):
+      # pretrained with FIM tokens, no chat post-training. llama-fim macro omits
+      # --jinja so infill gets raw completion. Q5_K_M: fewer hallucinated
+      # identifiers vs Q4 at only +0.4 GiB. Do not use a chat template here.
+      "coder-fim":
+        cmd: |
+          ${llama-fim}
+          --model /models/Qwen2.5-Coder-3B-Q5_K_M.gguf
+          --ctx-size 32768
+          --temp 0.2 --top-p 0.95
+        aliases:
+          - "fim"
+          - "code-fim"
+          - "coder-small"
+        ttl: 600
+
+      # Dense safety floor. Retained as hot-swap fallback if MoE Vulkan
+      # path is unstable on bigboi. Context bumped 8192->24576 — MoE models
+      # no longer permanently occupy VRAM, freeing headroom for this slot.
       "qwen3-14b":
         cmd: |
           ${llama-vulkan}
           --model /models/Qwen3-14B-Q4_K_M.gguf
-          --ctx-size 8192
+          --ctx-size 24576
           --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
           --presence-penalty 1.0
         aliases:
           - "large"
-          - "reasoning"
+          - "dense-floor"
         ttl: 120
+
+      # Qwen2.5-Coder-7B — superseded by agentic-coder for multi-step work.
+      # Kept commented for dense single-turn fallback if agentic-coder slot
+      # proves unstable. Re-add to chat group members list to re-enable.
+      # "qwen-coder-7b":
+      #   cmd: |
+      #     ${llama-vulkan}
+      #     --model /models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+      #     --ctx-size 16384
+      #     --temp 0.2 --top-p 0.95
+      #   aliases:
+      #     - "code-7b"
+      #   ttl: 600
 
       # ==================== ALWAYS-ON GROUP (no swap) ====================
 
-      # Embedding model for RAG, semantic search, vector workflows.
-      # 87 MB weights; stays resident since swap cost > load cost.
-      "embed-nomic":
+      # Fast router. Promoted to always-on at ~1.4 GiB — swap latency gone.
+      # Caller system prompt should include /no_think to suppress CoT.
+      "qwen3-1.7b":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen3-1.7B-Q5_K_M.gguf
+          --ctx-size 8192
+          --temp 0.7 --top-p 0.8
+        aliases:
+          - "fast"
+          - "small"
+          - "router"
+        ttl: 0
+
+      # RAG embedding. Qwen3-Embedding-0.6B Q8_0: MTEB-Code 75.41 vs nomic
+      # near-baseline; 32K ctx, 1024 dims with MRL truncation, instruction-aware.
+      # --pooling last mandatory. Callers must send query instruction prefix or
+      # retrieval quality degrades below nomic (asymmetric query/doc embedding).
+      # Migration note: dims change 768->1024 requires full pgvector re-index.
+      "qwen3-embed":
         cmd: |
           ${llama-embed}
-          --model /models/nomic-embed-text-v1.5.Q4_K_M.gguf
-          --ctx-size 8192
+          --model /models/Qwen3-Embedding-0.6B-Q8_0.gguf
+          --ctx-size 32768
+          --pooling last
         aliases:
           - "embed"
           - "embedding"
           - "text-embedding-ada-002"
         ttl: 0
 
-      # Cross-encoder reranker for 5-10x better RAG retrieval quality
-      # on top of embedding model. 280 MB weights; stays resident.
-      "rerank-bge":
+      # RAG reranker. Qwen3-Reranker-0.6B Q8_0: MTEB-R 65.80 vs bge 57.03;
+      # MTEB-Code 73.42 vs bge 41.38 (+32pt gap). Q8_0 not Q4: quant noise
+      # hurts precision-critical scoring head; ~0.64 GiB is negligible.
+      # LiteLLM must route local-rerank to /v1/rerank, not chat completions.
+      "qwen3-rerank":
         cmd: |
           ${llama-embed}
-          --model /models/bge-reranker-v2-m3-Q4_K_M.gguf
-          --ctx-size 8192
+          --model /models/Qwen3-Reranker-0.6B-Q8_0.gguf
+          --ctx-size 32768
           --pooling rank
           --reranking
         aliases:
@@ -138,26 +214,25 @@ data:
         ttl: 0
 
     groups:
-      # Chat models swap exclusively against each other. Only one can hold
-      # the ~5-10 GiB slice of UMA at a time; others unload on swap.
+      # Chat models swap exclusively. Only one can hold 11–15 GiB at a time.
       "chat":
         swap: true
         exclusive: true
         members:
           - "qwen3-4b"
-          - "qwen-coder"
-          - "qwen-coder-7b"
-          - "qwen3-1.7b"
+          - "agentic-coder"
+          - "reasoner"
+          - "reasoner-agentic"
+          - "coder-fim"
           - "qwen3-14b"
 
-      # Embedding + reranker stay loaded together; small footprint, high
-      # hit rate. swap: false = members do not unload each other.
-      # persistent: true = llama-swap preloads them at startup instead of
-      # waiting for first request.
+      # Always-on: router + embed + rerank. ~3 GiB total resident.
+      # persistent: true = preloaded at startup, not on first request.
       "always-on":
         swap: false
         exclusive: false
         persistent: true
         members:
-          - "embed-nomic"
-          - "rerank-bge"
+          - "qwen3-1.7b"
+          - "qwen3-embed"
+          - "qwen3-rerank"
