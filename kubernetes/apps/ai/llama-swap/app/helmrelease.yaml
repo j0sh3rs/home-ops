@@ -82,11 +82,11 @@ spec:
                 }
                 # ── Always-on group (fetched first; llama-swap won't start without these) ──
 
-                # Qwen3-1.7B Q5_K_M (~1.4 GiB) — router, always-on
+                # Qwen3-1.7B Q5_K_M (~1.17 GiB) — router, always-on
                 fetch \
                   "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
                   "Qwen3-1.7B-Q5_K_M.gguf" \
-                  1300000000
+                  1200000000
                 # Qwen3-Embedding-0.6B Q8_0 (~640 MB) — RAG embeddings, always-on
                 # --pooling last required; dims 1024 (was nomic 768 — re-index pgvector)
                 fetch \
