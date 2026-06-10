@@ -182,6 +182,6 @@ data:
     # LiteLLM /mcp is for LLM tool-injection during chat completions.
     # ------------------------------------------------------------------
     mcp_servers:
-      - server_name: mcpjungle
+      mcpjungle:
         server_type: streamable_http
         server_url: http://mcpjungle:8080/mcp

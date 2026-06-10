@@ -20,6 +20,10 @@ spec:
   values:
     controllers:
       llama-swap:
+        # Recreate: init container downloads up to ~60 GiB of GGUFs. Rolling
+        # update would spawn a second pod competing for the same PVC (RWO) and
+        # then time out. Recreate ensures old pod is gone before init runs.
+        strategy: Recreate
         annotations:
           # Reload pod when the config ConfigMap changes.
           reloader.stakater.com/auto: "true"
