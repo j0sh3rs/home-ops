@@ -80,7 +80,7 @@ spec:
 
                 # Qwen3-1.7B Q5_K_M (~1.4 GiB) — router, always-on
                 fetch \
-                  "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
+                  "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
                   "Qwen3-1.7B-Q5_K_M.gguf" \
                   1300000000
                 # Qwen3-Embedding-0.6B Q8_0 (~640 MB) — RAG embeddings, always-on
@@ -90,9 +90,10 @@ spec:
                   "Qwen3-Embedding-0.6B-Q8_0.gguf" \
                   600000000
                 # Qwen3-Reranker-0.6B Q8_0 (~640 MB) — RAG reranker, always-on
+                # filename is lowercase in ggml-org repo
                 fetch \
-                  "https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/resolve/main/Qwen3-Reranker-0.6B-Q8_0.gguf?download=true" \
-                  "Qwen3-Reranker-0.6B-Q8_0.gguf" \
+                  "https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/resolve/main/qwen3-reranker-0.6b-q8_0.gguf?download=true" \
+                  "qwen3-reranker-0.6b-q8_0.gguf" \
                   600000000
 
                 # ── Chat group (hot-swap) ──

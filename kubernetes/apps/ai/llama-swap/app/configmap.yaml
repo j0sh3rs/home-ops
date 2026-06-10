@@ -204,7 +204,7 @@ data:
       "qwen3-rerank":
         cmd: |
           ${llama-embed}
-          --model /models/Qwen3-Reranker-0.6B-Q8_0.gguf
+          --model /models/qwen3-reranker-0.6b-q8_0.gguf
           --ctx-size 32768
           --pooling rank
           --reranking
