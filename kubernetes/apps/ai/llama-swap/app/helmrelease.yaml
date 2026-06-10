@@ -1,4 +1,5 @@
 ---
+# yamllint disable rule:line-length
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -75,52 +76,64 @@ spec:
                   mv "$out.part" "$out"
                   echo "[done]  $out: $(human $final)"
                 }
-                # Qwen3-4B-Instruct-2507 Q4_K_M (~2.33 GiB)
+                # ── Always-on group (fetched first; llama-swap won't start without these) ──
+
+                # Qwen3-1.7B Q5_K_M (~1.4 GiB) — router, always-on
+                fetch \
+                  "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
+                  "Qwen3-1.7B-Q5_K_M.gguf" \
+                  1300000000
+                # Qwen3-Embedding-0.6B Q8_0 (~640 MB) — RAG embeddings, always-on
+                # --pooling last required; dims 1024 (was nomic 768 — re-index pgvector)
+                fetch \
+                  "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true" \
+                  "Qwen3-Embedding-0.6B-Q8_0.gguf" \
+                  600000000
+                # Qwen3-Reranker-0.6B Q8_0 (~640 MB) — RAG reranker, always-on
+                fetch \
+                  "https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/resolve/main/Qwen3-Reranker-0.6B-Q8_0.gguf?download=true" \
+                  "Qwen3-Reranker-0.6B-Q8_0.gguf" \
+                  600000000
+
+                # ── Chat group (hot-swap) ──
+
+                # Qwen3-4B-Instruct-2507 Q4_K_M (~2.33 GiB) — local-balanced
                 fetch \
                   "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf?download=true" \
                   "Qwen3-4B-Instruct-2507-Q4_K_M.gguf" \
                   2300000000
-                # Qwen2.5-Coder-3B-Instruct Q4_K_M (~1.9 GiB)
+                # Qwen2.5-Coder-3B BASE Q5_K_M (~2.2 GiB) — FIM autocomplete
+                # BASE not Instruct: pretrained with FIM tokens, no chat template
                 fetch \
-                  "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf?download=true" \
-                  "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf" \
-                  1800000000
-                # Qwen3-1.7B Q5_K_M (~1.4 GiB)
+                  "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-GGUF/resolve/main/Qwen2.5-Coder-3B-Q5_K_M.gguf?download=true" \
+                  "Qwen2.5-Coder-3B-Q5_K_M.gguf" \
+                  2100000000
+                # Qwen3-Coder-30B-A3B-Instruct Q3_K_S (~13.3 GiB) — agentic coder
+                # Pure-attention qwen3_moe; verified ~120 tok/s on gfx1030.
+                # Q3_K_S required: Q3_K_M too large; IQ3_K does not load here.
                 fetch \
-                  "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
-                  "Qwen3-1.7B-Q5_K_M.gguf" \
-                  1300000000
-                # Qwen3-14B Q4_K_M (~8.4 GiB) — enabled after UMA bump 3G->16G.
-                # Fits cleanly in 16 GiB UMA with 8k+ context; unlocks larger
-                # reasoning/coding workloads without GTT spillover.
+                  "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf?download=true" \
+                  "Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf" \
+                  13000000000
+                # Qwen3-30B-A3B-Thinking-2507 Q3_K_S (~12.85 GiB) — deep reasoner
+                fetch \
+                  "https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-Thinking-2507-GGUF/resolve/main/Qwen_Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf?download=true" \
+                  "Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf" \
+                  12500000000
+                # GPT-OSS-20B MXFP4 (~11.27 GiB) — agentic reasoning + tool-calling
+                # flash-attn MUST be off; no KV quant (-ctk/-ctv segfaults)
+                fetch \
+                  "https://huggingface.co/ggml-org/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-mxfp4.gguf?download=true" \
+                  "gpt-oss-20b-mxfp4.gguf" \
+                  11000000000
+                # Qwen3-14B Q4_K_M (~8.4 GiB) — dense safety floor
+                # ctx bumped to 24576; keep until MoE Vulkan confirmed stable
                 fetch \
                   "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf?download=true" \
                   "Qwen3-14B-Q4_K_M.gguf" \
                   8400000000
-                # Qwen2.5-Coder-7B Q4_K_M (~4.4 GiB) — larger coding specialist
-                # for multi-file review, refactoring, longer generations where
-                # 3B-Coder lacks structure. Fits alongside 1.7B/4B in always-on
-                # group during use.
-                fetch \
-                  "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf?download=true" \
-                  "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf" \
-                  4400000000
-                # nomic-embed-text-v1.5 Q4_K_M (~87 MB) — embedding model for
-                # RAG, semantic search, vector workflows. Always-on in
-                # llama-swap groups config.
-                fetch \
-                  "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf?download=true" \
-                  "nomic-embed-text-v1.5.Q4_K_M.gguf" \
-                  87000000
-                # bge-reranker-v2-m3 Q4_K_M (~280 MB) — cross-encoder reranker
-                # for high-quality RAG retrieval on top of embeddings.
-                # Always-on in llama-swap groups config.
-                fetch \
-                  "https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-Q4_K_M.gguf?download=true" \
-                  "bge-reranker-v2-m3-Q4_K_M.gguf" \
-                  280000000
                 echo "[finished] model staging complete"
-                ls -la /models
+                ls -lh /models
             env:
               # Override HF_HUB_OFFLINE from main container — init must
               # reach HuggingFace.
