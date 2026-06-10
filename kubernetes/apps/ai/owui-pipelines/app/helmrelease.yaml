@@ -1,4 +1,5 @@
 ---
+# yamllint disable rule:line-length
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -35,6 +36,9 @@ spec:
               pullPolicy: IfNotPresent
             env:
               PIPELINES_DIR: /pipelines
+              # Forward all model requests to LiteLLM gateway. The model_router
+              # pipeline rewrites the model alias before proxying upstream.
+              OPENAI_API_BASE_URL: "http://litellm:4000/v1"
             envFrom:
               - secretRef:
                   name: owui-pipelines-secrets

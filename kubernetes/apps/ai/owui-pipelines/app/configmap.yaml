@@ -6,12 +6,13 @@ metadata:
 data:
   model_router.py: |
     """
-    Model router pipeline for Open WebUI -> LiteLLM.
+    Model router pipeline for Open WebUI -> owui-pipelines -> LiteLLM.
     Routes by content signal:
-      code keywords  -> local-coder   (Qwen2.5-Coder-7B)
+      code keywords  -> local-coder   (Qwen3-Coder-30B-A3B, agentic MoE)
       short message  -> local-fast    (Qwen3-1.7B, < SHORT_MSG_THRESHOLD chars)
       default        -> local-balanced (Qwen3-4B)
     Model names must match LiteLLM public aliases in litellm configmap.
+    Upstream: OPENAI_API_BASE_URL=http://litellm:4000/v1 (from secret).
     """
     from pydantic import BaseModel
     from typing import Optional
