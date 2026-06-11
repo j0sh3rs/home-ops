@@ -63,26 +63,26 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
 
-      # DISABLED until GGUF present: agentic-coder (Qwen3-Coder-30B-A3B Q3_K_S)
-      # - model_name: local-coder
-      #   litellm_params:
-      #     model: openai/agentic-coder
-      #     api_base: http://llama-swap:8080/v1
-      #     api_key: sk-local-llama-swap
+      # Agentic coder flagship (Qwen3-Coder-30B-A3B Q3_K_S, ~120 tok/s MoE)
+      - model_name: local-coder
+        litellm_params:
+          model: openai/agentic-coder
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
 
-      # DISABLED until GGUF present: reasoner (Qwen3-30B-A3B-Thinking-2507)
-      # - model_name: local-reason
-      #   litellm_params:
-      #     model: openai/reasoner
-      #     api_base: http://llama-swap:8080/v1
-      #     api_key: sk-local-llama-swap
+      # Deep reasoning (Qwen3-30B-A3B-Thinking-2507 Q3_K_S, AIME25 85.0)
+      - model_name: local-reason
+        litellm_params:
+          model: openai/reasoner
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
 
-      # DISABLED until GGUF present: reasoner-agentic (GPT-OSS-20B MXFP4)
-      # - model_name: local-reason-agent
-      #   litellm_params:
-      #     model: openai/reasoner-agentic
-      #     api_base: http://llama-swap:8080/v1
-      #     api_key: sk-local-llama-swap
+      # Agentic reasoning + tool-calling (GPT-OSS-20B MXFP4, best n8n/MCP)
+      - model_name: local-reason-agent
+        litellm_params:
+          model: openai/reasoner-agentic
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
 
       # Dense safety floor (Qwen3-14B Q4 — fallback if MoE Vulkan unstable)
       - model_name: local-large

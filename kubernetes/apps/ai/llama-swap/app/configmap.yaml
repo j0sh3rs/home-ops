@@ -74,46 +74,48 @@ data:
         ttl: 300
 
       # Agentic coder flagship. Pure-attention qwen3_moe — no GatedDeltaNet/SSM.
-      # DISABLED: GGUF still downloading (Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf).
-      # Re-enable once init-container confirms file present and >= 13 GiB.
-      # "agentic-coder":
-      #   cmd: |
-      #     ${llama-vulkan}
-      #     --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf
-      #     --ctx-size 16384
-      #     --temp 0.6 --top-p 0.95
-      #   aliases:
-      #     - "coder"
-      #     - "code-large"
-      #     - "coder-large"
-      #   ttl: 120
+      # Benchmarked on RX 6800 gfx1030 (same silicon): pp512 ~610 t/s, tg128
+      # ~120 t/s fully offloaded. Q3_K_S required: Q3_K_M (~14.7 GB) leaves no
+      # KV headroom; IQ3_K is ik_llama.cpp-only and will not load here.
+      # Safe ctx ceiling: 16–24K. Do not exceed 24K until on-node VRAM confirmed.
+      "agentic-coder":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf
+          --ctx-size 16384
+          --temp 0.6 --top-p 0.95
+        aliases:
+          - "coder"
+          - "code-large"
+          - "coder-large"
+        ttl: 120
 
-      # Deep reasoning — DISABLED: GGUF not yet downloaded.
-      # Re-enable once Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf is present.
-      # "reasoner":
-      #   cmd: |
-      #     ${llama-vulkan}
-      #     --model /models/Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf
-      #     --ctx-size 16384
-      #     --temp 0.7 --top-p 0.8
-      #   aliases:
-      #     - "think"
-      #     - "reasoning"
-      #     - "thinking"
-      #   ttl: 120
+      # Deep reasoning. Qwen3-30B-A3B-Thinking-2507: AIME25 85.0, GPQA 73.4,
+      # MMLU-Pro 80.9. MoE 3B-active decode ~107–120 tok/s on gfx1030.
+      "reasoner":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf
+          --ctx-size 16384
+          --temp 0.7 --top-p 0.8
+        aliases:
+          - "think"
+          - "reasoning"
+          - "thinking"
+        ttl: 120
 
-      # Agentic reasoning — DISABLED: GGUF not yet downloaded.
-      # Re-enable once gpt-oss-20b-mxfp4.gguf is present (~11.3 GiB).
-      # "reasoner-agentic":
-      #   cmd: |
-      #     ${llama-vulkan-nofa}
-      #     --model /models/gpt-oss-20b-mxfp4.gguf
-      #     --ctx-size 32768
-      #     --temp 0.7
-      #   aliases:
-      #     - "tool-agent"
-      #     - "gpt-oss"
-      #   ttl: 120
+      # Agentic reasoning + tool-calling. GPT-OSS-20B MXFP4 MoE (3.6B active).
+      # llama-vulkan-nofa: FA off, no KV quant (mandatory for this arch).
+      "reasoner-agentic":
+        cmd: |
+          ${llama-vulkan-nofa}
+          --model /models/gpt-oss-20b-mxfp4.gguf
+          --ctx-size 32768
+          --temp 0.7
+        aliases:
+          - "tool-agent"
+          - "gpt-oss"
+        ttl: 120
 
       # FIM autocomplete for Continue.dev. Qwen2.5-Coder-3B BASE (not Instruct):
       # pretrained with FIM tokens, no chat post-training. llama-fim macro omits
@@ -215,9 +217,11 @@ data:
         exclusive: true
         members:
           - "qwen3-4b"
+          - "agentic-coder"
+          - "reasoner"
+          - "reasoner-agentic"
           - "coder-fim"
           - "qwen3-14b"
-          # agentic-coder, reasoner, reasoner-agentic: re-add when GGUFs present
 
       # Always-on: router + embed + rerank. ~3 GiB total resident.
       # persistent: true = preloaded at startup, not on first request.
