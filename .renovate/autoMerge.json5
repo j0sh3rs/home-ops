@@ -30,5 +30,26 @@
       matchUpdateTypes: ["major"],
       automerge: false,
     },
+    {
+      // CNPG ClusterImageCatalog: track the image DIGEST only. Tag bumps
+      // (major/minor/patch) are disabled so Renovate can't roll the PG
+      // version or distro out from under the running cluster — those are
+      // manual, dedicated PRs (see imagecatalog.yaml header). Digest-only
+      // rebuilds of the SAME tag auto-merge. Fixes the broken PR #419 path.
+      description: "CNPG postgresql image — digest-only, no tag bumps",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/cloudnative-pg/postgresql"],
+      matchUpdateTypes: ["major", "minor", "patch"],
+      enabled: false,
+    },
+    {
+      description: "CNPG postgresql image — auto-merge digest rebuilds",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/cloudnative-pg/postgresql"],
+      matchUpdateTypes: ["digest"],
+      automerge: true,
+      automergeType: "branch",
+      ignoreTests: true,
+    },
   ],
 }

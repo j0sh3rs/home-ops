@@ -47,6 +47,13 @@ metadata:
   name: postgresql
 spec:
   images:
-    # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=loose
+    # NOTE: Do NOT put an inline `# renovate:` annotation above `major:`.
+    # The generic customManager captures currentValue from the line BELOW the
+    # annotation — which is `major: <int>`, a CNPG PG-major integer, NOT a
+    # version string. That rewrote `major: 18` → `major: 18.4` and broke the
+    # catalog (PR #419). Renovate now tracks ONLY the image digest, via a
+    # dedicated `image:`-line customManager + a digest-only packageRule in
+    # .renovate/. Major/minor/distro bumps stay manual: edit the tag + digest
+    # below in a dedicated PR.
     - major: 18
       image: ghcr.io/cloudnative-pg/postgresql:18.4-202605250923-standard-trixie@sha256:1e9b7f86a108b8eb472f52b59fc085aafee4cb3841484727ad67c020a8935a86

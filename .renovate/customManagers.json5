@@ -28,6 +28,26 @@
     },
     {
       customType: "regex",
+      description: "CNPG ClusterImageCatalog — track image DIGEST only, never the tag",
+      // The CNPG ClusterImageCatalog stores `major: <int>` (a PG major
+      // version) directly above the pinned `image:`. The generic annotation
+      // manager above captured `major: 18` as currentValue and rewrote it to
+      // `18.4`, breaking the catalog (PR #419). So this file carries NO inline
+      // `# renovate:` annotation; instead we match the `image:` line directly
+      // and capture tag + digest. A packageRule in autoMerge.json5 disables
+      // tag (major/minor/patch) bumps for this depName, leaving digest-only —
+      // major/distro hops stay manual per the file's documented procedure.
+      fileMatch: [
+        "(^|/)kubernetes/apps/databases/cloudnative-pg/cluster/imagecatalog\\.ya?ml$",
+      ],
+      matchStrings: [
+        "image:\\s+(?<depName>ghcr\\.io/cloudnative-pg/postgresql):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)",
+      ],
+      datasourceTemplate: "docker",
+      versioningTemplate: "loose",
+    },
+    {
+      customType: "regex",
       description: "Bump aqua-managed tool versions in .mise.toml",
       // Renovate's built-in `mise` manager handles `tools = "x"` syntax in
       // .tool-versions but not the .mise.toml `[tools]` table with quoted
