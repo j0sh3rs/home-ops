@@ -82,16 +82,9 @@ spec:
             image:
               repository: ghcr.io/j0sh3rs/claude-code
               tag: latest
-            command: ["claude"]
+            command: ["sleep"]
             args:
-              - "remote-control"
-              - "--name"
-              - "home-ops"
-              - "--permission-mode"
-              - "bypassPermissions"
-              - "--spawn"
-              - "worktree"
-            workingDir: /workspace/home-ops
+              - "infinity"
             env:
               HOME: /home/claude
               DISABLE_AUTOUPDATER: "1"
