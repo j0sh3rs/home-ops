@@ -57,6 +57,7 @@ spec:
 
                 # Clone or update home-ops repo
                 REPO_DIR=/workspace/home-ops
+                git config --global --add safe.directory "${REPO_DIR}"
                 if [ -d "${REPO_DIR}/.git" ]; then
                   git -C "${REPO_DIR}" remote set-url origin \
                     "https://${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git"
