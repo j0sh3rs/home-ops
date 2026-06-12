@@ -84,11 +84,14 @@ spec:
               tag: latest
             command: ["claude"]
             args:
-              - "--remote-control"
+              - "remote-control"
+              - "--name"
               - "home-ops"
-              - "--dangerously-skip-permissions"
-              - "--cwd"
-              - "/workspace/home-ops"
+              - "--permission-mode"
+              - "bypassPermissions"
+              - "--spawn"
+              - "worktree"
+            workingDir: /workspace/home-ops
             env:
               HOME: /home/claude
               DISABLE_AUTOUPDATER: "1"
