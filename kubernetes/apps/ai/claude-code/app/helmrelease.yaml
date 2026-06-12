@@ -26,21 +26,22 @@ spec:
         initContainers:
           bootstrap:
             image:
-              repository: debian
-              tag: bookworm-slim
+              repository: ghcr.io/j0sh3rs/claude-code
+              tag: latest
             securityContext:
-              runAsUser: 0
+              runAsUser: 1001
+              runAsGroup: 1001
+              runAsNonRoot: true
             envFrom:
               - secretRef:
                   name: claude-code-secrets
+            env:
+              HOME: /home/claude
             command:
-              - /bin/bash
+              - /bin/sh
               - -c
               - |
-                set -euo pipefail
-
-                apt-get update -qq && apt-get install -y -qq \
-                  gettext-base git 2>&1 | tail -5
+                set -eu
 
                 # Write settings.json from template only if template is newer
                 SETTINGS_DEST=/home/claude/.claude/settings.json
@@ -48,8 +49,8 @@ spec:
                 mkdir -p /home/claude/.claude
                 if [ ! -f "${SETTINGS_DEST}" ] \
                     || [ "${SETTINGS_TPL}" -nt "${SETTINGS_DEST}" ]; then
-                  envsubst '$MCPJUNGLE_API_KEY' \
-                    < "${SETTINGS_TPL}" > "${SETTINGS_DEST}"
+                  sed "s|\$MCPJUNGLE_API_KEY|${MCPJUNGLE_API_KEY}|g" \
+                    "${SETTINGS_TPL}" > "${SETTINGS_DEST}"
                   echo "Wrote ${SETTINGS_DEST}"
                 else
                   echo "Settings up-to-date, skipping"
@@ -72,8 +73,6 @@ spec:
 
                 git -C "${REPO_DIR}" config user.name  "j0sh3rs"
                 git -C "${REPO_DIR}" config user.email "j0sh3rs@gmail.com"
-
-                chown -R 1001:1001 /home/claude /workspace
 
         containers:
           app:
