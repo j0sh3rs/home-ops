@@ -84,7 +84,7 @@ spec:
               tag: latest
             command: ["claude"]
             args:
-              - "agents"
+              - "remote-control"
               - "--dangerously-skip-permissions"
               - "--cwd"
               - "/workspace/home-ops"
