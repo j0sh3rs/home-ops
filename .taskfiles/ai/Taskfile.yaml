@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+vars:
+  CONTEXT: home
+
+tasks:
+  mcpjungle-bootstrap:
+    desc: Rerun the mcpjungle bootstrap Job to register newly-added MCP upstreams
+    summary: |
+      The bootstrap Job registers one MCP upstream per *.json key in the
+      mcpjungle-upstream-config ConfigMap. Editing the ConfigMap alone does
+      NOT rerun the Job (Job specs are immutable; the kustomize force
+      annotation only fires when the Job manifest itself changes). This task
+      deletes the completed Job and reconciles the Kustomization so Flux
+      recreates it immediately, picking up any new config files.
+    cmds:
+      - kubectl delete job mcpjungle-bootstrap -n ai --ignore-not-found --context {{.CONTEXT}}
+      - flux reconcile kustomization mcpjungle -n ai --context {{.CONTEXT}}
+      - 'echo "✅ mcpjungle bootstrap rerun triggered — tail via task ai:mcpjungle-logs"'
+    preconditions:
+      - which kubectl
+      - which flux
+
+  mcpjungle-logs:
+    desc: Tail logs from the most recent mcpjungle bootstrap Job
+    cmds:
+      - kubectl logs -n ai job/mcpjungle-bootstrap -f --context {{.CONTEXT}}
+    preconditions:
+      - which kubectl

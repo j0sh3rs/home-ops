@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: claude-code-settings-template
+    namespace: ai
+data:
+    settings.json.tpl: |
+        {
+          "mcpServers": {
+            "mcpjungle": {
+              "type": "http",
+              "url": "http://mcpjungle.ai.svc.cluster.local:8080/mcp",
+              "headers": {
+                "Authorization": "Bearer $MCPJUNGLE_API_KEY"
+              }
+            }
+          },
+          "permissions": {
+            "allow": [
+              "Bash(git:*)",
+              "Bash(kubectl:*)",
+              "Bash(flux:*)",
+              "Bash(helm:*)",
+              "Bash(task:*)",
+              "Bash(rtk:*)",
+              "Bash(kustomize:*)",
+              "Bash(sops:*)",
+              "Bash(age:*)",
+              "Bash(talhelper:*)",
+              "Bash(talosctl:*)",
+              "Bash(ls:*)",
+              "Bash(find:*)",
+              "Bash(grep:*)",
+              "Bash(cat:*)",
+              "Bash(uv:*)",
+              "Bash(uvx:*)",
+              "Bash(npx:*)",
+              "Bash(node:*)",
+              "Bash(mise:*)",
+              "Bash(bd:*)",
+              "Bash(pgrep:*)"
+            ],
+            "deny": []
+          },
+          "autoUpdaterStatus": "disabled"
+        }
