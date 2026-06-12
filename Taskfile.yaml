@@ -19,6 +19,7 @@ env:
   TALOSCONFIG: '{{.TALOSCONFIG}}'
 
 includes:
+  ai: .taskfiles/ai
   bootstrap: .taskfiles/bootstrap
   flux: .taskfiles/flux
   sops: .taskfiles/sops

@@ -72,28 +72,22 @@ spec:
                 --registry "${MCPJUNGLE_URL}" 2>/dev/null \
                 || echo "")
 
-              reg() {
-                NAME=$1
-                CONFIG=$2
+              # Single source of truth: every *.json key mounted from the
+              # ConfigMap is one upstream. Server name = filename minus
+              # the .json extension, which must match the "name" field
+              # inside the JSON (that is how `list servers` reports it).
+              # To add an upstream, add ONE key to configmap.yaml — the
+              # loop below picks it up; nothing here changes.
+              for CONFIG in /config/*.json; do
+                [ -e "${CONFIG}" ] || continue   # guard: no glob match
+                NAME=$(basename "${CONFIG}" .json)
                 if echo "${EXISTING}" | grep -q "^[0-9]*\. ${NAME}$"; then
-                  echo "skip ${NAME} (exists)"; return 0
+                  echo "skip ${NAME} (exists)"; continue
                 fi
                 echo "registering ${NAME}..."
                 /mcpjungle register \
                   --registry "${MCPJUNGLE_URL}" \
                   -c "${CONFIG}"
-              }
-
-              # Remote HTTP upstreams — bearer_token in JSON config file.
-              reg context7   /config/context7.json
-              reg exa        /config/exa.json
-
-              # stdio upstreams — command/args/env in JSON config file.
-              reg github /config/github.json
-              reg memory /config/memory.json
-              reg playwright /config/playwright.json
-              reg cloudflare /config/cloudflare.json
-              reg perplexity /config/perplexity.json
-              reg n8n /config/n8n.json
+              done
 
               echo "bootstrap complete"
