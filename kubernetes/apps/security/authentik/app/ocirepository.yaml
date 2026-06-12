@@ -12,5 +12,5 @@ spec:
     operation: copy
   ref:
     # renovate: datasource=docker depName=ghcr.io/goauthentik/helm-charts/authentik
-    tag: 2026.5.2
+    tag: 2026.5.3
   url: oci://ghcr.io/goauthentik/helm-charts/authentik
