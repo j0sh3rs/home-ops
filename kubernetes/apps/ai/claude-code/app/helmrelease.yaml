@@ -43,6 +43,9 @@ spec:
               - |
                 set -eu
 
+                # Put global git config on the PVC (writable by uid 1001)
+                export GIT_CONFIG_GLOBAL=/home/claude/.claude/.gitconfig
+
                 # Write settings.json from template only if template is newer
                 SETTINGS_DEST=/home/claude/.claude/settings.json
                 SETTINGS_TPL=/config/settings.json.tpl
