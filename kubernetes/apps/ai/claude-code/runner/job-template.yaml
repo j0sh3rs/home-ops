@@ -15,9 +15,11 @@
 # `cloud-sonnet` (vkey allow-list matches aliases, not raw Anthropic IDs).
 #
 # PREREQ: the `claude-code` Flux Kustomization must be reconciled first — it
-# materializes `claude-code-secrets` (SOPS-decrypted) in the ai namespace.
-# This Job mounts that secret; applying it before the daemon Kustomization is
-# live fails with `secret "claude-code-secrets" not found`.
+# materializes `claude-code-runner-secrets` (SOPS-decrypted; vkey + github
+# token) in the ai namespace. This Job mounts that secret; applying it before
+# the Kustomization is live fails with `secret not found`.
+# (The daemon uses a SEPARATE secret, claude-code-secrets, with NO API key —
+# remote-control is OAuth-only and refuses if ANTHROPIC_API_KEY is set.)
 #
 # Apply for P1b proof (path relative to repo root):
 #   kubectl -n ai apply -f .../claude-code/runner/job-template.yaml
@@ -58,7 +60,7 @@ spec:
               drop: ["ALL"]
           envFrom:
             - secretRef:
-                name: claude-code-secrets
+                name: claude-code-runner-secrets
           env:
             - name: REPO_REF
               value: main
@@ -92,7 +94,7 @@ spec:
               drop: ["ALL"]
           envFrom:
             - secretRef:
-                name: claude-code-secrets
+                name: claude-code-runner-secrets
           env:
             - name: HOME
               value: /home/claude

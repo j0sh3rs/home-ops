@@ -95,22 +95,16 @@ spec:
             env:
               HOME: /home/claude
               DISABLE_AUTOUPDATER: "1"
-              # Anthropic calls route through the LiteLLM gateway.
-              # AUTH (P1, vkey path — verified on litellm v1.88.1):
-              #   Claude Code sends ANTHROPIC_API_KEY as the native x-api-key
-              #   header to /v1/messages. The key is the budget-capped LiteLLM
-              #   virtual key ($20/30d, allow-list), set as ANTHROPIC_API_KEY
-              #   in claude-code-secrets. Model names MUST be LiteLLM aliases
-              #   (cloud-sonnet / cloud-haiku), NOT raw Anthropic IDs — the
-              #   vkey allow-list matches aliases.
-              # OAuth subscription passthrough (preferred default) is deferred
-              # to P1.5: it uses the /anthropic passthrough route + an
-              # interactive `claude login` token, and the dual-auth-header
-              # mechanic is still unverified. vkey path is the proven backstop
-              # and ships first.
-              ANTHROPIC_BASE_URL: http://litellm.ai.svc.cluster.local:4000
-              ANTHROPIC_MODEL: cloud-sonnet
-              ANTHROPIC_SMALL_FAST_MODEL: cloud-haiku
+              # AUTH (P1a) — Remote Control is subscription-OAuth-ONLY.
+              # It hard-refuses if ANTHROPIC_API_KEY is set, so the daemon
+              # carries NO API key and NO ANTHROPIC_BASE_URL: it authenticates
+              # with the claude.ai OAuth token persisted on the claude-home PVC
+              # (run `claude login` once inside the pod) and calls Anthropic
+              # directly. claude-code-secrets intentionally has NO
+              # ANTHROPIC_API_KEY — that key lives in claude-code-runner-secrets
+              # for the headless Jobs (vkey path), which is a separate shape.
+              # Routing the daemon through LiteLLM /anthropic for observability
+              # is deferred to P1.5 (dual-auth-header mechanic unverified).
             envFrom:
               - secretRef:
                   name: claude-code-secrets
