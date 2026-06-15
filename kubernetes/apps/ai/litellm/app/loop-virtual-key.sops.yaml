@@ -1,0 +1,26 @@
+# LiteLLM virtual key for the code-automation loop (spec 2026-06-15).
+# Budget-capped $20/30d; model allow-list [cloud-*, local-*].
+# Minted 2026-06-15. NOT yet wired to a consumer — P1 (engine Jobs) consume it.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: code-automation-loop-litellm-key
+  namespace: ai
+stringData:
+  LITELLM_VIRTUAL_KEY: ENC[AES256_GCM,data:k7YxQvP1bgEUTh29teqF+2vgYtHDJt+uSg==,iv:XNNTwb3QyVICkmB76iGSFm5xIxEvjddntYCWpVFF2nc=,tag:69bI3YkdpvnGUcVR7wsPDA==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSArVExjREsvekFPM2tUMnJn
+        bVAxQUtXNjhuS2xvMVhOU0VrMDBHUjVFVzJJCmtOdXRCUTZnVmxaR3VvRE5kUkJM
+        a3ZwUHRVOTVEMlRuSHJ0MXZYR2pxcTAKLS0tIDUvUVVYVncwMWRPS25kSDNBNFRH
+        WS9HVEZEZGdtZjBGQUtPMnV4bzh0STgK8I+R+9PoOHHYin1OgATXtCqxpHCbiBCA
+        AW8puJDlKu9wOFvyVFHQoKQUVSXT/01EBVa3yNVdT78lAAKClfxPeA==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age1qwwzsz6z2mmu6hpmjt2he7nepmnhutmhehvkva7l5zy5xzf08d5s5n4d6n
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-15T20:29:41Z"
+  mac: ENC[AES256_GCM,data:YC4Xc3sVJta3i3Wz+o/ODzVgSlak//Yte7g86WYnSSb9VlVDd5GkR4ALLoMOSWVMXUkqO7TKhW/r6HuYdXqc4edQ8lmBfI3KhbOORWUaLB1eMZBCwUtxeUW55Xz2RQR5kpRT/Dq/bseG76+MwZLSS7w4sTEVDmrNzGg/T/IfDrA=,iv:BFJKtxOcQu0v/Zeg4wJVwB3btlSQvEwVWiV54shXAHA=,tag:HdymwDTHG90JDfScyysyGA==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1
