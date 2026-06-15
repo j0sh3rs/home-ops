@@ -95,6 +95,12 @@ spec:
             env:
               HOME: /home/claude
               DISABLE_AUTOUPDATER: "1"
+              # Route all Anthropic API calls through LiteLLM gateway.
+              # The claude.ai OAuth token (already in ~/.claude/) is forwarded
+              # by LiteLLM to Anthropic — no ANTHROPIC_API_KEY needed.
+              # ANTHROPIC_CUSTOM_HEADERS carries the LiteLLM virtual key for
+              # budget tracking / spend caps; set in claude-code-secrets.
+              ANTHROPIC_BASE_URL: http://litellm.ai.svc.cluster.local:4000
             envFrom:
               - secretRef:
                   name: claude-code-secrets

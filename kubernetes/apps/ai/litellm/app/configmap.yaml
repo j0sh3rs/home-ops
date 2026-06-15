@@ -91,22 +91,24 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
 
-      # ---- Cloud providers (DISABLED — enable after adding key to secret) ----
-      # Add ANTHROPIC_API_KEY to litellm-secrets, then uncomment.
-      # LiteLLM resolves os.environ/<KEY> at request time — missing key
+      # ---- Cloud providers (ENABLED 2026-06-15 — keys in litellm-secrets) ----
+      # LiteLLM resolves os.environ/<KEY> at request time — a missing key
       # returns a clean 5xx, not a startup crash.
       # NOTE: Anthropic API uses bearer tokens, not OAuth.
-      #
-      # - model_name: cloud-haiku
-      #   litellm_params:
-      #     model: anthropic/claude-haiku-4-5
-      #     api_key: os.environ/ANTHROPIC_API_KEY
-      #
-      # - model_name: cloud-sonnet
-      #   litellm_params:
-      #     model: anthropic/claude-sonnet-4-6
-      #     api_key: os.environ/ANTHROPIC_API_KEY
-      #
+      # Spend is capped on the minted virtual key, not here ($20/mo to start).
+      - model_name: cloud-haiku
+        litellm_params:
+          model: anthropic/claude-haiku-4-5
+          api_key: os.environ/ANTHROPIC_API_KEY
+
+      - model_name: cloud-sonnet
+        litellm_params:
+          model: anthropic/claude-sonnet-4-6
+          api_key: os.environ/ANTHROPIC_API_KEY
+
+      # cloud-gpt-mini: OPENAI_API_KEY is present in litellm-secrets, but the
+      # loop targets Anthropic only — leave disabled until an OpenAI use case
+      # exists.
       # - model_name: cloud-gpt-mini
       #   litellm_params:
       #     model: openai/gpt-4o-mini
