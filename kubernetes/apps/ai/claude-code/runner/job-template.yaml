@@ -14,6 +14,11 @@
 # LiteLLM virtual key; ANTHROPIC_BASE_URL = litellm gateway; model = alias
 # `cloud-sonnet` (vkey allow-list matches aliases, not raw Anthropic IDs).
 #
+# PREREQ: the `claude-code` Flux Kustomization must be reconciled first — it
+# materializes `claude-code-secrets` (SOPS-decrypted) in the ai namespace.
+# This Job mounts that secret; applying it before the daemon Kustomization is
+# live fails with `secret "claude-code-secrets" not found`.
+#
 # Apply for P1b proof (path relative to repo root):
 #   kubectl -n ai apply -f .../claude-code/runner/job-template.yaml
 #   kubectl -n ai logs -f job/claude-code-runner-probe
@@ -42,9 +47,15 @@ spec:
         runAsGroup: 1001
         runAsNonRoot: true
         fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: clone
           image: ghcr.io/j0sh3rs/claude-code:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           envFrom:
             - secretRef:
                 name: claude-code-secrets
@@ -75,6 +86,10 @@ spec:
         - name: runner
           image: ghcr.io/j0sh3rs/claude-code:latest
           workingDir: /workspace/home-ops
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           envFrom:
             - secretRef:
                 name: claude-code-secrets
