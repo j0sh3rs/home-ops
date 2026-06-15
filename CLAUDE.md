@@ -8,23 +8,29 @@ Home-lab Kubernetes cluster on **Talos Linux** running **Kubernetes**, managed v
 
 ## Critical: Kubectl Context
 
-**ALL** kubectl, helm, and flux commands MUST use `--context home`:
+**Do NOT pass `--context home`.** `mise` injects `KUBECONFIG=./kubeconfig`
+automatically via `.mise.toml`, pointing at the single cluster (the real context
+name is `admin@kubernetes`; there is no `home` context). Run bare:
 
 ```bash
-kubectl get pods -A --context home
-helm list -A --kube-context home
-flux get ks -A --context home
+kubectl get pods -A
+helm list -A
+flux get ks -A
 ```
+
+> History: a PreToolUse hook in `.claude/settings.json` used to refuse commands
+> missing `--context home`. Removed 2026-06-15 once mise took over KUBECONFIG.
+> Any older doc/memory referencing `--context home` is stale.
 
 ## Token-Efficient Commands (RTK)
 
 Prefix all commands with `rtk` per `~/CLAUDE.md` for 60-85% token savings:
 
 ```bash
-rtk kubectl get pods -A --context home
-rtk flux get ks -A --context home
-rtk helm list -A --kube-context home
-rtk kubectl logs <pod> -n <ns> --context home
+rtk kubectl get pods -A
+rtk flux get ks -A
+rtk helm list -A
+rtk kubectl logs <pod> -n <ns>
 ```
 
 ## Task Tracking (Beads)
