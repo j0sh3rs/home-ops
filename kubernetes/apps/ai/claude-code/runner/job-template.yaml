@@ -1,0 +1,131 @@
+---
+# Headless claude-code engine Job — the autonomous code-automation runner.
+#
+# NOT wired into any kustomization. This is a TEMPLATE:
+#   - P1b: applied manually to prove one engine Job runs green.
+#   - P4:  n8n instantiates it per task (substituting TASK_PROMPT, branch,
+#          ref, RAG context) via its in-cluster ServiceAccount.
+#
+# Lifecycle: ephemeral. initContainer clones home-ops @ main onto an emptyDir
+# (isolated per Job — NOT the daemon's PVC), creates a working branch; main
+# container runs `claude -p` headless, cloud-backed via the LiteLLM vkey path.
+#
+# Auth (P1, verified on litellm v1.88.1): ANTHROPIC_API_KEY = budget-capped
+# LiteLLM virtual key; ANTHROPIC_BASE_URL = litellm gateway; model = alias
+# `cloud-sonnet` (vkey allow-list matches aliases, not raw Anthropic IDs).
+#
+# Apply for P1b proof (path relative to repo root):
+#   kubectl -n ai apply -f .../claude-code/runner/job-template.yaml
+#   kubectl -n ai logs -f job/claude-code-runner-probe
+#   kubectl -n ai delete job claude-code-runner-probe   # cleanup
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: claude-code-runner-probe
+  namespace: ai
+  labels:
+    app.kubernetes.io/name: claude-code-runner
+    loop.68cc.io/engine: claude-code
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: claude-code-runner
+        loop.68cc.io/engine: claude-code
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        runAsNonRoot: true
+        fsGroup: 1001
+      initContainers:
+        - name: clone
+          image: ghcr.io/j0sh3rs/claude-code:latest
+          envFrom:
+            - secretRef:
+                name: claude-code-secrets
+          env:
+            - name: REPO_REF
+              value: main
+            - name: WORK_BRANCH
+              value: loop/probe-claude
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              REPO_DIR=/workspace/home-ops
+              git config --global --add safe.directory "${REPO_DIR}"
+              git clone \
+                "https://${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git" \
+                "${REPO_DIR}"
+              git -C "${REPO_DIR}" config user.name  "j0sh3rs"
+              git -C "${REPO_DIR}" config user.email "j0sh3rs@gmail.com"
+              git -C "${REPO_DIR}" checkout "${REPO_REF}"
+              git -C "${REPO_DIR}" switch -c "${WORK_BRANCH}"
+              echo "cloned + branched ${WORK_BRANCH}"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: runner
+          image: ghcr.io/j0sh3rs/claude-code:latest
+          workingDir: /workspace/home-ops
+          envFrom:
+            - secretRef:
+                name: claude-code-secrets
+          env:
+            - name: HOME
+              value: /home/claude
+            - name: DISABLE_AUTOUPDATER
+              value: "1"
+            - name: ANTHROPIC_BASE_URL
+              value: http://litellm.ai.svc.cluster.local:4000
+            # Model names MUST be LiteLLM aliases (vkey allow-list matches
+            # aliases, not raw Anthropic IDs).
+            - name: ANTHROPIC_MODEL
+              value: cloud-sonnet
+            - name: ANTHROPIC_SMALL_FAST_MODEL
+              value: cloud-haiku
+            # P1b probe task. P4 overrides TASK_PROMPT per dispatched task.
+            - name: TASK_PROMPT
+              value: >-
+                Read README.md in this repo and write a one-line summary of
+                what this repository is to a new file PROBE_OK.md, then stop.
+                Do not modify any other file.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              echo "=== claude-code headless probe ==="
+              claude --version || true
+              # Headless one-shot. bypassPermissions so no interactive prompt.
+              claude -p "${TASK_PROMPT}" \
+                --permission-mode bypassPermissions \
+                --output-format text
+              echo "=== claude exited rc=$? ==="
+              echo "=== git diff (proof of work) ==="
+              git -C /workspace/home-ops status --short
+              git -C /workspace/home-ops --no-pager diff --stat
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: claude-home
+              mountPath: /home/claude
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: claude-home
+          emptyDir: {}
