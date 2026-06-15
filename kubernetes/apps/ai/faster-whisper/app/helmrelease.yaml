@@ -29,7 +29,7 @@ spec:
             image:
               repository: rhasspy/wyoming-whisper
               # renovate: datasource=docker depName=rhasspy/wyoming-whisper
-              tag: "3.1.0"
+              tag: "3.2.0"
               pullPolicy: IfNotPresent
             args:
               - "--uri"
