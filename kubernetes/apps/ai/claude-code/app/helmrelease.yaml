@@ -95,12 +95,22 @@ spec:
             env:
               HOME: /home/claude
               DISABLE_AUTOUPDATER: "1"
-              # Route all Anthropic API calls through LiteLLM gateway.
-              # The claude.ai OAuth token (already in ~/.claude/) is forwarded
-              # by LiteLLM to Anthropic — no ANTHROPIC_API_KEY needed.
-              # ANTHROPIC_CUSTOM_HEADERS carries the LiteLLM virtual key for
-              # budget tracking / spend caps; set in claude-code-secrets.
+              # Anthropic calls route through the LiteLLM gateway.
+              # AUTH (P1, vkey path — verified on litellm v1.88.1):
+              #   Claude Code sends ANTHROPIC_API_KEY as the native x-api-key
+              #   header to /v1/messages. The key is the budget-capped LiteLLM
+              #   virtual key ($20/30d, allow-list), set as ANTHROPIC_API_KEY
+              #   in claude-code-secrets. Model names MUST be LiteLLM aliases
+              #   (cloud-sonnet / cloud-haiku), NOT raw Anthropic IDs — the
+              #   vkey allow-list matches aliases.
+              # OAuth subscription passthrough (preferred default) is deferred
+              # to P1.5: it uses the /anthropic passthrough route + an
+              # interactive `claude login` token, and the dual-auth-header
+              # mechanic is still unverified. vkey path is the proven backstop
+              # and ships first.
               ANTHROPIC_BASE_URL: http://litellm.ai.svc.cluster.local:4000
+              ANTHROPIC_MODEL: cloud-sonnet
+              ANTHROPIC_SMALL_FAST_MODEL: cloud-haiku
             envFrom:
               - secretRef:
                   name: claude-code-secrets

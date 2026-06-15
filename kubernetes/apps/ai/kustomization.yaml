@@ -26,5 +26,5 @@ resources:
   - ./langfuse/ks.yaml
   - ./open-webui/ks.yaml
   - ./piper/ks.yaml
-  # - ./claude-code/ks.yaml
+  - ./claude-code/ks.yaml
   - ./mcpjungle/ks.yaml
