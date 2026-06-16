@@ -82,20 +82,15 @@ spec:
             image:
               repository: ghcr.io/j0sh3rs/claude-code
               tag: latest
-            # TEMP (P1a OAuth bootstrap): sleep instead of remote-control so the
-            # operator can `kubectl exec` in and run `claude login` once (token
-            # persists to the claude-home PVC). REVERT to the remote-control
-            # command below after login succeeds.
-            command: ["/bin/sh", "-c", "sleep infinity"]
-            # command: ["claude"]
-            # args:
-            #   - "remote-control"
-            #   - "--name"
-            #   - "home-ops"
-            #   - "--permission-mode"
-            #   - "bypassPermissions"
-            #   - "--spawn"
-            #   - "worktree"
+            command: ["claude"]
+            args:
+              - "remote-control"
+              - "--name"
+              - "home-ops"
+              - "--permission-mode"
+              - "bypassPermissions"
+              - "--spawn"
+              - "worktree"
             workingDir: /workspace/home-ops
             env:
               HOME: /home/claude
@@ -121,12 +116,8 @@ spec:
                 cpu: "2"
                 memory: 4Gi
             probes:
-              # TEMP (P1a OAuth bootstrap): liveness disabled while the
-              # container sleeps for `claude login`. The pgrep-claude check
-              # would kill a sleeping pod. RE-ENABLE with the remote-control
-              # revert.
               liveness:
-                enabled: false
+                enabled: true
                 custom: true
                 spec:
                   exec:
