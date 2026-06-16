@@ -18,17 +18,17 @@ spec:
     remediation:
       retries: 3
   values:
-    # The nfs-client PVC squashes all writes to uid/gid 1024 regardless of the
-    # pod's runAsUser. Running as anything else means the process cannot read
-    # its own NFS-owned 0600 state files (e.g. ~/.claude/.claude.json), which
-    # breaks remote-control's org/eligibility lookup. So we run AS 1024 to
-    # match what NFS actually stores. fsGroup 1024 covers freshly created dirs.
+    # The nfs-client mount owns files as admin:users = uid 1024, gid 100.
+    # Running as any other uid/gid means the process cannot read its own
+    # NFS-owned 0600 state files (e.g. ~/.claude/.claude.json), which breaks
+    # remote-control's org/eligibility lookup. So we run AS 1024:100 to match
+    # the NFS ownership exactly. fsGroup 100 covers freshly created dirs.
     defaultPodOptions:
       securityContext:
         runAsUser: 1024
-        runAsGroup: 1024
+        runAsGroup: 100
         runAsNonRoot: true
-        fsGroup: 1024
+        fsGroup: 100
         fsGroupChangePolicy: OnRootMismatch
     controllers:
       claude-code:
@@ -42,7 +42,7 @@ spec:
               tag: latest
             securityContext:
               runAsUser: 1024
-              runAsGroup: 1024
+              runAsGroup: 100
               runAsNonRoot: true
             envFrom:
               - secretRef:
@@ -148,7 +148,7 @@ spec:
                   periodSeconds: 30
             securityContext:
               runAsUser: 1024
-              runAsGroup: 1024
+              runAsGroup: 100
               runAsNonRoot: true
 
     persistence:
