@@ -45,10 +45,13 @@ spec:
     spec:
       restartPolicy: Never
       securityContext:
-        runAsUser: 1001
-        runAsGroup: 1001
+        # Match the baked image user (uid 1024, gid 100 = users). Runner Jobs
+        # mount emptyDir (not NFS), but the image's /home/claude is owned by
+        # 1024:100, so the process must run as that to write session-env.
+        runAsUser: 1024
+        runAsGroup: 100
         runAsNonRoot: true
-        fsGroup: 1001
+        fsGroup: 100
         seccompProfile:
           type: RuntimeDefault
       initContainers:
