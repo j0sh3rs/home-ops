@@ -36,8 +36,8 @@ until the loop is proven and a concrete trigger exists.
 | Code-gen brain | Cloud-Anthropic via LiteLLM passthrough (local orchestration) |
 | Triggers | A (GitHub webhook) + B (chat) first; C (schedule/event) later |
 | Target repos | `home-ops` first; generic-capable design |
-| Engines | claude-code headless **and** Goose in-cluster; run both, compare |
-| Engine selection | Run both per task under one claim-lock; scorer picks winner |
+| Engines | **Goose only** (`goose run`, headless). claude-code DROPPED 2026-06-16 — see §10. |
+| Engine selection | Single engine (Goose). Run-both/scorer deferred until a 2nd viable headless engine exists. |
 | Code-RAG | Dedicated, code-aware, **local-only embeddings**; research-first |
 | Loop closure / gate | Static + `kubectl apply --dry-run=server` (gate B) |
 | Merge policy | Autonomous PR always; auto-merge `risk/low` only; human gate for `risk/medium\|high\|critical` (inherits Renovate philosophy) |
@@ -195,3 +195,50 @@ Steps (Option A):
    `[cloud-haiku, cloud-sonnet, local-*]`; spend ceiling TBD with operator).
 4. Verify: `kustomize build kubernetes/apps/ai/litellm/app` + `task sops:verify`
    + flux reconcile + confirm LangFuse sees `cloud-*` completions.
+
+## 10. Decision record — claude-code dropped, Goose is the engine (2026-06-16)
+
+**What happened:** P0 (cloud unlock) completed and is merged. P1 attempted the
+two engines. The **claude-code** path consumed a full session and was abandoned.
+
+**claude-code post-mortem.** It is an interactive/IDE product; forcing it
+headless fought the tool at every layer. We did solve every individual problem:
+- Remote-control is OAuth-subscription-ONLY (refuses `ANTHROPIC_API_KEY`).
+- `nfs-client` squashes files to uid 1024 / gid 100 — pod + image must match.
+- `CLAUDE_CONFIG_DIR` must be set or org/account state (`.claude.json`) lands on
+  ephemeral fs and is lost on restart → "Unable to determine your organization".
+- The container image was pinned to uid 1024:100 (`j0sh3rs/containers`).
+- `claude remote-control` has an interactive "Enable Remote Control? (y/n)"
+  prompt with no `--yes` flag.
+
+Even with ALL of that fixed, remote-control did not work usefully in-cluster.
+**Decision: stop. `claude-code/ks.yaml` disabled in `ai/kustomization.yaml`
+(manifests retained, not reconciled). Details in memory
+[[project-claude-code-container]].**
+
+**Go-forward: Goose is the sole engine.** Goose is purpose-built for headless,
+non-interactive runs (`goose run`), which is exactly what the loop needs:
+- OpenAI-compatible: `GOOSE_PROVIDER=openai`,
+  `OPENAI_HOST=http://litellm.ai.svc.cluster.local:4000`,
+  `OPENAI_API_KEY=<budget-capped LiteLLM vkey>`, model alias `cloud-sonnet`.
+- Reuses the P0-proven vkey path — NO OAuth/subscription/org-eligibility tar pit.
+- Ephemeral Job re-auths from env each run — no NFS credential-persistence
+  problem (the entire class of claude-code bugs disappears).
+
+**Known Goose risks (verify before building, do not assume):**
+1. No semver ghcr tag — Renovate-untrackable, manual sha bumps (per
+   [[project-ai-stack-determination]]).
+2. Config format (`~/.config/goose/config.yaml` vs env) — verify vs current
+   release, not memory.
+3. mcpjungle/tool wiring (`gh`, `git`) — verify.
+
+**Revised P1 (next session, fresh context):** research current Goose release →
+config → one-shot `goose run` Job, cloud-backed via the vkey → prove it produces
+a valid diff + traces to LangFuse. That is the P1 gate. The run-both/scorer
+design (§4) is deferred until a second viable headless engine exists.
+
+**Status at bank (2026-06-16):**
+- P0: ✅ complete + merged (cloud-* enabled, $20/30d vkey minted + verified).
+- P1 claude-code: ❌ dropped.
+- P1 Goose: ⏸️ not started — the real next step.
+- P2 code-RAG spike, P3+: unchanged, still pending.
