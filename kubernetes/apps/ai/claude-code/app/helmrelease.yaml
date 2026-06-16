@@ -126,7 +126,7 @@ spec:
               # TEMP (P1a OAuth bootstrap r2): disabled while sleeping for
               # `claude auth login`. RE-ENABLE with the remote-control revert.
               liveness:
-                enabled: true
+                enabled: false
                 custom: true
                 spec:
                   exec:
