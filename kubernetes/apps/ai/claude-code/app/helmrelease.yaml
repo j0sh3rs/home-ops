@@ -49,13 +49,14 @@ spec:
                   name: claude-code-secrets
             env:
               HOME: /home/claude
+              CLAUDE_CONFIG_DIR: /home/claude/.claude
             command:
               - /bin/sh
               - -c
               - |
                 set -eu
 
-                # Put global git config on the PVC (writable by uid 1001)
+                # Put global git config on the PVC (writable by uid 1024)
                 export GIT_CONFIG_GLOBAL=/home/claude/.claude/.gitconfig
 
                 # Write settings.json from template only if template is newer
@@ -112,6 +113,14 @@ spec:
             env:
               HOME: /home/claude
               DISABLE_AUTOUPDATER: "1"
+              # Force ALL Claude config (credentials AND account/org state)
+              # into the single PVC-mounted dir. Default behaviour splits
+              # config between $HOME/.claude.json (HOME root, EPHEMERAL here —
+              # only .claude is the PVC) and $HOME/.claude/, so account/org
+              # state was lost on pod restart → remote-control "Unable to
+              # determine your organization". Pinning the config dir keeps
+              # everything on the persistent volume.
+              CLAUDE_CONFIG_DIR: /home/claude/.claude
               # AUTH (P1a) — Remote Control is subscription-OAuth-ONLY.
               # It hard-refuses if ANTHROPIC_API_KEY is set, so the daemon
               # carries NO API key and NO ANTHROPIC_BASE_URL: it authenticates

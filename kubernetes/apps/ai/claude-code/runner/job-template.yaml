@@ -103,6 +103,9 @@ spec:
               value: /home/claude
             - name: DISABLE_AUTOUPDATER
               value: "1"
+            # Keep all Claude config in one dir (consistency with the daemon).
+            - name: CLAUDE_CONFIG_DIR
+              value: /home/claude/.claude
             - name: ANTHROPIC_BASE_URL
               value: http://litellm.ai.svc.cluster.local:4000
             # Model names MUST be LiteLLM aliases (vkey allow-list matches
