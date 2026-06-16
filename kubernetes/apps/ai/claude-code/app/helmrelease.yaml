@@ -94,15 +94,20 @@ spec:
             image:
               repository: ghcr.io/j0sh3rs/claude-code
               tag: latest
-            command: ["claude"]
-            args:
-              - "remote-control"
-              - "--name"
-              - "home-ops"
-              - "--permission-mode"
-              - "bypassPermissions"
-              - "--spawn"
-              - "worktree"
+            # TEMP (P1a OAuth bootstrap, round 3): NFS mount purged of stale
+            # 1001-owned files; sleep so the operator can run `claude auth
+            # login` fresh as uid 1024 onto the clean volume. REVERT to
+            # remote-control + re-enable liveness after login verifies.
+            command: ["/bin/sh", "-c", "sleep infinity"]
+            # command: ["claude"]
+            # args:
+            #   - "remote-control"
+            #   - "--name"
+            #   - "home-ops"
+            #   - "--permission-mode"
+            #   - "bypassPermissions"
+            #   - "--spawn"
+            #   - "worktree"
             workingDir: /workspace/home-ops
             env:
               HOME: /home/claude
@@ -128,8 +133,10 @@ spec:
                 cpu: "2"
                 memory: 4Gi
             probes:
+              # TEMP (P1a OAuth bootstrap r3): disabled while sleeping for
+              # `claude auth login`. RE-ENABLE with the remote-control revert.
               liveness:
-                enabled: true
+                enabled: false
                 custom: true
                 spec:
                   exec:
