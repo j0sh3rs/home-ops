@@ -94,22 +94,15 @@ spec:
             image:
               repository: ghcr.io/j0sh3rs/claude-code
               tag: latest
-            # TEMP (P1a OAuth bootstrap, round 2): sleep so the operator can
-            # exec in and run `claude auth login` (NOT `claude login` — the
-            # remote-control eligibility error explicitly names `claude auth
-            # login`, which populates org/eligibility info the prior login
-            # missed). Token persists to the claude-home PVC (nfs-client).
-            # REVERT to remote-control + re-enable liveness after login.
-            command: ["/bin/sh", "-c", "sleep infinity"]
-            # command: ["claude"]
-            # args:
-            #   - "remote-control"
-            #   - "--name"
-            #   - "home-ops"
-            #   - "--permission-mode"
-            #   - "bypassPermissions"
-            #   - "--spawn"
-            #   - "worktree"
+            command: ["claude"]
+            args:
+              - "remote-control"
+              - "--name"
+              - "home-ops"
+              - "--permission-mode"
+              - "bypassPermissions"
+              - "--spawn"
+              - "worktree"
             workingDir: /workspace/home-ops
             env:
               HOME: /home/claude
@@ -135,10 +128,8 @@ spec:
                 cpu: "2"
                 memory: 4Gi
             probes:
-              # TEMP (P1a OAuth bootstrap r2): disabled while sleeping for
-              # `claude auth login`. RE-ENABLE with the remote-control revert.
               liveness:
-                enabled: false
+                enabled: true
                 custom: true
                 spec:
                   exec:
