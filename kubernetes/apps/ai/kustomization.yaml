@@ -26,5 +26,10 @@ resources:
   - ./langfuse/ks.yaml
   - ./open-webui/ks.yaml
   - ./piper/ks.yaml
-  - ./claude-code/ks.yaml
+  # claude-code daemon (remote-control) DISABLED 2026-06-16. Auth/persistence
+  # finally resolved (CLAUDE_CONFIG_DIR + uid 1024:100), but remote-control
+  # still did not work usefully in-cluster — not worth further effort. The
+  # autonomous loop does NOT need this daemon; it uses headless `claude -p`
+  # Jobs (runner/job-template.yaml). Manifests retained for reference.
+  # - ./claude-code/ks.yaml
   - ./mcpjungle/ks.yaml
