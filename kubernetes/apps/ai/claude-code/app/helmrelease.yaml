@@ -95,15 +95,19 @@ spec:
             image:
               repository: ghcr.io/j0sh3rs/claude-code
               tag: latest
-            command: ["claude"]
-            args:
-              - "remote-control"
-              - "--name"
-              - "home-ops"
-              - "--permission-mode"
-              - "bypassPermissions"
-              - "--spawn"
-              - "worktree"
+            # `claude remote-control` prompts "Enable Remote Control? (y/n)"
+            # with no documented --yes flag. A pod has no stdin, so the prompt
+            # hangs and the container crashes. Feed `y` via a pipe. `stdin:
+            # true` keeps stdin open so the pipe is readable.
+            command:
+              - /bin/sh
+              - -c
+              - |
+                exec sh -c 'yes | claude remote-control \
+                  --name home-ops \
+                  --permission-mode bypassPermissions \
+                  --spawn worktree'
+            stdin: true
             workingDir: /workspace/home-ops
             env:
               HOME: /home/claude
