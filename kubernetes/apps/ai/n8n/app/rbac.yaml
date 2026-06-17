@@ -1,0 +1,30 @@
+---
+# Allows the n8n ServiceAccount to create and inspect Jobs in the ai
+# namespace so the orchestrator workflow can dispatch goose runner Jobs
+# and poll their status without leaving the cluster.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: n8n-loop-operator
+  namespace: ai
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "delete"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: n8n-loop-operator
+  namespace: ai
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: n8n-loop-operator
+subjects:
+  - kind: ServiceAccount
+    name: n8n
+    namespace: ai

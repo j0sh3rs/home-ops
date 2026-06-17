@@ -1,0 +1,455 @@
+{
+  "name": "Loop Orchestrator — Goose Code Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "loop-github-issue",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "trigger-github",
+      "name": "GitHub Issue Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize GitHub issue event to TaskRequest.\n// Only process issues labelled 'loop/go' that are NOT 'loop/claimed'.\nconst body = $input.first().json.body;\nconst issue = body.issue;\nconst action = body.action;\nif (!issue) throw new Error('Not an issue event');\nconst labels = (issue.labels || []).map(l => l.name);\nif (!labels.includes('loop/go')) return [];\nif (labels.includes('loop/claimed')) return [];\nif (action !== 'labeled' && action !== 'opened') return [];\nconst taskId = `i${issue.number}-${Date.now().toString(36)}`;\nreturn [{ json: {\n  task_id: taskId,\n  issue_number: issue.number,\n  repo: body.repository.full_name,\n  ref: body.repository.default_branch || 'main',\n  intent: issue.body || issue.title,\n  title: issue.title,\n  source: 'github_issue',\n  trigger_id: String(issue.id),\n  work_branch: `loop/${taskId}`,\n}}];"
+      },
+      "id": "normalize",
+      "name": "Normalize TaskRequest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/{{ $json.repo }}/issues/{{ $json.issue_number }}/labels",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"labels\": [\"loop/claimed\"]}",
+        "options": {}
+      },
+      "id": "claim-lock",
+      "name": "Claim Lock",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://litellm.ai.svc.cluster.local:4000/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.LITELLM_VKEY }}"
+            },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"local-fast\",\n  \"max_tokens\": 150,\n  \"messages\": [\n    {\"role\": \"system\", \"content\": \"You are a GitOps triage agent. Respond with JSON only: {\\\"actionable\\\": bool, \\\"in_scope\\\": bool, \\\"risk\\\": \\\"low|medium|high|critical\\\", \\\"reason\\\": \\\"one sentence\\\"}. in_scope = task involves kubernetes YAML files in a Flux GitOps repo. Not actionable if vague or non-code.\"},\n    {\"role\": \"user\", \"content\": {{ JSON.stringify($json.intent) }}}\n  ]\n}",
+        "options": {}
+      },
+      "id": "triage",
+      "name": "Triage (local-fast)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const triage = JSON.parse($input.first().json.choices[0].message.content);\nconst task = $('Normalize TaskRequest').first().json;\nconst proceed = !!(triage.actionable && triage.in_scope);\nreturn [{ json: { ...task, triage, proceed } }];"
+      },
+      "id": "triage-check",
+      "name": "Check Triage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "proceed",
+              "leftValue": "={{ $json.proceed }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "proceed-gate",
+      "name": "Proceed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build loop Job YAML with task-specific substitutions.\nconst t = $json;\nconst intentEsc = t.intent.replace(/\"/g, '\\\\\"').replace(/\\n/g, ' ').substring(0, 500);\nconst jobYaml = [\n  'apiVersion: batch/v1',\n  'kind: Job',\n  'metadata:',\n  `  name: loop-${t.task_id}`,\n  '  namespace: ai',\n  '  labels:',\n  '    app.kubernetes.io/name: goose-runner',\n  '    loop.68cc.io/engine: goose',\n  `    loop.68cc.io/task: \"${t.task_id}\"`,\n  'spec:',\n  '  backoffLimit: 0',\n  '  activeDeadlineSeconds: 1800',\n  '  ttlSecondsAfterFinished: 7200',\n  '  template:',\n  '    metadata:',\n  '      labels:',\n  '        app.kubernetes.io/name: goose-runner',\n  '        loop.68cc.io/engine: goose',\n  `        loop.68cc.io/task: \"${t.task_id}\"`,\n  '    spec:',\n  '      restartPolicy: Never',\n  '      securityContext:',\n  '        runAsUser: 1000',\n  '        runAsGroup: 1000',\n  '        runAsNonRoot: true',\n  '        fsGroup: 1000',\n  '        seccompProfile:',\n  '          type: RuntimeDefault',\n  '      initContainers:',\n  '        - name: clone',\n  '          image: ghcr.io/block/goose:latest',\n  '          securityContext:',\n  '            allowPrivilegeEscalation: false',\n  '            capabilities:',\n  '              drop: [\"ALL\"]',\n  '          envFrom:',\n  '            - secretRef:',\n  '                name: goose-runner-secrets',\n  '          env:',\n  `            - name: WORK_BRANCH`,\n  `              value: \"${t.work_branch}\"`,\n  '            - name: REPO_REF',\n  `              value: \"${t.ref}\"`,\n  '          command: [\"/bin/sh\", \"-c\"]',\n  '          args:',\n  '            - |',\n  '              set -eu',\n  '              git config --global --add safe.directory /workspace/home-ops',\n  '              git clone --depth 1 \"https://${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git\" /workspace/home-ops',\n  '              git -C /workspace/home-ops config user.name j0sh3rs',\n  '              git -C /workspace/home-ops config user.email j0sh3rs@gmail.com',\n  '              git -C /workspace/home-ops checkout \"${REPO_REF}\"',\n  '              git -C /workspace/home-ops switch -c \"${WORK_BRANCH}\"',\n  '          volumeMounts:',\n  '            - name: workspace',\n  '              mountPath: /workspace',\n  '        - name: rag',\n  '          image: ghcr.io/block/goose:latest',\n  '          securityContext:',\n  '            allowPrivilegeEscalation: false',\n  '            capabilities:',\n  '              drop: [\"ALL\"]',\n  '          envFrom:',\n  '            - secretRef:',\n  '                name: goose-runner-secrets',\n  '            - secretRef:',\n  '                name: goose-indexer-secrets',\n  '          env:',\n  '            - name: REPO_DIR',\n  '              value: /workspace/home-ops',\n  '            - name: CONTEXT_OUT',\n  '              value: /workspace/rag-context.txt',\n  '            - name: LITELLM_HOST',\n  '              value: http://litellm.ai.svc.cluster.local:4000',\n  '            - name: LITELLM_API_KEY',\n  '              valueFrom:',\n  '                secretKeyRef:',\n  '                  name: goose-runner-secrets',\n  '                  key: OPENAI_API_KEY',\n  '            - name: TOP_K',\n  '              value: \"3\"',\n  '            - name: TASK_TEXT',\n  `              value: \"${intentEsc}\"`,\n  '          command: [\"/bin/sh\", \"-c\", \"chmod +x /rag/grep-harness.sh && /rag/grep-harness.sh\"]',\n  '          volumeMounts:',\n  '            - name: workspace',\n  '              mountPath: /workspace',\n  '            - name: rag-harness',\n  '              mountPath: /rag',\n  '              readOnly: true',\n  '      containers:',\n  '        - name: runner',\n  '          image: ghcr.io/block/goose:latest',\n  '          workingDir: /workspace/home-ops',\n  '          securityContext:',\n  '            allowPrivilegeEscalation: false',\n  '            capabilities:',\n  '              drop: [\"ALL\"]',\n  '          envFrom:',\n  '            - secretRef:',\n  '                name: goose-runner-secrets',\n  '          env:',\n  '            - name: GOOSE_PATH_ROOT',\n  '              value: /tmp/goose',\n  '            - name: GOOSE_DISABLE_KEYRING',\n  '              value: \"1\"',\n  '            - name: GOOSE_PROVIDER',\n  '              value: litellm',\n  '            - name: GOOSE_MODEL',\n  '              value: cloud-sonnet',\n  '            - name: LITELLM_HOST',\n  '              value: http://litellm.ai.svc.cluster.local:4000',\n  '            - name: LITELLM_API_KEY',\n  '              valueFrom:',\n  '                secretKeyRef:',\n  '                  name: goose-runner-secrets',\n  '                  key: OPENAI_API_KEY',\n  '            - name: LANGFUSE_URL',\n  '              value: http://langfuse-web.ai.svc.cluster.local:3000',\n  '            - name: TASK_TEXT',\n  `              value: \"${intentEsc}\"`,\n  '            - name: WORK_BRANCH',\n  `              value: \"${t.work_branch}\"`,\n  '          command: [\"/bin/sh\", \"-c\"]',\n  '          args:',\n  '            - |',\n  '              set -eu',\n  '              RAG=$(cat /workspace/rag-context.txt 2>/dev/null || true)',\n  '              STATUS=failed; DIFF=\"\"',\n  '              set +e',\n  '              LOG=$(goose run --no-session --with-builtin developer --system \"${RAG}\" --text \"${TASK_TEXT}\" 2>&1)',\n  '              RC=$?; set -e',\n  '              if [ $RC -eq 0 ]; then',\n  '                CHANGED=$(git diff --name-only HEAD 2>/dev/null || true)',\n  '                VALID=true; VOUT=\"\"',\n  '                for f in $CHANGED; do',\n  '                  D=$(dirname \"/workspace/home-ops/${f}\")',\n  '                  if [ -f \"${D}/kustomization.yaml\" ]; then',\n  '                    OUT=$(kustomize build \"${D}\" 2>&1) || { VOUT=\"${VOUT}FAIL ${D}\\n\"; VALID=false; }',\n  '                  fi',\n  '                done',\n  '                if $VALID && [ -n \"$CHANGED\" ]; then',\n  '                  git add -A',\n  '                  git commit -m \"loop: $(echo \\\"${TASK_TEXT}\\\" | head -c 60)\"',\n  '                  git push \"https://${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git\" \"${WORK_BRANCH}\"',\n  '                  DIFF=$(git --no-pager diff HEAD~1 --stat 2>/dev/null || true)',\n  '                  STATUS=success',\n  '                elif $VALID; then STATUS=no_changes',\n  '                else LOG=\"${LOG}${VOUT}\"; STATUS=validate_failed; fi',\n  '              fi',\n  '              python3 -c \"import json,sys; print(json.dumps({',\n  '                  \\'task_id\\':\\'${WORK_BRANCH}\\'.replace(\\'loop/\\',\\'\\'),',\n  '                  \\'status\\':\\'${STATUS}\\',\\'branch\\':\\'${WORK_BRANCH}\\',',\n  '                  \\'diff\\':sys.argv[1][:2000],\\'log\\':sys.argv[2][:4000]}))\" \"$DIFF\" \"$LOG\" > /workspace/output.json',\n  '              cat /workspace/output.json',\n  '          resources:',\n  '            requests:',\n  '              cpu: 500m',\n  '              memory: 512Mi',\n  '            limits:',\n  '              cpu: \"2\"',\n  '              memory: 2Gi',\n  '          volumeMounts:',\n  '            - name: workspace',\n  '              mountPath: /workspace',\n  '            - name: rag-harness',\n  '              mountPath: /rag',\n  '              readOnly: true',\n  '      volumes:',\n  '        - name: workspace',\n  '          emptyDir: {}',\n  '        - name: rag-harness',\n  '          configMap:',\n  '            name: goose-rag-harness',\n  '            defaultMode: 0555',\n].join('\\n');\nreturn [{ json: { ...t, job_yaml: jobYaml } }];"
+      },
+      "id": "build-job-yaml",
+      "name": "Build Job YAML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kubernetes.default.svc/apis/batch/v1/namespaces/ai/jobs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/yaml" },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.K8S_SA_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ $json.job_yaml }}",
+        "options": {}
+      },
+      "id": "dispatch-job",
+      "name": "Dispatch Goose Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, -120]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Poll job status every 30s, up to 60 iterations (30 min).\nconst taskData = $('Build Job YAML').first().json;\nconst jobName = `loop-${taskData.task_id}`;\nconst k8sToken = $vars.K8S_SA_TOKEN;\nconst maxWait = 60;\nlet jobStatus = 'running';\nlet outputJson = null;\n\nfor (let i = 0; i < maxWait && jobStatus === 'running'; i++) {\n  await new Promise(r => setTimeout(r, 30000));\n  const resp = await $http.request({\n    method: 'GET',\n    url: `https://kubernetes.default.svc/apis/batch/v1/namespaces/ai/jobs/${jobName}`,\n    headers: { Authorization: `Bearer ${k8sToken}` },\n  });\n  const conds = resp.status?.conditions || [];\n  if (conds.find(c => c.type === 'Complete' && c.status === 'True')) jobStatus = 'complete';\n  else if (conds.find(c => c.type === 'Failed' && c.status === 'True')) jobStatus = 'failed';\n}\n\nif (jobStatus === 'complete') {\n  const podsResp = await $http.request({\n    method: 'GET',\n    url: `https://kubernetes.default.svc/api/v1/namespaces/ai/pods?labelSelector=loop.68cc.io/task=${taskData.task_id}`,\n    headers: { Authorization: `Bearer ${k8sToken}` },\n  });\n  const pod = (podsResp.items || []).find(p => p.status?.phase === 'Succeeded');\n  if (pod) {\n    try {\n      const log = await $http.request({\n        method: 'GET',\n        url: `https://kubernetes.default.svc/api/v1/namespaces/ai/pods/${pod.metadata.name}/log?container=runner&tailLines=20`,\n        headers: { Authorization: `Bearer ${k8sToken}` },\n      });\n      const jsonLine = log.trim().split('\\n').filter(l => l.startsWith('{')).pop();\n      if (jsonLine) outputJson = JSON.parse(jsonLine);\n    } catch(e) {}\n  }\n}\n\nreturn [{ json: {\n  ...taskData,\n  job_status: jobStatus,\n  output: outputJson || { status: jobStatus === 'complete' ? 'unknown' : jobStatus },\n}}];"
+      },
+      "id": "poll-job",
+      "name": "Poll Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, -120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "success",
+              "leftValue": "={{ $json.output.status }}",
+              "rightValue": "success",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "success-gate",
+      "name": "Job Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2160, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/{{ $json.repo }}/pulls",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"loop: {{ $json.title }}\",\n  \"body\": \"## Automated loop task\\n\\n**Task:** {{ $json.intent }}\\n\\n**Triage risk:** `{{ $json.triage.risk }}`\\n\\n**Diff:**\\n```\\n{{ $json.output.diff }}\\n```\\n\\n---\\n*Goose loop engine · task `{{ $json.task_id }}` · branch `{{ $json.work_branch }}`*\",\n  \"head\": \"{{ $json.work_branch }}\",\n  \"base\": \"{{ $json.ref }}\",\n  \"draft\": false\n}",
+        "options": {}
+      },
+      "id": "open-pr",
+      "name": "Open PR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, -240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pr = $input.first().json;\nconst task = $('Poll Job').first().json;\nconst risk = task.triage?.risk || 'medium';\nreturn [{ json: { ...task, pr_number: pr.number, pr_url: pr.html_url, risk, auto_merge: risk === 'low' } }];"
+      },
+      "id": "risk-gate",
+      "name": "Risk Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, -240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "low-risk",
+              "leftValue": "={{ $json.auto_merge }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "auto-merge-gate",
+      "name": "Auto-merge?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2880, -240]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.github.com/repos/{{ $json.repo }}/pulls/{{ $json.pr_number }}/merge",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"merge_method\": \"squash\", \"commit_title\": \"loop: {{ $json.title }}\"}",
+        "options": {}
+      },
+      "id": "auto-merge",
+      "name": "Auto-merge PR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3120, -360]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/{{ $json.repo }}/issues/{{ $json.issue_number }}/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"body\": \"✅ Loop done — PR #{{ $json.pr_number }} opened.\\n\\n**Risk:** `{{ $json.risk }}`  **Branch:** `{{ $json.work_branch }}`\\n**PR:** {{ $json.pr_url }}\"}",
+        "options": {}
+      },
+      "id": "comment-success",
+      "name": "Comment Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3120, -120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/{{ $('Normalize TaskRequest').first().json.repo }}/issues/{{ $('Normalize TaskRequest').first().json.issue_number }}/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"body\": \"❌ Triage: not actionable.\\n\\n**Reason:** {{ $json.triage?.reason }}\\n**Task ID:** `{{ $json.task_id }}`\"}",
+        "options": {}
+      },
+      "id": "comment-not-actionable",
+      "name": "Comment Not Actionable",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 120]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.github.com/repos/{{ $('Normalize TaskRequest').first().json.repo }}/issues/{{ $('Normalize TaskRequest').first().json.issue_number }}/labels/loop%2Fclaimed",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "unclaim",
+      "name": "Unclaim",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/{{ $('Normalize TaskRequest').first().json.repo }}/issues/{{ $('Normalize TaskRequest').first().json.issue_number }}/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"body\": \"❌ Loop engine failed.\\n\\n**Status:** `{{ $json.output.status }}`\\n\\n**Log:**\\n```\\n{{ ($json.output.log || '(none)').slice(-2000) }}\\n```\"}",
+        "options": {}
+      },
+      "id": "comment-failure",
+      "name": "Comment Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 0]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.github.com/repos/{{ $('Normalize TaskRequest').first().json.repo }}/issues/{{ $('Normalize TaskRequest').first().json.issue_number }}/labels/loop%2Fclaimed",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "unclaim-on-failure",
+      "name": "Unclaim on Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 0]
+    }
+  ],
+  "connections": {
+    "GitHub Issue Webhook": {
+      "main": [
+        [{ "node": "Normalize TaskRequest", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize TaskRequest": {
+      "main": [[{ "node": "Claim Lock", "type": "main", "index": 0 }]]
+    },
+    "Claim Lock": {
+      "main": [[{ "node": "Triage (local-fast)", "type": "main", "index": 0 }]]
+    },
+    "Triage (local-fast)": {
+      "main": [[{ "node": "Check Triage", "type": "main", "index": 0 }]]
+    },
+    "Check Triage": {
+      "main": [[{ "node": "Proceed?", "type": "main", "index": 0 }]]
+    },
+    "Proceed?": {
+      "main": [
+        [{ "node": "Build Job YAML", "type": "main", "index": 0 }],
+        [{ "node": "Comment Not Actionable", "type": "main", "index": 0 }]
+      ]
+    },
+    "Comment Not Actionable": {
+      "main": [[{ "node": "Unclaim", "type": "main", "index": 0 }]]
+    },
+    "Build Job YAML": {
+      "main": [[{ "node": "Dispatch Goose Job", "type": "main", "index": 0 }]]
+    },
+    "Dispatch Goose Job": {
+      "main": [[{ "node": "Poll Job", "type": "main", "index": 0 }]]
+    },
+    "Poll Job": {
+      "main": [[{ "node": "Job Succeeded?", "type": "main", "index": 0 }]]
+    },
+    "Job Succeeded?": {
+      "main": [
+        [{ "node": "Open PR", "type": "main", "index": 0 }],
+        [{ "node": "Comment Failure", "type": "main", "index": 0 }]
+      ]
+    },
+    "Open PR": {
+      "main": [[{ "node": "Risk Gate", "type": "main", "index": 0 }]]
+    },
+    "Risk Gate": {
+      "main": [[{ "node": "Auto-merge?", "type": "main", "index": 0 }]]
+    },
+    "Auto-merge?": {
+      "main": [
+        [{ "node": "Auto-merge PR", "type": "main", "index": 0 }],
+        [{ "node": "Comment Success", "type": "main", "index": 0 }]
+      ]
+    },
+    "Auto-merge PR": {
+      "main": [[{ "node": "Comment Success", "type": "main", "index": 0 }]]
+    },
+    "Comment Failure": {
+      "main": [[{ "node": "Unclaim on Failure", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "" },
+  "tags": [{ "name": "loop" }]
+}

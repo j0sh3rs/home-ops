@@ -1,0 +1,227 @@
+---
+# Loop engine Job — instantiated per task by the n8n P4 orchestrator.
+#
+# n8n substitutes these fields at dispatch time (via Code node sed/replace):
+#   metadata.name            loop-<task-id>
+#   loop.68cc.io/task label  <task-id>
+#   env WORK_BRANCH          loop/<task-id>
+#   env TASK_TEXT_PLACEHOLDER the task description (both occurrences)
+#
+# Phases:
+#   init clone   shallow-clone repo, create work branch
+#   init rag     run grep-harness.sh → /workspace/rag-context.txt
+#   main runner  goose run --system <rag-ctx> → validate → push branch
+#                writes /workspace/output.json on exit (success or fail)
+#
+# n8n polls output.json via kubectl exec; reads status + diff to open PR.
+# Secrets: goose-runner-secrets + goose-indexer-secrets (for PGPASSWORD).
+# RAG: goose-rag-harness ConfigMap mounted at /rag.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loop-TASK_ID
+  namespace: ai
+  labels:
+    app.kubernetes.io/name: goose-runner
+    loop.68cc.io/engine: goose
+    loop.68cc.io/task: TASK_ID
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 7200
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: goose-runner
+        loop.68cc.io/engine: goose
+        loop.68cc.io/task: TASK_ID
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: clone
+          image: ghcr.io/block/goose:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: goose-runner-secrets
+          env:
+            - name: REPO_REF
+              value: main
+            - name: WORK_BRANCH
+              value: loop/TASK_ID
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              git config --global --add safe.directory /workspace/home-ops
+              git clone --depth 1 \
+                "https://${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git" \
+                /workspace/home-ops
+              git -C /workspace/home-ops config user.name  "j0sh3rs"
+              git -C /workspace/home-ops config user.email "j0sh3rs@gmail.com"
+              git -C /workspace/home-ops checkout "${REPO_REF}"
+              git -C /workspace/home-ops switch -c "${WORK_BRANCH}"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+        - name: rag
+          image: ghcr.io/block/goose:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: goose-runner-secrets
+            - secretRef:
+                name: goose-indexer-secrets
+          env:
+            - name: REPO_DIR
+              value: /workspace/home-ops
+            - name: CONTEXT_OUT
+              value: /workspace/rag-context.txt
+            - name: LITELLM_HOST
+              value: http://litellm.ai.svc.cluster.local:4000
+            - name: LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: goose-runner-secrets
+                  key: OPENAI_API_KEY
+            - name: TOP_K
+              value: "3"
+            - name: TASK_TEXT
+              value: TASK_TEXT_PLACEHOLDER
+          command:
+            - /bin/sh
+            - -c
+            - chmod +x /rag/grep-harness.sh && /rag/grep-harness.sh
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: rag-harness
+              mountPath: /rag
+              readOnly: true
+      containers:
+        - name: runner
+          image: ghcr.io/block/goose:latest
+          workingDir: /workspace/home-ops
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: goose-runner-secrets
+          env:
+            - name: GOOSE_PATH_ROOT
+              value: /tmp/goose
+            - name: GOOSE_DISABLE_KEYRING
+              value: "1"
+            - name: GOOSE_PROVIDER
+              value: litellm
+            - name: GOOSE_MODEL
+              value: cloud-sonnet
+            - name: LITELLM_HOST
+              value: http://litellm.ai.svc.cluster.local:4000
+            - name: LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: goose-runner-secrets
+                  key: OPENAI_API_KEY
+            - name: LANGFUSE_URL
+              value: http://langfuse-web.ai.svc.cluster.local:3000
+            - name: TASK_TEXT
+              value: TASK_TEXT_PLACEHOLDER
+            - name: WORK_BRANCH
+              value: loop/TASK_ID
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              RAG_CTX=$(cat /workspace/rag-context.txt 2>/dev/null || true)
+              STATUS=failed
+              DIFF=""
+              VALIDATE_OUT=""
+
+              set +e
+              GOOSE_LOG=$(goose run \
+                --no-session \
+                --with-builtin developer \
+                --system "${RAG_CTX}" \
+                --text "${TASK_TEXT}" 2>&1)
+              RC=$?
+              set -e
+
+              if [ $RC -eq 0 ]; then
+                CHANGED=$(git diff --name-only HEAD 2>/dev/null || true)
+                VALID=true
+                for f in $CHANGED; do
+                  DIR=$(dirname "/workspace/home-ops/${f}")
+                  if [ -f "${DIR}/kustomization.yaml" ]; then
+                    OUT=$(kustomize build "$DIR" 2>&1) || {
+                      VALIDATE_OUT="${VALIDATE_OUT}FAIL ${DIR}: ${OUT}\n"
+                      VALID=false
+                    }
+                  fi
+                done
+
+                if $VALID && [ -n "$CHANGED" ]; then
+                  git add -A
+                  MSG=$(printf 'loop: %s' \
+                    "$(echo "${TASK_TEXT}" | head -c 60)")
+                  git commit -m "$MSG"
+                  git push \
+                    "https://${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git" \
+                    "${WORK_BRANCH}"
+                  DIFF=$(git --no-pager diff HEAD~1 --stat 2>/dev/null || true)
+                  STATUS=success
+                elif $VALID; then
+                  STATUS=no_changes
+                else
+                  GOOSE_LOG="${GOOSE_LOG}${VALIDATE_OUT}"
+                  STATUS=validate_failed
+                fi
+              fi
+
+              python3 -c "
+              import json, sys
+              print(json.dumps({
+                  'task_id': '${WORK_BRANCH}'.replace('loop/',''),
+                  'status':  '${STATUS}',
+                  'branch':  '${WORK_BRANCH}',
+                  'diff':    sys.argv[1][:2000],
+                  'log':     sys.argv[2][:4000],
+              }))" "${DIFF}" "${GOOSE_LOG}" > /workspace/output.json
+              cat /workspace/output.json
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: rag-harness
+              mountPath: /rag
+              readOnly: true
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: rag-harness
+          configMap:
+            name: goose-rag-harness
+            defaultMode: 0555
