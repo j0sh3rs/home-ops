@@ -3,14 +3,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ./secret.sops.yaml
+  - ./rag-harness-configmap.yaml
   # runner/job-template.yaml is NOT wired here — applied per-task
   # (manually for P1 probe, by n8n at P4). This kustomization
   # materializes the secret and the rag harness ConfigMap.
-
-configMapGenerator:
-  - name: goose-rag-harness
-    namespace: ai
-    options:
-      disableNameSuffixHash: true
-    files:
-      - grep-harness.sh=./grep-harness.sh

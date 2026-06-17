@@ -1,0 +1,129 @@
+---
+# grep-harness.sh — mounted into goose runner Jobs at /rag/grep-harness.sh.
+# Runs at dispatch time; emits YAML grep sweeps + CLAUDE.md sections +
+# pgvector prose top-3 into $CONTEXT_OUT for injection into goose --system.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: goose-rag-harness
+  namespace: ai
+data:
+  grep-harness.sh: |
+    #!/bin/sh
+    # Env: TASK_TEXT, REPO_DIR, CONTEXT_OUT, LITELLM_HOST,
+    # LITELLM_API_KEY, PGHOST, PGPORT, PGDATABASE, PGUSER,
+    # PGPASSWORD (injected by Job secret), TOP_K (default: 3)
+    set -eu
+    REPO="${REPO_DIR:-/workspace/home-ops}"
+    OUT="${CONTEXT_OUT:-}"
+    TOP_K="${TOP_K:-3}"
+    TASK="${TASK_TEXT:-}"
+    emit() {
+      if [ -n "$OUT" ]; then printf '%s\n' "$1" >> "$OUT"
+      else printf '%s\n' "$1"; fi
+    }
+    [ -n "$OUT" ] && : > "$OUT"
+    emit "=== RAG CONTEXT ==="
+    emit ""
+    emit "--- YAML: HelmRelease/OCIRepository/chartRef ---"
+    grep -r --include="*.yaml" -h \
+      -e "kind: HelmRelease" -e "kind: OCIRepository" -e "chartRef:" \
+      "${REPO}/kubernetes" 2>/dev/null \
+      | grep -v "ENC\[" | head -60 \
+      | while IFS= read -r l; do emit "$l"; done
+    emit ""
+    emit "--- YAML: Storage class usage ---"
+    grep -r --include="*.yaml" -h \
+      -e "storageClass" -e "storageClassName" \
+      "${REPO}/kubernetes" 2>/dev/null \
+      | grep -v "ENC\[" | head -20 \
+      | while IFS= read -r l; do emit "$l"; done
+    emit ""
+    emit "--- YAML: Auth/forwardAuth wiring ---"
+    grep -r --include="*.yaml" -h \
+      -e "authentik-forwardauth" -e "forwardAuth" \
+      "${REPO}/kubernetes" 2>/dev/null \
+      | grep -v "ENC\[" | head -20 \
+      | while IFS= read -r l; do emit "$l"; done
+    emit ""
+    emit "--- YAML: Namespace kustomization layout ---"
+    grep -r --include="kustomization.yaml" -h \
+      -e "components:" -e "  - \." \
+      "${REPO}/kubernetes/apps" 2>/dev/null \
+      | grep -v "ENC\[" | head -40 \
+      | while IFS= read -r l; do emit "$l"; done
+    emit ""
+    emit "--- CLAUDE.md: Architecture ---"
+    awk '/^## Architecture/,/^## [A-Z][a-z]/' \
+      "${REPO}/CLAUDE.md" 2>/dev/null \
+      | head -80 | while IFS= read -r l; do emit "$l"; done
+    emit ""
+    emit "--- CLAUDE.md: AI namespace ---"
+    AI_PAT='/^## Deployed Applications \(ai namespace\)/'
+    SVC_PAT='/^## Deployed Applications \(services/'
+    awk "${AI_PAT},${SVC_PAT}" \
+      "${REPO}/CLAUDE.md" 2>/dev/null \
+      | head -60 | while IFS= read -r l; do emit "$l"; done
+    emit ""
+    emit "--- PROSE: top-${TOP_K} relevant docs ---"
+    if [ -n "${LITELLM_HOST:-}" ] && [ -n "${LITELLM_API_KEY:-}" ] \
+       && [ -n "${PGHOST:-}" ] && [ -n "$TASK" ] \
+       && command -v psql > /dev/null 2>&1; then
+      EMBEDDING=$(curl -sf \
+        -H "Authorization: Bearer ${LITELLM_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "{\"model\":\"local-embed\",\"input\":$(
+            printf '%s' "$TASK" | python3 -c \
+            'import sys,json; print(json.dumps(sys.stdin.read()))')}" \
+        "${LITELLM_HOST}/v1/embeddings" \
+        | python3 -c \
+          "import sys,json; d=json.load(sys.stdin)
+    print(d['data'][0]['embedding'])" \
+        2>/dev/null || true)
+      if [ -n "$EMBEDDING" ]; then
+        _RERANK=$(mktemp /tmp/rerank.XXXXXX.py)
+        cat > "$_RERANK" << 'PYEOF'
+    import sys, json, os, urllib.request
+    chunks = [c for c in sys.stdin.read().strip().split("\n\n") if c.strip()]
+    task = os.environ.get("TASK_TEXT", "")
+    top_k = int(os.environ.get("TOP_K", "3"))
+    host = os.environ.get("LITELLM_HOST", "")
+    key = os.environ.get("LITELLM_API_KEY", "")
+    if not chunks or not host or not key:
+        print("\n".join(chunks[:top_k])); raise SystemExit
+    payload = json.dumps({"model": "rerank-bge", "query": task,
+                          "documents": chunks, "top_n": top_k}).encode()
+    req = urllib.request.Request(
+        f"{host}/v1/rerank", data=payload,
+        headers={"Authorization": f"Bearer {key}",
+                 "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read())
+        for res in data.get("results", []):
+            idx = res.get("index", 0)
+            if idx < len(chunks):
+                print(chunks[idx]); print("---")
+    except Exception:
+        for c in chunks[:top_k]:
+            print(c); print("---")
+    PYEOF
+        psql -h "${PGHOST}" -p "${PGPORT:-5432}" \
+          -U "${PGUSER:-repo_rag}" -d "${PGDATABASE:-repo_rag}" \
+          -t -A -c \
+          "SELECT '# ' || path || ' — ' || header
+                  || E'\n' || content
+           FROM repo_chunks
+           ORDER BY embedding <=> '${EMBEDDING}'::vector
+           LIMIT $((TOP_K * 5));" \
+          2>/dev/null | python3 "$_RERANK" \
+          | while IFS= read -r l; do emit "$l"; done
+        rm -f "$_RERANK"
+      else
+        emit "(prose index: embedding failed)"
+      fi
+    else
+      emit "(prose index: skipped — PGHOST/LITELLM_HOST not set)"
+    fi
+    emit ""
+    emit "=== END RAG CONTEXT ==="
