@@ -264,24 +264,22 @@ spec:
         enabled: false
         http:
           enabled: false
-    logs:
-      general:
-        level: INFO
-        otlp:
-          enabled: false
-        format: json
-      access:
-        enabled: true
-        format: json
-        otlp:
-          enabled: false
-        fields:
-          general:
-            defaultmode: keep
-            names:
-              ServiceName: keep
-          headers:
-            defaultmode: drop
+    log:
+      level: INFO
+      otlp:
+        enabled: false
+      format: json
+    accessLog:
+      enabled: true
+      format: json
+      otlp:
+        enabled: false
+      fields:
+        defaultMode: keep
+        names:
+          ServiceName: keep
+        headers:
+          defaultMode: drop
     # No dashboard IngressRoute — external Traefik hosts dash.68cc.io.
     ingressRoute:
       dashboard:
