@@ -24,6 +24,12 @@ spec:
               protocol: TCP
             - port: "443"
               protocol: UDP
+            - port: "5432"  # postgres TCP gateway listener
+              protocol: TCP
+            - port: "514"  # syslog ingest from LAN devices
+              protocol: TCP
+            - port: "514"
+              protocol: UDP
     # Allow intra-cluster traffic (health probes, ServiceMonitor scrapes,
     # pod-to-pod calls if any app ever needs it).
     - fromEntities:
@@ -36,3 +42,7 @@ spec:
               protocol: TCP
             - port: "9100"
               protocol: TCP
+            - port: "514"  # syslog from in-cluster vector DaemonSet
+              protocol: TCP
+            - port: "514"
+              protocol: UDP

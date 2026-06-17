@@ -54,8 +54,13 @@ spec:
         expose:
           default: true
         protocol: TCP
+        # HTTP/3 disabled: public path is Cloudflare tunnel -> cloudflared
+        # (h2 to origin). Cloudflare terminates h3 at its edge; the origin
+        # never sees h3 over the tunnel. Enabling it would open UDP/443 on
+        # the public VIP for zero benefit. (Internal Traefik keeps h3 — LAN
+        # clients hit its VIP directly.)
         http3:
-          enabled: true
+          enabled: false
         transport:
           respondingTimeouts:
             readTimeout: 60
@@ -69,11 +74,6 @@ spec:
       # syslog (TCP + UDP) moved to traefik-internal — log ingest is LAN-only
       # and must not be WAN-reachable (L4 routes bypass the CrowdSec/rate-limit
       # HTTP middleware chain). See victoria-logs syslog routes.
-      mysql:
-        port: 3306
-        expose:
-          default: true
-        protocol: TCP
     gateway:
       enabled: true
       name: traefik-external-gateway
@@ -91,11 +91,6 @@ spec:
           certificateRefs:
             - name: 68cc-io-tls
               kind: Secret
-        mysql:
-          port: 3306
-          namespacePolicy:
-            from: All
-          protocol: TCP
     ingressClass:
       enabled: true
       isDefaultClass: false
@@ -112,7 +107,7 @@ spec:
       # Chain:
       #   1. crowdsec-bouncer — malicious IPs 403'd before any CPU spend
       #   2. rate-limit — Traefik native per-instance rate limit
-      #                   (60 req/s * 3 replicas = ~180 req/s cluster)
+      #                   (100 req/s avg * 3 replicas = ~300 req/s cluster)
       #   3. security-headers — STS/XFO/CSP on every response
       #   4. bot-wrangler — block AI crawlers per robots.txt template
       #   5. compression — gzip response body last so headers stay plain
@@ -141,6 +136,15 @@ spec:
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
+      # DaemonSet surge (k8s 1.22+): spin up the new pod before killing the old
+      # one so every node keeps a Traefik pod during chart/image bumps. With
+      # externalTrafficPolicy: Local, maxUnavailable>0 would blackhole the LB
+      # node mid-rollout. maxSurge:1/maxUnavailable:0 = zero-downtime rollout.
+      updateStrategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 0
+          maxSurge: 1
       # Set GOMEMLIMIT to 90% of the container memory limit (2Gi → ~1.8Gi)
       # This ensures Go's GC runs before the OOM killer fires
       goMemLimitPercentage: 90
