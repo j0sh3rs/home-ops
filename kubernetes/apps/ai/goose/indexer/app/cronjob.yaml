@@ -90,7 +90,7 @@ spec:
                   readOnly: true
           containers:
             - name: indexer
-              image: python:3.12-slim
+              image: python:3.14-slim
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:
