@@ -17,5 +17,10 @@ spec:
     burst: 200
     period: 1s
     sourceCriterion:
-      ipStrategy:
-        depth: 1
+      # Key rate limiting on the real end-user IP. Public traffic arrives via
+      # Cloudflare tunnel -> cloudflared (plain HTTP, no PROXY/XFF trust), so
+      # XFF is unreliable here; Cloudflare's edge sets CF-Connecting-IP on
+      # every tunneled request. Requests lacking this header (e.g. direct LAN
+      # hits) fall back to a shared bucket — acceptable since CrowdSec + LAN
+      # trust cover that path.
+      requestHeaderName: CF-Connecting-IP

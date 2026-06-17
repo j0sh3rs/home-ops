@@ -151,6 +151,15 @@ spec:
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
+      # DaemonSet surge (k8s 1.22+): new pod up before old pod down so every
+      # node keeps a Traefik pod during chart/image bumps. With
+      # externalTrafficPolicy: Local, maxUnavailable>0 blackholes the LB node
+      # mid-rollout. maxSurge:1/maxUnavailable:0 = zero-downtime rollout.
+      updateStrategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 0
+          maxSurge: 1
       goMemLimitPercentage: 90
       lifecycle:
         preStop:
