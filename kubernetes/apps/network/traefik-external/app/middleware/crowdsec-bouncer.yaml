@@ -28,11 +28,6 @@ spec:
       crowdsecAppsecFailureBlock: true
       crowdsecAppsecUnreachableBlock: false
       logLevel: INFO
-      # Public path is Cloudflare tunnel; the real client IP is in
-      # CF-Connecting-IP, not X-Forwarded-For (cloudflared speaks plain HTTP,
-      # pod CIDR untrusted). Tell the bouncer to read client IP from that
-      # header so CrowdSec decisions target the actual abuser.
-      forwardedHeadersCustomName: CF-Connecting-IP
       forwardedHeadersTrustedIPs:
         - 10.42.0.0/16
         - 192.168.35.0/24
