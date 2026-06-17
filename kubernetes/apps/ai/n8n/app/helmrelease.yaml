@@ -66,6 +66,14 @@ spec:
                   secretKeyRef:
                     name: n8n-loop-sa-token
                     key: token
+              # GitHub HMAC webhook secret — must match the value set in
+              # GitHub Settings → Webhooks for the loop-github-issue hook.
+              # Add GITHUB_WEBHOOK_SECRET to n8n-secrets before deploying.
+              - name: N8N_GITHUB_WEBHOOK_SECRET
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-secrets
+                    key: GITHUB_WEBHOOK_SECRET
             envFrom:
               - secretRef:
                   name: n8n-secrets

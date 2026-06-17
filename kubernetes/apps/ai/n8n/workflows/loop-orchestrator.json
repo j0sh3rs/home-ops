@@ -7,13 +7,25 @@
         "path": "loop-github-issue",
         "responseMode": "onReceived",
         "responseData": "allEntries",
-        "options": {}
+        "options": {
+          "rawBody": true
+        }
       },
       "id": "trigger-github",
       "name": "GitHub Issue Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verify GitHub webhook HMAC-SHA256 signature.\n// GitHub sends X-Hub-Signature-256: sha256=<hex> over the raw body.\nconst crypto = require('crypto');\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst rawBody = item.binary?.data\n  ? Buffer.from(item.binary.data, 'base64').toString('utf8')\n  : JSON.stringify(item.json.body);\nconst sigHeader = (headers['x-hub-signature-256'] || '').replace('sha256=', '');\nconst secret = $env.N8N_GITHUB_WEBHOOK_SECRET || '';\nif (!secret) throw new Error('N8N_GITHUB_WEBHOOK_SECRET not set in pod env');\nif (!sigHeader) throw new Error('Missing X-Hub-Signature-256 header');\nconst expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');\nlet valid = false;\ntry {\n  valid = crypto.timingSafeEqual(Buffer.from(sigHeader, 'hex'), Buffer.from(expected, 'hex'));\n} catch(e) { valid = false; }\nif (!valid) throw new Error('GitHub webhook signature invalid');\nreturn [{ json: { body: item.json.body, headers } }];"
+      },
+      "id": "verify-signature",
+      "name": "Verify GitHub Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [120, 0]
     },
     {
       "parameters": {
@@ -384,6 +396,11 @@
   ],
   "connections": {
     "GitHub Issue Webhook": {
+      "main": [
+        [{ "node": "Verify GitHub Signature", "type": "main", "index": 0 }]
+      ]
+    },
+    "Verify GitHub Signature": {
       "main": [
         [{ "node": "Normalize TaskRequest", "type": "main", "index": 0 }]
       ]
