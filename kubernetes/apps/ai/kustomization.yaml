@@ -33,3 +33,4 @@ resources:
   # Jobs (runner/job-template.yaml). Manifests retained for reference.
   # - ./claude-code/ks.yaml
   - ./mcpjungle/ks.yaml
+  - ./goose/ks.yaml

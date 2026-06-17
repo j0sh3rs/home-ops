@@ -1,0 +1,147 @@
+---
+# Headless Goose engine Job — the autonomous code-automation runner.
+#
+# NOT wired into any kustomization. This is a TEMPLATE:
+#   - P1: applied manually to prove one engine Job runs green.
+#   - P4: n8n instantiates it per task (substituting TASK_TEXT, branch,
+#         ref, RAG context) via its in-cluster ServiceAccount.
+#
+# Lifecycle: ephemeral. initContainer clones home-ops @ main onto an emptyDir
+# (isolated per Job); main container runs `goose run` headless, cloud-backed
+# via the LiteLLM vkey path.
+#
+# Auth: OPENAI_API_KEY = budget-capped LiteLLM virtual key from
+# goose-runner-secrets. No OAuth/subscription dependency (unlike claude-code).
+# OPENAI_BASE_URL points at LiteLLM without /v1 — Goose appends the path
+# itself; double-slash results from including /v1 in the base URL.
+#
+# Tracing: native LangFuse integration — keys from goose-runner-secrets.
+# Traces appear in LangFuse under the project matching LANGFUSE_PUBLIC_KEY.
+#
+# Apply for P1 probe (path relative to repo root):
+#   kubectl -n ai apply -f kubernetes/apps/ai/goose/runner/job-template.yaml
+#   kubectl -n ai logs -f job/goose-runner-probe
+#   kubectl -n ai delete job goose-runner-probe   # cleanup
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: goose-runner-probe
+  namespace: ai
+  labels:
+    app.kubernetes.io/name: goose-runner
+    loop.68cc.io/engine: goose
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: goose-runner
+        loop.68cc.io/engine: goose
+    spec:
+      restartPolicy: Never
+      securityContext:
+        # Image runs as uid 1000 (goose user). emptyDir — no NFS squash issue.
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: clone
+          image: ghcr.io/block/goose:1.38.0
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: goose-runner-secrets
+          env:
+            - name: REPO_REF
+              value: main
+            - name: WORK_BRANCH
+              value: loop/probe-goose
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              REPO_DIR=/workspace/home-ops
+              git config --global --add safe.directory "${REPO_DIR}"
+              git clone \
+                "https://${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git" \
+                "${REPO_DIR}"
+              git -C "${REPO_DIR}" config user.name  "j0sh3rs"
+              git -C "${REPO_DIR}" config user.email "j0sh3rs@gmail.com"
+              git -C "${REPO_DIR}" checkout "${REPO_REF}"
+              git -C "${REPO_DIR}" switch -c "${WORK_BRANCH}"
+              echo "cloned + branched ${WORK_BRANCH}"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: runner
+          image: ghcr.io/block/goose:1.38.0
+          workingDir: /workspace/home-ops
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: goose-runner-secrets
+          env:
+            - name: GOOSE_PATH_ROOT
+              value: /tmp/goose
+            - name: GOOSE_DISABLE_KEYRING
+              value: "1"
+            - name: GOOSE_PROVIDER
+              value: openai
+            # Model MUST be a LiteLLM alias — vkey allow-list matches aliases,
+            # not raw Anthropic/OpenAI model IDs.
+            - name: GOOSE_MODEL
+              value: cloud-sonnet
+            # No /v1 suffix — Goose appends the chat/completions path itself.
+            # Including /v1 here produces a double-path in the final URL.
+            - name: OPENAI_BASE_URL
+              value: http://litellm.ai.svc.cluster.local:4000
+            - name: LANGFUSE_URL
+              value: http://langfuse-web.ai.svc.cluster.local:3000
+            # P1 probe task. P4 overrides TASK_TEXT per dispatched task.
+            - name: TASK_TEXT
+              value: >-
+                Read README.md in this repo and write a one-line summary of
+                what this repository is to a new file PROBE_OK.md, then stop.
+                Do not modify any other file.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              echo "=== goose headless probe ==="
+              goose --version || true
+              goose run \
+                --no-session \
+                --no-profile \
+                --with-builtin developer \
+                --text "${TASK_TEXT}"
+              echo "=== goose exited rc=$? ==="
+              echo "=== git diff (proof of work) ==="
+              git -C /workspace/home-ops status --short
+              git -C /workspace/home-ops --no-pager diff --stat
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          emptyDir: {}
