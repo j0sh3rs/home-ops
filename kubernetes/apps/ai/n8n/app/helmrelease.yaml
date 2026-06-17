@@ -59,6 +59,13 @@ spec:
                 value: true
               - name: GENERIC_TIMEZONE
                 value: "America/New_York"
+              # K8s SA token for in-cluster API calls from n8n Code nodes.
+              # Read as $env.N8N_K8S_TOKEN. Auto-populated by K8s.
+              - name: N8N_K8S_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-loop-sa-token
+                    key: token
             envFrom:
               - secretRef:
                   name: n8n-secrets

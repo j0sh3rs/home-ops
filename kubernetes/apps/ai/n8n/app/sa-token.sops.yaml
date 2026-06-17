@@ -1,0 +1,28 @@
+# Long-lived SA token for n8n to call the K8s API in-cluster.
+# K8s populates .data.token automatically; rotated on pod restart.
+# Mounted as env N8N_K8S_TOKEN in the n8n pod (see helmrelease.yaml).
+# The n8n SA already has Role n8n-loop-operator (rbac.yaml).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: n8n-loop-sa-token
+  namespace: ai
+  annotations:
+    kubernetes.io/service-account.name: n8n
+type: kubernetes.io/service-account-token
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAzYlRvYzA1YnhvYzh2NWJL
+        Q3FDeHlwSjNPUUU3eE9JK0VqUDI0TDRrem40CitDbjh2OHpUNGhWbDNBdXpJckQ3
+        Q2ZmYVFXbVF4Q0Vwc0plSjJ3bXBVdkkKLS0tIDFSTkFOdEoxb0V5eHBEQ3ExcFBt
+        bnFIQUtZeW9FOHg1Yk1samxuMHdmUEkKG+jVcqjVEi/Q+VFkgYvRExdmNj7wNcQM
+        0Q20n3kHwHHmQ+IJT5bsXwM2Xw2X8p4TU+zmFK3ExwYx042Oj9c1bg==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age1qwwzsz6z2mmu6hpmjt2he7nepmnhutmhehvkva7l5zy5xzf08d5s5n4d6n
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-17T19:38:02Z"
+  mac: ENC[AES256_GCM,data:LjQY7zvDzk23tSjWrnFdTwH08yS9blLp9Cxv2+rBoEnp5K+VsWtbroi/MUShNmfC3PDcNdYkNGq7cGtbKc5IU95lrnqpw4X07dMkKr8MIjVuklSjgsK96sV5UkbEnQMOeuh6IdyOnbL1Z1NsRV56vMgsfIJnlSi6hk+/YcvOPnA=,iv:7UrN/0ykxE9NC5K/fgmW428fjf9oHDYE5CgXrvYEShk=,tag:SEzlHORxwu6DKkSwy6s8VA==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1
