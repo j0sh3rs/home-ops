@@ -71,7 +71,7 @@ spec:
                 - name: workspace
                   mountPath: /workspace
             - name: init-schema
-              image: postgres:17-alpine
+              image: postgres:18-alpine
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:
