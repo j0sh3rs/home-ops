@@ -10,10 +10,10 @@
 # (isolated per Job); main container runs `goose run` headless, cloud-backed
 # via the LiteLLM vkey path.
 #
-# Auth: OPENAI_API_KEY = budget-capped LiteLLM virtual key from
+# Auth: LITELLM_API_KEY = budget-capped LiteLLM virtual key from
 # goose-runner-secrets. No OAuth/subscription dependency (unlike claude-code).
-# OPENAI_BASE_URL points at LiteLLM without /v1 — Goose appends the path
-# itself; double-slash results from including /v1 in the base URL.
+# Uses native PROVIDER=litellm with LITELLM_HOST. Config written to
+# $GOOSE_PATH_ROOT/config/config.yaml by the runner command before goose run.
 #
 # Tracing: native LangFuse integration — keys from goose-runner-secrets.
 # Traces appear in LangFuse under the project matching LANGFUSE_PUBLIC_KEY.
@@ -51,7 +51,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: clone
-          image: ghcr.io/block/goose:1.38.0
+          image: ghcr.io/block/goose:latest
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -84,7 +84,7 @@ spec:
               mountPath: /workspace
       containers:
         - name: runner
-          image: ghcr.io/block/goose:1.38.0
+          image: ghcr.io/block/goose:latest
           workingDir: /workspace/home-ops
           securityContext:
             allowPrivilegeEscalation: false
@@ -98,16 +98,23 @@ spec:
               value: /tmp/goose
             - name: GOOSE_DISABLE_KEYRING
               value: "1"
+            # Native litellm provider — avoids openai default of api.openai.com.
+            # get_param uppercases key → env var (PROVIDER, MODEL, etc).
             - name: GOOSE_PROVIDER
-              value: openai
+              value: litellm
             # Model MUST be a LiteLLM alias — vkey allow-list matches aliases,
             # not raw Anthropic/OpenAI model IDs.
             - name: GOOSE_MODEL
               value: cloud-sonnet
-            # No /v1 suffix — Goose appends the chat/completions path itself.
-            # Including /v1 here produces a double-path in the final URL.
-            - name: OPENAI_BASE_URL
+            - name: LITELLM_HOST
               value: http://litellm.ai.svc.cluster.local:4000
+            # Secret stores key as OPENAI_API_KEY; alias to what litellm
+            # provider reads. envFrom loads OPENAI_API_KEY, this copies it.
+            - name: LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: goose-runner-secrets
+                  key: OPENAI_API_KEY
             - name: LANGFUSE_URL
               value: http://langfuse-web.ai.svc.cluster.local:3000
             # P1 probe task. P4 overrides TASK_TEXT per dispatched task.
@@ -121,11 +128,15 @@ spec:
             - -c
             - |
               set -eu
+              # Write minimal config so goose resolves provider+model from env.
+              mkdir -p /tmp/goose/config
+              cat > /tmp/goose/config/config.yaml <<'GOOSE_CFG'
+              GOOSE_DISABLE_KEYRING: "true"
+              GOOSE_CFG
               echo "=== goose headless probe ==="
               goose --version || true
               goose run \
                 --no-session \
-                --no-profile \
                 --with-builtin developer \
                 --text "${TASK_TEXT}"
               echo "=== goose exited rc=$? ==="
