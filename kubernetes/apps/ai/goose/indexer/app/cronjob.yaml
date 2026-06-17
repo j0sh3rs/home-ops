@@ -1,0 +1,139 @@
+---
+# Prose indexer CronJob — runs daily at 03:00, indexes ~40 markdown
+# files from home-ops into repo_chunks on postgres18.
+#
+# init containers:
+#   clone       - shallow-clone repo from GitHub
+#   init-schema - CREATE TABLE IF NOT EXISTS (idempotent)
+# main container:
+#   indexer     - runs indexer.py; upserts chunks via content-hash dedup
+#
+# Secrets: goose-indexer-secrets (SOPS-encrypted)
+#   OPENAI_API_KEY  LiteLLM vkey (aliased to LITELLM_API_KEY)
+#   GITHUB_TOKEN    clone auth
+#   PGHOST          postgres18 host
+#   PGUSER          repo_rag
+#   PGDATABASE      repo_rag
+#   PGPASSWORD      repo_rag password
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: goose-prose-indexer
+  namespace: ai
+  labels:
+    app.kubernetes.io/name: goose-prose-indexer
+    loop.68cc.io/component: rag
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: goose-prose-indexer
+            loop.68cc.io/component: rag
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: clone
+              image: ghcr.io/block/goose:latest
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              envFrom:
+                - secretRef:
+                    name: goose-indexer-secrets
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  git config --global --add safe.directory /workspace/home-ops
+                  git clone --depth 1 \
+                    "https://${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git" \
+                    /workspace/home-ops
+                  echo "cloned"
+              volumeMounts:
+                - name: workspace
+                  mountPath: /workspace
+            - name: init-schema
+              image: postgres:17-alpine
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              envFrom:
+                - secretRef:
+                    name: goose-indexer-secrets
+              command:
+                - /bin/sh
+                - -c
+                - psql -h "${PGHOST}" -U "${PGUSER}" -d "${PGDATABASE}"
+                    -f /app/schema.sql && echo "schema ok"
+              volumeMounts:
+                - name: app
+                  mountPath: /app
+                  readOnly: true
+          containers:
+            - name: indexer
+              image: python:3.12-slim
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              envFrom:
+                - secretRef:
+                    name: goose-indexer-secrets
+              env:
+                - name: REPO_DIR
+                  value: /workspace/home-ops
+                - name: LITELLM_HOST
+                  value: http://litellm.ai.svc.cluster.local:4000
+                # vkey stored as OPENAI_API_KEY; aliased to LITELLM_API_KEY.
+                - name: LITELLM_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: goose-indexer-secrets
+                      key: OPENAI_API_KEY
+                - name: EMBED_MODEL
+                  value: local-embed
+                - name: EMBED_DIMS
+                  value: "1024"
+              command:
+                - /bin/sh
+                - -c
+                - python3 /app/indexer.py
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: "1"
+                  memory: 512Mi
+              volumeMounts:
+                - name: workspace
+                  mountPath: /workspace
+                - name: app
+                  mountPath: /app
+                  readOnly: true
+          volumes:
+            - name: workspace
+              emptyDir: {}
+            - name: app
+              configMap:
+                name: goose-indexer-app
+                defaultMode: 0555

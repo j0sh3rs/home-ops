@@ -34,3 +34,4 @@ resources:
   # - ./claude-code/ks.yaml
   - ./mcpjungle/ks.yaml
   - ./goose/ks.yaml
+  - ./goose/indexer/ks.yaml
