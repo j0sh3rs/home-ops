@@ -59,6 +59,12 @@ spec:
                 value: true
               - name: GENERIC_TIMEZONE
                 value: "America/New_York"
+              # Allow Code nodes to require() Node builtins (crypto needed for
+              # GitHub HMAC-SHA256 webhook signature verification in the
+              # Loop Orchestrator workflow). Without this n8n's Code-node
+              # sandbox throws "Module 'crypto' is disallowed".
+              - name: NODE_FUNCTION_ALLOW_BUILTIN
+                value: "crypto"
               # K8s SA token for in-cluster API calls from n8n Code nodes.
               # Read as $env.N8N_K8S_TOKEN. Auto-populated by K8s.
               - name: N8N_K8S_TOKEN
