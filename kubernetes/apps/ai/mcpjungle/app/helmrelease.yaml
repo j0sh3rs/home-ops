@@ -47,11 +47,16 @@ spec:
               - secretRef:
                   name: mcpjungle-secrets
             env:
-              # Enterprise mode: per-client API key auth + server ACLs.
-              # Dashboard UI is dev-mode only; manage via CLI/REST API.
-              # Docs: SERVER_MODE env var (not MCPJUNGLE_MODE).
-              SERVER_MODE: enterprise
-              # /metrics has no auth (issue #92) — cluster-internal only.
+              # Development mode: no gateway auth, all clients get full
+              # access to every registered server. Chosen deliberately for
+              # this single-operator homelab — the gateway is internal-only
+              # (traefik-internal), so per-client API keys / ACLs are
+              # overkill and just mean creds to pass around. Auto-initializes
+              # on boot (no init-server needed). Docs: SERVER_MODE env var.
+              # Flip back to `enterprise` if this is ever shared/exposed.
+              SERVER_MODE: development
+              # Dev mode defaults metrics off; force on. /metrics has no auth
+              # (issue #92) — fine, cluster-internal only.
               OTEL_ENABLED: "true"
             resources:
               requests:
@@ -92,16 +97,19 @@ spec:
 
     route:
       app:
+        # Internal-only: LAN A record at the traefik-internal VIP, no
+        # Cloudflare record (split-horizon drops external for internal
+        # gateway). mcp.68cc.io resolves on-LAN only.
         annotations:
-          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
         hostnames: ["mcp.68cc.io"]
         parentRefs:
-          - name: traefik-external-gateway
+          - name: traefik-internal-gateway
             namespace: network
         rules:
-          # MCP + API: API key auth via MCPJungle enterprise mode.
-          # Global /mcp only — Tool Groups broken for Streamable HTTP
-          # until issue #268 closes (PR #269 pending).
+          # MCP + API: unauthenticated in development mode. Acceptable —
+          # gateway is internal-only (LAN). Global /mcp only — Tool Groups
+          # broken for Streamable HTTP until issue #268 closes (PR #269).
           - matches:
               - path: {type: PathPrefix, value: /mcp}
               - path: {type: PathPrefix, value: /api}
