@@ -32,6 +32,6 @@ resources:
   # autonomous loop does NOT need this daemon; it uses headless `claude -p`
   # Jobs (runner/job-template.yaml). Manifests retained for reference.
   # - ./claude-code/ks.yaml
-  - ./mcpjungle/ks.yaml
+  # - ./mcpjungle/ks.yaml
   - ./goose/ks.yaml
   - ./goose/indexer/ks.yaml
