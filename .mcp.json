@@ -17,6 +17,13 @@
       "headers": {
         "Authorization": "Bearer ${CLOUDFLARE_API_TOKEN}"
       }
+    },
+    "n8n-mcp": {
+      "type": "http",
+      "url": "https://n8n.68cc.io/mcp-server/http",
+      "headers": {
+        "Authorization": "Bearer ${N8N_API_TOKEN}"
+      }
     }
   }
 }

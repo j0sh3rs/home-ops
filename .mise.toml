@@ -9,6 +9,7 @@ _.python.venv = { path = "{{config_root}}/.venv", create = true }
 _.file = [
   { path = "{{config_root}}/cloudflare-mcp.env", redact = true },
   { path = "{{config_root}}/github-personal.env", redact = true },
+  { path = "{{config_root}}/.env.local", redact = true }
 ]
 KUBECONFIG = "{{config_root}}/kubeconfig"
 SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
