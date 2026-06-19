@@ -65,6 +65,11 @@ spec:
               # sandbox throws "Module 'crypto' is disallowed".
               - name: NODE_FUNCTION_ALLOW_BUILTIN
                 value: "crypto"
+              # Allow Code nodes to read $env (Loop Orchestrator reads
+              # N8N_GITHUB_WEBHOOK_SECRET, N8N_K8S_TOKEN). n8n blocks $env
+              # in Code nodes by default ("access to env vars denied").
+              - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
+                value: "false"
               # K8s SA token for in-cluster API calls from n8n Code nodes.
               # Read as $env.N8N_K8S_TOKEN. Auto-populated by K8s.
               - name: N8N_K8S_TOKEN
