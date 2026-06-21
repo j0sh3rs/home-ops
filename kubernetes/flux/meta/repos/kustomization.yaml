@@ -15,4 +15,5 @@ resources:
   - ./k8tz.yaml
   - ./nfs-external-provisioner.yaml
   - ./langfuse.yaml
+  - ./netdata.yaml
   - ./traefik.yaml

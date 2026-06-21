@@ -9,9 +9,9 @@ spec:
   interval: 5m
   chart:
     spec:
-      # renovate: registryUrl=https://netdata.github.io/helmchart/
+      # renovate: datasource=helm depName=netdata registryUrl=https://netdata.github.io/helmchart/
       chart: netdata
-      version: 3.7.151
+      version: 3.7.166
       sourceRef:
         kind: HelmRepository
         name: netdata
@@ -38,13 +38,42 @@ spec:
     image:
       repository: netdata/netdata
       # renovate: datasource=docker depName=netdata/netdata
-      tag: v2.9.0
-      pullPolicy: Always
+      tag: v2.10.3
+      pullPolicy: IfNotPresent
     ingress:
       enabled: false
     parent:
       claiming:
         enabled: true
+      env:
+        DO_NOT_TRACK: 1
+      database:
+        storageclass: openebs-hostpath
+        volumesize: 5Gi
+      alarms:
+        storageclass: openebs-hostpath
+        volumesize: 1Gi
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          memory: 1Gi
     child:
       claiming:
         enabled: true
+      env:
+        DO_NOT_TRACK: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+    k8sState:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
