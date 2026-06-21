@@ -82,8 +82,12 @@ spec:
                 annotations:
                   summary: There are {{ $value }} containers pulling from Dockerhub. This may lead to rate limiting.
                 expr: count(time() - container_last_seen{image=~"(docker.io).*",container!=""} < 30) > 100
+                # warning, not critical: this is a soft capacity-planning signal
+                # (anonymous Dockerhub pulls are throttled at 100/6h per IP).
+                # Spegel P2P image caching blunts the real risk; a mass restart
+                # at worst causes transient ImagePullBackOff, not an outage.
                 labels:
-                  severity: critical
+                  severity: warning
       oom-rules:
         groups:
           - name: oom

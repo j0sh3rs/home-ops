@@ -119,6 +119,11 @@ spec:
           # near-0% hit ratio BY DESIGN, which drags a global ratio below 70%
           # permanently and fires a false positive. This is an explicit cache
           # allowlist: add future cache DBs (e.g. db7 AnythingLLM) to the regex.
+          # Volume gate: db4 (LiteLLM cache) runs ~0.01 ops/sec at idle, so the
+          # 5m rate window often holds a handful of events and a single miss
+          # swings the ratio across 70% — pure sampling noise. Require >1 op/sec
+          # of real traffic before judging the ratio so the alert only fires
+          # when there's enough volume to be meaningful.
           expr: |-
             (
               sum(rate(dragonfly_keyspace_hits_total{db=~"db4"}[5m]))
@@ -128,6 +133,11 @@ spec:
                 + sum(rate(dragonfly_keyspace_misses_total{db=~"db4"}[5m]))
               )
             ) < 0.70
+            and
+            (
+              sum(rate(dragonfly_keyspace_hits_total{db=~"db4"}[5m]))
+              + sum(rate(dragonfly_keyspace_misses_total{db=~"db4"}[5m]))
+            ) > 1
           for: 15m
           labels:
             severity: warning
@@ -154,14 +164,19 @@ spec:
           # command runs sub-ms. Drop blpop/brpop/blmove/brpoplpush/wait/
           # xread (the blocking verbs) from both numerator and denominator so
           # the metric reflects actual processing latency, not idle wait time.
+          # bzpopmin/bzpopmax/blmpop/bzmpop added: Celery/Kombu parks idle
+          # workers on bzpopmin (priority-queue blocking pop), whose duration
+          # counter climbs ~5s/call and swamped the average (114ms observed) —
+          # every real command runs sub-ms. With these excluded the expr drops
+          # to ~24us. The defensive *max/*mpop variants pre-empt the same hole.
           expr: |-
             (
               sum(rate(dragonfly_commands_duration_seconds{
-                cmd!~"blpop|brpop|blmove|brpoplpush|wait|xread"
+                cmd!~"blpop|brpop|blmove|brpoplpush|wait|xread|bzpopmin|bzpopmax|blmpop|bzmpop"
               }[5m]))
               /
               sum(rate(dragonfly_commands_total{
-                cmd!~"blpop|brpop|blmove|brpoplpush|wait|xread"
+                cmd!~"blpop|brpop|blmove|brpoplpush|wait|xread|bzpopmin|bzpopmax|blmpop|bzmpop"
               }[5m]))
             ) > 0.005
           for: 5m
@@ -199,9 +214,13 @@ spec:
           # exclude brokers directly; instead alert only when blocked clients
           # exceed the expected broker baseline, which catches a genuinely
           # stuck/leaking consumer without firing on normal idle brokers.
+          # Measured baseline is a flat 30 (Paperless + Authentik Celery +
+          # Kombu bzpopmin/brpop idle workers), stable over 7d with no drift —
+          # not a leak. Threshold raised 5 -> 50 with headroom; a real runaway
+          # climbing past 50 still fires. for: 10m -> 15m to ride out bursts.
           expr: |-
-            dragonfly_blocked_clients > 5
-          for: 10m
+            dragonfly_blocked_clients > 50
+          for: 15m
           labels:
             severity: warning
             component: availability

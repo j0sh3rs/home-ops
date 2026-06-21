@@ -67,6 +67,11 @@ spec:
           - homepage
           - home-assistant
           - homebridge
+          # linkwarden PID1 is `sh -c "yarn prisma:deploy && yarn
+          # concurrently:start"`; yarn/concurrently spawns child /bin/sh per
+          # managed subprocess. Normal Node entrypoint, 0 restarts — confirmed
+          # benign TetragonShellSpawn source, excluded.
+          - linkwarden
       - key: app.kubernetes.io/controller
         operator: NotIn
         values:

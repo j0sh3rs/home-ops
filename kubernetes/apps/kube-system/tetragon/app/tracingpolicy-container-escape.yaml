@@ -28,6 +28,13 @@ spec:
                 - "/usr/bin/kubelet"
                 - "/usr/bin/mount"
                 - "/bin/mount"
+                # netdata-child runs privileged (SYS_ADMIN) and legitimately
+                # mount()s host /proc,/sys plus enters container netns via its
+                # cgroup-network helper. Confirmed source of the 06-16/06-17
+                # TetragonContainerEscapeAttempt firings — benign, excluded.
+                - "/usr/sbin/netdata"
+                - "/usr/libexec/netdata/plugins.d/cgroup-network"
+                - "/usr/libexec/netdata/plugins.d/cgroup-network-helper.sh"
           matchActions:
             - action: Post
     # pivot_root(2). Near-zero false positive outside runtime startup.
