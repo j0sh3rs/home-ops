@@ -34,6 +34,10 @@ spec:
       name: netdata-secrets
       valuesKey: CHILD_CLAIMING_ROOMS
       targetPath: child.claiming.rooms
+    - kind: Secret
+      name: netdata-secrets
+      valuesKey: DISCORD_WEBHOOK_URL
+      targetPath: notifications.discord.webhook_url
   values:
     image:
       repository: netdata/netdata
@@ -47,6 +51,21 @@ spec:
         enabled: true
       env:
         DO_NOT_TRACK: 1
+      configs:
+        # Route parent health alarms to Discord. storedType=secret renders the
+        # webhook into the netdata-conf-parent Secret (b64), keeping it out of a
+        # plaintext ConfigMap. webhook_url is injected from netdata-secrets via
+        # valuesFrom and resolved by the chart's `tpl` pass on config.data.
+        health:
+          enabled: true
+          storedType: secret
+          path: /etc/netdata/health_alarm_notify.conf
+          data: |
+            SEND_EMAIL="NO"
+            SEND_SLACK="NO"
+            SEND_DISCORD="YES"
+            DISCORD_WEBHOOK_URL="{{ .Values.notifications.discord.webhook_url }}"
+            DEFAULT_RECIPIENT_DISCORD="alerts"
       database:
         storageclass: openebs-hostpath
         volumesize: 5Gi
