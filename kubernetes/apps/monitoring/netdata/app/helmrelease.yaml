@@ -49,8 +49,11 @@ spec:
     parent:
       claiming:
         enabled: true
-      env:
-        DO_NOT_TRACK: 1
+      # NOTE: do NOT set DO_NOT_TRACK here. The entrypoint reacts to it by
+      # touching /etc/netdata/.opt-out-from-anonymous-statistics, but the parent
+      # runs as uid 201 against a root-owned /etc/netdata, so the write fails and
+      # the container exits 1 (crashloop). Telemetry opt-out is moot anyway since
+      # Netdata Cloud claiming is enabled (accepted egress).
       configs:
         # Route parent health alarms to Discord. storedType=secret renders the
         # webhook into the netdata-conf-parent Secret (b64), keeping it out of a
@@ -81,14 +84,12 @@ spec:
     child:
       claiming:
         enabled: true
-      env:
-        DO_NOT_TRACK: 1
       resources:
         requests:
           cpu: 50m
-          memory: 64Mi
-        limits:
           memory: 256Mi
+        limits:
+          memory: 512Mi
     k8sState:
       resources:
         requests:
