@@ -6,6 +6,14 @@ metadata:
   name: &app litellm
 spec:
   interval: 1h
+  # First-boot of a new image runs the Prisma migrationJob (helm pre-upgrade
+  # hook) BEFORE the Deployment rolls. The default Helm wait window is 5m,
+  # which the migration+rollout can exceed — Helm then auto-rolls-back the
+  # Deployment but NOT the already-applied Prisma migration, leaving the old
+  # image booting against a newer DB schema (it hangs at "Waiting for
+  # application startup" forever). Give the upgrade generous headroom so the
+  # rollout completes inside the wait window and the rollback never fires.
+  timeout: 15m
   chartRef:
     kind: OCIRepository
     name: litellm
