@@ -178,3 +178,41 @@ spec:
       ports:
         - port: 9999
           protocol: TCP
+---
+# The operator's auto-created NetworkPolicy only allows port 6379 (RESP)
+# from pods in the `databases` namespace (`podSelector: {}`, no
+# namespaceSelector). But our Redis clients live in OTHER namespaces:
+# `ai` (litellm db4, langfuse db6, open-webui) and `services`
+# (paperless db2). When the operator deletes+recreates the Dragonfly
+# instance (e.g. on a VolumeClaimTemplates change) it re-applies that
+# lockdown, severing every cross-namespace client — litellm then blocks
+# ~270s on Redis connect during startup and crashloops past its probe
+# budget. NetworkPolicies are additive, so this sibling policy unions
+# with the operator's to allow cross-namespace clients on 6379.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dragonflydb-allow-cross-ns-clients
+  namespace: databases
+  labels:
+    app.kubernetes.io/name: dragonfly
+    app.kubernetes.io/instance: dragonflydb
+spec:
+  podSelector:
+    matchLabels:
+      app: dragonflydb
+      app.kubernetes.io/name: dragonfly
+      app.kubernetes.io/part-of: dragonfly
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: services
+      ports:
+        - port: 6379
+          protocol: TCP
