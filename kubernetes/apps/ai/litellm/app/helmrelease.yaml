@@ -27,7 +27,7 @@ spec:
       # tags are plain `vX.Y.Z` (and `X.Y.Z` without prefix). Don't
       # revert this back to `main-v…` — that pattern only exists for
       # older builds and Renovate will silently lose track.
-      tag: v1.88.1
+      tag: v1.89.3
       pullPolicy: IfNotPresent
 
     deploymentAnnotations:
