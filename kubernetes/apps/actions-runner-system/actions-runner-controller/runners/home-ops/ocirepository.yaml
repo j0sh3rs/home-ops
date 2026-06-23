@@ -11,5 +11,5 @@ spec:
     operation: copy
   ref:
     # renovate: datasource=github-releases depName=actions/actions-runner-controller
-    tag: 0.14.2
+    tag: v0.27.6
   url: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
