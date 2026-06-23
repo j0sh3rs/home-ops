@@ -9,7 +9,7 @@ on:
 jobs:
   mise:
     name: upgrade-tools
-    runs-on: ubuntu-latest
+    runs-on: home-ops-runner
     permissions:
       contents: write
       pull-requests: write
