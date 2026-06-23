@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# GitHub Actions Runner Controller (ARC) + per-repo runner scale sets.
+#
+# j0sh3rs is a GitHub USER account (not an Org), so scale sets register
+# per-repo only — there is no native org-wide default. Start with home-ops;
+# add repos by copying actions-runner-controller/runners/home-ops/ and
+# installing the GitHub App on the new repo.
+#
+# Components:
+#   - common — namespace + cluster-secrets + sops-age
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: actions-runner-system
+components:
+  - ../../components/common
+resources:
+  - ./actions-runner-controller/ks.yaml

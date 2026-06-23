@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# One directory per repo-scoped runner scale set. j0sh3rs is a User account,
+# so each target repo needs its own scale set + GitHub App installation.
+# To add a repo: copy ./home-ops to ./<repo>, adjust githubConfigUrl + names,
+# install the GitHub App on that repo, add the path below.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./home-ops
