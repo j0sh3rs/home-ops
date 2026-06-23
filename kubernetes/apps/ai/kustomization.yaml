@@ -33,5 +33,6 @@ resources:
   # Jobs (runner/job-template.yaml). Manifests retained for reference.
   # - ./claude-code/ks.yaml
   - ./mcpjungle/ks.yaml
+  - ./omega-mcp/ks.yaml
   - ./goose/ks.yaml
   - ./goose/indexer/ks.yaml

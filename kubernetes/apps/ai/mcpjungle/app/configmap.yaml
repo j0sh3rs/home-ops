@@ -91,3 +91,14 @@ data:
       "url": "http://n8n:5678/mcp-server/http",
       "bearer_token": "${N8N_API_KEY}"
     }
+  # OMEGA persistent memory + Pro tools (coordination, router, knowledge,
+  # entity, oracle, ...). Streamable HTTP, cluster-internal, no auth — same
+  # posture as the other in-cluster upstreams. Entity scoping is enabled, so
+  # callers should pass entity_id to partition memory per project/client.
+  omega.json: |
+    {
+      "name": "omega",
+      "transport": "streamable_http",
+      "description": "OMEGA persistent memory and Pro coordination tools",
+      "url": "http://omega-mcp:8377/mcp"
+    }

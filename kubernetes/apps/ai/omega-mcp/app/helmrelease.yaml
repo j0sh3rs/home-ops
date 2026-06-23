@@ -1,0 +1,103 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app omega-mcp
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      omega-mcp:
+        # Recreate: the daemon holds an exclusive SQLite WAL handle on the
+        # PVC and an in-memory Streamable HTTP session table. A rolling
+        # update would run two writers against one openebs-hostpath volume.
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        replicas: 1
+        initContainers:
+          # Builds the venv ON the PVC, installs OSS offline, runs
+          # `omega activate` (downloads the licensed Pro wheel from the
+          # vendor into that venv), installs the capability shim, writes
+          # config.json (entity scoping on), and verifies the pro_tools
+          # gate opened before exiting 0. Runs every boot; idempotent.
+          init-omega:
+            image:
+              repository: ghcr.io/j0sh3rs/omega-mcp
+              tag: latest
+            command: ["/usr/local/bin/omega-init.sh"]
+            envFrom:
+              - secretRef:
+                  name: omega-mcp-secrets
+        containers:
+          app:
+            image:
+              repository: ghcr.io/j0sh3rs/omega-mcp
+              tag: latest
+            envFrom:
+              - secretRef:
+                  name: omega-mcp-secrets
+            resources:
+              requests:
+                cpu: 100m
+                # bge-small ONNX model (~130Mi) + sqlite-vec + base runtime.
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+                cpu: 2
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8377
+                  initialDelaySeconds: 20
+                  periodSeconds: 30
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8377
+                  initialDelaySeconds: 20
+                  periodSeconds: 15
+                  failureThreshold: 3
+    defaultPodOptions:
+      securityContext:
+        # Matches the image (uid 1024, gid 100) and openebs-hostpath
+        # ownership. fsGroup 100 keeps freshly created PVC dirs
+        # group-writable so the venv/db/model writes don't EACCES.
+        runAsUser: 1024
+        runAsGroup: 100
+        fsGroup: 100
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: 8377
+    persistence:
+      # venv + .omega (db, license.json, config.json) + ONNX model cache.
+      data:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        retain: true
+        globalMounts:
+          - path: /data
