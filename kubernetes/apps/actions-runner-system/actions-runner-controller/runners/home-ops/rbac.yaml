@@ -1,0 +1,31 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: home-ops-runner
+---
+# Full cluster-admin: home-ops CI deploys to this cluster (flux reconcile,
+# kubectl apply). WARNING: any workflow running on this scale set inherits
+# cluster-admin. Keep the GitHub App installed ONLY on trusted repos.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: home-ops-runner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: home-ops-runner
+    namespace: actions-runner-system
+---
+# Talos os:admin ServiceAccount — generates a secret (same name) mounted at
+# /var/run/secrets/talos.dev so CI can run talosctl against the cluster.
+apiVersion: talos.dev/v1alpha1
+kind: ServiceAccount
+metadata:
+  name: home-ops-runner
+spec:
+  roles:
+    - os:admin
