@@ -35,7 +35,13 @@ spec:
           init-omega:
             image:
               repository: ghcr.io/j0sh3rs/omega-mcp
-              tag: latest
+              # Immutable tag, NOT :latest. Spegel (the P2P image cache)
+              # resolves mutable tags from a peer's cached digest, so :latest
+              # served a stale pre-fix image even with imagePullPolicy: Always.
+              # A pinned tag forces the new digest; renovate bumps it each
+              # release.
+              # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp
+              tag: 1.5.4-r1
             command: ["/usr/local/bin/omega-init.sh"]
             envFrom:
               - secretRef:
@@ -44,7 +50,9 @@ spec:
           app:
             image:
               repository: ghcr.io/j0sh3rs/omega-mcp
-              tag: latest
+              # Keep in lockstep with init-omega above; renovate bumps both.
+              # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp
+              tag: 1.5.4-r1
             envFrom:
               - secretRef:
                   name: omega-mcp-secrets
