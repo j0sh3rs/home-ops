@@ -2,8 +2,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# loop-validation-2: end-to-end PR + comment test
-# loop-validation: autonomous edit smoke test
 resources:
   - ./namespace.yaml
   - ./secret.sops.yaml
