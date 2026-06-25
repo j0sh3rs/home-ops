@@ -40,8 +40,16 @@ spec:
               # served a stale pre-fix image even with imagePullPolicy: Always.
               # A pinned tag forces the new digest; renovate bumps it each
               # release.
-              # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp
-              tag: 1.5.4
+              #
+              # Tag carries an `-rN` rebuild suffix (1.5.4-r4) holding the
+              # pro/license fixes. Under default semver, Renovate ranks the
+              # bare release `1.5.4` ABOVE its prerelease `1.5.4-rN` and
+              # reverts the pin every run (see PRs df9800d1/81172a44/bbf11c88),
+              # reintroducing the license init crash. The regex versioning
+              # captures `-rN` as `build` so `-r4` > `-r3` > ... > bare 1.5.4,
+              # and the bare tag no longer matches as a candidate.
+              # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-r(?<build>\d+)$
+              tag: 1.5.4-r4
             command: ["/usr/local/bin/omega-init.sh"]
             envFrom:
               - secretRef:
@@ -51,8 +59,8 @@ spec:
             image:
               repository: ghcr.io/j0sh3rs/omega-mcp
               # Keep in lockstep with init-omega above; renovate bumps both.
-              # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp
-              tag: 1.5.4
+              # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-r(?<build>\d+)$
+              tag: 1.5.4-r4
             envFrom:
               - secretRef:
                   name: omega-mcp-secrets
