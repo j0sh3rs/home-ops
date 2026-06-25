@@ -49,7 +49,7 @@ spec:
               # captures `-rN` as `build` so `-r4` > `-r3` > ... > bare 1.5.4,
               # and the bare tag no longer matches as a candidate.
               # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-r(?<build>\d+)$
-              tag: 1.5.4-r4
+              tag: 1.5.4-r5
             command: ["/usr/local/bin/omega-init.sh"]
             envFrom:
               - secretRef:
@@ -60,7 +60,7 @@ spec:
               repository: ghcr.io/j0sh3rs/omega-mcp
               # Keep in lockstep with init-omega above; renovate bumps both.
               # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-r(?<build>\d+)$
-              tag: 1.5.4-r4
+              tag: 1.5.4-r5
             envFrom:
               - secretRef:
                   name: omega-mcp-secrets
@@ -96,26 +96,18 @@ spec:
     defaultPodOptions:
       # OMEGA Pro license is machine-fingerprint bound. The vendor wheel's
       # _device_fingerprint_hash() = sha256(device_id + system + machine +
-      # node + uuid.getnode()). The last input, uuid.getnode(), is the pod's
-      # eth0 MAC — and Cilium assigns a RANDOM (locally-administered) MAC to
-      # every new pod, so the fingerprint changed on every rollout and the
-      # pro_tools init gate failed (init-omega exit 1 -> CrashLoopBackOff)
-      # even after a successful `omega activate`. Cilium 1.19 has no per-pod
-      # static-MAC annotation, so we run on the host network: uuid.getnode()
-      # then resolves the NODE's stable, universally-administered NIC MAC. The
-      # PVC is openebs-hostpath RWO so the pod is already node-pinned to
-      # bee-jms-01, making that node MAC effectively permanent for this pod.
+      # node + uuid.getnode()). uuid.getnode() is the pod eth0 MAC, which
+      # Cilium randomizes per pod, so the fingerprint changed every rollout
+      # and the pro_tools init gate failed (CrashLoopBackOff). The real fix
+      # lives in the j0sh3rs/containers omega-mcp image: a sitecustomize.py
+      # pins uuid.getnode() to a value derived from the persisted device_id,
+      # making the fingerprint MAC-independent (-r5+). hostNetwork was ruled
+      # out: PodSecurity baseline (cluster default) forbids host namespaces,
+      # and Cilium 1.19 has no per-pod static-MAC annotation.
       #
-      # STOPGAP (fix A): the clean fix (B) is a sitecustomize.py in the
-      # j0sh3rs/containers omega-mcp image that pins uuid.getnode() to a value
-      # derived from device_id, removing the host-network requirement. Tracked
-      # for a future -r5 image bump; revert hostNetwork once that ships.
-      hostNetwork: true
-      # hostNetwork pods don't get cluster DNS by default; this keeps in-cluster
-      # service resolution working alongside egress to admin.omegamax.co.
-      dnsPolicy: ClusterFirstWithHostNet
-      # Pin a stable hostname too (covers platform.node(), another fingerprint
-      # input). Belt and suspenders with hostNetwork.
+      # The stable hostname below covers platform.node(); the MAC input is
+      # handled by the image-side pin. PVC is openebs-hostpath RWO so the pod
+      # is already node-pinned to bee-jms-01.
       hostname: omega-mcp
       securityContext:
         # Matches the image (uid 1024, gid 100) and openebs-hostpath
