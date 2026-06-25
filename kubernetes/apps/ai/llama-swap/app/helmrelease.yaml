@@ -137,6 +137,13 @@ spec:
                   "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf?download=true" \
                   "Qwen3-14B-Q4_K_M.gguf" \
                   8400000000
+                # Qwen3.6-27B Q3_K_S (~11.8 GiB) — GatedDeltaNet frontier chat
+                # RDNA4/gfx1201 has KHR_coopmat; GDN Vulkan kernel active.
+                # Dead on gfx1030 (no coopmat) — 9070 XT specific.
+                fetch \
+                  "https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/Qwen3.6-27B-Q3_K_S.gguf?download=true" \
+                  "Qwen3.6-27B-Q3_K_S.gguf" \
+                  11800000000
                 echo "[finished] model staging complete"
                 ls -lh /models
             env:

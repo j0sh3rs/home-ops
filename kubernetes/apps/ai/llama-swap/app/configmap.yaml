@@ -148,6 +148,21 @@ data:
           - "dense-floor"
         ttl: 120
 
+      # GatedDeltaNet frontier chat. Qwen3.6-27B Q3_K_S (~11.8 GiB).
+      # REQUIRES RDNA4 (gfx1201, KHR_coopmat) — GDN Vulkan kernel dead on gfx1030.
+      # Dense 27B; slower tg than MoE but higher quality (whichllm 87.3 vs 79.2).
+      "qwen3.6-27b":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/Qwen3.6-27B-Q3_K_S.gguf
+          --ctx-size 16384
+          --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
+          --presence-penalty 1.0
+        aliases:
+          - "frontier"
+          - "frontier-chat"
+        ttl: 120
+
       # Qwen2.5-Coder-7B — superseded by agentic-coder for multi-step work.
       # Kept commented for dense single-turn fallback if agentic-coder slot
       # proves unstable. Re-add to chat group members list to re-enable.
@@ -222,6 +237,7 @@ data:
           - "reasoner-agentic"
           - "coder-fim"
           - "qwen3-14b"
+          - "qwen3.6-27b"
 
       # Always-on: router + embed + rerank. ~3 GiB total resident.
       # persistent: true = preloaded at startup, not on first request.
