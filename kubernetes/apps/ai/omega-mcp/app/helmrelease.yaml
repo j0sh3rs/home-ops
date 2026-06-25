@@ -94,6 +94,17 @@ spec:
                   periodSeconds: 15
                   failureThreshold: 3
     defaultPodOptions:
+      # Pin a STABLE hostname. The OMEGA Pro license is machine-fingerprint
+      # bound, and the vendor wheel computes that fingerprint from the pod's
+      # hostname. On a Deployment the hostname defaults to the (random) pod
+      # name, so it changes every rollout/restart — `omega activate` binds the
+      # license to one pod's hostname, then every subsequent pod reports a
+      # "different machine fingerprint" and the pro_tools init gate fails
+      # (init-omega exit 1 -> CrashLoopBackOff). A fixed hostname makes one
+      # activation persist across rollouts. The PVC is openebs-hostpath RWO so
+      # the pod is already node-pinned to bee-jms-01; node identity was never
+      # the problem.
+      hostname: omega-mcp
       securityContext:
         # Matches the image (uid 1024, gid 100) and openebs-hostpath
         # ownership. fsGroup 100 keeps freshly created PVC dirs
