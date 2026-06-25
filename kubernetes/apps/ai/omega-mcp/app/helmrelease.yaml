@@ -94,16 +94,28 @@ spec:
                   periodSeconds: 15
                   failureThreshold: 3
     defaultPodOptions:
-      # Pin a STABLE hostname. The OMEGA Pro license is machine-fingerprint
-      # bound, and the vendor wheel computes that fingerprint from the pod's
-      # hostname. On a Deployment the hostname defaults to the (random) pod
-      # name, so it changes every rollout/restart — `omega activate` binds the
-      # license to one pod's hostname, then every subsequent pod reports a
-      # "different machine fingerprint" and the pro_tools init gate fails
-      # (init-omega exit 1 -> CrashLoopBackOff). A fixed hostname makes one
-      # activation persist across rollouts. The PVC is openebs-hostpath RWO so
-      # the pod is already node-pinned to bee-jms-01; node identity was never
-      # the problem.
+      # OMEGA Pro license is machine-fingerprint bound. The vendor wheel's
+      # _device_fingerprint_hash() = sha256(device_id + system + machine +
+      # node + uuid.getnode()). The last input, uuid.getnode(), is the pod's
+      # eth0 MAC — and Cilium assigns a RANDOM (locally-administered) MAC to
+      # every new pod, so the fingerprint changed on every rollout and the
+      # pro_tools init gate failed (init-omega exit 1 -> CrashLoopBackOff)
+      # even after a successful `omega activate`. Cilium 1.19 has no per-pod
+      # static-MAC annotation, so we run on the host network: uuid.getnode()
+      # then resolves the NODE's stable, universally-administered NIC MAC. The
+      # PVC is openebs-hostpath RWO so the pod is already node-pinned to
+      # bee-jms-01, making that node MAC effectively permanent for this pod.
+      #
+      # STOPGAP (fix A): the clean fix (B) is a sitecustomize.py in the
+      # j0sh3rs/containers omega-mcp image that pins uuid.getnode() to a value
+      # derived from device_id, removing the host-network requirement. Tracked
+      # for a future -r5 image bump; revert hostNetwork once that ships.
+      hostNetwork: true
+      # hostNetwork pods don't get cluster DNS by default; this keeps in-cluster
+      # service resolution working alongside egress to admin.omegamax.co.
+      dnsPolicy: ClusterFirstWithHostNet
+      # Pin a stable hostname too (covers platform.node(), another fingerprint
+      # input). Belt and suspenders with hostNetwork.
       hostname: omega-mcp
       securityContext:
         # Matches the image (uid 1024, gid 100) and openebs-hostpath
