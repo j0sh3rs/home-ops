@@ -10,7 +10,7 @@ data:
     # llama-swap config for home-ops
     # Docs: https://github.com/mostlygeek/llama-swap
     #
-    # Navi 21 dGPU on bigboi-jms-01 (Radeon RX 6900 XT, 16 GiB GDDR6, 512 GB/s).
+    # Navi 48 dGPU on bigboi-jms-01 (Radeon RX 9070 XT, 16 GiB GDDR6, ~640 GB/s).
     # Chat models hot-swap through the 'chat' group (exclusive).
     # Router + embed + rerank stay resident in 'always-on' (~3 GiB total).
     healthCheckTimeout: 180

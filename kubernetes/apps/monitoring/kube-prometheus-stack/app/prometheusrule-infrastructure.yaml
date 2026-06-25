@@ -197,46 +197,46 @@ spec:
             summary: "Node {{ $labels.node }} has disk pressure"
             description: "Node {{ $labels.node }} is experiencing disk pressure for more than 5 minutes."
 
-    # Discrete GPU (AMD Navi 21 / RX 6900 XT on bigboi-jms-01).
+    # Discrete GPU (AMD Navi 48 / RX 9070 XT on bigboi-jms-01, RDNA4/gfx1201).
     # Metrics from amd-device-metrics-exporter (configmap MetricsFieldPrefix
     # "amd_"; field GPU_X -> metric amd_gpu_x). Label set matches the bundled
     # AMD dashboards (kube-system/amd-gpu/*.json): hostname / gpu_id / gpu_uuid
     # / card_model — NOT the kube "node" label, so descriptions key on
     # $labels.hostname. The dashboards gate amd_gpu_junction_temperature behind
-    # the Instinct card_model list; the 6900 XT is a consumer card and reports
+    # the Instinct card_model list; the 9070 XT is a consumer card and reports
     # amd_gpu_edge_temperature, so edge is the reliable critical path here and
     # junction is a best-effort bonus that no-ops if the field is unset.
-    # Thresholds tuned to load-verified 6900 XT data (2026-06-05):
-    #   Idle: 27-29C / 61W. Sustained inference (1.5B, 20-parallel): 53C / 161W.
-    #   Navi 21 edge throttle ~100C, junction hotspot limit 110C.
-    #   Warn=75C (22C above observed peak), Crit=90C (pre-throttle).
+    # Thresholds CONSERVATIVE until load-bench run on 9070 XT (prior data was
+    # 6900 XT: idle 27-29C/61W, peak 53C/161W). Re-tune after first bench.
+    #   Navi 48 edge throttle ~110C, junction hotspot ~120C.
+    #   Warn=80C, Crit=100C (pre-throttle, to be tightened post-bench).
     - name: gpu
       interval: 30s
       rules:
         - alert: GPUEdgeTemperatureCritical
           expr: |
-            amd_gpu_edge_temperature > 90
+            amd_gpu_edge_temperature > 100
           for: 2m
           labels:
             severity: critical
             component: gpu
           annotations:
             summary: "GPU edge temperature critical on {{ $labels.hostname }}"
-            description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 90C for more than 2 minutes — approaching the ~100C throttle point. Check airflow and reduce GPU workload immediately. Observed sustained-load peak: 53C."
+            description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 100C for more than 2 minutes — approaching the ~110C throttle point. Check airflow and reduce GPU workload immediately. Threshold is conservative pending 9070 XT load bench."
 
         - alert: GPUEdgeTemperatureHigh
           expr: |
-            amd_gpu_edge_temperature > 75
+            amd_gpu_edge_temperature > 80
           for: 5m
           labels:
             severity: warning
             component: gpu
           annotations:
             summary: "GPU edge temperature high on {{ $labels.hostname }}"
-            description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 75C for more than 5 minutes. This is 22C above the observed sustained-load peak of 53C — abnormal for this card. Verify cooling before approaching the ~100C throttle point."
+            description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 80C for more than 5 minutes. Threshold is conservative pending 9070 XT load bench — re-tune once idle/peak baseline is established."
 
         # No GPUJunctionTemperatureCritical: amd_gpu_junction_temperature is
-        # gated to Instinct card_models in the exporter, and the 6900 XT
+        # gated to Instinct card_models in the exporter, and the 9070 XT
         # reports card_model="" — the metric never populates on this card, so
         # an alert on it would be permanently dead. Edge temperature above is
         # the authoritative thermal signal for this consumer GPU.
@@ -249,7 +249,7 @@ spec:
             component: gpu
           annotations:
             summary: "GPU package power high on {{ $labels.hostname }}"
-            description: "AMD GPU average package power draw on {{ $labels.hostname }} has exceeded 320W for more than 5 minutes (300W total board power rating). Sustained over-budget draw — check for runaway inference load. NOTE: the consumer 6900 XT exposes amd_gpu_average_package_power (idle ~60W), not amd_gpu_package_power, which is empty on this card."
+            description: "AMD GPU average package power draw on {{ $labels.hostname }} has exceeded 320W for more than 5 minutes (304W TDP). Sustained over-budget draw — check for runaway inference load. NOTE: verify metric name post-install; 6900 XT exposed amd_gpu_average_package_power — confirm same on 9070 XT."
 
         - alert: GPUMetricsExporterDown
           expr: |

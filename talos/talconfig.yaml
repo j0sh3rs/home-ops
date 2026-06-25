@@ -101,7 +101,7 @@ nodes:
     nodeLabels:
       node.kubernetes.io/cpu-tier: zen3
       node.kubernetes.io/memory-tier: high
-      # Discrete AMD Navi 21 (RX 6900 XT, device-id 73bf). Disambiguates from
+      # Discrete AMD Navi 48 (RX 9070 XT, device-id 7550, RDNA4/gfx1201). Disambiguates from
       # APU nodes that also report amd.com/gpu.vram=16G. See dGPU playbook.
       node.kubernetes.io/gpu-tier: dgpu
       # Pins the openebs-hostpath-fast StorageClass (allowedTopologies) to this
@@ -148,6 +148,7 @@ patches:
   - "@./patches/global/machine-sysctls.yaml"
   - "@./patches/global/machine-time.yaml"
   - "@./patches/global/machine-features.yaml"
+  - "@./patches/global/machine-registries.yaml"
 
 # Controller patches
 controlPlane:

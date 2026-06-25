@@ -249,18 +249,18 @@ spec:
             subPath: config.yaml
             readOnly: true
     defaultPodOptions:
-      # Prefer bigboi-jms-01 dGPU (Navi 21, 80CU, 16G VRAM, weight 100).
+      # Prefer bigboi-jms-01 dGPU (Navi 48/9070 XT, 64CU, 16G VRAM, weight 100).
       # Falls back to bee-jms-03 APU (Cezanne 8CU, 16G UMA, weight 50).
       # `amd.com/gpu.vram In ["16G"]` is REQUIRED — bee-jms-01/02 have 3G UMA
       # which OOMs on Qwen3-14B / Coder-7B.
+      # Note: amd.com/gpu.family NOT required — Navi 48 (device-id 7550) is
+      # unrecognized by the labeller and emits no family label. vram sufficient.
       # ROCm is non-functional on Talos (HIP ABI mismatch); Vulkan on both.
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: amd.com/gpu.family
-                    operator: Exists
                   - key: amd.com/gpu.vram
                     operator: In
                     values: ["16G"]
