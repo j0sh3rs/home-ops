@@ -179,7 +179,8 @@ data:
 
       # ==================== ALWAYS-ON GROUP (no swap) ====================
 
-      # Fast router. Promoted to always-on at ~1.4 GiB — swap latency gone.
+      # Fast router — moved to chat swap group to reclaim 1.4 GiB VRAM for
+      # Qwen3.6-27B Q3_K_S (11.8 GiB). Accessible via fast/small/router aliases.
       # Caller system prompt should include /no_think to suppress CoT.
       "qwen3-1.7b":
         cmd: |
@@ -191,7 +192,7 @@ data:
           - "fast"
           - "small"
           - "router"
-        ttl: 0
+        ttl: 300
 
       # RAG embedding. Qwen3-Embedding-0.6B Q8_0: MTEB-Code 75.41 vs nomic
       # near-baseline; 32K ctx, 1024 dims with MRL truncation, instruction-aware.
@@ -232,6 +233,7 @@ data:
         swap: true
         exclusive: true
         members:
+          - "qwen3-1.7b"
           - "qwen3-4b"
           - "agentic-coder"
           - "reasoner"
@@ -240,13 +242,13 @@ data:
           - "qwen3-14b"
           - "qwen3.6-27b"
 
-      # Always-on: router + embed + rerank. ~3 GiB total resident.
+      # Always-on: embed + rerank only. ~1.3 GiB resident (was ~3 GiB with router).
+      # qwen3-1.7b moved to chat swap to free 1.4 GiB for Qwen3.6-27B.
       # persistent: true = preloaded at startup, not on first request.
       "always-on":
         swap: false
         exclusive: false
         persistent: true
         members:
-          - "qwen3-1.7b"
           - "qwen3-embed"
           - "qwen3-rerank"
