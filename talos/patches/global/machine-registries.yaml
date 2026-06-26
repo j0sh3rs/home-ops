@@ -1,0 +1,30 @@
+---
+# Pull-through registry cache redirect.
+#
+# Points containerd at the out-of-cluster registry cache running on the
+# Synology NAS (nas-jms-01, 192.168.35.5) under docker compose, fronted by
+# its Traefik (HTTPS, wildcard *.68cc.io). One registry:3 proxy container per
+# upstream, each on its own hostname; Traefik SNI-routes by Host. The cache
+# lives in a separate failure domain from this cluster, so it survives a full
+# Talos cold start — eliminating the in-cluster chicken-and-egg. Talos mirror
+# endpoints fall back to the original upstream on a failed/missing pull, so
+# even if the NAS is down, pulls degrade to direct upstream rather than fail.
+#
+# Hostnames resolve to 192.168.35.5 (manual UniFi A records). docker.io is the
+# only rate-limited upstream (DockerhubRateLimitRisk alert); ghcr.io / quay.io
+# / registry.k8s.io are mirrored for cold-start hardening.
+machine:
+  registries:
+    mirrors:
+      docker.io:
+        endpoints:
+          - "https://mirror-docker.68cc.io"
+      ghcr.io:
+        endpoints:
+          - "https://mirror-ghcr.68cc.io"
+      quay.io:
+        endpoints:
+          - "https://mirror-quay.68cc.io"
+      registry.k8s.io:
+        endpoints:
+          - "https://mirror-k8s.68cc.io"
