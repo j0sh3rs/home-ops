@@ -35,7 +35,7 @@ spec:
             image:
               repository: clickhouse/clickhouse-server
               # renovate: datasource=docker depName=clickhouse/clickhouse-server
-              tag: "26.5"
+              tag: "26.6"
               pullPolicy: IfNotPresent
             env:
               # First-boot provisioning of the non-default user + DB. The
