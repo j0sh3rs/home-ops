@@ -163,17 +163,20 @@ spec:
           app:
             image:
               repository: ghcr.io/mostlygeek/llama-swap
-              # Vulkan build ships /app/llama-server with Vulkan enabled.
+              # ROCm build — gfx1201 (RDNA4/9070 XT). ROCm was non-functional on
+              # gfx1030 (Talos HIP ABI mismatch, no DKMS). Re-testing on gfx1201
+              # with b9803. Fallback: v230-vulkan-b9803 if HIP init segfaults.
               # renovate: datasource=docker depName=ghcr.io/mostlygeek/llama-swap
-              tag: v179-vulkan-b7565
+              tag: v230-rocm-b9803
             args:
               - --config
               - /app/config.yaml
               - --listen
               - 0.0.0.0:8080
             env:
-              # Pin Vulkan to the one iGPU exposed by amd-gpu device plugin.
-              GGML_VK_VISIBLE_DEVICES: "0"
+              # Pin ROCm to device 0 exposed by amd-gpu device plugin.
+              # Swap back to GGML_VK_VISIBLE_DEVICES if falling back to Vulkan.
+              HIP_VISIBLE_DEVICES: "0"
               # Prevent accidental outbound HF fetches from llama-server;
               # GGUF files are pre-staged by the model-init Job.
               HF_HUB_OFFLINE: "1"
