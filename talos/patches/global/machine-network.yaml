@@ -2,5 +2,8 @@ machine:
   network:
     disableSearchDomain: true
     nameservers:
-      - 192.168.35.5
+      # UniFi (.1) first: it holds the mirror-*.68cc.io A records for the
+      # registry pull-through cache. Synology (.5) answers empty/NOERROR for
+      # those names, so when queried first it short-circuits resolution and
+      # containerd silently falls back to upstream. .5 stays as secondary.
       - 192.168.35.1
