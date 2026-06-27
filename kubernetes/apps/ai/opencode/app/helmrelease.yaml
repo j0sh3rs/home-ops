@@ -61,6 +61,7 @@ spec:
         initContainers:
           # Copy config.json from ConfigMap into the writable config dir.
           # OpenCode reads from /root/.config/opencode/config.json at startup.
+          # app-template v4+: volumeMounts go in persistence, not here.
           config-init:
             image:
               repository: busybox
@@ -68,13 +69,7 @@ spec:
             command:
               - sh
               - -c
-              - |
-                mkdir -p /config && cp /configmap/config.json /config/config.json
-            volumeMounts:
-              - name: config-source
-                mountPath: /configmap
-              - name: opencode-config
-                mountPath: /config
+              - cp /configmap/config.json /config/config.json
 
     service:
       app:
