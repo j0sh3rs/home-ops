@@ -38,10 +38,9 @@ spec:
               - "4096"
               - --cors
               - "https://opencode.68cc.io"
-            env:
-              # HTTP Basic Auth — access control via Authentik forwardAuth at
-              # gateway layer. OpenCode itself has no per-user identity.
-              OPENCODE_SERVER_USERNAME: opencode
+            # No OPENCODE_SERVER_PASSWORD — Authentik forwardAuth at the
+            # gateway is the only auth layer. Basic Auth would cause a
+            # double-login. No envFrom needed unless adding other secrets.
             envFrom:
               - secretRef:
                   name: opencode-secrets
@@ -81,11 +80,12 @@ spec:
     route:
       app:
         annotations:
-          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+          # external-dns: Cloudflare CNAME → tunnel for remote access
+          external-dns.alpha.kubernetes.io/target: 3ecf7dee-f421-46df-bcc1-1ea7ff24155c.cfargotunnel.com
         hostnames:
           - opencode.68cc.io
         parentRefs:
-          - name: traefik-internal-gateway
+          - name: traefik-external-gateway
             namespace: network
         rules:
           - filters:
