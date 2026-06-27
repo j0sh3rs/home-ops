@@ -39,8 +39,13 @@ spec:
               - --cors
               - "https://opencode.68cc.io"
             # No OPENCODE_SERVER_PASSWORD — Authentik forwardAuth at the
-            # gateway is the only auth layer. Basic Auth would cause a
-            # double-login. No envFrom needed unless adding other secrets.
+            # gateway is the only auth layer.
+            env:
+              # Git identity for commits made via the web UI
+              GIT_AUTHOR_NAME: "OpenCode"
+              GIT_AUTHOR_EMAIL: "opencode@68cc.io"
+              GIT_COMMITTER_NAME: "OpenCode"
+              GIT_COMMITTER_EMAIL: "opencode@68cc.io"
             envFrom:
               - secretRef:
                   name: opencode-secrets

@@ -1,0 +1,42 @@
+---
+# Test Task — validates LiteLLM routing + workspace clone.
+# Apply manually: kubectl apply -f this-file -n kelos-system
+# Watch: kubectl logs -n kelos-system -l kelos.dev/task=test-litellm -f
+# Delete after: kubectl delete task test-litellm -n kelos-system
+#
+# credentials.type: none — inject OPENAI_API_KEY + OPENAI_BASE_URL
+# via podOverrides because the Kelos entrypoint never sets OPENAI_BASE_URL.
+apiVersion: kelos.dev/v1alpha2
+kind: Task
+metadata:
+  name: test-litellm
+  namespace: kelos-system
+spec:
+  type: opencode
+  model: openai/local-fast
+  credentials:
+    type: none
+  workspaceRef:
+    name: home-ops
+  agentConfigRefs:
+    - name: opencode-local
+  ttlSecondsAfterFinished: 3600
+  prompt: |
+    List the top-level directories in the repository and print the first 5 lines
+    of CLAUDE.md. Do not make any changes. Output only the directory list and
+    those 5 lines, then exit.
+  podOverrides:
+    env:
+      - name: OPENAI_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: kelos-litellm-secret
+            key: LITELLM_VIRTUAL_KEY
+      - name: OPENAI_BASE_URL
+        value: "http://litellm.ai.svc.cluster.local:4000/v1"
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        memory: 2Gi

@@ -1,0 +1,19 @@
+---
+# Workspace: clones j0sh3rs/home-ops for Kelos Task pods.
+# GITHUB_TOKEN must be set in kelos-github-secret (repo scope PAT).
+apiVersion: kelos.dev/v1alpha2
+kind: Workspace
+metadata:
+  name: home-ops
+  namespace: kelos-system
+spec:
+  repo: https://github.com/j0sh3rs/home-ops.git
+  ref: main
+  secretRef:
+    name: kelos-github-secret
+  setupCommand:
+    - sh
+    - -c
+    - |
+      git config user.name "Kelos Agent"
+      git config user.email "kelos@68cc.io"

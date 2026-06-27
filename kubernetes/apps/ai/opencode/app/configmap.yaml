@@ -1,7 +1,9 @@
 ---
-# OpenCode config injected as a file mount at /root/.config/opencode/config.json
-# The {env:VAR} substitution is applied by OpenCode at startup — env vars come
-# from the secret (LITELLM_API_KEY, OPENCODE_SERVER_PASSWORD).
+# OpenCode config — mounted at /root/.config/opencode/config.json
+# Provider "litellm" is a custom openai-compatible entry pointing at the
+# in-cluster LiteLLM gateway. Model format is "litellm/<alias>" where the
+# alias must match a model_name in LiteLLM's model_list configmap.
+# {env:VAR} substitution applied by OpenCode at startup.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,12 +16,13 @@ data:
         "litellm": {
           "npm": "@ai-sdk/openai-compatible",
           "options": {
-            "baseURL": "http://litellm:4000/v1",
+            "baseURL": "http://litellm.ai.svc.cluster.local:4000/v1",
             "apiKey": "{env:LITELLM_API_KEY}"
           }
         }
       },
-      "model": "litellm/local-balanced",
+      "model": "litellm/local-coder",
+      "small_model": "litellm/local-fast",
       "autoshare": false,
       "autoupdate": false
     }
