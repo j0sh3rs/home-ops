@@ -10,15 +10,15 @@ spec:
     kind: OCIRepository
     name: kelos
   install:
-    crds: Create
     remediation:
       retries: 3
   upgrade:
-    crds: CreateReplace
     cleanupOnFail: true
     remediation:
       retries: 3
   values:
+    crds:
+      install: true
     controller:
       resources:
         requests:
