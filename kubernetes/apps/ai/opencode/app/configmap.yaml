@@ -10,7 +10,7 @@ data:
   config.json: |
     {
       "$schema": "https://opencode.ai/config.json",
-      "providers": {
+      "provider": {
         "litellm": {
           "npm": "@ai-sdk/openai-compatible",
           "options": {
