@@ -1,0 +1,125 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app opencode
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    global:
+      annotations:
+        reloader.stakater.com/auto: "true"
+    controllers:
+      opencode:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/anomalyco/opencode
+              # renovate: datasource=github-releases depName=sst/opencode
+              tag: v1.17.11
+            args:
+              - web
+              - --hostname
+              - "0.0.0.0"
+              - --port
+              - "4096"
+              - --cors
+              - "https://opencode.68cc.io"
+            env:
+              # HTTP Basic Auth — access control via Authentik forwardAuth at
+              # gateway layer. OpenCode itself has no per-user identity.
+              OPENCODE_SERVER_USERNAME: opencode
+            envFrom:
+              - secretRef:
+                  name: opencode-secrets
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+            probes:
+              liveness:
+                enabled: false
+              readiness:
+                enabled: false
+              startup:
+                enabled: false
+        initContainers:
+          # Copy config.json from ConfigMap into the writable config dir.
+          # OpenCode reads from /root/.config/opencode/config.json at startup.
+          config-init:
+            image:
+              repository: busybox
+              tag: 1.37.0
+            command:
+              - sh
+              - -c
+              - |
+                mkdir -p /config && cp /configmap/config.json /config/config.json
+            volumeMounts:
+              - name: config-source
+                mountPath: /configmap
+              - name: opencode-config
+                mountPath: /config
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: &port 4096
+
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        hostnames:
+          - opencode.68cc.io
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
+              - name: *app
+                port: *port
+
+    persistence:
+      # Writable config dir — init container populates config.json here
+      opencode-config:
+        type: emptyDir
+        globalMounts:
+          - path: /root/.config/opencode
+      # ConfigMap source (read-only)
+      config-source:
+        type: configMap
+        name: opencode-config
+        globalMounts:
+          - path: /configmap
+      # Workspace PVC — OpenCode writes session data and tool outputs here
+      workspace:
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        storageClass: openebs-hostpath
+        globalMounts:
+          - path: /workspace

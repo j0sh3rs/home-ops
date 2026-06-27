@@ -36,3 +36,4 @@ resources:
   - ./omega-mcp/ks.yaml
   - ./goose/ks.yaml
   - ./goose/indexer/ks.yaml
+  - ./opencode/ks.yaml

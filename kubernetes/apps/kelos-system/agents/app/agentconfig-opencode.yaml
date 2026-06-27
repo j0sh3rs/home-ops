@@ -1,0 +1,56 @@
+---
+# AgentConfig: OpenCode wired to LiteLLM local model routing.
+# Kelos Jobs reference this config to get provider creds + MCP servers.
+# OPENAI_API_KEY carries the LiteLLM virtual key; OPENAI_BASE_URL routes
+# all requests through the cluster gateway regardless of model prefix in
+# KELOS_MODEL.
+apiVersion: kelos.dev/v1alpha2
+kind: AgentConfig
+metadata:
+  name: opencode-local
+  namespace: kelos-system
+spec:
+  agentType: opencode
+  # Model alias must match a key registered in LiteLLM model_list.
+  # Use openai/<alias> so Kelos entrypoint sets OPENAI_* env vars.
+  model: openai/local-balanced
+
+  # Inject LiteLLM API key + base URL from SOPS-encrypted secret.
+  # OPENAI_BASE_URL overrides the hardcoded upstream URL in the entrypoint.
+  env:
+    - name: OPENAI_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: kelos-litellm-secret
+          key: LITELLM_VIRTUAL_KEY
+    - name: OPENAI_BASE_URL
+      value: "http://litellm.ai.svc.cluster.local:4000/v1"
+
+  # Custom instructions written to ~/.config/opencode/AGENTS.md at pod start.
+  agentsMD: |
+    # Home-ops Kelos Agent
+
+    You are an AI coding assistant running inside the home-ops Kubernetes cluster.
+    You have access to the local git repository mounted at /workspace/repo.
+
+    ## Guidelines
+    - Prefer minimal, targeted changes. Do not refactor beyond task scope.
+    - Always run `kustomize build` to validate before considering a change done.
+    - Use `task sops:verify` before any commit touching *.sops.yaml files.
+    - Never modify git user config or remote URLs.
+
+  # MCP servers available to all Tasks using this AgentConfig.
+  mcpServers:
+    - name: github
+      type: http
+      url: "http://mcpjungle.ai.svc.cluster.local:3000/github"
+    - name: context7
+      type: http
+      url: "http://mcpjungle.ai.svc.cluster.local:3000/context7"
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      memory: 2Gi

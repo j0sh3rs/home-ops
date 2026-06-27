@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+# Kelos — Kubernetes-native AI coding agent orchestration operator.
+# Runs the Kelos controller + CRDs (Task, Workspace, AgentConfig, TaskSpawner).
+# Requires cert-manager for CRD conversion webhook TLS.
+#
+# Components:
+#   - common — namespace + cluster-secrets + sops-age
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kelos-system
+components:
+  - ../../components/common
+resources:
+  - ./kelos/ks.yaml
+  - ./agents/ks.yaml

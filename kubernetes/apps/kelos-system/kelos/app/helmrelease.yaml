@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app kelos
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: kelos
+  install:
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controller:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+
+    # Webhook spawner sources — disabled until credentials are provisioned.
+    # Enable github source once GitHub App is created for this cluster.
+    webhookServer:
+      sources:
+        github:
+          enabled: false
+        linear:
+          enabled: false
+        generic:
+          enabled: false
+
+    # Agent images — pin to match Kelos release.
+    # kelos-dev/opencode bundles OpenCode with the Kelos entrypoint wrapper.
+    # renovate: datasource=github-releases depName=kelos-dev/kelos
+    agentImages:
+      opencodeImage: ghcr.io/kelos-dev/opencode:v0.42.0

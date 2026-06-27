@@ -1,0 +1,25 @@
+---
+# OpenCode config injected as a file mount at /root/.config/opencode/config.json
+# The {env:VAR} substitution is applied by OpenCode at startup — env vars come
+# from the secret (LITELLM_API_KEY, OPENCODE_SERVER_PASSWORD).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-config
+data:
+  config.json: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "providers": {
+        "litellm": {
+          "npm": "@ai-sdk/openai-compatible",
+          "options": {
+            "baseURL": "http://litellm:4000/v1",
+            "apiKey": "{env:LITELLM_API_KEY}"
+          }
+        }
+      },
+      "model": "litellm/local-balanced",
+      "autoshare": false,
+      "autoupdate": false
+    }
