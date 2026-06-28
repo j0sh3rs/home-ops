@@ -1,15 +1,16 @@
-  apiVersion: gateway.networking.k8s.io/v1
-  kind: HTTPRoute
-  metadata:
-    name: kelos-github-webhook
-    namespace: kelos-system
-  spec:
-    parentRefs:
-      - name: traefik-external-gateway
-        namespace: network
-    hostnames:
-      - kelos.68cc.io
-    rules:
-      - backendRefs:
-          - name: kelos-github-webhook
-            port: 8443   # verify actual port from chart
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kelos-github-webhook
+  namespace: kelos-system
+spec:
+  parentRefs:
+    - name: traefik-external-gateway
+      namespace: network
+  hostnames:
+    - kelos.68cc.io
+  rules:
+    - backendRefs:
+        - name: kelos-webhook-github
+          port: 8443
