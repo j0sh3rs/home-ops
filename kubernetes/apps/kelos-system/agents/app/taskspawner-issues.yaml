@@ -31,12 +31,12 @@ spec:
       - name: opencode-local
     ttlSecondsAfterFinished: 86400
     promptTemplate: |
-      You are working on GitHub Issue #{{ .Issue.Number }}: {{ .Issue.Title }}
+      You are working on GitHub Issue #{{.Number}}: {{.Title}}
 
       Issue body:
-      {{ .Issue.Body }}
+      {{.Body}}
 
-      Labels: {{ range .Issue.Labels }}{{ .Name }} {{ end }}
+      Labels: {{.Labels}}
 
       Repository is cloned at /workspace/repo. Work on the issue, make changes,
       commit them with a descriptive message referencing the issue number, and push
