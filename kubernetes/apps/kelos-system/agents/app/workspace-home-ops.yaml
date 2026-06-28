@@ -18,22 +18,11 @@ spec:
       git config user.name "Kelos Agent"
       git config user.email "kelos@68cc.io"
       mkdir -p ~/.config/opencode
-      cat > ~/.config/opencode/config.json <<'EOCFG'
-      {
-        "$schema": "https://opencode.ai/config.json",
-        "provider": {
-          "litellm": {
-            "npm": "@ai-sdk/openai-compatible",
-            "options": {
-              "baseURL": "http://litellm.ai.svc.cluster.local:4000/v1",
-              "apiKey": "REPLACED_BY_ENV"
-            }
-          }
-        },
-        "model": "litellm/local-coder",
-        "small_model": "litellm/local-fast",
-        "autoshare": false,
-        "autoupdate": false
-      }
-      EOCFG
-      sed -i "s/REPLACED_BY_ENV/${OPENAI_API_KEY}/" ~/.config/opencode/config.json
+      printf '%s\n' '{' \
+        '"$schema":"https://opencode.ai/config.json",' \
+        '"provider":{"litellm":{"npm":"@ai-sdk/openai-compatible","options":{"baseURL":"http://litellm.ai.svc.cluster.local:4000/v1","apiKey":"'"${OPENAI_API_KEY}"'"}}},' \
+        '"model":"litellm/local-coder",' \
+        '"small_model":"litellm/local-fast",' \
+        '"autoshare":false,"autoupdate":false' \
+        '}' > ~/.config/opencode/config.json
+      echo "config.json written:" && cat ~/.config/opencode/config.json
