@@ -73,7 +73,12 @@ spec:
       - Run `task sops:verify` before any commit touching *.sops.yaml
       - Never modify git user config or remote URLs
       - Commit with fix/feat/chore prefix, reference issue number in body
-      - After pushing, close the issue: gh issue close {{.Number}} -R j0sh3rs/home-ops
+      - Only if work is complete and verified (kustomize build passes, sops:verify
+        passes, no errors): gh issue close {{.Number}} -R j0sh3rs/home-ops --comment
+        "Completed. Changes pushed to branch."
+      - If incomplete or uncertain, leave open and comment:
+        gh issue comment {{.Number}} -R j0sh3rs/home-ops --body
+        "Partial: <summary of what was done and what remains>"
     podOverrides:
       env:
         - name: OPENAI_API_KEY
