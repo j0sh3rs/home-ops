@@ -33,7 +33,7 @@ spec:
       sources:
         github:
           enabled: true
-          secretName: kelos-github-secre
+          secretName: kelos-github-secret
         linear:
           enabled: false
         generic:
