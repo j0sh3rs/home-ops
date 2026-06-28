@@ -42,7 +42,8 @@ spec:
 
   taskTemplate:
     type: opencode
-    model: litellm/local-coder
+    # local-reason-agent: GPT-OSS-20B MXFP4, 32k ctx — safer for large repo context
+    model: litellm/local-reason-agent
     credentials:
       type: none
     workspaceRef:
@@ -72,7 +73,7 @@ spec:
       - Run `task sops:verify` before any commit touching *.sops.yaml
       - Never modify git user config or remote URLs
       - Commit with fix/feat/chore prefix, reference issue number in body
-      - Push changes — do not close the issue
+      - After pushing, close the issue: gh issue close {{.Number}} -R j0sh3rs/home-ops
     podOverrides:
       env:
         - name: OPENAI_API_KEY
