@@ -13,11 +13,9 @@ metadata:
   namespace: kelos-system
 spec:
   type: opencode
-  # litellm/ prefix: entrypoint falls to default (sets ANTHROPIC_API_KEY which
-  # is unused); OPENAI_API_KEY + OPENAI_BASE_URL injected via podOverrides.env.
-  # OpenCode sees --model litellm/local-fast → resolves against litellm provider
-  # written to ~/.config/opencode/config.json by the workspace setupCommand.
-  model: litellm/local-fast
+  # local-fast (8k ctx) too small for opencode system prompt + AGENTS.md.
+  # local-balanced has 32k context — sufficient for task loop.
+  model: litellm/local-balanced
   credentials:
     type: none
   workspaceRef:

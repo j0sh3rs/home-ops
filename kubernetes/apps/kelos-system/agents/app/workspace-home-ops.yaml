@@ -18,11 +18,6 @@ spec:
       git config user.name "Kelos Agent"
       git config user.email "kelos@68cc.io"
       mkdir -p ~/.config/opencode
-      printf '%s\n' '{' \
-        '"$schema":"https://opencode.ai/config.json",' \
-        '"provider":{"litellm":{"npm":"@ai-sdk/openai-compatible","options":{"baseURL":"http://litellm.ai.svc.cluster.local:4000/v1","apiKey":"'"${OPENAI_API_KEY}"'"}}},' \
-        '"model":"litellm/local-coder",' \
-        '"small_model":"litellm/local-fast",' \
-        '"autoshare":false,"autoupdate":false' \
-        '}' > ~/.config/opencode/config.json
-      echo "config.json written:" && cat ~/.config/opencode/config.json
+      CONFIG='{"$schema":"https://opencode.ai/config.json","provider":{"litellm":{"npm":"@ai-sdk/openai-compatible","options":{"baseURL":"http://litellm.ai.svc.cluster.local:4000/v1","apiKey":"LITELLM_KEY"}}},"model":"litellm/local-coder","small_model":"litellm/local-fast","autoshare":false,"autoupdate":false,"models":{"local-fast":{"id":"local-fast"},"local-coder":{"id":"local-coder"},"local-balanced":{"id":"local-balanced"},"local-large":{"id":"local-large"},"local-reason":{"id":"local-reason"}}}'
+      echo "$CONFIG" | sed "s/LITELLM_KEY/${OPENAI_API_KEY}/" > ~/.config/opencode/config.json
+      echo written
