@@ -5,7 +5,7 @@ kind: Kustomization
 resources:
   - ./amd-device-metrics-exporter.yaml
   - ./amd-gpu.yaml
-  - ./cilium.yaml
+  
   - ./cloudnative-pg.yaml
   - ./cloudflare.yaml
   - ./descheduler.yaml
