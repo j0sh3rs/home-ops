@@ -1,0 +1,90 @@
+---
+# TaskSpawner: real-time webhook trigger from GitHub.
+# Fires on /kelos comments (re-trigger mid-task) and issue labeled events.
+# Complements home-ops-issues poller — webhook = instant, poller = initial.
+# GitHub App webhook URL: https://kelos.68cc.io/github
+# Events to subscribe in GitHub App: Issues, Issue comments, Pull requests
+apiVersion: kelos.dev/v1alpha2
+kind: TaskSpawner
+metadata:
+  name: home-ops-webhook
+  namespace: kelos-system
+spec:
+  maxConcurrency: 1
+
+  when:
+    githubWebhook:
+      events:
+        - "issues"
+        - "issue_comment"
+        - "pull_request"
+      excludeAuthors:
+        - "renovate[bot]"
+        - "dependabot[bot]"
+        - "kelos[bot]"
+      filters:
+        # Issue labeled with kelos — same as poller but instant
+        - event: "issues"
+          action: "labeled"
+          labels: ["kelos"]
+        # /kelos command in issue comment — re-trigger or new instructions
+        - event: "issue_comment"
+          action: "created"
+          bodyPattern: "/kelos"
+          commentOn: "Issue"
+        # PR labeled kelos — optional code review flow
+        - event: "pull_request"
+          action: "labeled"
+          labels: ["kelos"]
+          draft: false
+      reporting:
+        enabled: true
+
+  taskTemplate:
+    type: opencode
+    model: litellm/local-coder
+    credentials:
+      type: none
+    workspaceRef:
+      name: home-ops
+    agentConfigRefs:
+      - name: opencode-local
+    ttlSecondsAfterFinished: 86400
+    branch: "kelos-{{.Event}}-{{.ID}}"
+    promptTemplate: |
+      GitHub {{.Event}} event ({{.Action}}) on j0sh3rs/home-ops.
+
+      {{- if eq .Event "issue_comment"}}
+      Comment on Issue #{{.Number}}: {{.Title}}
+      By: @{{.Sender}}
+      Comment: {{.CommentBody}}
+      {{- else}}
+      #{{.Number}}: {{.Title}}
+      By: @{{.Sender}}
+      Body: {{.Body}}
+      Labels: {{.Labels}}
+      {{- end}}
+
+      Repository cloned at /workspace/repo. Read CLAUDE.md first.
+
+      Guidelines:
+      - Minimal targeted changes — do not refactor beyond task scope
+      - Run `task sops:verify` before any commit touching *.sops.yaml
+      - Never modify git user config or remote URLs
+      - Commit with fix/feat/chore prefix, reference issue number in body
+      - Push changes — do not close the issue
+    podOverrides:
+      env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kelos-litellm-secret
+              key: LITELLM_VIRTUAL_KEY
+        - name: OPENAI_BASE_URL
+          value: "http://litellm.ai.svc.cluster.local:4000/v1"
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          memory: 4Gi

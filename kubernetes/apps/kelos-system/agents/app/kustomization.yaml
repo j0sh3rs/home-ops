@@ -6,5 +6,6 @@ resources:
   - ./agentconfig-opencode.yaml
   - ./workspace-home-ops.yaml
   - ./taskspawner-issues.yaml
+  - ./taskspawner-webhook.yaml
   - ./secret.sops.yaml
   # task-test.yaml intentionally excluded — apply manually for testing only

@@ -9,7 +9,7 @@ metadata:
   namespace: kelos-system
 spec:
   maxConcurrency: 1
-  maxTotalTasks: 100
+  # No lifetime cap — tasks clean up after 24h via ttlSecondsAfterFinished
 
   when:
     githubIssues:
