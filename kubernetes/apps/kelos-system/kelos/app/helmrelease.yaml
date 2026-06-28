@@ -32,7 +32,8 @@ spec:
     webhookServer:
       sources:
         github:
-          enabled: false
+          enabled: true
+          secretName: kelos-github-secre
         linear:
           enabled: false
         generic:
