@@ -8,7 +8,7 @@ metadata:
   name: home-ops-issues
   namespace: kelos-system
 spec:
-  maxConcurrency: 1
+  maxConcurrency: 2
   # No lifetime cap — tasks clean up after 24h via ttlSecondsAfterFinished
 
   when:

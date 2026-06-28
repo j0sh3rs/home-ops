@@ -10,7 +10,7 @@ metadata:
   name: home-ops-webhook
   namespace: kelos-system
 spec:
-  maxConcurrency: 1
+  maxConcurrency: 2
 
   when:
     githubWebhook:
