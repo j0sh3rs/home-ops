@@ -1,0 +1,64 @@
+---
+# TaskSpawner: watches j0sh3rs/home-ops GitHub Issues labeled "kelos"
+# and spawns an OpenCode Task for each one.
+# Requires: kelos-github-secret (GitHub App creds), kelos-litellm-secret
+apiVersion: kelos.dev/v1alpha2
+kind: TaskSpawner
+metadata:
+  name: home-ops-issues
+  namespace: kelos-system
+spec:
+  maxConcurrency: 1
+  maxTotalTasks: 100
+
+  when:
+    githubIssues:
+      labels: ["kelos"]
+      types: ["issues"]
+      state: open
+      pollInterval: "5m"
+      reporting:
+        enabled: true
+
+  taskTemplate:
+    type: opencode
+    model: litellm/local-coder
+    credentials:
+      type: none
+    workspaceRef:
+      name: home-ops
+    agentConfigRefs:
+      - name: opencode-local
+    ttlSecondsAfterFinished: 86400
+    promptTemplate: |
+      You are working on GitHub Issue #{{ .Issue.Number }}: {{ .Issue.Title }}
+
+      Issue body:
+      {{ .Issue.Body }}
+
+      Labels: {{ range .Issue.Labels }}{{ .Name }} {{ end }}
+
+      Repository is cloned at /workspace/repo. Work on the issue, make changes,
+      commit them with a descriptive message referencing the issue number, and push
+      to the branch. Do not close the issue — the PR will handle that.
+
+      Guidelines:
+      - Read CLAUDE.md first for conventions
+      - Run `task sops:verify` before any commit touching *.sops.yaml
+      - Never modify git user config or remote URLs
+      - Prefix commit: fix/feat/chore as appropriate, reference issue in body
+    podOverrides:
+      env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kelos-litellm-secret
+              key: LITELLM_VIRTUAL_KEY
+        - name: OPENAI_BASE_URL
+          value: "http://litellm.ai.svc.cluster.local:4000/v1"
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          memory: 4Gi
