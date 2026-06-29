@@ -64,13 +64,26 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
 
-      # Agentic coder flagship (Qwen3-Coder-30B-A3B Q3_K_M MoE, 16k ctx)
+      # Agentic coder flagship (Qwen3-Coder-30B-A3B Q3_K_S MoE, 16k ctx).
+      # Default for OpenCode/Kelos: fast MoE decode, reliable tool-calls.
       - model_name: local-coder
         litellm_params:
           model: openai/agentic-coder
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
           max_input_tokens: 16384
+
+      # Heavy coder escalation (Qwen3.6-27B GatedDeltaNet, 8k ctx, RDNA4-only).
+      # Higher coding quality (SWE-bench Verified 77.2) but dense 27B = slower
+      # decode (~20-30 tok/s vs MoE ~150). Use for hard one-shot/visual tasks,
+      # NOT the default agent loop. llama.cpp #22384 checkpoint fix confirmed in
+      # image b9803 — smoke-test multi-turn before relying on it.
+      - model_name: local-coder-heavy
+        litellm_params:
+          model: openai/qwen3.6-27b
+          api_base: http://llama-swap:8080/v1
+          api_key: sk-local-llama-swap
+          max_input_tokens: 8192
 
       # Deep reasoning (Qwen3-30B-A3B-Thinking-2507 Q3_K_M, 16k ctx)
       - model_name: local-reason
