@@ -63,14 +63,14 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
 
-      # Agentic coder flagship (Qwen3-Coder-30B-A3B Q3_K_S, ~120 tok/s MoE)
+      # Agentic coder flagship (Qwen3-Coder-30B-A3B Q3_K_M MoE, 16k ctx)
       - model_name: local-coder
         litellm_params:
           model: openai/agentic-coder
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
 
-      # Deep reasoning (Qwen3-30B-A3B-Thinking-2507 Q3_K_S, AIME25 85.0)
+      # Deep reasoning (Qwen3-30B-A3B-Thinking-2507 Q3_K_M, 16k ctx)
       - model_name: local-reason
         litellm_params:
           model: openai/reasoner
@@ -84,7 +84,7 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
 
-      # Dense safety floor (Qwen3-14B Q4 — fallback if MoE Vulkan unstable)
+      # Dense safety floor (Qwen3-14B Q5_K_M — fallback if MoE Vulkan unstable)
       - model_name: local-large
         litellm_params:
           model: openai/qwen3-14b
