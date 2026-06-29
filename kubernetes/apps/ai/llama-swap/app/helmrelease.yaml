@@ -121,12 +121,13 @@ spec:
                   "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf?download=true" \
                   "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf" \
                   14500000000
-                # Qwen3-30B-A3B-Thinking-2507 Q3_K_M (~14.8 GiB) — deep reasoner
+                # Qwen3-30B-A3B-Thinking-2507 Q3_K_M (~13.1 GiB) — deep reasoner
                 # Upgraded Q3_K_S → Q3_K_M per whichllm. Keep ctx ≤16384.
+                # bartowski file actual size 13.11 GiB; threshold corrected.
                 fetch \
                   "https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-Thinking-2507-GGUF/resolve/main/Qwen_Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf?download=true" \
                   "Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf" \
-                  14500000000
+                  13000000000
                 # GPT-OSS-20B MXFP4 (~11.27 GiB) — agentic reasoning + tool-calling
                 # flash-attn MUST be off; no KV quant (-ctk/-ctv segfaults)
                 fetch \
