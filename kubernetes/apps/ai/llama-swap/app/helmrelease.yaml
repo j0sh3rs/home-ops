@@ -105,7 +105,7 @@ spec:
                 # Qwen3-8B Q6_K (~6.6 GiB) — default chat (replaces Qwen3-4B)
                 # whichllm rank #11 (score 67.2); 7.9 GiB VRAM on 16 GiB GPU.
                 fetch \
-                  "https://huggingface.co/bartowski/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q6_K.gguf?download=true" \
+                  "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q6_K.gguf?download=true" \
                   "Qwen3-8B-Q6_K.gguf" \
                   6500000000
                 # Qwen2.5-Coder-3B BASE Q5_K_M (~2.2 GiB) — FIM autocomplete
