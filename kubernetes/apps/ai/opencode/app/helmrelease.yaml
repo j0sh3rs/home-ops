@@ -80,7 +80,7 @@ spec:
           repo-init:
             image:
               repository: alpine/git
-              tag: v2.47.2
+              tag: v2.54.0
             command:
               - sh
               - -c
