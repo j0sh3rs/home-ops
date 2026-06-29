@@ -76,6 +76,7 @@ data:
           model: openai/reasoner
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
+          max_input_tokens: 16384
 
       # Agentic reasoning + tool-calling (GPT-OSS-20B MXFP4, best n8n/MCP)
       - model_name: local-reason-agent
@@ -167,6 +168,8 @@ data:
       # fallbacks:
       #   - cloud-sonnet: ["cloud-haiku"]
       #   - cloud-haiku: ["local-balanced"]
+      context_window_fallbacks:
+        - local-reason: ["local-large"]
 
     # ------------------------------------------------------------------
     # MCP gateway. LiteLLM proxies all registered MCP servers at /mcp
