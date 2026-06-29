@@ -8,8 +8,12 @@ metadata:
   name: home-ops-issues
   namespace: kelos-system
 spec:
-  maxConcurrency: 2
-  # No lifetime cap — tasks clean up after 24h via ttlSecondsAfterFinished
+  # One GPU; llama-swap chat group is exclusive (one model resident). Cap at 1
+  # here. With the webhook spawner (also 1) that's <=2 total agents, both
+  # pinned to local-coder so they share one resident GGUF (no swap thrash).
+  maxConcurrency: 1
+  # No maxTotalTasks: it is a permanent lifetime cap that bricks an always-on
+  # poller once hit. Runtime is bounded per-task via activeDeadlineSeconds.
 
   when:
     githubIssues:
@@ -22,8 +26,9 @@ spec:
 
   taskTemplate:
     type: opencode
-    # local-reason: Qwen3-30B-A3B-Thinking Q3_K_M — strong reasoning
-    model: litellm/local-reason
+    # local-coder: Qwen3-Coder-30B-A3B Q3_K_M — purpose-built agentic coder.
+    # Shared with the webhook spawner so both reuse one resident GGUF.
+    model: litellm/local-coder
     credentials:
       type: none
     workspaceRef:
@@ -31,6 +36,9 @@ spec:
     agentConfigRefs:
       - name: opencode-local
     ttlSecondsAfterFinished: 86400
+    # Deterministic per-issue branch so concurrent issue tasks never collide
+    # on a shared default branch.
+    branch: "kelos-issue-{{.Number}}"
     promptTemplate: |
       You are working on GitHub Issue #{{.Number}}: {{.Title}}
 
@@ -39,22 +47,35 @@ spec:
 
       Labels: {{.Labels}}
 
-      Repository is cloned at /workspace/repo. Work on the issue, make changes,
-      commit them with a descriptive message referencing the issue number, and push
-      to the branch. Do not close the issue — the PR will handle that.
+      Repository is cloned at /workspace/repo on branch kelos-issue-{{.Number}}.
 
-      Guidelines:
-      - Read CLAUDE.md first for conventions
-      - Run `task sops:verify` before any commit touching *.sops.yaml
-      - Never modify git user config or remote URLs
-      - Prefix commit: fix/feat/chore as appropriate, reference issue in body
-      - Only if the work is complete and verified (kustomize build passes, sops:verify
-        passes, no errors): gh issue close {{.Number}} -R j0sh3rs/home-ops --comment
-        "Completed. Changes pushed to branch."
-      - If incomplete or uncertain, leave the issue open and add a comment explaining
-        what was done and what remains: gh issue comment {{.Number}} -R j0sh3rs/home-ops
+      Workflow:
+      1. Read CLAUDE.md first for conventions.
+      2. Make minimal, targeted changes to address the issue.
+      3. Validate: `kustomize build` on touched paths must pass; run
+         `task sops:verify` before any commit touching *.sops.yaml.
+      4. Commit with a fix/feat/chore prefix; reference the issue in the body.
+      5. Push the branch.
+      6. Open a pull request — do NOT close the issue directly. The merged PR
+         closes it. The PR body MUST contain the literal text "Closes
+         #{{.Number}}" (on its own line) so the merge auto-closes the issue.
+         Write the body with real newlines (use a heredoc or a --body-file,
+         NOT a literal "\n" in a quoted string). Example:
+         gh pr create -R j0sh3rs/home-ops --base main \
+           --head kelos-issue-{{.Number}} \
+           --title "<type>: <summary> (#{{.Number}})" \
+           --body "$(printf 'Closes #{{.Number}}\n\n<what changed and how verified>')"
+
+      Rules:
+      - Never modify git user config or remote URLs.
+      - Never run `gh issue close` — merging the PR closes the issue.
+      - If the work is incomplete or you are uncertain, do NOT open a PR.
+        Leave the issue open and comment what was done and what remains:
+        gh issue comment {{.Number}} -R j0sh3rs/home-ops
         --body "Partial: <summary of what was done and what remains>"
     podOverrides:
+      # Hard runtime ceiling so a wedged agent cannot pin the GPU forever.
+      activeDeadlineSeconds: 3600
       env:
         - name: OPENAI_API_KEY
           valueFrom:

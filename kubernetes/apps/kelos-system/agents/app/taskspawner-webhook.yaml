@@ -10,7 +10,9 @@ metadata:
   name: home-ops-webhook
   namespace: kelos-system
 spec:
-  maxConcurrency: 2
+  # One GPU; cap at 1. With the issues poller (also 1) that's <=2 total agents,
+  # both on local-coder so they share one resident GGUF (no swap thrash).
+  maxConcurrency: 1
 
   when:
     githubWebhook:
@@ -42,8 +44,9 @@ spec:
 
   taskTemplate:
     type: opencode
-    # local-reason: Qwen3-30B-A3B-Thinking Q3_K_M — stronger reasoning
-    model: litellm/local-reason
+    # local-coder: Qwen3-Coder-30B-A3B Q3_K_M — shared with the issues spawner
+    # so both reuse one resident GGUF (no model swap thrash on the single GPU).
+    model: litellm/local-coder
     credentials:
       type: none
     workspaceRef:
@@ -65,20 +68,34 @@ spec:
       Body: {{.Body}}
       {{- end}}
 
-      Repository cloned at /workspace/repo. Read CLAUDE.md first.
+      Repository cloned at /workspace/repo on branch kelos-{{.Event}}-{{.ID}}.
+      Read CLAUDE.md first.
 
-      Guidelines:
-      - Minimal targeted changes — do not refactor beyond task scope
-      - Run `task sops:verify` before any commit touching *.sops.yaml
-      - Never modify git user config or remote URLs
-      - Commit with fix/feat/chore prefix, reference issue number in body
-      - Only if work is complete and verified (kustomize build passes, sops:verify
-        passes, no errors): gh issue close {{.Number}} -R j0sh3rs/home-ops --comment
-        "Completed. Changes pushed to branch."
-      - If incomplete or uncertain, leave open and comment:
-        gh issue comment {{.Number}} -R j0sh3rs/home-ops --body
+      Workflow:
+      1. Minimal, targeted changes — do not refactor beyond task scope.
+      2. Validate: `kustomize build` on touched paths must pass; run
+         `task sops:verify` before any commit touching *.sops.yaml.
+      3. Commit with a fix/feat/chore prefix; reference the issue number.
+      4. Push the branch.
+      5. Open a pull request — do NOT close the issue directly. The merged PR
+         closes it. The PR body MUST contain the literal text "Closes
+         #{{.Number}}" (on its own line) so the merge auto-closes the issue.
+         Write the body with real newlines (use a heredoc or a --body-file,
+         NOT a literal "\n" in a quoted string). Example:
+         gh pr create -R j0sh3rs/home-ops --base main \
+           --head kelos-{{.Event}}-{{.ID}} \
+           --title "<type>: <summary> (#{{.Number}})" \
+           --body "$(printf 'Closes #{{.Number}}\n\n<what changed and how verified>')"
+
+      Rules:
+      - Never modify git user config or remote URLs.
+      - Never run `gh issue close` — merging the PR closes the issue.
+      - If incomplete or uncertain, do NOT open a PR. Leave the issue open and
+        comment: gh issue comment {{.Number}} -R j0sh3rs/home-ops --body
         "Partial: <summary of what was done and what remains>"
     podOverrides:
+      # Hard runtime ceiling so a wedged agent cannot pin the GPU forever.
+      activeDeadlineSeconds: 3600
       env:
         - name: OPENAI_API_KEY
           valueFrom:
