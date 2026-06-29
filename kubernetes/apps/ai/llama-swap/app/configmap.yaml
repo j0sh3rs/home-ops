@@ -58,12 +58,15 @@ data:
     models:
       # ==================== CHAT GROUP (exclusive swap) ====================
 
-      # Default chat / tool use / long context. Confirmed Vulkan on RDNA2.
-      # Qwen3-4B-Instruct-2507: MMLU-Pro 69.6, GPQA 62.0, IFEval 83.4.
-      "qwen3-4b":
+      # Default chat / tool use / long context. Qwen3-8B Q6_K replaces
+      # Qwen3-4B-Instruct-2507. whichllm rank #11 (score 67.2); 7.9 GiB
+      # VRAM vs 2.3 GiB — large quality step for ~5.6 GiB extra cost.
+      # q8_0 KV at 32768 ctx adds ~2 GiB; total ~10 GiB. Fine on 16 GiB.
+      # qwen3-4b alias retained for LiteLLM local-balanced compat.
+      "qwen3-8b":
         cmd: |
           ${llama-vulkan}
-          --model /models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf
+          --model /models/Qwen3-8B-Q6_K.gguf
           --ctx-size 32768
           --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
           --presence-penalty 1.0
@@ -71,17 +74,17 @@ data:
           - "default"
           - "chat"
           - "gpt-4o-mini"
+          - "qwen3-4b"
         ttl: 300
 
       # Agentic coder flagship. Pure-attention qwen3_moe — no GatedDeltaNet/SSM.
-      # Benchmarked on RX 6800 gfx1030 (same silicon): pp512 ~610 t/s, tg128
-      # ~120 t/s fully offloaded. Q3_K_S required: Q3_K_M (~14.7 GB) leaves no
-      # KV headroom; IQ3_K is ik_llama.cpp-only and will not load here.
-      # Safe ctx ceiling: 16–24K. Do not exceed 24K until on-node VRAM confirmed.
+      # Upgraded Q3_K_S → Q3_K_M per whichllm (coding rank #1, score 79.2).
+      # Q3_K_M: ~14.8 GiB; with always-on ~1.3 GiB resident, total ~16.1 GiB.
+      # Tight: run alone, do not raise ctx beyond 16384 on this slot.
       "agentic-coder":
         cmd: |
           ${llama-vulkan}
-          --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf
+          --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf
           --ctx-size 16384
           --temp 0.6 --top-p 0.95
         aliases:
@@ -92,10 +95,12 @@ data:
 
       # Deep reasoning. Qwen3-30B-A3B-Thinking-2507: AIME25 85.0, GPQA 73.4,
       # MMLU-Pro 80.9. MoE 3B-active decode ~107–120 tok/s on gfx1030.
+      # Upgraded Q3_K_S → Q3_K_M per whichllm (general rank #18, score 60.0).
+      # Same VRAM profile as agentic-coder slot (~14.8 GiB); keep ctx ≤16384.
       "reasoner":
         cmd: |
           ${llama-vulkan}
-          --model /models/Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf
+          --model /models/Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf
           --ctx-size 16384
           --temp 0.7 --top-p 0.8
         aliases:
@@ -136,10 +141,12 @@ data:
       # Dense safety floor. Retained as hot-swap fallback if MoE Vulkan
       # path is unstable on bigboi. Context bumped 8192->24576 — MoE models
       # no longer permanently occupy VRAM, freeing headroom for this slot.
+      # Upgraded Q4_K_M → Q5_K_M per whichllm (rank #5, score 75.1).
+      # Q5_K_M: ~11.7 GiB vs Q4_K_M ~8.4 GiB; still well within 16 GiB.
       "qwen3-14b":
         cmd: |
           ${llama-vulkan}
-          --model /models/Qwen3-14B-Q4_K_M.gguf
+          --model /models/Qwen3-14B-Q5_K_M.gguf
           --ctx-size 24576
           --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
           --presence-penalty 1.0
@@ -148,13 +155,15 @@ data:
           - "dense-floor"
         ttl: 120
 
-      # GatedDeltaNet frontier chat. Qwen3.6-27B Q3_K_S (~11.8 GiB).
+      # GatedDeltaNet frontier chat. Qwen3.6-27B Q3_K_M (~12.2 GiB).
       # REQUIRES RDNA4 (gfx1201, KHR_coopmat) — GDN Vulkan kernel dead on gfx1030.
-      # Dense 27B; slower tg than MoE but higher quality (whichllm 87.3 vs 79.2).
+      # Dense 27B; slower tg than MoE but highest quality (whichllm rank #1, 87.3).
+      # Upgraded Q3_K_S → Q3_K_M per whichllm. ctx-size 8192 kept: KV q8_0
+      # headroom tight at this quant; do not raise without on-node VRAM check.
       "qwen3.6-27b":
         cmd: |
           ${llama-vulkan}
-          --model /models/Qwen3.6-27B-Q3_K_S.gguf
+          --model /models/Qwen3.6-27B-Q3_K_M.gguf
           --ctx-size 8192
           -np 1
           --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
@@ -234,7 +243,7 @@ data:
         exclusive: true
         members:
           - "qwen3-1.7b"
-          - "qwen3-4b"
+          - "qwen3-8b"
           - "agentic-coder"
           - "reasoner"
           - "reasoner-agentic"

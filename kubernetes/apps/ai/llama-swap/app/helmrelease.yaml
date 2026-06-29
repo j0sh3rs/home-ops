@@ -102,48 +102,53 @@ spec:
 
                 # ── Chat group (hot-swap) ──
 
-                # Qwen3-4B-Instruct-2507 Q4_K_M (~2.33 GiB) — local-balanced
+                # Qwen3-8B Q6_K (~6.6 GiB) — default chat (replaces Qwen3-4B)
+                # whichllm rank #11 (score 67.2); 7.9 GiB VRAM on 16 GiB GPU.
                 fetch \
-                  "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf?download=true" \
-                  "Qwen3-4B-Instruct-2507-Q4_K_M.gguf" \
-                  2300000000
+                  "https://huggingface.co/bartowski/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q6_K.gguf?download=true" \
+                  "Qwen3-8B-Q6_K.gguf" \
+                  6500000000
                 # Qwen2.5-Coder-3B BASE Q5_K_M (~2.2 GiB) — FIM autocomplete
                 # BASE not Instruct: pretrained with FIM tokens, no chat template
                 fetch \
                   "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-GGUF/resolve/main/Qwen2.5-Coder-3B-Q5_K_M.gguf?download=true" \
                   "Qwen2.5-Coder-3B-Q5_K_M.gguf" \
                   2100000000
-                # Qwen3-Coder-30B-A3B-Instruct Q3_K_S (~13.3 GiB) — agentic coder
-                # Pure-attention qwen3_moe; verified ~120 tok/s on gfx1030.
-                # Q3_K_S required: Q3_K_M too large; IQ3_K does not load here.
+                # Qwen3-Coder-30B-A3B-Instruct Q3_K_M (~14.8 GiB) — agentic coder
+                # Upgraded Q3_K_S → Q3_K_M per whichllm (coding rank #1, 79.2).
+                # Tight on 16 GiB with always-on; keep ctx ≤16384 on this slot.
                 fetch \
-                  "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf?download=true" \
-                  "Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf" \
-                  13000000000
-                # Qwen3-30B-A3B-Thinking-2507 Q3_K_S (~12.85 GiB) — deep reasoner
+                  "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf?download=true" \
+                  "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf" \
+                  14500000000
+                # Qwen3-30B-A3B-Thinking-2507 Q3_K_M (~14.8 GiB) — deep reasoner
+                # Upgraded Q3_K_S → Q3_K_M per whichllm. Keep ctx ≤16384.
                 fetch \
-                  "https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-Thinking-2507-GGUF/resolve/main/Qwen_Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf?download=true" \
-                  "Qwen3-30B-A3B-Thinking-2507-Q3_K_S.gguf" \
-                  12500000000
+                  "https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-Thinking-2507-GGUF/resolve/main/Qwen_Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf?download=true" \
+                  "Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf" \
+                  14500000000
                 # GPT-OSS-20B MXFP4 (~11.27 GiB) — agentic reasoning + tool-calling
                 # flash-attn MUST be off; no KV quant (-ctk/-ctv segfaults)
                 fetch \
                   "https://huggingface.co/ggml-org/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-mxfp4.gguf?download=true" \
                   "gpt-oss-20b-mxfp4.gguf" \
                   11000000000
-                # Qwen3-14B Q4_K_M (~8.4 GiB) — dense safety floor
-                # ctx bumped to 24576; keep until MoE Vulkan confirmed stable
+                # Qwen3-14B Q5_K_M (~10.2 GiB) — dense safety floor
+                # Upgraded Q4_K_M → Q5_K_M per whichllm (rank #5, score 75.1).
+                # ctx 24576 retained; still well within 16 GiB at this quant.
                 fetch \
-                  "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf?download=true" \
-                  "Qwen3-14B-Q4_K_M.gguf" \
-                  8400000000
-                # Qwen3.6-27B Q3_K_S (~11.8 GiB) — GatedDeltaNet frontier chat
+                  "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q5_K_M.gguf?download=true" \
+                  "Qwen3-14B-Q5_K_M.gguf" \
+                  10000000000
+                # Qwen3.6-27B Q3_K_M (~12.2 GiB) — GatedDeltaNet frontier chat
                 # RDNA4/gfx1201 has KHR_coopmat; GDN Vulkan kernel active.
                 # Dead on gfx1030 (no coopmat) — 9070 XT specific.
+                # Upgraded Q3_K_S → Q3_K_M per whichllm (rank #1, score 87.3).
+                # ctx-size 8192 kept; do not raise without on-node VRAM check.
                 fetch \
-                  "https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/Qwen3.6-27B-Q3_K_S.gguf?download=true" \
-                  "Qwen3.6-27B-Q3_K_S.gguf" \
-                  11800000000
+                  "https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/Qwen3.6-27B-Q3_K_M.gguf?download=true" \
+                  "Qwen3.6-27B-Q3_K_M.gguf" \
+                  12000000000
                 echo "[finished] model staging complete"
                 ls -lh /models
             env:
