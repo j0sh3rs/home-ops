@@ -4,6 +4,8 @@
 # in-cluster LiteLLM gateway. Model format is "litellm/<alias>" where the
 # alias must match a model_name in LiteLLM's model_list configmap.
 # {env:VAR} substitution applied by OpenCode at startup.
+# models block required — without it OpenCode throws ProviderModelNotFoundError
+# even though the provider loads (learned from Kelos task debugging).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,6 +20,15 @@ data:
           "options": {
             "baseURL": "http://litellm.ai.svc.cluster.local:4000/v1",
             "apiKey": "{env:LITELLM_API_KEY}"
+          },
+          "models": {
+            "local-fast": {"id": "local-fast"},
+            "local-balanced": {"id": "local-balanced"},
+            "local-coder": {"id": "local-coder"},
+            "local-coder-small": {"id": "local-coder-small"},
+            "local-large": {"id": "local-large"},
+            "local-reason": {"id": "local-reason"},
+            "local-reason-agent": {"id": "local-reason-agent"}
           }
         }
       },
