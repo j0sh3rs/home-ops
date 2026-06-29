@@ -6,6 +6,18 @@
 # {env:VAR} substitution applied by OpenCode at startup.
 # models block required — without it OpenCode throws ProviderModelNotFoundError
 # even though the provider loads (learned from Kelos task debugging).
+#
+# Per-model `limit.context` mirrors the llama-swap --ctx-size for each slot
+# (source of truth: kubernetes/apps/ai/llama-swap/app/configmap.yaml) so
+# OpenCode truncates history correctly instead of guessing. `limit.output`
+# is a conservative per-turn cap.
+#
+# `mcp` points OpenCode at the in-cluster LiteLLM MCP aggregator (mcpjungle:
+# context7/exa/github/playwright/etc.) — same gateway + virtual key as chat.
+#
+# `permission` is a guardrail: this agent is network-exposed (opencode.68cc.io)
+# and holds a GitHub token on the workspace PVC, so it can run arbitrary shell.
+# bash defaults to "ask"; read/edit/git/task-runner ops are allowed.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,18 +34,63 @@ data:
             "apiKey": "{env:LITELLM_API_KEY}"
           },
           "models": {
-            "local-fast": {"id": "local-fast"},
-            "local-balanced": {"id": "local-balanced"},
-            "local-coder": {"id": "local-coder"},
-            "local-coder-small": {"id": "local-coder-small"},
-            "local-large": {"id": "local-large"},
-            "local-reason": {"id": "local-reason"},
-            "local-reason-agent": {"id": "local-reason-agent"}
+            "local-fast": {
+              "id": "local-fast",
+              "limit": {"context": 8192, "output": 4096}
+            },
+            "local-balanced": {
+              "id": "local-balanced",
+              "limit": {"context": 32768, "output": 8192}
+            },
+            "local-coder": {
+              "id": "local-coder",
+              "limit": {"context": 16384, "output": 8192}
+            },
+            "local-coder-small": {
+              "id": "local-coder-small",
+              "limit": {"context": 32768, "output": 4096}
+            },
+            "local-large": {
+              "id": "local-large",
+              "limit": {"context": 24576, "output": 8192}
+            },
+            "local-reason": {
+              "id": "local-reason",
+              "limit": {"context": 16384, "output": 8192}
+            },
+            "local-reason-agent": {
+              "id": "local-reason-agent",
+              "limit": {"context": 32768, "output": 8192}
+            }
           }
         }
       },
       "model": "litellm/local-coder",
       "small_model": "litellm/local-fast",
+      "mcp": {
+        "litellm": {
+          "type": "remote",
+          "url": "http://litellm.ai.svc.cluster.local:4000/mcp",
+          "enabled": true,
+          "headers": {
+            "Authorization": "Bearer {env:LITELLM_API_KEY}"
+          }
+        }
+      },
+      "permission": {
+        "bash": {
+          "*": "ask",
+          "git *": "allow",
+          "grep *": "allow",
+          "ls *": "allow",
+          "cat *": "allow",
+          "task *": "allow",
+          "kustomize *": "allow",
+          "flux *": "allow"
+        },
+        "edit": "allow",
+        "webfetch": "allow"
+      },
       "autoshare": false,
       "autoupdate": false
     }

@@ -10,10 +10,11 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
+    # litellm is a hard runtime dep (model gateway). No kelos dep: this is the
+    # interactive web deployment; Kelos drives its OWN opencode runtime in
+    # kelos-system and does not feed this pod.
     - name: litellm
       namespace: *namespace
-    - name: kelos
-      namespace: kelos-system
   interval: 1h
   path: ./kubernetes/apps/ai/opencode/app
   prune: true
