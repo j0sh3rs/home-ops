@@ -36,6 +36,7 @@ data:
           model: openai/qwen3-1.7b
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
+          max_input_tokens: 8192
 
       - model_name: local-embed
         litellm_params:
@@ -69,6 +70,7 @@ data:
           model: openai/agentic-coder
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
+          max_input_tokens: 16384
 
       # Deep reasoning (Qwen3-30B-A3B-Thinking-2507 Q3_K_M, 16k ctx)
       - model_name: local-reason
@@ -91,6 +93,7 @@ data:
           model: openai/qwen3-14b
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
+          max_input_tokens: 24576
 
       # ---- Cloud providers (ENABLED 2026-06-15 — keys in litellm-secrets) ----
       # LiteLLM resolves os.environ/<KEY> at request time — a missing key
@@ -169,7 +172,10 @@ data:
       #   - cloud-sonnet: ["cloud-haiku"]
       #   - cloud-haiku: ["local-balanced"]
       context_window_fallbacks:
+        - local-fast: ["local-balanced"]
+        - local-coder: ["local-large"]
         - local-reason: ["local-large"]
+        - local-large: ["cloud-haiku"]
 
     # ------------------------------------------------------------------
     # MCP gateway. LiteLLM proxies all registered MCP servers at /mcp
