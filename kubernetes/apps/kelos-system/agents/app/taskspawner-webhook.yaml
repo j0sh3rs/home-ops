@@ -63,7 +63,6 @@ spec:
       #{{.Number}}: {{.Title}}
       By: @{{.Sender}}
       Body: {{.Body}}
-      Labels: {{.Labels}}
       {{- end}}
 
       Repository cloned at /workspace/repo. Read CLAUDE.md first.
