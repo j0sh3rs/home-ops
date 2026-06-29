@@ -327,22 +327,24 @@ Unified AI workloads. Topology: clients (Open WebUI, n8n, Continue.dev) → **Li
 
 - **LiteLLM** — OpenAI-compatible gateway at `litellm.68cc.io` (LAN + Cloudflare, Authentik forwardAuth). Image `ghcr.io/berriai/litellm:vX.Y.Z` (renovate-tracked); chart `oci://ghcr.io/berriai/litellm-helm`. Master key + virtual keys per consumer stored in `litellm-secrets`. LangFuse traces enabled (`success_callback: ["langfuse"]`). Model aliases:
   - `local-fast` → llama-swap `qwen3-1.7b` (routing/classification)
-  - `local-balanced` → `qwen3-4b` (default chat)
-  - `local-coder-small` → `qwen-coder` (3B, fast autocomplete)
-  - `local-coder` → `qwen-coder-7b` (7B, refactor/multi-file)
-  - `local-large` → `qwen3-14b` (slow reasoning, ~5 tok/s on APU)
-  - `local-embed` → `embed-nomic` (RAG embeddings, always-on)
-  - `local-rerank` → `rerank-bge` (cross-encoder reranker, always-on)
-  - `cloud-haiku` / `cloud-sonnet` / `cloud-gpt-mini` — commented OFF in `configmap.yaml`; uncomment + add API key to enable.
+  - `local-balanced` → `qwen3-4b` (alias → Qwen3-8B-Q6_K; default chat / tool use, 32k ctx)
+  - `local-coder-small` → `coder-fim` (Qwen2.5-Coder-3B base, FIM autocomplete)
+  - `local-coder` → `agentic-coder` (Qwen3-Coder-30B-A3B-Instruct Q3_K_M, MoE 3B-active, 16k ctx; refactor/multi-file)
+  - `local-reason` → `reasoner` (Qwen3-30B-A3B-Thinking-2507 Q3_K_M, 16k ctx)
+  - `local-reason-agent` → `reasoner-agentic` (gpt-oss-20b MXFP4, 32k ctx; agentic reasoning + tool-calling)
+  - `local-large` → `qwen3-14b` (Qwen3-14B Q5_K_M, dense fallback if MoE Vulkan unstable, 24k ctx)
+  - `local-embed` → `qwen3-embed` (Qwen3-Embedding-0.6B, RAG embeddings, always-on)
+  - `local-rerank` → `qwen3-rerank` (Qwen3-Reranker-0.6B cross-encoder, always-on)
+  - `cloud-haiku` (claude-haiku-4-5) / `cloud-sonnet` (claude-sonnet-4-6) — ENABLED in `configmap.yaml` (keyed off `ANTHROPIC_API_KEY`); `cloud-gpt-mini` still commented OFF.
   - **Important**: the `model:` value in litellm's model_list MUST be a llama-swap model key OR alias, NOT a GGUF filename. See `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for the source of truth.
-- **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 21 dGPU, 16 GiB VRAM) via nodeAffinity requiring `amd.com/gpu.vram In ["16G"]`. Direct UI at `llm.68cc.io` for debugging only — clients should go through LiteLLM. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC.
+- **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 48 dGPU = Radeon RX 9070 XT, RDNA4/gfx1201, device-id `0x7550`, 16 GiB VRAM, node-label `node.kubernetes.io/gpu-tier=dgpu`) via nodeAffinity. RDNA4 has a working Vulkan flash-attention path (b9803+) — `--flash-attn on` is beneficial here, NOT the RDNA2 no-coopmat case. Direct UI at `llm.68cc.io` for debugging only — clients should go through LiteLLM. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC.
 - **Open WebUI** — chat UI at `ai.68cc.io` (public via Cloudflare tunnel, Authentik forwardAuth). `OPENAI_API_BASE_URL=http://litellm:4000/v1` with LiteLLM virtual key. Multi-user mode supported. Wired to Mem0 for episodic memory (`MEMORY_PROVIDER=mem0_server`, `MEM0_API_BASE_URL=http://mem0:8000`). WEBUI_SECRET_KEY in `open-webui-secrets`.
 - **n8n** — workflow automation at `n8n.68cc.io` (public via Cloudflare tunnel, Authentik forwardAuth). Postgres state (DB `n8n` on `postgres18`). LLM creds wired manually in n8n UI — point HTTP/OpenAI nodes at `http://litellm:4000/v1` with a virtual key from LiteLLM.
 - **LangFuse** — LLM observability at `langfuse.68cc.io` (LAN + Cloudflare, Authentik forwardAuth at gateway; native Authentik OIDC for internal login). Chart v1.5.33. Postgres (DB `langfuse` on `postgres18`). Single-node ClickHouse for analytics (standalone deployment in `databases` namespace; `databases/clickhouse/`). Redis queue in DragonflyDB DB 6. Headless init: seeds org + project + owner user on first boot (`j0sh3rs@gmail.com`; see `kubernetes/apps/ai/langfuse/app/helmrelease.yaml` for config). First SSO login auto-links Authentik identity → admin access.
 - **AnythingLLM** — RAG / per-workspace memory at `anythingllm.68cc.io` (LAN + Cloudflare, Authentik forwardAuth). Vector store: pgvector on `postgres18` (DB `anythingllm`). Embeddings + LLM provider: LiteLLM. Reranker: bge-rerank via llama-swap. Chunk size 1500, overlap 200. PVC 30 GiB `openebs-hostpath`. JWT_SECRET in `anythingllm-secret`.
 - **OWUI Pipelines** — Model router at port 9099 (routes: code keywords → `local-coder`, short msgs → `local-fast`, else → `local-balanced`). ConfigMap at `kubernetes/apps/ai/owui-pipelines/app/configmap.yaml` drives routing logic. Reloader restarts pod on ConfigMap change.
 - **Mem0** — Episodic memory server at `mem0:8000` (cluster-internal only, no external route). Postgres (DB `mem0` on `postgres18` + pgvector). Suspended if image unavailable; track `ghcr.io/mem0ai/mem0-server` for release. When live, exposed to OWUI + AnythingLLM as MCP tool.
-- **faster-whisper** — Speech-to-text (Wyoming protocol, port 10300). `fedirz/faster-whisper-server:0.6.0-rc.3-cpu`. Model: `tiny.en` (2 GiB PVC). Wired to Home Assistant Assist for STT. First request ~5s; cached afterward.
+- **faster-whisper** — Speech-to-text (Wyoming protocol, port 10300). `rhasspy/wyoming-whisper:3.3.0`, model `tiny-int8` (Wyoming TCP server HA's Wyoming integration speaks to — NOT the `fedirz/faster-whisper-server` OpenAI-HTTP image, which does not implement Wyoming and silently served nothing). Wired to Home Assistant Assist for STT. First request ~5s; cached afterward.
 - **piper** — Text-to-speech (Wyoming protocol, port 10200). `rhasspy/wyoming-piper:2.2.2`. Voice: `en_US-lessac-medium` (1 GiB PVC, ~65MB voice model). Wired to Home Assistant Assist for TTS. First start ~2 min for model download.
 
 ### Planned (not yet deployed)
