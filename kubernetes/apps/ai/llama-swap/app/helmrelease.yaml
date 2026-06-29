@@ -114,13 +114,14 @@ spec:
                   "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-GGUF/resolve/main/Qwen2.5-Coder-3B-Q5_K_M.gguf?download=true" \
                   "Qwen2.5-Coder-3B-Q5_K_M.gguf" \
                   2100000000
-                # Qwen3-Coder-30B-A3B-Instruct Q3_K_M (~14.8 GiB) — agentic coder
-                # Upgraded Q3_K_S → Q3_K_M per whichllm (coding rank #1, 79.2).
-                # Tight on 16 GiB with always-on; keep ctx ≤16384 on this slot.
+                # Qwen3-Coder-30B-A3B-Instruct Q3_K_S (~13.3 GiB) — agentic coder
+                # Q3_K_S not Q3_K_M: bench showed gen speed a wash but Q3_K_S
+                # frees ~1.4 GiB so the coder stays resident alongside the
+                # always-on group (embed+rerank+router/voice). #465 de-thrash.
                 fetch \
-                  "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf?download=true" \
-                  "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf" \
-                  14500000000
+                  "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf?download=true" \
+                  "Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf" \
+                  13300000000
                 # Qwen3-30B-A3B-Thinking-2507 Q3_K_M (~13.1 GiB) — deep reasoner
                 # Upgraded Q3_K_S → Q3_K_M per whichllm. Keep ctx ≤16384.
                 # bartowski file actual size 13.11 GiB; threshold corrected.
