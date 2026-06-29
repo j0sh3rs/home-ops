@@ -56,10 +56,22 @@ spec:
               limits:
                 memory: 1Gi
             probes:
+              # TCP readiness on the web server port so a wedged process is
+              # marked NotReady instead of silently serving nothing. Custom
+              # spec (not the chart's HTTP default) — OpenCode has no documented
+              # health path, so a TCP connect check is the safe signal.
               liveness:
                 enabled: false
               readiness:
-                enabled: false
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 4096
+                  initialDelaySeconds: 15
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
               startup:
                 enabled: false
         initContainers:
