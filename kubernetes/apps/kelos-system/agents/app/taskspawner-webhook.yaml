@@ -42,8 +42,8 @@ spec:
 
   taskTemplate:
     type: opencode
-    # local-reason-agent: GPT-OSS-20B MXFP4, 32k ctx — safer for large repo context
-    model: litellm/local-reason-agent
+    # local-reason: Qwen3-30B-A3B-Thinking Q3_K_M — stronger reasoning
+    model: litellm/local-reason
     credentials:
       type: none
     workspaceRef:
