@@ -97,11 +97,14 @@ spec:
               - sh
               - -c
               - |
+                REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git"
                 if [ ! -d /workspace/home-ops/.git ]; then
-                  git clone https://x-access-token:${GITHUB_TOKEN}@github.com/j0sh3rs/home-ops.git /workspace/home-ops
+                  git clone "$REMOTE" /workspace/home-ops
                   git -C /workspace/home-ops config user.name "OpenCode"
                   git -C /workspace/home-ops config user.email "opencode@68cc.io"
                 else
+                  # Refresh remote URL so token is current after pod restart.
+                  git -C /workspace/home-ops remote set-url origin "$REMOTE"
                   git -C /workspace/home-ops fetch --quiet
                 fi
             envFrom:
