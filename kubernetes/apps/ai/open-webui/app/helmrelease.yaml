@@ -30,7 +30,7 @@ spec:
             image:
               repository: ghcr.io/open-webui/open-webui
               # renovate: datasource=github-releases depName=open-webui/open-webui
-              tag: v0.9.6
+              tag: v0.10.1
             env:
               # Point directly at LiteLLM gateway. owui-pipelines removed
               # (legacy — superseded by OWUI native Functions/Tools).
