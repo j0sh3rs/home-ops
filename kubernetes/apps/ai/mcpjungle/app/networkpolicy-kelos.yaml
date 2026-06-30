@@ -1,8 +1,16 @@
 ---
-# Allow Kelos Task pods (kelos-system) to reach mcpjungle on port 8080.
-# Without this, Cilium drops the cross-namespace connection and AgentConfig
-# MCP calls fail silently. Same pattern as dragonflydb-allow-cross-ns-clients
-# in the databases namespace.
+# Ingress allowlist for mcpjungle on port 8080.
+#
+# CRITICAL: the moment ANY NetworkPolicy selects mcpjungle, Cilium flips its
+# ingress to default-deny — INCLUDING same-namespace traffic. The original
+# single-source policy (kelos-system only) silently broke every other client:
+# the same-ns bootstrap Job (hung at the wait-for-mcpjungle init curl),
+# LiteLLM's MCP aggregator (server_url http://mcpjungle:8080/mcp), Open WebUI,
+# n8n, and traefik (network ns) serving the mcp.68cc.io route. This policy must
+# therefore enumerate EVERY legitimate source, not just the cross-ns one.
+# Same class of bug as project_dragonfly_cross_ns_netpol.
+#
+# To add a client namespace: append another namespaceSelector below.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -16,9 +24,18 @@ spec:
     - Ingress
   ingress:
     - from:
+        # Same namespace (ai): bootstrap Job, LiteLLM, Open WebUI, n8n.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai
+        # Kelos Task pods (cross-ns) — original reason this policy exists.
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kelos-system
+        # Traefik (network ns) serving the mcp.68cc.io HTTPRoute.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: network
       ports:
         - protocol: TCP
           port: 8080
