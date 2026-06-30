@@ -25,10 +25,19 @@ kind: ConfigMap
 metadata:
   name: opencode-skills-manifest
 data:
-  # One bundle per line: <name> <git-url> <ref> <subdir-containing-skills>
+  # One bundle per line: <name> <git-url> <ref> <subdir> [allow-csv]
   # The init container clones each at <ref> (shallow), then copies every
   # <subdir>/<skill>/ dir into ~/.config/opencode/skills/. A leading '#'
   # comments a line out without deleting it.
+  #
+  # The optional 5th field is a comma-separated allowlist of skill-dir names.
+  # When present, ONLY those skills are installed from that bundle; when
+  # absent, all are. This caps the skill-discovery payload OpenCode injects
+  # into the system prompt on EVERY request (name+description of every
+  # installed SKILL.md). The full ECC tree (277 skills, ~217K frontmatter ≈
+  # 54k tokens) exceeds any served context window (max 32k), so every request
+  # overflows and the client wedges in an unrecoverable compaction loop.
+  # Keep the ECC allowlist tight and topic-relevant (k8s/GitOps + coding).
   #
   # VERSION BUMPS ARE MANUAL. The repo's renovate customManager matches
   # `key: value` / `key=value` lines, not this space-delimited format, so an
@@ -39,7 +48,9 @@ data:
   bundles.txt: |
     # caveman: ultra-compressed comms + cavecrew subagents (7 skills, ~116K).
     caveman https://github.com/JuliusBrussee/caveman v1.9.0 skills
-    # ECC: large multi-domain skill library (~277 skills, ~4M). Trim the
-    # canonical skills/ tree upstream-side if the picker gets noisy; ECC
-    # enforcement is degraded under OpenCode (no executable-hook parity).
-    ecc https://github.com/affaan-m/ECC v2.0.0 skills
+    # ECC: large multi-domain skill library (~277 skills, ~4M). MUST be
+    # allowlisted (5th field) — the full tree's discovery payload overflows
+    # every served context window and wedges OpenCode in a compaction loop.
+    # ECC enforcement is degraded under OpenCode (no executable-hook parity).
+    # Allowlist scoped to k8s/GitOps ops + general coding for this agent.
+    ecc https://github.com/affaan-m/ECC v2.0.0 skills kubernetes-patterns,docker-patterns,deployment-patterns,github-ops,git-workflow,terminal-ops,golang-patterns,golang-testing,postgres-patterns,database-migrations,api-design,error-handling,security-review,documentation-lookup,codebase-onboarding,code-tour

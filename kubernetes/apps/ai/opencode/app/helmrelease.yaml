@@ -133,8 +133,16 @@ spec:
                 set -u
                 SKILLS_DIR=/root/.config/opencode/skills
                 mkdir -p "$SKILLS_DIR"
-                # Strip comments/blanks, then read: name url ref subdir
-                grep -vE '^\s*(#|$)' /manifest/bundles.txt | while read -r name url ref subdir; do
+                # Strip comments/blanks, then read: name url ref subdir [allow]
+                # `allow` is an optional comma-separated skill allowlist. When
+                # set, ONLY those skill dirs are installed from the bundle; when
+                # empty/absent, every skill in <subdir> is installed. This caps
+                # the per-request skill-discovery payload OpenCode injects into
+                # the system prompt (name+description of every SKILL.md). Large
+                # bundles (ECC: 277 skills, ~217K of frontmatter ≈ 54k tokens)
+                # otherwise overflow even a 32k context window on every request,
+                # wedging the client in an unrecoverable compaction loop.
+                grep -vE '^\s*(#|$)' /manifest/bundles.txt | while read -r name url ref subdir allow; do
                   [ -z "$name" ] && continue
                   tmp=$(mktemp -d)
                   echo "[skills-init] $name @ $ref"
@@ -151,6 +159,13 @@ spec:
                     [ -d "$skill" ] || continue
                     [ -f "$skill/SKILL.md" ] || continue
                     sname=$(basename "$skill")
+                    # Honor allowlist when present: skip any skill not named.
+                    if [ -n "${allow:-}" ]; then
+                      case ",$allow," in
+                        *",$sname,"*) : ;;
+                        *) continue ;;
+                      esac
+                    fi
                     rm -rf "$SKILLS_DIR/$sname"
                     cp -a "$skill" "$SKILLS_DIR/$sname"
                     count=$((count + 1))
