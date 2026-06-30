@@ -7,5 +7,6 @@ resources:
   - ./configmap.yaml
   - ./bootstrap-job.yaml
   - ./secret.sops.yaml
+  - ./networkpolicy-kelos.yaml
 components:
   - ../../../../components/repos/app-template

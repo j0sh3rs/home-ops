@@ -1,0 +1,24 @@
+---
+# Allow Kelos Task pods (kelos-system) to reach mcpjungle on port 8080.
+# Without this, Cilium drops the cross-namespace connection and AgentConfig
+# MCP calls fail silently. Same pattern as dragonflydb-allow-cross-ns-clients
+# in the databases namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kelos-to-mcpjungle
+  namespace: ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mcpjungle
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kelos-system
+      ports:
+        - protocol: TCP
+          port: 8080

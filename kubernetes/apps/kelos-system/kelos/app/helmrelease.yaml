@@ -41,6 +41,6 @@ spec:
 
     # Agent images — pin to match Kelos release.
     # kelos-dev/opencode bundles OpenCode with the Kelos entrypoint wrapper.
-    # renovate: datasource=github-releases depName=kelos-dev/kelos
+    # renovate: datasource=docker depName=ghcr.io/kelos-dev/opencode
     agentImages:
       opencodeImage: ghcr.io/kelos-dev/opencode:v0.42.0
