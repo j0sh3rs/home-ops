@@ -66,5 +66,38 @@
       // the prefix when generating the comparison so Renovate matches.
       extractVersionTemplate: "^v?(?<version>.+)$",
     },
+    {
+      customType: "regex",
+      description: "OpenCode skill bundles in opencode-skills-manifest (#486)",
+      // bundles.txt lines: <name> <github-url> <ref> <subdir>. The space-
+      // delimited format does not fit the generic `# renovate:` manager, so
+      // match the line directly (CNPG/.mise.toml precedent). Captures the
+      // owner/repo as depName and the pinned ref as currentValue; comment
+      // lines have no `https://github.com/<o>/<r> <ver> <subdir>` shape so
+      // they are skipped.
+      fileMatch: [
+        "(^|/)kubernetes/apps/ai/opencode/app/skills-install\\.ya?ml$",
+      ],
+      matchStrings: [
+        "\\S+ https://github\\.com/(?<depName>[^/\\s]+/[^/\\s]+) (?<currentValue>\\S+) \\S+",
+      ],
+      datasourceTemplate: "github-releases",
+      versioningTemplate: "semver",
+    },
+    {
+      customType: "regex",
+      description: "OpenCode npm plugins in config.json plugin[] array (#486)",
+      // Matches a pinned scoped npm package "@scope/name@version" inside the
+      // embedded config.json. The required @version suffix excludes the
+      // unversioned provider entries (@ai-sdk/openai-compatible, etc.).
+      fileMatch: [
+        "(^|/)kubernetes/apps/ai/opencode/app/configmap\\.ya?ml$",
+      ],
+      matchStrings: [
+        "\"(?<depName>@[^\"@]+/[^\"@]+)@(?<currentValue>[^\"]+)\"",
+      ],
+      datasourceTemplate: "npm",
+      versioningTemplate: "npm",
+    },
   ],
 }
