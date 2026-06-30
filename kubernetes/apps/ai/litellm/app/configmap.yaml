@@ -37,6 +37,10 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
           max_input_tokens: 8192
+          # Single 16 GiB GPU — cap in-flight per local deployment so a
+          # burst can't pile requests onto a model mid-swap. Resident
+          # embed/rerank stay uncapped (batch RAG, no swap contention).
+          max_parallel_requests: 2
 
       - model_name: local-embed
         litellm_params:
@@ -56,6 +60,7 @@ data:
           model: openai/qwen3-4b
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
+          max_parallel_requests: 2
 
       # FIM autocomplete (Qwen2.5-Coder-3B BASE — raw infill, no chat template)
       - model_name: local-coder-small
@@ -63,6 +68,7 @@ data:
           model: openai/coder-fim
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
+          max_parallel_requests: 2
 
       # Agentic coder flagship (Qwen3-Coder-30B-A3B Q3_K_S MoE, 16k ctx).
       # Default for OpenCode/Kelos: fast MoE decode, reliable tool-calls.
@@ -72,6 +78,7 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
           max_input_tokens: 16384
+          max_parallel_requests: 2
 
       # Heavy coder escalation (Qwen3.6-27B GatedDeltaNet, 8k ctx, RDNA4-only).
       # Higher coding quality (SWE-bench Verified 77.2) but dense 27B = slower
@@ -84,6 +91,7 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
           max_input_tokens: 8192
+          max_parallel_requests: 2
 
       # Deep reasoning (Qwen3-30B-A3B-Thinking-2507 Q3_K_M, 16k ctx)
       - model_name: local-reason
@@ -92,6 +100,7 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
           max_input_tokens: 16384
+          max_parallel_requests: 2
 
       # Agentic reasoning + tool-calling (GPT-OSS-20B MXFP4, best n8n/MCP)
       - model_name: local-reason-agent
@@ -99,6 +108,7 @@ data:
           model: openai/reasoner-agentic
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
+          max_parallel_requests: 2
 
       # Dense safety floor (Qwen3-14B Q5_K_M — fallback if MoE Vulkan unstable)
       - model_name: local-large
@@ -107,6 +117,7 @@ data:
           api_base: http://llama-swap:8080/v1
           api_key: sk-local-llama-swap
           max_input_tokens: 24576
+          max_parallel_requests: 2
 
       # ---- Cloud providers (ENABLED 2026-06-15 — keys in litellm-secrets) ----
       # LiteLLM resolves os.environ/<KEY> at request time — a missing key
@@ -130,6 +141,28 @@ data:
       #   litellm_params:
       #     model: openai/gpt-4o-mini
       #     api_key: os.environ/OPENAI_API_KEY
+
+      # ---- GitHub Models (free Marketplace tier) ----
+      # Degradation target for local-model HARD failures (Vulkan segfault,
+      # OOM, swap deadlock) — keeps coding agents alive WITHOUT spending
+      # Anthropic credit. Auth: GITHUB_TOKEN env (injected from
+      # litellm-secrets via environmentSecrets) — LiteLLM's github/ provider
+      # honors an explicit api_key, so we point it at GITHUB_TOKEN rather
+      # than the provider-default GITHUB_API_KEY.
+      #
+      # VERIFY: GITHUB_TOKEN must carry the `models:read` scope, else these
+      # return 403. The token was minted for repo/MCP use; confirm scope.
+      #
+      # Free-tier limits are tight (Low models: 15 rpm / 150 rpd / 8k input /
+      # 4k output / 5 concurrent). This is a LAST-RESORT crash cushion, not a
+      # routine route — do NOT use for context-window overflow (8k input cap
+      # is below local-coder's 16k ceiling; overflow routes to local-large).
+      - model_name: github-fallback
+        litellm_params:
+          model: github/gpt-4o-mini
+          api_key: os.environ/GITHUB_TOKEN
+          max_input_tokens: 8000
+          max_parallel_requests: 5
 
     # ------------------------------------------------------------------
     # General proxy settings: master-key auth, DB-backed key/team store,
@@ -164,13 +197,28 @@ data:
       langfuse_host: os.environ/LANGFUSE_HOST
       drop_params: true
       set_verbose: false
+      # Client-facing request ceiling. Must be >= router_settings.timeout
+      # or the proxy cuts the connection before the router retry/fallback
+      # fires. Matched to 300s for llama-swap cold-fetch + first-token.
+      request_timeout: 300
       cache: true
       cache_params:
         type: redis
         # REDIS_URL is the only env LiteLLM honors for the redis client;
         # do NOT split into REDIS_HOST/PORT/PASSWORD or both will be set.
+        # REDIS_URL ends in /4 — DB 4 is LiteLLM's isolated cache namespace
+        # (verified via keyspace; see runbooks/dragonflydb-db-alloc.md).
         redis_url: os.environ/REDIS_URL
         ttl: 600
+        # Cache ONLY deterministic embedding/rerank calls. Caching chat
+        # completions served a 600s-stale answer to coding agents — a
+        # 0.9-similar prompt with a 1-line diff returns the wrong cached
+        # output. Restrict to (a)embedding + (a)rerank; never chat.
+        supported_call_types:
+          - aembedding
+          - embedding
+          - arerank
+          - rerank
 
     # ------------------------------------------------------------------
     # Router (multi-deployment routing across model_name aliases).
@@ -181,14 +229,35 @@ data:
     # ------------------------------------------------------------------
     router_settings:
       routing_strategy: simple-shuffle
-      # fallbacks:
-      #   - cloud-sonnet: ["cloud-haiku"]
-      #   - cloud-haiku: ["local-balanced"]
+      # One retry on transient upstream failure (llama-swap cold-swap
+      # 5xx, brief Vulkan stall). Without this a single swap blip surfaces
+      # as a hard error to the coding agent.
+      num_retries: 1
+      # Hard ceiling per request. llama-swap cold model fetch + first-token
+      # on the 30B MoE can take >2 min; cap at 300s so a wedged swap becomes
+      # a clean timeout instead of an indefinite client hang.
+      timeout: 300
+      # Hard-failure degradation: when a local model errors out (Vulkan
+      # segfault, OOM, swap deadlock) route to github-fallback (free GitHub
+      # Models tier) so coding agents keep working WITHOUT spending Anthropic
+      # credit. Free-tier 150 req/day cap makes this a crash cushion, not a
+      # routine route — accept that a sustained local outage will exhaust it.
+      fallbacks:
+        - local-coder: ["github-fallback"]
+        - local-coder-heavy: ["github-fallback"]
+        - local-balanced: ["github-fallback"]
+        - local-reason: ["github-fallback"]
+        - local-large: ["github-fallback"]
+      # Context-overflow degradation (distinct from hard failure): a prompt
+      # exceeding a local model's ctx window routes to a bigger LOCAL window.
+      # github-fallback is NOT eligible — its 8k input cap is below the 16k
+      # ceiling we're escaping. local-coder/local-reason overflow to
+      # local-large (24k); prompts beyond 24k hard-fail 400 by design (no
+      # cloud spend on oversized repo dumps).
       context_window_fallbacks:
         - local-fast: ["local-balanced"]
         - local-coder: ["local-large"]
         - local-reason: ["local-large"]
-        - local-large: ["cloud-haiku"]
 
     # ------------------------------------------------------------------
     # MCP gateway. LiteLLM proxies all registered MCP servers at /mcp
