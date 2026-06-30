@@ -110,6 +110,55 @@ spec:
             envFrom:
               - secretRef:
                   name: opencode-secrets
+          # Install external skill bundles into the (ephemeral) config skills
+          # dir on every boot — issue #486. Source of truth is the
+          # opencode-skills-manifest ConfigMap (skills-install.yaml). OpenCode
+          # reads skills from ~/.config/opencode/skills/<name>/SKILL.md. This
+          # runs after config-init populates the dir and is idempotent: each
+          # bundle is shallow-cloned at its pinned ref and the skill subtree is
+          # copied in. A clone failure for one bundle is logged and skipped so
+          # a single bad ref does not wedge pod startup.
+          skills-init:
+            # Explicit ordering — runs after config-init creates the config
+            # dir. Without this the chart orders init containers alphabetically,
+            # which only happens to be correct today.
+            dependsOn: config-init
+            image:
+              repository: alpine/git
+              tag: v2.54.0
+            command:
+              - sh
+              - -c
+              - |
+                set -u
+                SKILLS_DIR=/root/.config/opencode/skills
+                mkdir -p "$SKILLS_DIR"
+                # Strip comments/blanks, then read: name url ref subdir
+                grep -vE '^\s*(#|$)' /manifest/bundles.txt | while read -r name url ref subdir; do
+                  [ -z "$name" ] && continue
+                  tmp=$(mktemp -d)
+                  echo "[skills-init] $name @ $ref"
+                  if ! git clone --depth 1 --branch "$ref" --quiet "$url" "$tmp"; then
+                    echo "[skills-init] WARN: clone failed for $name ($url@$ref), skipping" >&2
+                    rm -rf "$tmp"; continue
+                  fi
+                  if [ ! -d "$tmp/$subdir" ]; then
+                    echo "[skills-init] WARN: $subdir/ missing in $name, skipping" >&2
+                    rm -rf "$tmp"; continue
+                  fi
+                  count=0
+                  for skill in "$tmp/$subdir"/*/; do
+                    [ -d "$skill" ] || continue
+                    [ -f "$skill/SKILL.md" ] || continue
+                    sname=$(basename "$skill")
+                    rm -rf "$SKILLS_DIR/$sname"
+                    cp -a "$skill" "$SKILLS_DIR/$sname"
+                    count=$((count + 1))
+                  done
+                  echo "[skills-init] $name: installed $count skills"
+                  rm -rf "$tmp"
+                done
+                echo "[skills-init] total in $SKILLS_DIR: $(ls -1 "$SKILLS_DIR" | wc -l)"
 
     service:
       app:
@@ -151,6 +200,12 @@ spec:
         name: opencode-config
         globalMounts:
           - path: /configmap
+      # Skill-bundle manifest (read-only) — consumed by skills-init.
+      manifest:
+        type: configMap
+        name: opencode-skills-manifest
+        globalMounts:
+          - path: /manifest
       # Workspace PVC — OpenCode writes session data and tool outputs here
       workspace:
         type: persistentVolumeClaim

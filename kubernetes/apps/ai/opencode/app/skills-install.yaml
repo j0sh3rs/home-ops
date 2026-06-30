@@ -1,0 +1,45 @@
+---
+# Idempotent OpenCode skill installer (issue #486).
+#
+# WHY THIS EXISTS: OpenCode's config dir (/root/.config/opencode) is an
+# emptyDir — it is wiped on every pod restart and does NOT survive PVC loss.
+# Anything not replayed from git on boot is gone. This ConfigMap is the
+# git-codified source of truth for which external skill bundles get installed;
+# the `skills-init` init container (helmrelease.yaml) reads it and materializes
+# each bundle's `skills/<name>/SKILL.md` tree into the config skills dir.
+#
+# OpenCode reads skills from ~/.config/opencode/skills/<name>/SKILL.md
+# (verified from the bundled binary's own help text + path strings). The
+# SKILL.md frontmatter format is shared with Claude Code, so these bundles
+# drop in as plain files with no plugin/runtime dependency.
+#
+# Plugins are handled separately via the `plugin: [...]` array in
+# configmap.yaml (OpenCode's internal Bun fetches them from npm at startup).
+# Only file-based skills are installed here.
+#
+# TO ADD/REMOVE a bundle: edit the `bundles` list below. To bump a version,
+# change the ref. The init container is fully idempotent: it re-clones at the
+# pinned ref each boot and rsync-mirrors the skills dir.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-skills-manifest
+data:
+  # One bundle per line: <name> <git-url> <ref> <subdir-containing-skills>
+  # The init container clones each at <ref> (shallow), then copies every
+  # <subdir>/<skill>/ dir into ~/.config/opencode/skills/. A leading '#'
+  # comments a line out without deleting it.
+  #
+  # VERSION BUMPS ARE MANUAL. The repo's renovate customManager matches
+  # `key: value` / `key=value` lines, not this space-delimited format, so an
+  # inline `# renovate:` comment here would silently never fire. Bump the
+  # <ref> field by hand after checking upstream releases:
+  #   gh release view -R JuliusBrussee/caveman --json tagName -q .tagName
+  #   gh release view -R affaan-m/ECC          --json tagName -q .tagName
+  bundles.txt: |
+    # caveman: ultra-compressed comms + cavecrew subagents (7 skills, ~116K).
+    caveman https://github.com/JuliusBrussee/caveman v1.9.0 skills
+    # ECC: large multi-domain skill library (~277 skills, ~4M). Trim the
+    # canonical skills/ tree upstream-side if the picker gets noisy; ECC
+    # enforcement is degraded under OpenCode (no executable-hook parity).
+    ecc https://github.com/affaan-m/ECC v2.0.0 skills

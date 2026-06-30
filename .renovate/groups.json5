@@ -194,6 +194,21 @@
       },
     },
     {
+      description: "OpenCode Extensions - skill bundles + npm plugins (#486)",
+      groupName: "OpenCode Extensions",
+      matchDatasources: ["github-releases", "npm"],
+      matchPackageNames: [
+        "JuliusBrussee/caveman",
+        "affaan-m/ECC",
+        "@franlol/opencode-md-table-formatter",
+      ],
+      stabilityDays: 3,
+      labels: ["type/app", "risk/low"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+    },
+    {
       description: "llama-swap: only allow vulkan-b tagged builds",
       matchPackageNames: ["ghcr.io/mostlygeek/llama-swap"],
       allowedVersions: "/.*-vulkan-b.*/",
