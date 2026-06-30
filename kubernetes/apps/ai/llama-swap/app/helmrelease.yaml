@@ -10,6 +10,12 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  # First-boot (or new-model) reconciles block on the model-fetch init
+  # container pulling up to ~60 GiB of GGUFs off HuggingFace into the RWO
+  # PVC. The Helm default 5m timeout trips long before that completes,
+  # failing the release and rolling back to a config that references a
+  # not-yet-downloaded file. 30m covers a cold multi-model fetch.
+  timeout: 30m
   install:
     remediation:
       retries: 3
