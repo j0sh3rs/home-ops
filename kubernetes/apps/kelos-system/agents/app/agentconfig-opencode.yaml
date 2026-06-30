@@ -12,7 +12,8 @@ spec:
   agentsMD: |
     # Home-ops Kelos Agent
 
-    You are an AI coding assistant running inside the home-ops Kubernetes cluster.
+    You are an AI coding assistant running inside the
+    home-ops Kubernetes cluster.
     You have access to the local git repository mounted at /workspace/repo.
 
     ## Guidelines
@@ -25,7 +26,7 @@ spec:
   mcpServers:
     - name: github
       type: http
-      url: "http://mcpjungle.ai.svc.cluster.local:3000/github"
+      url: "http://mcpjungle.ai.svc.cluster.local:8080/github"
     - name: context7
       type: http
-      url: "http://mcpjungle.ai.svc.cluster.local:3000/context7"
+      url: "http://mcpjungle.ai.svc.cluster.local:8080/context7"
