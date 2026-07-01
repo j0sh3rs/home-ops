@@ -8,7 +8,6 @@ components:
 resources:
   - ./cloudnative-pg/ks.yaml
   - ./cnpg-barman-plugin/ks.yaml
-  - ./clickhouse/ks.yaml
   - ./dragonflydb/ks.yaml
 patches:
   - target:

@@ -59,32 +59,6 @@ spec:
                 value: true
               - name: GENERIC_TIMEZONE
                 value: "America/New_York"
-              # Allow Code nodes to require() Node builtins (crypto needed for
-              # GitHub HMAC-SHA256 webhook signature verification in the
-              # Loop Orchestrator workflow). Without this n8n's Code-node
-              # sandbox throws "Module 'crypto' is disallowed".
-              - name: NODE_FUNCTION_ALLOW_BUILTIN
-                value: "crypto"
-              # Allow Code nodes to read $env (Loop Orchestrator reads
-              # N8N_GITHUB_WEBHOOK_SECRET, N8N_K8S_TOKEN). n8n blocks $env
-              # in Code nodes by default ("access to env vars denied").
-              - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
-                value: "false"
-              # K8s SA token for in-cluster API calls from n8n Code nodes.
-              # Read as $env.N8N_K8S_TOKEN. Auto-populated by K8s.
-              - name: N8N_K8S_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: n8n-loop-sa-token
-                    key: token
-              # GitHub HMAC webhook secret — must match the value set in
-              # GitHub Settings → Webhooks for the loop-github-issue hook.
-              # Add GITHUB_WEBHOOK_SECRET to n8n-secrets before deploying.
-              - name: N8N_GITHUB_WEBHOOK_SECRET
-                valueFrom:
-                  secretKeyRef:
-                    name: n8n-secrets
-                    key: GITHUB_WEBHOOK_SECRET
             envFrom:
               - secretRef:
                   name: n8n-secrets

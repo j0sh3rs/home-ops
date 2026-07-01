@@ -300,7 +300,7 @@ Rules of thumb:
 
 - **Tetragon** — Runtime security observability with eBPF (`kube-system` and `security` namespaces)
 - **CrowdSec** — Collaborative IDS/IPS for threat detection and blocking; Traefik bouncer middleware applied globally on `web` and `websecure` entrypoints
-- **Authentik forwardAuth** — Service-level authentication via Authentik (`auth.68cc.io`) using its native Traefik forwardAuth plugin. OAuth callback to Google via single Authentik OAuth application. Traefik middleware `authentik-forwardauth` materialized per-namespace by the `kubernetes/components/authentik-forwardauth/` Component. Backing auth endpoint: `https://auth.68cc.io/outpost.goauthentik.io/auth/traefik`. Session cookies scoped to `.68cc.io`. Applied per-HTTPRoute via Gateway API `ExtensionRef`. Namespaces opt in by adding `../../components/authentik-forwardauth` to their kustomization `components:` list. Individual applications (e.g., LangFuse) may also support native Authentik OIDC for internal authentication on top of gateway-level forwardAuth.
+- **Authentik forwardAuth** — Service-level authentication via Authentik (`auth.68cc.io`) using its native Traefik forwardAuth plugin. OAuth callback to Google via single Authentik OAuth application. Traefik middleware `authentik-forwardauth` materialized per-namespace by the `kubernetes/components/authentik-forwardauth/` Component. Backing auth endpoint: `https://auth.68cc.io/outpost.goauthentik.io/auth/traefik`. Session cookies scoped to `.68cc.io`. Applied per-HTTPRoute via Gateway API `ExtensionRef`. Namespaces opt in by adding `../../components/authentik-forwardauth` to their kustomization `components:` list. Individual applications may also support native Authentik OIDC for internal authentication on top of gateway-level forwardAuth.
 
 ### System Components (`kube-system`)
 
@@ -321,11 +321,11 @@ Rules of thumb:
 
 ## Deployed Applications (ai namespace)
 
-Unified AI workloads. Topology: clients (Open WebUI, n8n, Continue.dev) → **LiteLLM** (gateway, single OpenAI-compatible endpoint) → fan-out to **llama-swap** (local GGUFs on AMD GPU), cloud providers (Anthropic/OpenAI keys in secret), and local inference (faster-whisper STT, piper TTS via Home Assistant). Observability via LangFuse. Memory layer via Mem0 (when live image available). RAG via AnythingLLM. State: `postgres18` CNPG (DBs: `litellm`, `n8n`, `anythingllm`, `mem0` + pgvector); response cache in `dragonflydb` DB 4; LangFuse queue in DB 6. Gateway auth via Authentik forwardAuth (`authentik-forwardauth` Middleware per-HTTPRoute); select apps (LangFuse) also use native Authentik OIDC for internal auth.
+Unified AI workloads. Topology: clients (n8n, OpenCode, Continue.dev) → **LiteLLM** (gateway, single OpenAI-compatible endpoint) → fan-out to **llama-swap** (local GGUFs on AMD GPU), cloud providers (Anthropic/OpenAI keys in secret), and local inference (faster-whisper STT, piper TTS via Home Assistant). Memory layer via Mem0 (when live image available). State: `postgres18` CNPG (DBs: `litellm`, `n8n`, `mem0` + pgvector); response cache in `dragonflydb` DB 4. Gateway auth via Authentik forwardAuth (`authentik-forwardauth` Middleware per-HTTPRoute). LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (code automation agent) were removed 2026-07-01 — unused, no consumers beyond a chat UI nobody used; see `docs/runbooks/anythingllm-role-and-overlap.md` and `archive/{langfuse,anythingllm,open-webui,goose}/` if reuse is considered later.
 
 ### Currently deployed
 
-- **LiteLLM** — OpenAI-compatible gateway at `litellm.68cc.io` (LAN + Cloudflare, Authentik forwardAuth). Image `ghcr.io/berriai/litellm:vX.Y.Z` (renovate-tracked); chart `oci://ghcr.io/berriai/litellm-helm`. Master key + virtual keys per consumer stored in `litellm-secrets`. LangFuse traces enabled (`success_callback: ["langfuse"]`). Model aliases:
+- **LiteLLM** — OpenAI-compatible gateway at `litellm.68cc.io` (LAN + Cloudflare, Authentik forwardAuth). Image `ghcr.io/berriai/litellm:vX.Y.Z` (renovate-tracked); chart `oci://ghcr.io/berriai/litellm-helm`. Master key + virtual keys per consumer stored in `litellm-secrets`. Model aliases:
   - `local-fast` → llama-swap `qwen3-1.7b` (routing/classification)
   - `local-balanced` → `qwen3-4b` (alias → Qwen3-8B-Q6_K; default chat / tool use, 32k ctx)
   - `local-coder-small` → `coder-fim` (Qwen2.5-Coder-3B base, FIM autocomplete)
@@ -338,19 +338,15 @@ Unified AI workloads. Topology: clients (Open WebUI, n8n, Continue.dev) → **Li
   - `cloud-haiku` (claude-haiku-4-5) / `cloud-sonnet` (claude-sonnet-4-6) — ENABLED in `configmap.yaml` (keyed off `ANTHROPIC_API_KEY`); `cloud-gpt-mini` still commented OFF.
   - **Important**: the `model:` value in litellm's model_list MUST be a llama-swap model key OR alias, NOT a GGUF filename. See `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for the source of truth.
 - **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 48 dGPU = Radeon RX 9070 XT, RDNA4/gfx1201, device-id `0x7550`, 16 GiB VRAM, node-label `node.kubernetes.io/gpu-tier=dgpu`) via nodeAffinity. RDNA4 has a working Vulkan flash-attention path (b9803+) — `--flash-attn on` is beneficial here, NOT the RDNA2 no-coopmat case. Direct UI at `llm.68cc.io` for debugging only — clients should go through LiteLLM. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC.
-- **Open WebUI** — chat UI at `ai.68cc.io` (public via Cloudflare tunnel, Authentik forwardAuth). `OPENAI_API_BASE_URL=http://litellm:4000/v1` with LiteLLM virtual key. Multi-user mode supported. Wired to Mem0 for episodic memory (`MEMORY_PROVIDER=mem0_server`, `MEM0_API_BASE_URL=http://mem0:8000`). WEBUI_SECRET_KEY in `open-webui-secrets`.
 - **n8n** — workflow automation at `n8n.68cc.io` (public via Cloudflare tunnel, Authentik forwardAuth). Postgres state (DB `n8n` on `postgres18`). LLM creds wired manually in n8n UI — point HTTP/OpenAI nodes at `http://litellm:4000/v1` with a virtual key from LiteLLM.
-- **LangFuse** — LLM observability at `langfuse.68cc.io` (LAN + Cloudflare, Authentik forwardAuth at gateway; native Authentik OIDC for internal login). Chart v1.5.33. Postgres (DB `langfuse` on `postgres18`). Single-node ClickHouse for analytics (standalone deployment in `databases` namespace; `databases/clickhouse/`). Redis queue in DragonflyDB DB 6. Headless init: seeds org + project + owner user on first boot (`j0sh3rs@gmail.com`; see `kubernetes/apps/ai/langfuse/app/helmrelease.yaml` for config). First SSO login auto-links Authentik identity → admin access.
-- **AnythingLLM** — RAG / per-workspace memory at `anythingllm.68cc.io` (LAN + Cloudflare, Authentik forwardAuth). Vector store: pgvector on `postgres18` (DB `anythingllm`). Embeddings + LLM provider: LiteLLM. Reranker: bge-rerank via llama-swap. Chunk size 1500, overlap 200. PVC 30 GiB `openebs-hostpath`. JWT_SECRET in `anythingllm-secret`.
-- **OWUI Pipelines** — Model router at port 9099 (routes: code keywords → `local-coder`, short msgs → `local-fast`, else → `local-balanced`). ConfigMap at `kubernetes/apps/ai/owui-pipelines/app/configmap.yaml` drives routing logic. Reloader restarts pod on ConfigMap change.
-- **Mem0** — Episodic memory server at `mem0:8000` (cluster-internal only, no external route). Postgres (DB `mem0` on `postgres18` + pgvector). Suspended if image unavailable; track `ghcr.io/mem0ai/mem0-server` for release. When live, exposed to OWUI + AnythingLLM as MCP tool.
+- **Mem0** — Episodic memory server at `mem0:8000` (cluster-internal only, no external route). Postgres (DB `mem0` on `postgres18` + pgvector). Suspended if image unavailable; track `ghcr.io/mem0ai/mem0-server` for release.
 - **faster-whisper** — Speech-to-text (Wyoming protocol, port 10300). `rhasspy/wyoming-whisper:3.3.0`, model `tiny-int8` (Wyoming TCP server HA's Wyoming integration speaks to — NOT the `fedirz/faster-whisper-server` OpenAI-HTTP image, which does not implement Wyoming and silently served nothing). Wired to Home Assistant Assist for STT. First request ~5s; cached afterward.
 - **piper** — Text-to-speech (Wyoming protocol, port 10200). `rhasspy/wyoming-piper:2.2.2`. Voice: `en_US-lessac-medium` (1 GiB PVC, ~65MB voice model). Wired to Home Assistant Assist for TTS. First start ~2 min for model download.
 
 ### Planned (not yet deployed)
 
 - **Continue.dev** (client-side, not cluster) — IDE coding assistant. Inline = `local-coder`, chat = `cloud-sonnet` (fallback to `local-large`). No deployment, just user config pointing at LiteLLM.
-- **Kid-safe layer** — per-kid LiteLLM virtual key with model allow-list (block `cloud-*`, allow `local-balanced` + `local-fast`). Per-kid OWUI account (multi-user mode supported). Per-kid AnythingLLM workspace with locked system prompt. Content filter middleware on LiteLLM if/when kids start using it heavily. Audit log already on by default in LiteLLM (DB-backed).
+- **Kid-safe layer** — per-kid LiteLLM virtual key with model allow-list (block `cloud-*`, allow `local-balanced` + `local-fast`). Client TBD now that Open WebUI is removed — likely a per-kid client config pointed at LiteLLM rather than a shared chat UI. Content filter middleware on LiteLLM if/when kids start using it heavily. Audit log already on by default in LiteLLM (DB-backed).
 
 ### Decisions explicitly rejected (do not relitigate without new evidence)
 
@@ -358,7 +354,7 @@ Unified AI workloads. Topology: clients (Open WebUI, n8n, Continue.dev) → **Li
 - **ROCm DKMS** — Talos rootfs immutable; no path. ROCm userspace only matters inside workload containers, not at kernel level.
 - **Replacing llama-swap with Ollama** — duplicates the same role; would lose curated GGUF + model-fetch control. One engine policy.
 - **Replacing llama-swap with LiteLLM-only** — LiteLLM does not own model lifecycle. Hot-swap on a single 16 GiB UMA GPU is llama-swap's job. LiteLLM sits IN FRONT, doesn't replace.
-- **Khoj** — operator has no notes habit; Khoj's Obsidian round-trip is its main lever and would be wasted. Stable line stalled at v0.2.0; no first-party Helm chart. AnythingLLM ships steady, has in-tree chart with HTTPRoute template.
+- **Khoj** — operator has no notes habit; Khoj's Obsidian round-trip is its main lever and would be wasted. Stable line stalled at v0.2.0; no first-party Helm chart.
 - **vLLM** — needs ROCm gfx10+; APU performance is BW-bound, vLLM's compute wins don't materialize. Revisit only if/when an Instinct or large dGPU is added.
 
 ## Deployed Applications (services namespace)

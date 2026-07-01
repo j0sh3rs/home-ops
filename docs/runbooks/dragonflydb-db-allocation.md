@@ -22,7 +22,7 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 | 2 | Paperless-ngx | `services/paperless` | Celery task broker + result backend (document processing, OCR jobs). Redis URL: `redis://...:6379/2`. | `kubernetes/apps/services/paperless/app/helmrelease.yaml` |
 | 3 | _free_ | — | — | — |
 | 4 | LiteLLM | `ai/litellm` | Response cache (per-request key, TTL 600s). Default key prefix. | `kubernetes/apps/ai/litellm/app/{configmap,helmrelease,secret.sops}.yaml` |
-| 5 | LangFuse | `ai/langfuse` | Job queue (LangFuse tracing callbacks). Redis URL via secret key REDIS_URL. | `kubernetes/apps/ai/langfuse/app/secret.sops.yaml` |
+| 5 | _free_ | — | Formerly LangFuse job queue — freed 2026-07-01 (LangFuse removed, see `docs/runbooks/anythingllm-role-and-overlap.md` for the broader AI-stack cleanup). | — |
 | 6 | Authentik | `security/authentik` | Celery broker, Django cache, django-channels WebSocket layer. Key prefix default (Authentik-managed). | `kubernetes/apps/security/authentik/app/helmrelease.yaml` |
 | 7 | _free_ | — | — | — |
 | 8 | _free_ | — | — | — |
@@ -42,11 +42,9 @@ When deploying any of the following, allocate the next free DB and update this t
 
 | Likely consumer | Suggested DB | Notes |
 |-----------------|--------------|-------|
-| AnythingLLM (RAG cache) | 7 | Phase 2 of AI stack rollout. Pgvector handles embeddings; Redis only for ephemeral cache. DB 6 now taken by Authentik. |
 | Mem0 / Letta | 8 | Phase 6 memory layer. May not need Redis if Postgres-backed. |
 | Paperless (re-enabled) | 8 | Currently disabled. Historical config used default DB 0 (`PAPERLESS_REDIS=redis://...:6379` with no `/N` selector) — re-enable means moving to a dedicated index. |
 | n8n queue mode | 9 | n8n currently uses Postgres for state. Switch to BullMQ would consume a Redis DB. |
-| Open WebUI session cache | 10 | OWUI uses SQLite/Postgres for chat history; Redis would be opt-in for distributed cache. |
 
 ## Verification commands
 
@@ -88,7 +86,6 @@ kubectl port-forward -n databases dragonflydb-0 19999:9999 --context home
 curl -s http://127.0.0.1:19999/metrics | grep '^dragonfly_db_keys'
 # dragonfly_db_keys{db="0"} 0
 # dragonfly_db_keys{db="4"} 6
-# dragonfly_db_keys{db="5"} 2
 ```
 
 ## Operational notes

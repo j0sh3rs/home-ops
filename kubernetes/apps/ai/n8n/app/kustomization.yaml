@@ -4,5 +4,3 @@ kind: Kustomization
 resources:
   - ./secret.sops.yaml
   - ./helmrelease.yaml
-  - ./rbac.yaml
-  - ./sa-token.sops.yaml

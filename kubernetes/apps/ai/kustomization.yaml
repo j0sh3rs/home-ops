@@ -1,13 +1,13 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 # AI workloads namespace: LiteLLM gateway + local inference (llama-swap),
-# UI (open-webui), workflow automation (n8n). LiteLLM fronts llama-swap
-# and (eventually) cloud providers behind a single OpenAI-compatible API.
+# workflow automation (n8n), OpenCode. LiteLLM fronts llama-swap and
+# (eventually) cloud providers behind a single OpenAI-compatible API.
 #
 # Components:
 #   - common                 — namespace + cluster-secrets + sops-age
 #   - repos/app-template     — bjw-s app-template OCIRepository in this ns
-#                              (open-webui, llama-swap, n8n use it)
+#                              (llama-swap, n8n use it)
 #   - authentik-forwardauth  — authentik-forwardauth Middleware materialized
 #                              in-namespace; HTTPRoutes ExtensionRef it
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -18,14 +18,11 @@ components:
   - ../../components/repos/app-template
   - ../../components/authentik-forwardauth
 resources:
-  - ./anythingllm/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./litellm/ks.yaml
   - ./llama-swap/ks.yaml
   - ./n8n/ks.yaml
-  - ./langfuse/ks.yaml
   - ./omniroute/ks.yaml
-  - ./open-webui/ks.yaml
   - ./piper/ks.yaml
   # claude-code daemon (remote-control) DISABLED 2026-06-16. Auth/persistence
   # finally resolved (CLAUDE_CONFIG_DIR + uid 1024:100), but remote-control
@@ -35,6 +32,4 @@ resources:
   # - ./claude-code/ks.yaml
   - ./mcpjungle/ks.yaml
   - ./omega-mcp/ks.yaml
-  - ./goose/ks.yaml
-  - ./goose/indexer/ks.yaml
   - ./opencode/ks.yaml

@@ -118,7 +118,7 @@ spec:
           # DBs poll for not-yet-existent keys (queue-empty checks) and run a
           # near-0% hit ratio BY DESIGN, which drags a global ratio below 70%
           # permanently and fires a false positive. This is an explicit cache
-          # allowlist: add future cache DBs (e.g. db7 AnythingLLM) to the regex.
+          # allowlist: add future cache DBs to the regex as they're wired up.
           # Volume gate: db4 (LiteLLM cache) runs ~0.01 ops/sec at idle, so the
           # 5m rate window often holds a handful of events and a single miss
           # swings the ratio across 70% — pure sampling noise. Require >1 op/sec

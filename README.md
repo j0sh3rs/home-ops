@@ -21,7 +21,7 @@ _Talos · Flux · Renovate · GitHub Actions_
 
 Monorepo for a bare-metal home-lab Kubernetes cluster. Infrastructure as Code throughout: cluster nodes are defined in `talos/talconfig.yaml`, every application lives under `kubernetes/apps/`, and FluxCD reconciles Git state to the cluster continuously. No imperative kubectl, no SSH into nodes.
 
-The cluster doubles as a self-hosted AI lab — local inference runs on an AMD RDNA4 discrete GPU, fronted by a LiteLLM gateway that exposes a unified OpenAI-compatible API to all clients, with observability flowing through LangFuse.
+The cluster doubles as a self-hosted AI lab — local inference runs on an AMD RDNA4 discrete GPU, fronted by a LiteLLM gateway that exposes a unified OpenAI-compatible API to all clients.
 
 ---
 
@@ -148,7 +148,6 @@ All apps route through Authentik forwardAuth at the gateway layer. Namespaces op
 |---|---|
 | [CloudNative-PG](https://cloudnative-pg.io/) | PostgreSQL 18 operator; continuous WAL archival + scheduled base backups via CNPG Barman Cloud plugin |
 | [DragonflyDB](https://dragonflydb.io/) | Redis-compatible in-memory store; shared instance with per-DB allocation per consumer |
-| [ClickHouse](https://clickhouse.com/) | Analytical database backing LangFuse |
 
 ### Observability (`monitoring`)
 
@@ -181,17 +180,12 @@ The cluster runs a fully self-hosted AI stack. All clients speak to **LiteLLM** 
 | Component | Purpose |
 |---|---|
 | [LiteLLM](https://github.com/BerriAI/litellm) | OpenAI-compatible API gateway routing to local and cloud models. Named model aliases: `local-fast`, `local-balanced`, `local-coder`, `local-coder-small`, `local-large`, `local-embed`, `local-rerank` |
-| OWUI Pipelines | Keyword-based model router (code keywords → coder, short messages → fast, else → balanced) sitting between Open WebUI and LiteLLM |
 
 **Clients & Tools**
 
 | Component | Purpose |
 |---|---|
-| [Open WebUI](https://github.com/open-webui/open-webui) | Primary chat UI; public via Cloudflare tunnel; multi-user; backed by LiteLLM |
-| [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm) | RAG / per-workspace memory; pgvector on CNPG; embeddings + rerank via LiteLLM |
 | [n8n](https://n8n.io/) | Workflow automation; LLM nodes wired to LiteLLM |
-| [LangFuse](https://langfuse.com/) | LLM observability; traces from LiteLLM success callbacks; ClickHouse analytics backend |
-| [Goose](https://block.github.io/goose/) | AI code automation agent with in-cluster indexer |
 | [OpenCode](https://github.com/anomalyco/opencode) | Web-based AI coding assistant |
 | [Kelos](https://kelos.ai/) | Agent framework for loop orchestration |
 | [MCPJungle](https://github.com/mcpjungle/mcpjungle) | MCP server registry and proxy |

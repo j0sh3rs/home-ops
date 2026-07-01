@@ -102,7 +102,7 @@ spec:
             component: backup
         # ----------------------------------------------------------------
         # Availability + capacity alerts added 2026-05-21 to support AI
-        # workload scaling (LiteLLM, AnythingLLM future, n8n, etc.).
+        # workload scaling (LiteLLM, n8n, etc.).
         # ----------------------------------------------------------------
         - alert: CNPGInstanceDown
           annotations:
