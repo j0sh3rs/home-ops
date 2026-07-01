@@ -2,7 +2,19 @@
 # OpenCode config — mounted at /root/.config/opencode/config.json
 # Provider "litellm" is a custom openai-compatible entry pointing at the
 # in-cluster LiteLLM gateway. Model format is "litellm/<alias>" where the
-# alias must match a model_name in LiteLLM's model_list configmap.
+# alias must match a model_name in LiteLLM's model_list configmap. Kept
+# side-by-side as a fallback provider during the OmniRoute eval.
+#
+# Provider "omniroute" points at the OmniRoute gateway's "best-coding" combo
+# (kubernetes/apps/ai/omniroute — created via POST /api/combos, not stored in
+# git as a config file; OmniRoute has no declarative config surface for
+# combos, see 2026-07-01 session). Priority order: kiro (free Claude via AWS
+# CodeWhisperer OAuth import) -> openrouter free tier -> cloudflare-ai free
+# Workers AI -> personal Claude Pro OAuth (last-resort, burns real quota) ->
+# llama-swap (agentic-coder, then qwen3-8b) as the guaranteed local floor.
+# strategy=auto + quality-first mode pack: 12-factor scoring picks the best
+# healthy/quota'd target per-request rather than a strict ordered fallback.
+#
 # {env:VAR} substitution applied by OpenCode at startup.
 # models block required — without it OpenCode throws ProviderModelNotFoundError
 # even though the provider loads (learned from Kelos task debugging).
@@ -35,6 +47,19 @@ data:
     {
       "$schema": "https://opencode.ai/config.json",
       "provider": {
+        "omniroute": {
+          "npm": "@ai-sdk/openai-compatible",
+          "options": {
+            "baseURL": "http://omniroute:20128/v1",
+            "apiKey": "{env:OMNIROUTE_API_KEY}"
+          },
+          "models": {
+            "best-coding": {
+              "id": "best-coding",
+              "limit": {"context": 16384, "output": 4096}
+            }
+          }
+        },
         "litellm": {
           "npm": "@ai-sdk/openai-compatible",
           "options": {
@@ -73,7 +98,7 @@ data:
           }
         }
       },
-      "model": "litellm/local-balanced",
+      "model": "omniroute/best-coding",
       "small_model": "litellm/local-fast",
       "plugin": [
         "@franlol/opencode-md-table-formatter@0.0.6"
