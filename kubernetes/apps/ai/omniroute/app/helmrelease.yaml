@@ -1,0 +1,212 @@
+---
+# yamllint disable rule:line-length
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app omniroute
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    global:
+      annotations:
+        reloader.stakater.com/auto: "true"
+
+    controllers:
+      omniroute:
+        annotations:
+          reloader.stakater.com/auto: "true"
+
+        # No Helm chart or k8s manifests upstream (diegosouzapw/OmniRoute) —
+        # verified via repo tree listing, 2026-07-01. Docker Hub only
+        # (diegosouzapw/omniroute), hence bjw-s app-template per CLAUDE.md.
+        #
+        # Image ships as a non-root `node` user (UID/GID 1000) baked into
+        # the Dockerfile already — no need to override securityContext here.
+        pod:
+          securityContext:
+            fsGroup: 1000
+
+        containers:
+          app:
+            image:
+              repository: docker.io/diegosouzapw/omniroute
+              # -web variant bundles Chromium/Playwright, required for the
+              # gemini-web / claude-web / claude-turnstile providers (full
+              # feature eval, approved 2026-07-01). Switch back to the bare
+              # tag (no -web suffix) if those providers are dropped later —
+              # saves ~300MB and drops the Chromium attack surface.
+              # renovate: datasource=docker depName=diegosouzapw/omniroute versioning=semver
+              tag: 3.8.42-web
+              pullPolicy: IfNotPresent
+            env:
+              DATA_DIR: /app/data
+              PORT: &dashboardPort "20128"
+              DASHBOARD_PORT: *dashboardPort
+              API_PORT: &apiPort "20129"
+              API_HOST: "0.0.0.0"
+              # Behind Traefik + Authentik forwardAuth; cookies always over TLS.
+              AUTH_COOKIE_SECURE: "true"
+              NEXT_PUBLIC_BASE_URL: "https://omniroute.68cc.io"
+              BASE_URL: "http://omniroute:20128"
+              # Required in production (Dockerfile hardcodes NODE_ENV=production).
+              NODE_ENV: production
+              # cliproxyapi sidecar, same pod network namespace (localhost).
+              CLIPROXYAPI_HOST: "127.0.0.1"
+              CLIPROXYAPI_PORT: &cliproxyPort "8317"
+            # JWT_SECRET, API_KEY_SECRET, INITIAL_PASSWORD,
+            # OMNIROUTE_WS_BRIDGE_SECRET, REDIS_URL (DragonflyDB db 1 — see
+            # docs/runbooks/dragonflydb-db-allocation.md).
+            envFrom:
+              - secretRef:
+                  name: omniroute-secrets
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: "2"
+                memory: 2Gi
+            probes:
+              # /api/monitoring/health always returns HTTP 200 (even
+              # "degraded") per source read of src/app/api/monitoring/health
+              # — this is a liveness-only signal ("is the process serving
+              # requests"), not a deep dependency check. No separate
+              # /healthz or /readyz route exists upstream.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/monitoring/health
+                    port: 20128
+                  initialDelaySeconds: 30
+                  periodSeconds: 15
+                  failureThreshold: 4
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/monitoring/health
+                    port: 20128
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  successThreshold: 2
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/monitoring/health
+                    port: 20128
+                  failureThreshold: 30
+                  periodSeconds: 10
+
+          # CLIProxyAPI sidecar — reuses CLI OAuth sessions (Claude Code,
+          # Codex, Gemini CLI) as an OpenAI-compatible backend. Approved for
+          # full-feature eval 2026-07-01; this is explicitly a ToS-boundary
+          # tool against Anthropic/OpenAI/Google, not a neutral proxy — see
+          # open-sse/executors/cliproxyapi.ts header comment ("CCH signing,
+          # billing header... uTLS, multi-account rotation, device profile
+          # learning"). Upstream: github.com/router-for-me/CLIProxyAPI.
+          cliproxyapi:
+            image:
+              repository: ghcr.io/router-for-me/cliproxyapi
+              # renovate: datasource=docker depName=ghcr.io/router-for-me/cliproxyapi
+              tag: v6.9.7
+              pullPolicy: IfNotPresent
+            env:
+              PORT: *cliproxyPort
+              HOST: "0.0.0.0"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: "1"
+                memory: 1Gi
+
+    service:
+      app:
+        # Two service keys under one controller both get name-suffixed by
+        # bjw-s by default (omniroute-app / omniroute-cliproxyapi) —
+        # forceRename keeps this one at the bare release name so the
+        # HTTPRoute backendRef and NEXT_PUBLIC_BASE_URL/BASE_URL env vars
+        # above (which reference plain "omniroute") stay correct.
+        forceRename: *app
+        controller: *app
+        ports:
+          http:
+            port: 20128
+          api:
+            port: 20129
+      cliproxyapi:
+        controller: *app
+        ports:
+          http:
+            port: 8317
+
+    route:
+      app:
+        annotations:
+          # unifi-dns writes a LAN A record; traefik-external-gateway VIP
+          # is also LAN-reachable, and any route on this gateway gets a
+          # Cloudflare tunnel CNAME automatically via cloudflare-dns
+          # (see CLAUDE.md "External-DNS split-horizon"). Matches the
+          # open-webui / n8n pattern for LAN+public exposure.
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+        hostnames:
+          - omniroute.68cc.io
+        parentRefs:
+          - name: traefik-external-gateway
+            namespace: network
+        rules:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
+              - name: *app
+                port: 20128
+
+    persistence:
+      data:
+        type: persistentVolumeClaim
+        # Single-writer SQLite (WAL mode) — local disk only. Upstream docs
+        # never contemplate NFS; general SQLite+WAL+NFS incompatibility
+        # makes nfs-client unsafe here regardless. See
+        # docs/architecture/cluster-decisions.md (upstream) "Why SQLite?".
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        retain: true
+        # advancedMounts (not globalMounts) so this PVC only mounts into
+        # the app container — globalMounts would also mount it into the
+        # unrelated cliproxyapi sidecar container.
+        advancedMounts:
+          omniroute:
+            app:
+              - path: /app/data
+      cliproxyapi-data:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        retain: true
+        advancedMounts:
+          omniroute:
+            cliproxyapi:
+              - path: /root/.cli-proxy-api

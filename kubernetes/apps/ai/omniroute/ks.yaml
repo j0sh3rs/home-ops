@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app omniroute
+  namespace: &namespace ai
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  interval: 1h
+  dependsOn:
+    # DragonflyDB backs the distributed rate limiter (REDIS_URL, db 1).
+    - name: dragonflydb-instance
+      namespace: databases
+    # llama-swap is a candidate local upstream to route to, same as LiteLLM.
+    - name: llama-swap
+      namespace: *namespace
+  path: ./kubernetes/apps/ai/omniroute/app
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
+  timeout: 10m
+  wait: false

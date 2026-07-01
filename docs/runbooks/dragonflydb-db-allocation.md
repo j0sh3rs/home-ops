@@ -18,7 +18,7 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 | DB | Consumer | Namespace / app | Purpose | Reference |
 |----|----------|------------------|---------|-----------|
 | 0 | _(do not assign)_ | — | Default selection on connect; some clients touch it before `SELECT N`. Treat as transient — do NOT store data here. No consumer should target it. | — |
-| 1 | _free_ | — | _(stub registry previously claimed Traefik OIDC; verified WRONG — OIDC actually lives on db 6)_ | — |
+| 1 | OmniRoute | `ai/omniroute` | Distributed rate limiter backend (falls back to in-memory if unset). Redis URL: `redis://...:6379/1`. | `kubernetes/apps/ai/omniroute/app/{helmrelease,secret.sops}.yaml` |
 | 2 | Paperless-ngx | `services/paperless` | Celery task broker + result backend (document processing, OCR jobs). Redis URL: `redis://...:6379/2`. | `kubernetes/apps/services/paperless/app/helmrelease.yaml` |
 | 3 | _free_ | — | — | — |
 | 4 | LiteLLM | `ai/litellm` | Response cache (per-request key, TTL 600s). Default key prefix. | `kubernetes/apps/ai/litellm/app/{configmap,helmrelease,secret.sops}.yaml` |

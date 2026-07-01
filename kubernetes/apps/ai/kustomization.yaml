@@ -24,6 +24,7 @@ resources:
   - ./llama-swap/ks.yaml
   - ./n8n/ks.yaml
   - ./langfuse/ks.yaml
+  - ./omniroute/ks.yaml
   - ./open-webui/ks.yaml
   - ./piper/ks.yaml
   # claude-code daemon (remote-control) DISABLED 2026-06-16. Auth/persistence
