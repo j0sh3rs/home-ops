@@ -46,8 +46,15 @@ spec:
               # feature eval, approved 2026-07-01). Switch back to the bare
               # tag (no -web suffix) if those providers are dropped later —
               # saves ~300MB and drops the Chromium attack surface.
-              # renovate: datasource=docker depName=diegosouzapw/omniroute versioning=semver
-              tag: 3.8.42
+              #
+              # Plain `versioning=semver` treated 3.8.42 as outranking
+              # 3.8.42-web (semver reads -web as a pre-release suffix) and
+              # renovate silently downgraded to the non-Playwright image —
+              # confirmed 2026-07-01. Anchor the regex to the -web suffix
+              # so renovate only ever proposes tags within that family.
+              # renovate: datasource=docker depName=diegosouzapw/omniroute
+              # versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-web$
+              tag: 3.8.42-web
               pullPolicy: IfNotPresent
             env:
               DATA_DIR: /app/data
