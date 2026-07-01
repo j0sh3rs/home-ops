@@ -47,7 +47,7 @@ spec:
               # tag (no -web suffix) if those providers are dropped later —
               # saves ~300MB and drops the Chromium attack surface.
               # renovate: datasource=docker depName=diegosouzapw/omniroute versioning=semver
-              tag: 3.8.42-web
+              tag: 3.8.42
               pullPolicy: IfNotPresent
             env:
               DATA_DIR: /app/data
