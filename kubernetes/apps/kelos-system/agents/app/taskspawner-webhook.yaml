@@ -44,9 +44,10 @@ spec:
 
   taskTemplate:
     type: opencode
-    # local-coder: Qwen3-Coder-30B-A3B Q3_K_M — shared with the issues spawner
-    # so both reuse one resident GGUF (no model swap thrash on the single GPU).
-    model: litellm/local-coder
+    # best-coding: OmniRoute combo (free upstreams -> personal Claude Pro ->
+    # llama-swap agentic-coder/qwen3-8b local floor). See
+    # kubernetes/apps/ai/omniroute — combo lives in OmniRoute's DB, not git.
+    model: omniroute/best-coding
     credentials:
       type: none
     workspaceRef:
@@ -100,10 +101,10 @@ spec:
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
-              name: kelos-litellm-secret
-              key: LITELLM_VIRTUAL_KEY
+              name: kelos-omniroute-secret
+              key: OMNIROUTE_API_KEY
         - name: OPENAI_BASE_URL
-          value: "http://litellm.ai.svc.cluster.local:4000/v1"
+          value: "http://omniroute.ai.svc.cluster.local:20128/v1"
       resources:
         requests:
           cpu: 500m

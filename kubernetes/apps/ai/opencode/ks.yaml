@@ -10,10 +10,14 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    # litellm is a hard runtime dep (model gateway). No kelos dep: this is the
-    # interactive web deployment; Kelos drives its OWN opencode runtime in
-    # kelos-system and does not feed this pod.
+    # omniroute is the primary model gateway as of 2026-07-01 (best-coding
+    # combo). litellm stays wired as a side-by-side fallback provider during
+    # the eval, so keep both deps until litellm is fully retired. No kelos
+    # dep: this is the interactive web deployment; Kelos drives its OWN
+    # opencode runtime in kelos-system and does not feed this pod.
     - name: litellm
+      namespace: *namespace
+    - name: omniroute
       namespace: *namespace
   interval: 1h
   path: ./kubernetes/apps/ai/opencode/app

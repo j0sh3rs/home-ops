@@ -12,6 +12,9 @@ spec:
   dependsOn:
     - name: kelos
       namespace: kelos-system
+    # Model gateway for all opencode Tasks spawned by this TaskSpawner set.
+    - name: omniroute
+      namespace: ai
   interval: 1h
   path: ./kubernetes/apps/kelos-system/agents/app
   prune: true

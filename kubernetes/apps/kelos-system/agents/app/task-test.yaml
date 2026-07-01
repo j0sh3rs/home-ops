@@ -1,21 +1,22 @@
 ---
-# Test Task — validates LiteLLM routing + workspace clone.
+# Test Task — validates OmniRoute routing + workspace clone.
 # Apply manually: kubectl apply -f this-file -n kelos-system
-# Watch: kubectl logs -n kelos-system -l kelos.dev/task=test-litellm -f
-# Delete after: kubectl delete task test-litellm -n kelos-system
+# Watch: kubectl logs -n kelos-system -l kelos.dev/task=test-omniroute -f
+# Delete after: kubectl delete task test-omniroute -n kelos-system
 #
 # credentials.type: none — inject OPENAI_API_KEY + OPENAI_BASE_URL
 # via podOverrides because the Kelos entrypoint never sets OPENAI_BASE_URL.
 apiVersion: kelos.dev/v1alpha2
 kind: Task
 metadata:
-  name: test-litellm
+  name: test-omniroute
   namespace: kelos-system
 spec:
   type: opencode
-  # local-fast (8k ctx) too small for opencode system prompt + AGENTS.md.
-  # local-balanced has 32k context — sufficient for task loop.
-  model: litellm/local-balanced
+  # best-coding: OmniRoute combo (free upstreams -> personal Claude Pro ->
+  # llama-swap local floor). 16k context on the combo's llama-cpp targets —
+  # sufficient for this smoke-test task loop.
+  model: omniroute/best-coding
   credentials:
     type: none
   workspaceRef:
@@ -32,10 +33,10 @@ spec:
       - name: OPENAI_API_KEY
         valueFrom:
           secretKeyRef:
-            name: kelos-litellm-secret
-            key: LITELLM_VIRTUAL_KEY
+            name: kelos-omniroute-secret
+            key: OMNIROUTE_API_KEY
       - name: OPENAI_BASE_URL
-        value: "http://litellm.ai.svc.cluster.local:4000/v1"
+        value: "http://omniroute.ai.svc.cluster.local:20128/v1"
     resources:
       requests:
         cpu: 200m
