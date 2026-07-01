@@ -63,7 +63,7 @@ spec:
               NODE_ENV: production
               # cliproxyapi sidecar, same pod network namespace (localhost).
               CLIPROXYAPI_HOST: "127.0.0.1"
-              CLIPROXYAPI_PORT: &cliproxyPort "8317"
+              CLIPROXYAPI_PORT: "8317"
             # JWT_SECRET, API_KEY_SECRET, INITIAL_PASSWORD,
             # OMNIROUTE_WS_BRIDGE_SECRET, REDIS_URL (DragonflyDB db 1 — see
             # docs/runbooks/dragonflydb-db-allocation.md).
@@ -119,16 +119,27 @@ spec:
           # tool against Anthropic/OpenAI/Google, not a neutral proxy — see
           # open-sse/executors/cliproxyapi.ts header comment ("CCH signing,
           # billing header... uTLS, multi-account rotation, device profile
-          # learning"). Upstream: github.com/router-for-me/CLIProxyAPI.
+          # learning"). Upstream source: github.com/router-for-me/CLIProxyAPI
+          # — OmniRoute's own docker-compose.yml cites a nonexistent image
+          # (ghcr.io/router-for-me/cliproxyapi, confirmed ImagePullBackOff,
+          # 2026-07-01). The real publish target, per upstream's own CI
+          # workflow (.github/workflows/docker-image.yml, DOCKERHUB_REPO=
+          # eceasy/cli-proxy-api), is Docker Hub eceasy/cli-proxy-api —
+          # same source, official multi-arch build, not a third-party fork.
+          # No PORT/HOST env support — verified via source read of
+          # cmd/server/main.go + internal/config/config.go, 2026-07-01.
+          # Config is file-only (-config flag, defaults to ./config.yaml
+          # relative to cwd /CLIProxyAPI); LoadConfigOptional hard-errors
+          # if that file is missing and DEPLOY=cloud isn't set. Config
+          # (host/port/auth-dir/api-keys/management key) is mounted below
+          # from omniroute-secrets, matching upstream's own reference
+          # docker-compose.yml volume mount pattern.
           cliproxyapi:
             image:
-              repository: ghcr.io/router-for-me/cliproxyapi
-              # renovate: datasource=docker depName=ghcr.io/router-for-me/cliproxyapi
-              tag: v6.9.7
+              repository: docker.io/eceasy/cli-proxy-api
+              # renovate: datasource=docker depName=eceasy/cli-proxy-api
+              tag: v7.2.48
               pullPolicy: IfNotPresent
-            env:
-              PORT: *cliproxyPort
-              HOST: "0.0.0.0"
             resources:
               requests:
                 cpu: 100m
@@ -210,3 +221,16 @@ spec:
           omniroute:
             cliproxyapi:
               - path: /root/.cli-proxy-api
+      # config.yaml is the only way to configure this binary — no env var
+      # support (see comment on the cliproxyapi container above). Mirrors
+      # upstream's own docker-compose.yml, which bind-mounts a config.yaml
+      # to this same container path.
+      cliproxy-config:
+        type: secret
+        name: omniroute-secrets
+        advancedMounts:
+          omniroute:
+            cliproxyapi:
+              - path: /CLIProxyAPI/config.yaml
+                subPath: cliproxy-config.yaml
+                readOnly: true
