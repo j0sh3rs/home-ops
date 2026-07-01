@@ -10,5 +10,3 @@ resources:
   # secret must be Flux-managed so it exists when a Job runs. Kept in app/
   # because kustomize forbids referencing files above the build dir.
   - ./runner-secret.sops.yaml
-components:
-  - ../../../../components/repos/app-template
