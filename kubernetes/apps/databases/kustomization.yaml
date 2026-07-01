@@ -9,6 +9,7 @@ resources:
   - ./cloudnative-pg/ks.yaml
   - ./cnpg-barman-plugin/ks.yaml
   - ./dragonflydb/ks.yaml
+  - ./qdrant/ks.yaml
 patches:
   - target:
       kind: Namespace

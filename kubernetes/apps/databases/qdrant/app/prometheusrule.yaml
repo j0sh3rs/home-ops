@@ -1,0 +1,110 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Metric names verified against qdrant source
+# (src/common/metrics.rs, src/common/telemetry_ops/memory_telemetry.rs)
+# at v1.18.2, with metrics_prefix: qdrant_ set in helmrelease.yaml —
+# e.g. collections_total -> qdrant_collections_total.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: qdrant-rules
+  namespace: databases
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: qdrant.rules
+      rules:
+        - alert: QdrantInstanceDown
+          annotations:
+            description: >-
+              The qdrant ServiceMonitor has not produced
+              `qdrant_app_info` for >2m. Qdrant is unreachable or
+              crashed. Any ai-namespace consumer doing vector search/RAG
+              lookups will fail.
+            summary: Qdrant metrics endpoint unreachable
+          expr: |-
+            absent(qdrant_app_info) == 1
+          for: 2m
+          labels:
+            severity: critical
+            component: availability
+
+        - alert: QdrantClusterNotWorking
+          annotations:
+            description: >-
+              Qdrant consensus thread is not in the "working" state on
+              {{ $labels.instance }}. Single-node deployment, so this
+              indicates the node itself has an internal fault, not a
+              multi-node quorum issue.
+            summary: Qdrant consensus thread not working
+          expr: |-
+            qdrant_cluster_working_state{state="working"} == 0
+          for: 5m
+          labels:
+            severity: warning
+            component: availability
+
+        - alert: QdrantCollectionDeadReplicas
+          annotations:
+            description: >-
+              {{ $value }} shard replica(s) in a non-active state across
+              all collections. On this single-node deployment this means
+              a shard failed to load or is stuck initializing.
+            summary: Qdrant has dead shard replicas
+          expr: |-
+            qdrant_collection_dead_replicas > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: availability
+
+        - alert: QdrantRestErrorRateHigh
+          annotations:
+            description: >-
+              Qdrant REST API 4xx/5xx error rate is {{ $value |
+              humanizePercentage }} of total requests over 5m. Check
+              consumer request shape (ai namespace) and qdrant logs.
+            summary: Qdrant REST error rate elevated
+          expr: |-
+            (
+              sum(rate(qdrant_rest_responses_total{status!~"2.."}[5m]))
+              /
+              sum(rate(qdrant_rest_responses_total[5m]))
+            ) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+            component: performance
+
+        - alert: QdrantMemoryResidentHigh
+          annotations:
+            description: >-
+              Qdrant resident memory usage is {{ $value | humanize1024
+              }}B, approaching the 2Gi container limit. Sustained growth
+              risks an OOMKill; check collection/index growth in the ai
+              namespace RAG pipeline.
+            summary: Qdrant resident memory approaching container limit
+          expr: |-
+            qdrant_memory_resident_bytes > 1.7e9
+          for: 10m
+          labels:
+            severity: warning
+            component: capacity
+
+        - alert: QdrantOptimizationsStuck
+          annotations:
+            description: >-
+              Collection `{{ $labels.id }}` has had running optimizer
+              tasks for over 30m. Optimization normally completes in
+              seconds-to-minutes; a stuck optimizer can indicate disk
+              pressure or a corrupted segment.
+            summary: Qdrant optimizer task stuck
+          expr: |-
+            qdrant_collection_running_optimizations > 0
+          for: 30m
+          labels:
+            severity: warning
+            component: performance

@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/helmrepository_v1.json
+#
+# qdrant-helm publishes no OCI artifact (verified against ArtifactHub +
+# ghcr.io/qdrant probes, 2026-07-01) — only this classic Helm repo. TODO:
+# migrate to OCIRepository + chartRef if/when upstream publishes one.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: qdrant
+  namespace: flux-system
+spec:
+  interval: 2h
+  url: https://qdrant.github.io/qdrant-helm

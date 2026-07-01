@@ -1,0 +1,63 @@
+---
+# qdrant-helm ships no NetworkPolicy template (unlike the dragonfly
+# operator, which auto-creates a same-namespace-only lockdown). Without
+# any policy selecting these pods, Kubernetes' default-allow means qdrant
+# is reachable from anywhere in-cluster today. Qdrant holds vector/RAG
+# data for the ai namespace — split into two additive policies (mirrors
+# the dragonflydb pattern) so the pod selector only accepts the traffic
+# it actually needs: ai clients on REST+gRPC, and vmagent on the metrics
+# port (qdrant has no separate admin port — metrics share the REST port).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qdrant-allow-ai-clients
+  namespace: databases
+  labels:
+    app.kubernetes.io/name: qdrant
+    app.kubernetes.io/instance: qdrant
+spec:
+  podSelector:
+    matchLabels:
+      app: qdrant
+      app.kubernetes.io/name: qdrant
+      app.kubernetes.io/instance: qdrant
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai
+      ports:
+        - port: 6333
+          protocol: TCP
+        - port: 6334
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qdrant-allow-monitoring-scrape
+  namespace: databases
+  labels:
+    app.kubernetes.io/name: qdrant
+    app.kubernetes.io/instance: qdrant
+spec:
+  podSelector:
+    matchLabels:
+      app: qdrant
+      app.kubernetes.io/name: qdrant
+      app.kubernetes.io/instance: qdrant
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vmagent
+      ports:
+        - port: 6333
+          protocol: TCP

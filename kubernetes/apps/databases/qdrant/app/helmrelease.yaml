@@ -1,0 +1,108 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+#
+# qdrant-helm has no OCI artifact (verified 2026-07-01) — legacy
+# chart.spec.sourceRef against the HelmRepository at
+# kubernetes/flux/meta/repos/qdrant.yaml. TODO: migrate to
+# OCIRepository + chartRef if upstream ever publishes one.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: qdrant
+spec:
+  interval: 1h
+  timeout: 10m
+  chart:
+    spec:
+      chart: qdrant
+      # renovate: datasource=helm registryUrl=https://qdrant.github.io/qdrant-helm
+      version: 1.18.2
+      sourceRef:
+        kind: HelmRepository
+        name: qdrant
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    replicaCount: 1
+
+    image:
+      repository: docker.io/qdrant/qdrant
+      # renovate: datasource=docker depName=qdrant/qdrant
+      tag: v1.18.2
+
+    # Single-node, no ingress — cluster-internal only, consumed by ai
+    # namespace workloads over the ClusterIP Service.
+    service:
+      type: ClusterIP
+      ports:
+        - name: http
+          port: 6333
+          targetPort: 6333
+          protocol: TCP
+          checksEnabled: true
+        - name: grpc
+          port: 6334
+          targetPort: 6334
+          protocol: TCP
+          checksEnabled: false
+        - name: p2p
+          port: 6335
+          targetPort: 6335
+          protocol: TCP
+          checksEnabled: false
+
+    # REST/gRPC auth even though NetworkPolicy already scopes access to
+    # ai + databases namespaces — defense in depth against a compromised
+    # pod in an allowed namespace deleting/reading collections.
+    apiKey:
+      valueFrom:
+        secretKeyRef:
+          name: qdrant-auth
+          key: api-key
+
+    persistence:
+      size: 50Gi
+      storageClassName: openebs-hostpath
+
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+
+    livenessProbe:
+      enabled: true
+    readinessProbe:
+      enabled: true
+
+    metrics:
+      serviceMonitor:
+        enabled: true
+        scrapeInterval: 30s
+        scrapeTimeout: 10s
+        # apiKey is set above, so the chart auto-wires Bearer auth on the
+        # ServiceMonitor (see templates/servicemonitor.yaml) pointing at
+        # the qdrant-<release>-apikey Secret, key api-key.
+
+    config:
+      cluster:
+        enabled: true
+        p2p:
+          port: 6335
+          enable_tls: false
+        consensus:
+          tick_period_ms: 100
+      service:
+        enable_tls: false
+      telemetry_disabled: true
+      # Distinguish qdrant's own metric names from other exporters scraped
+      # by the same vmagent — every metric_family gets this prefix (e.g.
+      # qdrant_collections_total, qdrant_memory_resident_bytes).
+      metrics_prefix: qdrant_
