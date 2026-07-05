@@ -197,67 +197,62 @@ spec:
             summary: "Node {{ $labels.node }} has disk pressure"
             description: "Node {{ $labels.node }} is experiencing disk pressure for more than 5 minutes."
 
-    # Discrete GPU (AMD Navi 48 / RX 9070 XT on bigboi-jms-01, RDNA4/gfx1201).
-    # Metrics from amd-device-metrics-exporter (configmap MetricsFieldPrefix
-    # "amd_"; field GPU_X -> metric amd_gpu_x). Label set matches the bundled
-    # AMD dashboards (kube-system/amd-gpu/*.json): hostname / gpu_id / gpu_uuid
-    # / card_model — NOT the kube "node" label, so descriptions key on
-    # $labels.hostname. The dashboards gate amd_gpu_junction_temperature behind
-    # the Instinct card_model list; the 9070 XT is a consumer card and reports
-    # amd_gpu_edge_temperature, so edge is the reliable critical path here and
-    # junction is a best-effort bonus that no-ops if the field is unset.
-    # Thresholds CONSERVATIVE until load-bench run on 9070 XT (prior data was
-    # 6900 XT: idle 27-29C/61W, peak 53C/161W). Re-tune after first bench.
-    #   Navi 48 edge throttle ~110C, junction hotspot ~120C.
-    #   Warn=80C, Crit=100C (pre-throttle, to be tightened post-bench).
+    # GPU metrics from drm-exporter (monitoring ns), covering all 4 nodes —
+    # the discrete Navi 48 / RX 9070 XT on bigboi-jms-01 plus the 3
+    # Renoir/Cezanne APU nodes (bee-jms-*) that the previous
+    # amd-device-metrics-exporter (gpuagent-based, dGPU-only) could never
+    # see. Metric names/labels verified against drm-exporter source
+    # (src/metrics.rs, src/collector.rs), not guessed: drm_temperature_celsius
+    # (label sensor="edge" on amdgpu hwmon), drm_power_watts (label
+    # domain="package"). Labels key on the exporter's own "node" label
+    # (ServiceMonitor relabels __meta_kubernetes_pod_node_name -> node), not
+    # a kube-native label.
+    # Thresholds CONSERVATIVE, carried over from the prior 9070 XT bench
+    # baseline (idle 27-29C/61W, peak 53C/161W on a 6900 XT) pending a
+    # drm-exporter-specific re-bench. Navi 48 edge throttle ~110C.
     - name: gpu
       interval: 30s
       rules:
         - alert: GPUEdgeTemperatureCritical
           expr: |
-            amd_gpu_edge_temperature > 100
+            drm_temperature_celsius{sensor="edge"} > 100
           for: 2m
           labels:
             severity: critical
             component: gpu
           annotations:
-            summary: "GPU edge temperature critical on {{ $labels.hostname }}"
-            description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 100C for more than 2 minutes — approaching the ~110C throttle point. Check airflow and reduce GPU workload immediately. Threshold is conservative pending 9070 XT load bench."
+            summary: "GPU edge temperature critical on {{ $labels.node }}"
+            description: "AMD GPU edge temperature on {{ $labels.node }} has exceeded 100C for more than 2 minutes — approaching the ~110C throttle point. Check airflow and reduce GPU workload immediately. Threshold is conservative pending a drm-exporter load bench."
 
         - alert: GPUEdgeTemperatureHigh
           expr: |
-            amd_gpu_edge_temperature > 80
+            drm_temperature_celsius{sensor="edge"} > 80
           for: 5m
           labels:
             severity: warning
             component: gpu
           annotations:
-            summary: "GPU edge temperature high on {{ $labels.hostname }}"
-            description: "AMD GPU edge temperature on {{ $labels.hostname }} has exceeded 80C for more than 5 minutes. Threshold is conservative pending 9070 XT load bench — re-tune once idle/peak baseline is established."
+            summary: "GPU edge temperature high on {{ $labels.node }}"
+            description: "AMD GPU edge temperature on {{ $labels.node }} has exceeded 80C for more than 5 minutes. Threshold is conservative pending a drm-exporter load bench — re-tune once idle/peak baseline is established."
 
-        # No GPUJunctionTemperatureCritical: amd_gpu_junction_temperature is
-        # gated to Instinct card_models in the exporter, and the 9070 XT
-        # reports card_model="" — the metric never populates on this card, so
-        # an alert on it would be permanently dead. Edge temperature above is
-        # the authoritative thermal signal for this consumer GPU.
         - alert: GPUPackagePowerHigh
           expr: |
-            amd_gpu_average_package_power > 320
+            drm_power_watts{domain="package"} > 320
           for: 5m
           labels:
             severity: warning
             component: gpu
           annotations:
-            summary: "GPU package power high on {{ $labels.hostname }}"
-            description: "AMD GPU average package power draw on {{ $labels.hostname }} has exceeded 320W for more than 5 minutes (304W TDP). Sustained over-budget draw — check for runaway inference load. NOTE: verify metric name post-install; 6900 XT exposed amd_gpu_average_package_power — confirm same on 9070 XT."
+            summary: "GPU package power high on {{ $labels.node }}"
+            description: "AMD GPU package power draw on {{ $labels.node }} has exceeded 320W for more than 5 minutes (304W TDP). Sustained over-budget draw — check for runaway inference load."
 
         - alert: GPUMetricsExporterDown
           expr: |
-            count(up{job=~".*amd.*metrics.*"} == 1) == 0
+            count(up{job="drm-exporter"} == 1) == 0
           for: 10m
           labels:
             severity: warning
             component: gpu
           annotations:
             summary: "AMD GPU metrics exporter is not reporting"
-            description: "No amd-device-metrics-exporter target has been up for 10 minutes. GPU thermal and power alerts are blind until this recovers (gpuagent.sock may be down on the dgpu node)."
+            description: "No drm-exporter target has been up for 10 minutes. GPU thermal and power alerts are blind until this recovers."

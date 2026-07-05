@@ -8,7 +8,7 @@ components:
   - ../../components/authentik-forwardauth
 resources:
   - ./referencegrant.yaml
-  - ./amd-device-metrics-exporter/ks.yaml
+  - ./drm-exporter/ks.yaml
   - ./grafana/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
   - ./netdata/ks.yaml

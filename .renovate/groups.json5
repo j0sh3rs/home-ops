@@ -162,14 +162,12 @@
       },
     },
     {
-      description: "AMD GPU stack - device plugin chart + plugin/labeller images + metrics exporter",
+      description: "AMD GPU stack - device plugin chart + plugin/labeller images",
       groupName: "AMD GPU",
       matchDatasources: ["docker", "helm"],
       matchPackageNames: [
         "amd-gpu",
         "/rocm\\/k8s-device-plugin/",
-        "/rocm\\/device-metrics-exporter/",
-        "device-metrics-exporter-charts",
       ],
       labels: ["type/platform", "risk/medium"],
       group: {
