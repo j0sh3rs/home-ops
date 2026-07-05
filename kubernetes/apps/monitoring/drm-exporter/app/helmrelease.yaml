@@ -32,11 +32,18 @@ spec:
       # is required.
       devDri: /dev/dri
       sys: /sys
-    # Chart defaults (root + PERFMON/SYS_RAWIO) are required even on
-    # AMD-only nodes: dropping to a non-root user + dropping capabilities
-    # broke DRM device discovery cluster-wide (EPERM on every node,
-    # including the dGPU node) despite the README's claim that AMD needs
-    # neither. Leave securityContext/podSecurityContext at chart defaults.
+    # Chart defaults (root + PERFMON/SYS_RAWIO, non-privileged) still hit
+    # EPERM on "discovering DRM devices" on every node. A hostPath bind
+    # mount of /dev/dri does not grant a cgroup device-access rule by
+    # itself — that only happens via `privileged: true` or a device
+    # plugin/DRA claim that injects the device (this cluster's amd-gpu
+    # device-plugin is legacy-style, not DRA, so it can't back this
+    # chart's `dra.enabled` option). Run privileged until upstream
+    # supports device-plugin-based access for non-DRA clusters.
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: true
+      readOnlyRootFilesystem: false
     resources:
       requests:
         cpu: 10m
