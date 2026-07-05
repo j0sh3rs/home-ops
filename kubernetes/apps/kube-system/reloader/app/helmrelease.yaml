@@ -20,6 +20,20 @@ spec:
     fullnameOverride: reloader
     reloader:
       readOnlyRootFileSystem: true
+      # Per-namespace reload counters — cheap here (12 namespaces, bounded
+      # cardinality) and pairs with the podMonitor already scraping this.
+      enableMetricsByNamespace: true
       podMonitor:
         enabled: true
         namespace: "{{ .Release.Namespace }}"
+      deployment:
+        containerSecurityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi

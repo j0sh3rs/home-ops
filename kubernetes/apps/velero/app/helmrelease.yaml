@@ -94,6 +94,14 @@ spec:
     credentials:
       existingSecret: velero-s3-secret
 
+    # The chart's own checksum/secret pod annotation only fires when it
+    # generates the Secret itself (credentials.useSecret + no
+    # existingSecret) — see templates/deployment.yaml condition. Since we
+    # bring our own existingSecret, that auto-reload path is skipped, so
+    # wire Reloader explicitly — issue #493.
+    podAnnotations:
+      secret.reloader.stakater.com/reload: velero-s3-secret
+
     # Environment variables to force AWS SDK to use credentials file (not EC2 IMDS)
     extraEnvVars:
       AWS_SHARED_CREDENTIALS_FILE: /credentials/cloud

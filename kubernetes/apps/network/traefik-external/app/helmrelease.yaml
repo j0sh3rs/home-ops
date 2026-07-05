@@ -136,6 +136,12 @@ spec:
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
+      # Explicitly scoped to traefik-secrets (SOPS, holds the CrowdSec
+      # bouncer key) rather than a blanket /auto — issue #493. Excludes
+      # the botwrangler-robots-template ConfigMap, which doesn't need a
+      # pod restart to take effect.
+      podAnnotations:
+        secret.reloader.stakater.com/reload: traefik-secrets
       # DaemonSet surge (k8s 1.22+): spin up the new pod before killing the old
       # one so every node keeps a Traefik pod during chart/image bumps. With
       # externalTrafficPolicy: Local, maxUnavailable>0 would blackhole the LB

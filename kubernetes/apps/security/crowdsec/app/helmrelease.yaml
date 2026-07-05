@@ -195,6 +195,12 @@ spec:
             name: alertmanager-secret
         - secretRef:
             name: crowdsec-lapi-secrets
+      # Chart has no global reloader auto-annotation, so scope explicitly
+      # to the three secrets LAPI actually consumes — issue #493. A
+      # rotated DB password or bouncer key otherwise goes stale until an
+      # unrelated restart.
+      podAnnotations:
+        secret.reloader.stakater.com/reload: "alertmanager-secret,crowdsec-lapi-secrets,crowdsec-bouncer-secrets"
       persistentVolume:
         # data PVC removed: LAPI state now lives in the shared CNPG postgres17
         # cluster (db_config in config.yaml.local). No local SQLite file → no

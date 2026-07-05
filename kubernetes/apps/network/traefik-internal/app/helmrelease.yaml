@@ -151,6 +151,10 @@ spec:
     deployment:
       kind: DaemonSet
       revisionHistoryLimit: 3
+      # Explicitly scoped to traefik-secrets (SOPS, mirrored from
+      # traefik-external) rather than a blanket /auto — issue #493.
+      podAnnotations:
+        secret.reloader.stakater.com/reload: traefik-secrets
       # DaemonSet surge (k8s 1.22+): new pod up before old pod down so every
       # node keeps a Traefik pod during chart/image bumps. With
       # externalTrafficPolicy: Local, maxUnavailable>0 blackholes the LB node
