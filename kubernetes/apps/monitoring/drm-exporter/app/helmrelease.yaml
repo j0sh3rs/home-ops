@@ -32,20 +32,11 @@ spec:
       # is required.
       devDri: /dev/dri
       sys: /sys
-    # AMD + sysfs stats need neither PERFMON nor SYS_RAWIO (those are
-    # Intel-only paths for i915/xe perf-PMU utilization and MSR package
-    # power/temp).
-    securityContext:
-      capabilities:
-        drop:
-          - ALL
-        add: []
-    podSecurityContext:
-      runAsNonRoot: true
-      runAsUser: 65534
-      runAsGroup: 65534
-      seccompProfile:
-        type: RuntimeDefault
+    # Chart defaults (root + PERFMON/SYS_RAWIO) are required even on
+    # AMD-only nodes: dropping to a non-root user + dropping capabilities
+    # broke DRM device discovery cluster-wide (EPERM on every node,
+    # including the dGPU node) despite the README's claim that AMD needs
+    # neither. Leave securityContext/podSecurityContext at chart defaults.
     resources:
       requests:
         cpu: 10m
