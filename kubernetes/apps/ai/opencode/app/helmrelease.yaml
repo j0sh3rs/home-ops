@@ -46,6 +46,14 @@ spec:
               GIT_AUTHOR_EMAIL: "opencode@68cc.io"
               GIT_COMMITTER_NAME: "OpenCode"
               GIT_COMMITTER_EMAIL: "opencode@68cc.io"
+              # OpenCode resolves session storage (SQLite opencode.db +
+              # storage/) to ${XDG_DATA_HOME}/opencode, defaulting to
+              # /root/.local/share which lives on the pod's ephemeral
+              # rootfs. Redirect it onto the workspace PVC so sessions
+              # survive pod restarts — issue #489. OpenCode creates the
+              # dir itself on startup (fs.mkdir recursive), no init
+              # container needed.
+              XDG_DATA_HOME: /workspace/.local/share
             envFrom:
               - secretRef:
                   name: opencode-secrets
