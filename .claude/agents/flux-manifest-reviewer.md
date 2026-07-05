@@ -54,6 +54,14 @@ Check against `CLAUDE.md` at repo root. Non-negotiable rules:
    - Require `dnsPolicy: ClusterFirstWithHostNet` sibling
    - Require namespace PSA=privileged (check `kubernetes/apps/<ns>/kustomization.yaml` patches block)
 
+7. **stakater/reloader wiring** (REQUIRED for any ConfigMap/Secret consumer — issue #493)
+   - If the workload has `envFrom`, `valueFrom.configMapKeyRef`/`secretKeyRef`, or a mounted ConfigMap/Secret volume, it MUST carry a reloader annotation somewhere that lands on the pod template
+   - app-template: `controllers.<name>.annotations` or `global.annotations` with `reloader.stakater.com/auto: "true"`
+   - Non-app-template chart: find that chart's `podAnnotations`/`deploymentAnnotations` key (verify against the actual chart, key name varies) and set `reloader.stakater.com/auto: "true"` there — or scope narrowly with `configmap.reloader.stakater.com/reload:`/`secret.reloader.stakater.com/reload:` (comma-separated names) if a blanket `/auto` would react to something that shouldn't trigger a restart
+   - Flag as BLOCK if the consumed object plausibly changes (SOPS secret, renovate-tracked config, user-edited ConfigMap) and no annotation is present anywhere
+   - Do not assume a chart's own checksum/secret auto-reload covers this — `existingSecret`-style overrides frequently bypass it (confirmed on velero)
+   - Verify with `kustomize build <dir> | grep reloader.stakater` before passing this check
+
 ### Flux Kustomization (ks.yaml)
 
 - `spec.sourceRef.kind: GitRepository, name: flux-system, namespace: flux-system`

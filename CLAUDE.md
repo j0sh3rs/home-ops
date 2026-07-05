@@ -204,6 +204,24 @@ components:
 
 Currently opted in: `ai`, `services`, `databases`. The OCIRepository is at `kubernetes/components/repos/app-template/ocirepository.yaml`.
 
+### IMPORTANT: Wire stakater/reloader on every ConfigMap/Secret consumer
+
+Every workload that consumes a ConfigMap or Secret **must** carry a reloader annotation so edits/rotations trigger a pod restart instead of silently going stale. This is not optional polish — issue #493 found 6 production apps (unpoller, qdrant, crowdsec, both traefik instances, velero) silently running on stale secrets because this was skipped.
+
+**When adding a new app or reviewing an existing one:**
+
+1. If the app consumes ANY ConfigMap or Secret (envFrom, `valueFrom.configMapKeyRef`/`secretKeyRef`, or a mounted volume) and there's no compelling reason to scope narrowly, default to a blanket auto-reload annotation:
+   - **app-template apps**: `controllers.<name>.annotations: {reloader.stakater.com/auto: "true"}` (or `global.annotations` if it should apply to every controller in the release).
+   - **Non-app-template charts**: check the chart's values schema for a `podAnnotations`/`deploymentAnnotations`/`global.deploymentAnnotations`-style key (name varies per chart — verify by reading that chart's actual `values.yaml`, don't assume). Set `reloader.stakater.com/auto: "true"` there.
+2. Use the scoped form instead of blanket `/auto` when you deliberately don't want every mounted object to trigger a restart (e.g. a ConfigMap that's read live, or you want to protect against restart-storms on a chatty ConfigMap):
+   - `configmap.reloader.stakater.com/reload: "name1,name2"`
+   - `secret.reloader.stakater.com/reload: "name1,name2"`
+3. **Never assume a chart auto-generates its own checksum/reload annotation** — verify against the chart's actual template. `credentials.existingSecret`-style overrides (velero being the concrete example) frequently bypass a chart's built-in reload path even when the chart appears to support secrets natively.
+4. Confirm the annotation lands on the **pod template**, not just Deployment/HelmRelease/Kustomization metadata — Reloader checks workload object annotations first, then falls back to pod-template annotations; either is fine, but a `kustomization.yaml`-level annotation does nothing.
+5. Verify with `kustomize build kubernetes/apps/{namespace}/{app}/app | grep reloader.stakater` before considering the change done.
+
+Reloader itself (`kubernetes/apps/kube-system/reloader/app/helmrelease.yaml`) runs `watchGlobally: true` (cluster-wide RBAC, all namespaces) with the default rolling-restart strategy — no per-namespace opt-in needed on the reloader side, only the per-app annotation.
+
 ### Flux Variable Substitution
 
 The cluster-apps Kustomization (`kubernetes/flux/cluster/apps.yaml`) injects variables via `postBuild.substituteFrom` from:
