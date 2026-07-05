@@ -47,7 +47,7 @@ data:
   #   gh release view -R affaan-m/ECC          --json tagName -q .tagName
   bundles.txt: |
     # caveman: ultra-compressed comms + cavecrew subagents (7 skills, ~116K).
-    caveman https://github.com/JuliusBrussee/caveman v1.9.0 skills
+    caveman https://github.com/JuliusBrussee/caveman v1.9.1 skills
     # ECC: large multi-domain skill library (~277 skills, ~4M). MUST be
     # allowlisted (5th field) — the full tree's discovery payload overflows
     # every served context window and wedges OpenCode in a compaction loop.
