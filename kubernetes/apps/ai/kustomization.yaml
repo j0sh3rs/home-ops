@@ -18,6 +18,7 @@ components:
   - ../../components/repos/app-template
   - ../../components/authentik-forwardauth
 resources:
+  - ./cognee/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./litellm/ks.yaml
   - ./llama-swap/ks.yaml

@@ -26,6 +26,10 @@
 #
 # `mcp` points OpenCode at the in-cluster LiteLLM MCP aggregator (mcpjungle:
 # context7/exa/github/playwright/etc.) — same gateway + virtual key as chat.
+# `cognee` is a second remote MCP server (issue #494 trial) — persistent
+# knowledge-graph memory (remember/recall) that LiteLLM's aggregator does
+# not provide. Cluster-internal only, no auth (consistent with mcpjungle's
+# development-mode no-auth choice for internal-only gateways).
 #
 # `permission` is a guardrail: this agent is network-exposed (opencode.68cc.io)
 # and holds a GitHub token on the workspace PVC, so it can run arbitrary shell.
@@ -111,6 +115,11 @@ data:
           "headers": {
             "Authorization": "Bearer {env:LITELLM_API_KEY}"
           }
+        },
+        "cognee": {
+          "type": "remote",
+          "url": "http://cognee.ai.svc.cluster.local:8000/mcp",
+          "enabled": true
         }
       },
       "permission": {

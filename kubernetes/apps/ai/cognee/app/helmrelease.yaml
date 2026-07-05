@@ -1,0 +1,128 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+#
+# Trial deployment for issue #494 (evaluate Cognee for AI stack).
+# Cognee has no official Helm chart — bjw-s app-template, same pattern
+# as mcpjungle/opencode. Runs the cognee-mcp image directly (it embeds
+# the cognee library; no separate cognee API server needed for MCP-only
+# access). Deliberately minimal footprint for the trial:
+#   - Relational bookkeeping DB: new `cognee` DB on the shared cnpg
+#     postgres cluster (postgres-init pattern, same as mcpjungle/litellm).
+#   - Vector store: reuse existing Qdrant (databases ns) — its
+#     NetworkPolicy already allows the `ai` namespace.
+#   - Graph store: embedded Kuzu (file-based, no extra pod) on a small
+#     PVC — avoids standing up Neo4j for a trial.
+#   - LLM + embeddings: routed through LiteLLM (local-balanced /
+#     local-embed aliases) — no separate OpenAI key, reuses existing
+#     budget/routing.
+# Internal-only: no HTTPRoute. Consumed via OpenCode's `mcp:` block over
+# the ClusterIP service.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app cognee
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      cognee:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        replicas: 1
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              # renovate: datasource=docker depName=ghcr.io/home-operations/postgres-init
+              tag: "18"
+            envFrom:
+              - secretRef:
+                  name: cognee-secrets
+        containers:
+          app:
+            image:
+              repository: docker.io/cognee/cognee-mcp
+              # No semver tags published — `main` is the only maintained
+              # tag upstream. Renovate can't track this; revisit if
+              # upstream starts cutting releases.
+              tag: main
+            args:
+              - --transport
+              - http
+              - --host
+              - "0.0.0.0"
+              - --port
+              - "8000"
+            envFrom:
+              - secretRef:
+                  name: cognee-secrets
+            env:
+              # Relational bookkeeping DB (datasets/pipeline state).
+              DB_PROVIDER: postgres
+              DB_HOST: postgres-rw.databases.svc.cluster.local
+              DB_PORT: "5432"
+              DB_NAME: cognee
+              # Vector store: reuse existing Qdrant (databases ns).
+              VECTOR_DB_PROVIDER: qdrant
+              VECTOR_DB_URL: http://qdrant.databases.svc.cluster.local:6333
+              # Graph store: embedded Kuzu, file-based on the data PVC.
+              GRAPH_DATABASE_PROVIDER: kuzu
+              # LLM + embeddings via LiteLLM gateway — no dedicated
+              # OpenAI key, reuses existing routing/budget.
+              LLM_PROVIDER: custom
+              LLM_MODEL: local-balanced
+              LLM_ENDPOINT: http://litellm.ai.svc.cluster.local:4000/v1
+              EMBEDDING_PROVIDER: custom
+              EMBEDDING_MODEL: local-embed
+              # 1024 dims — matches Qwen3-Embedding-0.6B (local-embed alias).
+              EMBEDDING_DIMENSIONS: "1024"
+              DATA_ROOT_DIRECTORY: /data/cognee/data
+              SYSTEM_ROOT_DIRECTORY: /data/cognee/system
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+            probes:
+              liveness:
+                enabled: false
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 8000
+                  initialDelaySeconds: 20
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              startup:
+                enabled: false
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            primary: true
+            port: &port 8000
+
+    persistence:
+      data:
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 5Gi
+        storageClass: openebs-hostpath
+        globalMounts:
+          - path: /data/cognee
