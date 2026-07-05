@@ -56,17 +56,29 @@ spec:
               # tag upstream. Renovate can't track this; revisit if
               # upstream starts cutting releases.
               tag: main
-            args:
-              - --transport
-              - http
-              - --host
-              - "0.0.0.0"
-              - --port
-              - "8000"
+            # No CLI args here — the image's entrypoint.sh always appends
+            # its own `--transport $TRANSPORT_MODE` AFTER any args we pass,
+            # so a `--transport http` arg gets silently overridden back to
+            # the stdio default (verified via container logs: "calling
+            # cognee-mcp --transport http ... --transport stdio"). Transport
+            # + host/port are driven entirely by env vars instead — the
+            # entrypoint script itself reads these.
             envFrom:
               - secretRef:
                   name: cognee-secrets
             env:
+              TRANSPORT_MODE: http
+              HTTP_PORT: "8000"
+              # Single-operator trial, cluster-internal only — no per-user
+              # auth needed. ENABLE_BACKEND_ACCESS_CONTROL=true (default)
+              # forces REQUIRE_AUTHENTICATION=true regardless of that var,
+              # so both must be set together (see
+              # get_authenticated_user.py::_resolve_auth_posture).
+              ENABLE_BACKEND_ACCESS_CONTROL: "false"
+              REQUIRE_AUTHENTICATION: "false"
+              # DNS-rebinding protection only allows localhost by default;
+              # OpenCode calls this over the ClusterIP DNS name.
+              MCP_ALLOWED_HOSTS: "cognee.ai.svc.cluster.local:*"
               # Relational bookkeeping DB (datasets/pipeline state).
               DB_PROVIDER: postgres
               DB_HOST: postgres-rw.databases.svc.cluster.local
