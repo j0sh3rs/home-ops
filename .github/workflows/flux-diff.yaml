@@ -1,0 +1,109 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Flux Diff
+
+# Renders the Flux cluster at the PR/branch head and at its baseline with flate
+# (https://github.com/home-operations/flate), diffs the two, and runs flate's
+# built-in reconcile test suite. The job's pass/fail becomes the "Flux Diff"
+# check that Renovate's autoMerge rules wait on (see .renovate/autoMerge.json5,
+# ignoreTests: false).
+#
+# Two triggers are required to cover both merge paths on this repo:
+#   - pull_request: human-opened PRs and any Renovate PR that needs a PR for
+#     visibility (autoMerge.json5 "Helm chart updates" rule).
+#   - push to renovate/**: Renovate's default automergeType is "branch", which
+#     merges straight into main without ever opening a PR — the check still
+#     needs to land on that branch's HEAD commit for ignoreTests:false to gate it.
+on:
+  pull_request:
+    paths:
+      - "kubernetes/**/*.yaml"
+      - ".github/workflows/flux-diff.yaml"
+  push:
+    branches:
+      - "renovate/**"
+    paths:
+      - "kubernetes/**/*.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  flux-diff:
+    name: Render and Diff
+    runs-on: home-ops-runner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup flate
+        uses: home-operations/flate/action@0fc37fae10cf3c265294f6adebc6d6c100c74ea5  # v0.4.10
+        with:
+          cache: true
+
+      - name: Materialize baseline tree
+        id: baseline
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}"
+          git fetch origin "${BASE_REF}"
+          MERGE_BASE=$(git merge-base HEAD "origin/${BASE_REF}")
+          git worktree add /tmp/flate-baseline "${MERGE_BASE}"
+          echo "dir=/tmp/flate-baseline" >> "${GITHUB_OUTPUT}"
+
+      - name: flate diff
+        id: diff
+        continue-on-error: true
+        env:
+          # flate/action always exports FLATE_BASE (default: the default
+          # branch); it collides with the --path-orig baseline we manage
+          # ourselves above ("--path-orig and --base are mutually exclusive").
+          FLATE_BASE: ""
+        run: |
+          flate diff all \
+            --path ./kubernetes \
+            --path-orig "${{ steps.baseline.outputs.dir }}/kubernetes" \
+            --allow-missing-secrets \
+            --api-versions monitoring.coreos.com/v1 \
+            -o github > diff.md
+
+      - name: flate test
+        id: test
+        env:
+          # Same as above: run full-tree, not the action's implicit
+          # changed-only mode (which mis-resolved a HelmRepository
+          # dependency ordering for kube-system/amd-gpu in practice).
+          FLATE_BASE: ""
+        run: |
+          flate test all \
+            --path ./kubernetes \
+            --allow-missing-secrets \
+            --api-versions monitoring.coreos.com/v1
+
+      - name: Comment on PR
+        if: ${{ github.event_name == 'pull_request' && always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '## flate render diff'
+            echo ''
+            if [ -s diff.md ]; then
+              cat diff.md
+            else
+              echo '_No rendered resource changes detected._'
+            fi
+          } > comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --edit-last --create-if-none \
+            --body-file comment.md
+
+      - name: Clean up baseline worktree
+        if: always()
+        run: git worktree remove --force /tmp/flate-baseline || true

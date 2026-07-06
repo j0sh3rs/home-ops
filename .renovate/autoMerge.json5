@@ -6,7 +6,7 @@
       automerge: true,
       automergeType: "branch",
       matchUpdateTypes: ["minor", "patch", "pin", "digest"],
-      ignoreTests: true,
+      ignoreTests: false,
     },
     {
       description: "Auto-merge Helm chart updates as PRs for visibility",
@@ -23,6 +23,9 @@
       automergeType: "branch",
       matchUpdateTypes: ["minor", "patch", "digest"],
       minimumReleaseAge: "3 days",
+      // Out of scope for the flux-diff check (it only triggers on
+      // kubernetes/**/*.yaml paths) — leave ignoreTests true so these
+      // don't wait forever on a check that never runs.
       ignoreTests: true,
     },
     {
@@ -49,7 +52,7 @@
       matchUpdateTypes: ["digest"],
       automerge: true,
       automergeType: "branch",
-      ignoreTests: true,
+      ignoreTests: false,
     },
   ],
 }

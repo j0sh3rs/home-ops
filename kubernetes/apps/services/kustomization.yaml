@@ -14,6 +14,7 @@ resources:
   - ./homebridge/ks.yaml
   - ./homepage/ks.yaml
   - ./it-tools/ks.yaml
+  - ./konflate/ks.yaml
   - ./linkwarden/ks.yaml
   #  ./memos/ks.yaml
   - ./mosquitto/ks.yaml

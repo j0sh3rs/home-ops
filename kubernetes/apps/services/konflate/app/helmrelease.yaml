@@ -1,0 +1,53 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app konflate
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: konflate
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    deploymentAnnotations:
+      reloader.stakater.com/auto: "true"
+    config:
+      repo: github://j0sh3rs/home-ops
+      publicUrl: https://konflate.68cc.io
+      statusChecks: true
+      statusCheckName: Konflate
+      prComments: true
+    secret:
+      existingSecret: konflate-secrets
+    persistence:
+      enabled: true
+      storageClass: nfs-client
+      size: 5Gi
+    httpRoute:
+      enabled: true
+      hostnames: ["konflate.68cc.io"]
+      annotations:
+        external-dns.alpha.kubernetes.io/target: 192.168.35.15
+      parentRefs:
+        - name: traefik-external-gateway
+          namespace: network
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: authentik-forwardauth
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
