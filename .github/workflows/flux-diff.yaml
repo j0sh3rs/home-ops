@@ -60,6 +60,11 @@ jobs:
       - name: flate diff
         id: diff
         continue-on-error: true
+        env:
+          # flate/action always exports FLATE_BASE (default: the default
+          # branch); it collides with the --path-orig baseline we manage
+          # ourselves above ("--path-orig and --base are mutually exclusive").
+          FLATE_BASE: ""
         run: |
           flate diff all \
             --path ./kubernetes \
@@ -70,6 +75,11 @@ jobs:
 
       - name: flate test
         id: test
+        env:
+          # Same as above: run full-tree, not the action's implicit
+          # changed-only mode (which mis-resolved a HelmRepository
+          # dependency ordering for kube-system/amd-gpu in practice).
+          FLATE_BASE: ""
         run: |
           flate test all \
             --path ./kubernetes \
