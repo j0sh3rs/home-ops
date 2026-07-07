@@ -1,0 +1,75 @@
+---
+# One-shot probe: runs whichllm (github.com/Andyyyy64/whichllm) to get
+# model recommendations for bigboi-jms-01's GPU. NOT Flux-managed — no
+# kustomization.yaml references this file. Apply/delete manually:
+#
+#   kubectl apply -f kubernetes/apps/ai/llama-swap/probes/whichllm-job.yaml
+#   kubectl -n ai logs -f job/whichllm-probe
+#   kubectl -n ai delete job whichllm-probe
+#
+# GPU is not directly detectable in-container (no device plugin claim —
+# whichllm only inspects/recommends, doesn't run inference), so hardware
+# is passed explicitly via --gpu override. Auto-detect is attempted first
+# and falls back to the override on failure.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: whichllm-probe
+  namespace: ai
+spec:
+  ttlSecondsAfterFinished: 7200
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      # Pin to bigboi so hardware specs match (Navi 48, 16 GiB, 640 GB/s).
+      nodeSelector:
+        kubernetes.io/hostname: bigboi-jms-01
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: whichllm
+          image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: HOME
+              value: /tmp
+            - name: UV_CACHE_DIR
+              value: /tmp/uv-cache
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              # GPU not visible without device plugin — pass explicit spec.
+              # Navi 48 / RX 9070 XT: 16 GiB GDDR6, ~640 GB/s bandwidth.
+              GPU="Radeon RX 9070 XT"
+
+              echo "==========================================="
+              echo "  whichllm probe — bigboi-jms-01"
+              echo "  GPU: ${GPU} (16 GiB, 640 GB/s)"
+              echo "==========================================="
+
+              echo ""
+              echo "=== Hardware Detection (best-effort) ==="
+              uvx whichllm@latest hardware 2>&1 || true
+
+              echo ""
+              echo "=== Top 20 General ==="
+              uvx whichllm@latest \
+                --gpu "${GPU}" --top 20 --markdown 2>&1
+
+              echo ""
+              echo "=== Top 10 Coding Profile ==="
+              uvx whichllm@latest \
+                --gpu "${GPU}" --top 10 --profile coding --markdown 2>&1
+
+              echo ""
+              echo "=== JSON Dump (top 20) ==="
+              uvx whichllm@latest \
+                --gpu "${GPU}" --top 20 --json 2>&1
