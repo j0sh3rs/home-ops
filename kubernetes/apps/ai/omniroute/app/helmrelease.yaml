@@ -54,7 +54,7 @@ spec:
               # so renovate only ever proposes tags within that family.
               # renovate: datasource=docker depName=diegosouzapw/omniroute
               # versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-web$
-              tag: 3.8.45-web
+              tag: 3.8.46-web
               pullPolicy: IfNotPresent
             env:
               DATA_DIR: /app/data
