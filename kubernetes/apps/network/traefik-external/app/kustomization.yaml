@@ -5,7 +5,7 @@ resources:
   - ./secret.sops.yaml
   - ./certificate.yaml
   # renovate: datasource=github-releases depName=traefik/traefik
-  - https://raw.githubusercontent.com/traefik/traefik/v3.7.6/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
+  - https://raw.githubusercontent.com/traefik/traefik/v3.7.7/docs/content/reference/dynamic-configuration/kubernetes-gateway-rbac.yml
   - ./middleware/
   - ./ocirepository.yaml
   - ./helmrelease.yaml
