@@ -54,7 +54,7 @@ spec:
               # so renovate only ever proposes tags within that family.
               # renovate: datasource=docker depName=diegosouzapw/omniroute
               # versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-web$
-              tag: 3.8.46-web
+              tag: 3.8.48-web
               pullPolicy: IfNotPresent
             env:
               DATA_DIR: /app/data
@@ -145,7 +145,7 @@ spec:
             image:
               repository: docker.io/eceasy/cli-proxy-api
               # renovate: datasource=docker depName=eceasy/cli-proxy-api
-              tag: v7.2.67
+              tag: v7.2.74
               pullPolicy: IfNotPresent
             resources:
               requests:
