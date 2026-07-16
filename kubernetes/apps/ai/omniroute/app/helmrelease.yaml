@@ -145,7 +145,7 @@ spec:
             image:
               repository: docker.io/eceasy/cli-proxy-api
               # renovate: datasource=docker depName=eceasy/cli-proxy-api
-              tag: v7.2.79
+              tag: v7.2.80
               pullPolicy: IfNotPresent
             resources:
               requests:
