@@ -10,7 +10,6 @@ resources:
   - ./descheduler.yaml
   - ./external-dns.yaml
   - ./grafana.yaml
-  - ./jetstack.yaml
   - ./k8tz.yaml
   - ./nfs-external-provisioner.yaml
   - ./netdata.yaml

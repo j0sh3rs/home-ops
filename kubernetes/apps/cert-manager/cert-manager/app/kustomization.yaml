@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - ./clusterissuer.yaml
   - ./helmrelease.yaml
+  - ./ocirepository.yaml
   - ./secret.sops.yaml
   - ./grafanadashboard.yaml
   - ./prometheusrule.yaml
