@@ -34,7 +34,7 @@ spec:
     image:
       repository: docker.io/qdrant/qdrant
       # renovate: datasource=docker depName=qdrant/qdrant
-      tag: v1.18.2
+      tag: v1.18.3
 
     # Single-node, no ingress — cluster-internal only, consumed by ai
     # namespace workloads over the ClusterIP Service.
