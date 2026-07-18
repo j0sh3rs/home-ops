@@ -29,7 +29,7 @@ spec:
             image:
               repository: ghcr.io/anomalyco/opencode
               # renovate: datasource=docker depName=ghcr.io/anomalyco/opencode
-              tag: "1.17.20"
+              tag: "1.18.3"
             args:
               - web
               - --hostname
