@@ -24,7 +24,7 @@ spec:
             image:
               repository: rhasspy/wyoming-piper
               # renovate: datasource=docker depName=rhasspy/wyoming-piper
-              tag: 2.2.2
+              tag: 2.3.1
               pullPolicy: IfNotPresent
             args:
               - "--data-dir"
