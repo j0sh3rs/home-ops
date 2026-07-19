@@ -37,7 +37,7 @@ BEADS_DOLT_SHARED_SERVER = "1"
 "aqua:budimanjojo/talhelper" = "3.1.13"
 "aqua:cilium/cilium-cli" = "0.19.6"
 "aqua:cli/cli" = "2.96.0"
-"aqua:cloudflare/cloudflared" = "2026.6.1"
+"aqua:cloudflare/cloudflared" = "2026.7.2"
 # kubectl-cnpg CLI plugin: invokes via `kubectl cnpg <subcmd>` for
 # on-demand backups, version checks, major-upgrade verification.
 # Version tracks cnpg operator chart in databases/cloudnative-pg/.
