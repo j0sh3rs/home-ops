@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+# Upstream agent-canvas ships NO Prometheus /metrics endpoint (verified
+# 2026-07-20 against software-agent-sdk, automation, and the chart
+# itself — only JSON liveness at /alive, /health, /ready). A
+# ServiceMonitor here would scrape nothing. This alert instead uses the
+# cluster-wide kube-state-metrics series that every pod already gets for
+# free, scoped to this StatefulSet.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: agent-canvas-alerts
+  namespace: ai
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: agent-canvas
+      interval: 30s
+      rules:
+        - alert: AgentCanvasCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="ai", pod=~"agent-canvas-.*"}[15m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+            component: agent-canvas
+          annotations:
+            summary: "Agent Canvas pod restarting repeatedly"
+            description: "{{ $labels.pod }} in namespace ai has restarted {{ $value }} times in the last 15 minutes."
+
+        - alert: AgentCanvasPodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="ai", condition="true"} * on(pod) group_left() kube_pod_labels{namespace="ai", label_app_kubernetes_io_name="agent-canvas"} == 0
+          for: 10m
+          labels:
+            severity: warning
+            component: agent-canvas
+          annotations:
+            summary: "Agent Canvas pod not ready"
+            description: "{{ $labels.pod }} has not been Ready for 10+ minutes."

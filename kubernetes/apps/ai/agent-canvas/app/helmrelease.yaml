@@ -1,0 +1,82 @@
+---
+# yamllint disable rule:line-length
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app agent-canvas
+spec:
+  interval: 1h
+  chart:
+    spec:
+      # No official OCI artifact or Helm repo exists upstream for this
+      # chart (confirmed 2026-07-20) — only installable via git clone +
+      # local path per docs.openhands.dev/openhands/usage/agent-canvas/
+      # backend-setup/kubernetes. Vendored verbatim from
+      # OpenHands/agent-canvas@v1.5.2 helm/agent-canvas/ into ./charts
+      # below. Bumping values.image.tag alone does NOT pick up upstream
+      # template changes — re-vendor manually when needed.
+      chart: ./kubernetes/apps/ai/agent-canvas/app/charts/agent-canvas
+      version: 0.1.0
+      sourceRef:
+        kind: GitRepository
+        name: flux-system
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    image:
+      # renovate: datasource=docker depName=ghcr.io/openhands/agent-canvas
+      tag: "1.5.2"
+
+    # Chart pod consumes agent-canvas-secrets via extraEnv[].valueFrom
+    # below — wire Reloader so LLM key rotation restarts the pod.
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
+
+    persistence:
+      enabled: true
+      storageClassName: openebs-hostpath
+      size: 20Gi
+
+    # No cluster-apply / "vibecoding platform" capability requested —
+    # leave RBAC off (chart default) to avoid silent scope creep.
+    rbac:
+      enabled: false
+
+    # Cluster uses Gateway API, not classic Ingress — exposure is via
+    # the HTTPRoute in this same directory instead.
+    ingress:
+      enabled: false
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+
+    config:
+      extraEnv:
+        # omniroute's OpenAI-compatible surface, in-cluster.
+        # See kubernetes/apps/ai/omniroute/app/helmrelease.yaml (service
+        # "omniroute", port 20128) and diegosouzapw/OmniRoute
+        # skills/omni-inference/SKILL.md for the /api/v1 path shape.
+        - name: LLM_BASE_URL
+          value: "http://omniroute.ai.svc.cluster.local:20128/api/v1"
+        # omniroute's auto-fallback combo. Override to a specific model
+        # id (see `curl $OMNIROUTE_URL/v1/models`) once a preference is
+        # known.
+        - name: LLM_MODEL
+          value: "auto"
+        - name: LLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-canvas-secrets
+              key: llm-api-key
