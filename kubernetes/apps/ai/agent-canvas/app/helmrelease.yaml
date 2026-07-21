@@ -34,11 +34,6 @@ spec:
       # renovate: datasource=docker depName=ghcr.io/openhands/agent-canvas
       tag: "1.5.2"
 
-    # Chart pod consumes agent-canvas-secrets via extraEnv[].valueFrom
-    # below — wire Reloader so LLM key rotation restarts the pod.
-    podAnnotations:
-      reloader.stakater.com/auto: "true"
-
     persistence:
       enabled: true
       storageClassName: openebs-hostpath
@@ -62,21 +57,11 @@ spec:
         cpu: "2"
         memory: 4Gi
 
-    config:
-      extraEnv:
-        # omniroute's OpenAI-compatible surface, in-cluster.
-        # See kubernetes/apps/ai/omniroute/app/helmrelease.yaml (service
-        # "omniroute", port 20128) and diegosouzapw/OmniRoute
-        # skills/omni-inference/SKILL.md for the /api/v1 path shape.
-        - name: LLM_BASE_URL
-          value: "http://omniroute.ai.svc.cluster.local:20128/api/v1"
-        # omniroute's auto-fallback combo. Override to a specific model
-        # id (see `curl $OMNIROUTE_URL/v1/models`) once a preference is
-        # known.
-        - name: LLM_MODEL
-          value: "auto"
-        - name: LLM_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: agent-canvas-secrets
-              key: llm-api-key
+    # LLM connection (omniroute base URL + model + API key) is configured
+    # via the Settings UI's Advanced tab, persisted server-side to
+    # settings.json — NOT via container env vars. agent-server's Config
+    # class has no LLM-related fields, so config.extraEnv here would be
+    # inert (confirmed by reading openhands-agent-server/openhands/
+    # agent_server/config.py upstream, 2026-07-20). Do not re-add
+    # LLM_MODEL/LLM_BASE_URL/LLM_API_KEY extraEnv entries expecting them
+    # to seed the running server.
