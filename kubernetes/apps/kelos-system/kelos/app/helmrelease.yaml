@@ -43,4 +43,4 @@ spec:
     # kelos-dev/opencode bundles OpenCode with the Kelos entrypoint wrapper.
     # renovate: datasource=docker depName=ghcr.io/kelos-dev/opencode
     agentImages:
-      opencodeImage: ghcr.io/kelos-dev/opencode:v0.47.0
+      opencodeImage: ghcr.io/kelos-dev/opencode:v0.48.0
