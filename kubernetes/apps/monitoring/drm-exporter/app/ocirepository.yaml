@@ -11,5 +11,5 @@ spec:
     operation: copy
   ref:
     # renovate: datasource=github-releases depName=home-operations/drm-exporter
-    tag: 0.3.2
+    tag: 0.3.3
   url: oci://ghcr.io/home-operations/charts/drm-exporter
