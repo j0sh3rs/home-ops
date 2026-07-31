@@ -53,4 +53,4 @@ data:
     # every served context window and wedges OpenCode in a compaction loop.
     # ECC enforcement is degraded under OpenCode (no executable-hook parity).
     # Allowlist scoped to k8s/GitOps ops + general coding for this agent.
-    ecc https://github.com/affaan-m/ECC v2.0.0 skills kubernetes-patterns,docker-patterns,deployment-patterns,github-ops,git-workflow,terminal-ops,golang-patterns,golang-testing,postgres-patterns,database-migrations,api-design,error-handling,security-review,documentation-lookup,codebase-onboarding,code-tour
+    ecc https://github.com/affaan-m/ECC v2.1.0 skills kubernetes-patterns,docker-patterns,deployment-patterns,github-ops,git-workflow,terminal-ops,golang-patterns,golang-testing,postgres-patterns,database-migrations,api-design,error-handling,security-review,documentation-lookup,codebase-onboarding,code-tour
