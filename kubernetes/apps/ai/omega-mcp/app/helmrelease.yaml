@@ -49,7 +49,7 @@ spec:
               # captures `-rN` as `build` so `-r4` > `-r3` > ... > bare 1.5.4,
               # and the bare tag no longer matches as a candidate.
               # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-r(?<build>\d+)$
-              tag: 1.5.4-r5
+              tag: 1.5.4-r6
             command: ["/usr/local/bin/omega-init.sh"]
             envFrom:
               - secretRef:
@@ -60,7 +60,7 @@ spec:
               repository: ghcr.io/j0sh3rs/omega-mcp
               # Keep in lockstep with init-omega above; renovate bumps both.
               # renovate: datasource=docker depName=ghcr.io/j0sh3rs/omega-mcp versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-r(?<build>\d+)$
-              tag: 1.5.4-r5
+              tag: 1.5.4-r6
             envFrom:
               - secretRef:
                   name: omega-mcp-secrets
