@@ -6,6 +6,7 @@ metadata:
   name: &app holmesgpt
 spec:
   interval: 1h
+  timeout: 10m
   chart:
     spec:
       chart: holmes
@@ -24,6 +25,9 @@ spec:
     remediation:
       retries: 3
   values:
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
+
     # Bundled Operator (HealthCheck / ScheduledHealthCheck / TriggeredHealthCheck
     # CRDs + controller). No HealthCheck resources are created in this pass —
     # just the controller, to prove the deployment path.
@@ -33,9 +37,19 @@ spec:
     # Disable the Robusta SaaS-backed toolset — this cluster has no Robusta
     # account, and leaving it enabled just produces noisy "not configured"
     # log lines at startup.
+    #
+    # bash (extended allowlist) and internet toolsets are left at chart
+    # defaults (enabled) for this POC. Combined with the cluster-wide
+    # read-only ClusterRole and an unauthenticated in-cluster Service,
+    # this means anything in-cluster that can reach holmesgpt-holmes:80
+    # can drive shell/internet-capable investigation. Acceptable for a
+    # cluster-internal POC; revisit with a NetworkPolicy or auth layer
+    # if this graduates past POC (see home-ops-4rm).
     toolsets:
       robusta:
         enabled: false
+      prometheus/metrics:
+        enabled: false  # cluster is mid-migration to VictoriaMetrics; no endpoint configured here, avoid auto-discovery of the wrong backend
 
     # LLM backend: omniroute's in-cluster OpenAI-compatible endpoint.
     # api_key is rewritten by the chart at render time from `envRef:VAR` to
@@ -45,6 +59,9 @@ spec:
       - holmesgpt-secrets
     modelList:
       omniroute:
+        # "best-coding" is an omniroute model alias, chosen during Task 1
+        # of the deployment plan. Re-derive available aliases via:
+        #   GET /v1/models (Bearer <omniroute API key>)
         model: openai/best-coding
         api_base: http://omniroute.ai.svc.cluster.local:20129/v1
         api_key: envRef:OMNIROUTE_API_KEY

@@ -41,11 +41,11 @@ This is a manual/external prerequisite — omniroute's dashboard is the only pla
 **Interfaces:**
 - Produces: `OMNIROUTE_MODEL_NAME` (a string, e.g. `cc/claude-opus-4-6` — exact value discovered in Step 2 below) and `OMNIROUTE_API_KEY` (a secret string), both consumed by Task 5 (the SOPS secret) and Task 6 (the HelmRelease `modelList`).
 
-- [ ] **Step 1: Generate an omniroute API key**
+- [x] **Step 1: Generate an omniroute API key**
 
 Open `https://omniroute.68cc.io` in a browser, sign in, and generate a new API key from the dashboard's key-management screen (per the omniroute wiki, keys are managed at `/api/settings` and `/api/keys*` — reachable from the dashboard UI, not a CLI command). Copy the key value somewhere safe for Task 5 — do not paste it into any file in this repo yet.
 
-- [ ] **Step 2: Confirm the exact model name to route to**
+- [x] **Step 2: Confirm the exact model name to route to**
 
 From a machine with cluster access (or via `kubectl -n ai exec` into any pod that can reach the `omniroute` Service), run:
 
@@ -57,7 +57,7 @@ kubectl -n ai run omniroute-model-check --rm -it --restart=Never --image=curlima
 
 Expected: a JSON `{"data": [{"id": "...", ...}, ...]}` response listing the model identifiers omniroute currently exposes. Pick one (e.g. a Claude or GPT alias already configured in omniroute) and write it down — this becomes `OMNIROUTE_MODEL_NAME` in Task 5/6. If the command errors with connection refused, confirm the omniroute pod is actually running (`kubectl -n ai get pods -l app.kubernetes.io/name=omniroute`) before continuing.
 
-- [ ] **Step 3: Record both values for later steps**
+- [x] **Step 3: Record both values for later steps**
 
 No commit for this task — just keep `OMNIROUTE_API_KEY` and `OMNIROUTE_MODEL_NAME` on hand for Task 5 and Task 6.
 
@@ -72,7 +72,7 @@ No commit for this task — just keep `OMNIROUTE_API_KEY` and `OMNIROUTE_MODEL_N
 **Interfaces:**
 - Produces: a `HelmRepository` named `robusta` in namespace `flux-system`, consumed by Task 6's `HelmRelease.spec.chart.spec.sourceRef`.
 
-- [ ] **Step 1: Create the HelmRepository manifest**
+- [x] **Step 1: Create the HelmRepository manifest**
 
 Write `kubernetes/flux/meta/repos/robusta.yaml`:
 
@@ -89,7 +89,7 @@ spec:
   url: https://robusta-charts.storage.googleapis.com
 ```
 
-- [ ] **Step 2: Register it in the repos kustomization**
+- [x] **Step 2: Register it in the repos kustomization**
 
 Edit `kubernetes/flux/meta/repos/kustomization.yaml`, adding `./robusta.yaml` to the `resources` list (alphabetical position, after `./qdrant.yaml` and before `./traefik.yaml`):
 
@@ -99,12 +99,12 @@ Edit `kubernetes/flux/meta/repos/kustomization.yaml`, adding `./robusta.yaml` to
   - ./traefik.yaml
 ```
 
-- [ ] **Step 3: Validate**
+- [x] **Step 3: Validate**
 
 Run: `kustomize build kubernetes/flux/meta/repos | grep -A5 "name: robusta"`
 Expected: the rendered `HelmRepository` object appears with `url: https://robusta-charts.storage.googleapis.com`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add kubernetes/flux/meta/repos/robusta.yaml kubernetes/flux/meta/repos/kustomization.yaml
@@ -123,7 +123,7 @@ The values.yaml content used to write Task 5/6 was read from the `master` branch
 - Consumes: nothing from earlier tasks.
 - Produces: confirmation (or a list of discrepancies) that Task 6 must account for.
 
-- [ ] **Step 1: Pull the actual packaged chart values**
+- [x] **Step 1: Pull the actual packaged chart values**
 
 ```bash
 helm repo add robusta https://robusta-charts.storage.googleapis.com
@@ -134,7 +134,7 @@ diff /tmp/holmes-0.38.1-values.yaml <(curl -sL https://raw.githubusercontent.com
 
 Expected: no diff, or only trivial differences (comment wording, whitespace). If there's a substantive diff in the `operator:`, `modelList:`, `toolsets:`, `k8sRBAC:`, `image:`, or `resources:` sections, re-read the corresponding block in `/tmp/holmes-0.38.1-values.yaml` and adjust Task 6's HelmRelease values to match the real 0.38.1 schema before proceeding — do not carry forward a value key that doesn't exist in the pinned version.
 
-- [ ] **Step 2: Confirm the image field's actual default**
+- [x] **Step 2: Confirm the image field's actual default**
 
 ```bash
 grep -A2 "^image:" /tmp/holmes-0.38.1-values.yaml
@@ -158,7 +158,7 @@ No commit for this task — it's a verification gate for Task 6.
 - Consumes: nothing (structural scaffolding only).
 - Produces: `Kustomization` named `holmesgpt` in namespace `ai`, `targetNamespace: ai`, which Task 5/6's manifests get applied through. `dependsOn: omniroute` (namespace `ai`) — mirrors the existing `litellm`/`omniroute` → `llama-swap` dependency pattern in this namespace.
 
-- [ ] **Step 1: Write the Flux Kustomization**
+- [x] **Step 1: Write the Flux Kustomization**
 
 Create `kubernetes/apps/ai/holmesgpt/ks.yaml`:
 
@@ -191,7 +191,7 @@ spec:
   wait: false
 ```
 
-- [ ] **Step 2: Write the app kustomization overlay**
+- [x] **Step 2: Write the app kustomization overlay**
 
 Create `kubernetes/apps/ai/holmesgpt/app/kustomization.yaml`:
 
@@ -205,7 +205,7 @@ resources:
   - ./helmrelease.yaml
 ```
 
-- [ ] **Step 3: Register the app in the ai namespace kustomization**
+- [x] **Step 3: Register the app in the ai namespace kustomization**
 
 Edit `kubernetes/apps/ai/kustomization.yaml`, adding `./holmesgpt/ks.yaml` to `resources` (alphabetical position, after `./faster-whisper/ks.yaml` and before `./litellm/ks.yaml`):
 
@@ -215,7 +215,7 @@ Edit `kubernetes/apps/ai/kustomization.yaml`, adding `./holmesgpt/ks.yaml` to `r
   - ./litellm/ks.yaml
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add kubernetes/apps/ai/holmesgpt/ks.yaml kubernetes/apps/ai/holmesgpt/app/kustomization.yaml kubernetes/apps/ai/kustomization.yaml
@@ -235,7 +235,7 @@ git commit -m "feat(ai): scaffold holmesgpt app structure"
 - Consumes: `OMNIROUTE_API_KEY` from Task 1.
 - Produces: Secret `holmesgpt-secrets` in namespace `ai`, key `OMNIROUTE_API_KEY` — consumed by Task 6's `extraEnvVarsSecrets` + `modelList[...].api_key: envRef:OMNIROUTE_API_KEY`.
 
-- [ ] **Step 1: Write the plaintext secret**
+- [x] **Step 1: Write the plaintext secret**
 
 Create `kubernetes/apps/ai/holmesgpt/app/secret.sops.yaml` with real plaintext content first (it gets encrypted in Step 2 — do not commit this file before encrypting it):
 
@@ -250,7 +250,7 @@ stringData:
   OMNIROUTE_API_KEY: "<PASTE_KEY_FROM_TASK_1_STEP_1>"
 ```
 
-- [ ] **Step 2: Encrypt it**
+- [x] **Step 2: Encrypt it**
 
 ```bash
 task sops:encrypt-file file=kubernetes/apps/ai/holmesgpt/app/secret.sops.yaml
@@ -258,7 +258,7 @@ task sops:encrypt-file file=kubernetes/apps/ai/holmesgpt/app/secret.sops.yaml
 
 Expected: the `stringData.OMNIROUTE_API_KEY` value is replaced with an `ENC[AES256_GCM,...]` block and a `sops:` metadata footer is appended, matching the shape of `kubernetes/apps/ai/omniroute/app/secret.sops.yaml`.
 
-- [ ] **Step 3: Verify encryption**
+- [x] **Step 3: Verify encryption**
 
 ```bash
 task sops:verify
@@ -266,7 +266,7 @@ task sops:verify
 
 Expected: passes with no errors reported for the new file. If it fails, re-run Step 2 — do not hand-edit the encrypted file.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add kubernetes/apps/ai/holmesgpt/app/secret.sops.yaml
@@ -284,7 +284,7 @@ git commit -m "feat(ai): add holmesgpt-secrets SOPS secret"
 - Consumes: `robusta` HelmRepository (Task 2), `holmesgpt-secrets` Secret with key `OMNIROUTE_API_KEY` (Task 5), `OMNIROUTE_MODEL_NAME` (Task 1), any schema corrections identified in Task 3.
 - Produces: `HelmRelease` named `holmesgpt` in namespace `ai`, deploying the `robusta/holmes` chart with the base HTTP API service + bundled Operator.
 
-- [ ] **Step 1: Write the HelmRelease**
+- [x] **Step 1: Write the HelmRelease**
 
 Create `kubernetes/apps/ai/holmesgpt/app/helmrelease.yaml`. Replace `<OMNIROUTE_MODEL_NAME>` with the value discovered in Task 1, Step 2, and adjust any keys flagged as mismatched in Task 3:
 
@@ -348,7 +348,7 @@ spec:
         memory: 2048Mi
 ```
 
-- [ ] **Step 2: Validate the full app renders**
+- [x] **Step 2: Validate the full app renders**
 
 ```bash
 kustomize build kubernetes/apps/ai/holmesgpt/app
@@ -356,7 +356,7 @@ kustomize build kubernetes/apps/ai/holmesgpt/app
 
 Expected: renders a `Secret`, a `HelmRelease`, with no kustomize errors. (This validates YAML structure and kustomize wiring — it does NOT validate the Helm chart's own template logic, since `kustomize build` doesn't invoke Helm for `HelmRelease` objects; that happens at Flux reconcile time in Task 7.)
 
-- [ ] **Step 3: Flux-level dry-run validation**
+- [x] **Step 3: Flux-level dry-run validation**
 
 ```bash
 flux build kustomization holmesgpt --path kubernetes/apps/ai/holmesgpt --dry-run
@@ -364,7 +364,7 @@ flux build kustomization holmesgpt --path kubernetes/apps/ai/holmesgpt --dry-run
 
 Expected: no schema errors. If this fails on an unrecognized `values` key, go back to Task 3's diff output and correct the key name/structure in Step 1 above.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add kubernetes/apps/ai/holmesgpt/app/helmrelease.yaml
@@ -382,7 +382,7 @@ If Task 4's commit was deferred, combine it with this one: `git add kubernetes/a
 **Interfaces:**
 - Consumes: everything from Tasks 2–6, once pushed and reconciled.
 
-- [ ] **Step 1: Push and force reconcile**
+- [x] **Step 1: Push and force reconcile**
 
 ```bash
 git push
@@ -391,7 +391,7 @@ task flux:reconcile-ks name=holmesgpt
 
 Expected: command completes without error.
 
-- [ ] **Step 2: Confirm the pods come up healthy**
+- [x] **Step 2: Confirm the pods come up healthy**
 
 ```bash
 kubectl -n ai get pods -l app.kubernetes.io/instance=holmesgpt
@@ -405,7 +405,7 @@ kubectl -n ai logs -l app.kubernetes.io/instance=holmesgpt --all-containers --pr
 
 Common failure modes to check for: `401`/`403` from omniroute (bad or missing `OMNIROUTE_API_KEY` — re-verify Task 1/5), or a connection refused to `omniroute.ai.svc.cluster.local:20129` (confirm the omniroute Service actually exposes port `20129` as its `api` port — re-check `kubernetes/apps/ai/omniroute/app/helmrelease.yaml`'s `service.app.ports` block if this errors).
 
-- [ ] **Step 3: Smoke-test an actual investigation**
+- [x] **Step 3: Smoke-test an actual investigation**
 
 First find the actual Service name (Helm's fullname template may produce `holmesgpt-holmes`, `holmesgpt`, or something else depending on how the chart's `_helpers.tpl` combines release+chart name — don't assume):
 
@@ -422,13 +422,13 @@ kubectl -n ai port-forward svc/<SERVICE_NAME> 8080:80
 In a second terminal:
 
 ```bash
-curl -s -X POST http://localhost:8080/api/investigate \
+curl -s -X POST http://localhost:8080/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"source": "manual", "title": "test", "description": "Is the ai namespace healthy? List any pods not in Running state."}' | head -c 2000
+  -d '{"ask": "Is the ai namespace healthy? List any pods not in Running state."}' | head -c 2000
 ```
 
 Expected: a JSON response containing an actual investigation result referencing real cluster state (not an auth error, not an empty/error body). This is the real pass/fail signal for the whole POC — if this doesn't come back with a coherent, cluster-aware answer, the deployment technically succeeded but the tool itself isn't proven useful yet.
 
-- [ ] **Step 4: Record the outcome**
+- [x] **Step 4: Record the outcome**
 
 No code change — this step is a decision point, not an implementation step. Report back (to the user, or as a beads update on `home-ops-4rm`) whether Step 3's response was useful, and note it in `home-ops-4rm` either way — that's what determines whether the deferred bifrost/chaski/Discord work in `bifrost-a7g` gets picked back up.
