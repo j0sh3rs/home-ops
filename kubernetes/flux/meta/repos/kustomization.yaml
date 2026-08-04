@@ -14,4 +14,5 @@ resources:
   - ./nfs-external-provisioner.yaml
   - ./netdata.yaml
   - ./qdrant.yaml
+  - ./robusta.yaml
   - ./traefik.yaml
