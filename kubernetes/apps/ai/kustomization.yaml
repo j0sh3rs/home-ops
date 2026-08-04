@@ -21,6 +21,7 @@ resources:
   - ./agent-canvas/ks.yaml
   - ./cognee/ks.yaml
   - ./faster-whisper/ks.yaml
+  - ./holmesgpt/ks.yaml
   - ./litellm/ks.yaml
   - ./llama-swap/ks.yaml
   - ./n8n/ks.yaml

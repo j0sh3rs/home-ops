@@ -1,0 +1,57 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app holmesgpt
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: holmes
+      version: "0.38.1"
+      sourceRef:
+        kind: HelmRepository
+        name: robusta
+        namespace: flux-system
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # Bundled Operator (HealthCheck / ScheduledHealthCheck / TriggeredHealthCheck
+    # CRDs + controller). No HealthCheck resources are created in this pass —
+    # just the controller, to prove the deployment path.
+    operator:
+      enabled: true
+
+    # Disable the Robusta SaaS-backed toolset — this cluster has no Robusta
+    # account, and leaving it enabled just produces noisy "not configured"
+    # log lines at startup.
+    toolsets:
+      robusta:
+        enabled: false
+
+    # LLM backend: omniroute's in-cluster OpenAI-compatible endpoint.
+    # api_key is rewritten by the chart at render time from `envRef:VAR` to
+    # the runtime `{{ env.VAR }}` template — VAR must be present via
+    # extraEnvVarsSecrets below.
+    extraEnvVarsSecrets:
+      - holmesgpt-secrets
+    modelList:
+      omniroute:
+        model: openai/best-coding
+        api_base: http://omniroute.ai.svc.cluster.local:20129/v1
+        api_key: envRef:OMNIROUTE_API_KEY
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 2048Mi
+      limits:
+        memory: 2048Mi
