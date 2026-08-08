@@ -10,7 +10,7 @@ spec:
   chart:
     spec:
       chart: holmes
-      version: "0.38.1"
+      version: "0.38.2"
       sourceRef:
         kind: HelmRepository
         name: robusta
