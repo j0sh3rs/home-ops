@@ -13,6 +13,13 @@
 # NO OIDC/forwardAuth middleware here: remote_write is machine-to-machine and
 # the Authentik forwardAuth flow 302-redirects to an interactive login page,
 # which breaks programmatic push.
+#
+# sectionName pins this route to the websecure (TLS) listener only. Without
+# it, the route also attaches to the plaintext web listener; the entrypoint's
+# global HTTP->HTTPS redirect stops plaintext requests from reaching vmsingle,
+# but the request still lands on Traefik in cleartext first. TLS is this
+# route's only protection (no auth), so it gets a hard listener binding
+# instead of relying on the redirect.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -25,6 +32,7 @@ spec:
   parentRefs:
     - name: traefik-internal-gateway
       namespace: network
+      sectionName: websecure
   rules:
     - backendRefs:
         - name: vmsingle-vmsingle
