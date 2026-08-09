@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/traefik.io/ingressroutetcp_v1alpha1.json
+# TLS-terminated syslog ingest for off-cluster log shippers (the NAS), replacing
+# the former plaintext Gateway API TCPRoute + IngressRouteUDP pair that lived
+# in monitoring/victoria-logs/app/. UDP was dropped entirely — syslog over UDP
+# structurally cannot carry TLS. TCP syslog clients (e.g. Docker's `syslog`
+# logging driver with `tls://`, rsyslog's omfwd with StreamDriver=gtls) must
+# speak RFC 5425-framed TLS syslog; Traefik terminates TLS here and forwards
+# decrypted plaintext TCP to victoria-logs-server:514, which has no TLS
+# support of its own.
+#
+# Lives here (network namespace) rather than alongside victoria-logs because
+# tls.secretName resolves in this resource's own namespace, and 68cc-io-tls
+# is only present in network (no reflector mirrors it into monitoring).
+# services[].namespace crosses back to monitoring for the actual backend,
+# relying on the traefik-internal HelmRelease's providers.kubernetesCRD.
+# allowCrossNamespace: true.
+#
+# HostSNI(`*`) because syslog TLS clients generally don't send SNI — this is
+# the standard Traefik pattern for non-HTTP TLS backends (cf. the postgres
+# route in helmrelease.yaml, which is passthrough instead since CNPG does its
+# own TLS).
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: victoria-logs-syslog
+  namespace: network
+spec:
+  entryPoints:
+    - syslog
+  routes:
+    - match: HostSNI(`*`)
+      services:
+        - name: victoria-logs-server
+          namespace: monitoring
+          port: 514
+  tls:
+    secretName: 68cc-io-tls

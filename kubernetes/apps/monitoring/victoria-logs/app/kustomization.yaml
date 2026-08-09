@@ -7,5 +7,3 @@ resources:
   - ./helmrelease.yaml
   - ./ocirepository.yaml
   - ./prometheusrule.yaml
-  - ./victoria-logs-syslog-tcproute.yaml
-  - ./victoria-logs-syslog-udproute.yaml

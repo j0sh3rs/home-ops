@@ -9,3 +9,4 @@ resources:
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./networkpolicy.yaml
+  - ./victoria-logs-syslog-ingressroutetcp.yaml
