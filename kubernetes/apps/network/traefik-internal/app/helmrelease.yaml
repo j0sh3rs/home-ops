@@ -76,11 +76,6 @@ spec:
         expose:
           default: true
         protocol: TCP
-      syslog-udp:
-        port: 514
-        expose:
-          default: true
-        protocol: UDP
     gateway:
       enabled: true
       name: traefik-internal-gateway
@@ -104,15 +99,6 @@ spec:
         # route on. CNPG terminates TLS itself end-to-end on 5432.
         postgres:
           port: 5432
-          namespacePolicy:
-            from: All
-          protocol: TCP
-        # Syslog ingest (TCP) via Gateway API TCPRoute. UDP syslog uses a
-        # Traefik IngressRouteUDP on the syslog-udp entryPoint (port below);
-        # Gateway API UDPRoute is not used. LAN-only — moved off the external
-        # gateway so log ingest is not WAN-reachable (no CrowdSec at L4).
-        syslog:
-          port: 514
           namespacePolicy:
             from: All
           protocol: TCP
