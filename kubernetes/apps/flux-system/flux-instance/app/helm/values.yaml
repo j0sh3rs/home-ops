@@ -3,6 +3,7 @@ instance:
   distribution:
     # renovate: datasource=github-releases depName=controlplaneio-fluxcd/distribution
     version: 2.9.4
+    registry: "ghcr.io/fluxcd"
   cluster:
     networkPolicy: false
   components:
@@ -10,6 +11,7 @@ instance:
     - kustomize-controller
     - helm-controller
     - notification-controller
+    - source-watcher
   sync:
     kind: GitRepository
     url: https://github.com/j0sh3rs/home-ops
@@ -42,7 +44,7 @@ instance:
             value: --requeue-dependency=5s
         target:
           kind: Deployment
-          name: (kustomize-controller|helm-controller|source-controller)
+          name: (kustomize-controller|helm-controller|source-controller|source-watcher)
       - # Increase the memory limits
         patch: |
           apiVersion: apps/v1
@@ -59,7 +61,7 @@ instance:
                         memory: 2Gi
         target:
           kind: Deployment
-          name: (kustomize-controller|helm-controller|source-controller)
+          name: (kustomize-controller|helm-controller|source-controller|source-watcher)
       - # Enable in-memory kustomize builds
         patch: |
           - op: add
