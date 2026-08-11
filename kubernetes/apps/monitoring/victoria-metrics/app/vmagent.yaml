@@ -12,7 +12,7 @@ spec:
   # CRDs, so existing kube-prometheus-stack targets are included.
   selectAllByDefault: true
   remoteWrite:
-    - url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/write
+    - url: https://metrics.68cc.io/api/v1/write
   resources:
     requests:
       cpu: 100m
