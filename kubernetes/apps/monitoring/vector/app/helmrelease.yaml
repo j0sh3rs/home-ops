@@ -1,0 +1,73 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app vector
+spec:
+  interval: 1h
+  timeout: 10m
+  chart:
+    spec:
+      chart: vector
+      version: "0.58.0"
+      sourceRef:
+        kind: HelmRepository
+        name: vectordotdev
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    role: Agent
+    dataDir: /var/lib/vector
+    args:
+      - -w
+      - --config-dir
+      - /etc/vector/
+    customConfig:
+      data_dir: /var/lib/vector
+      api:
+        enabled: false
+      sources:
+        k8s:
+          type: kubernetes_logs
+      transforms:
+        parser:
+          type: remap
+          inputs: [k8s]
+          source: |
+            .log = parse_json(.message) ?? .message
+            del(.message)
+            .app_name = .kubernetes.container_name
+            .hostname = .kubernetes.pod_node_name
+            if is_object(.log) {
+              if exists(.log.level) { .severity = .log.level }
+              if exists(.log.msg) { ._msg = .log.msg } else if exists(.log.message) { ._msg = .log.message }
+            }
+      sinks:
+        vlogs:
+          type: elasticsearch
+          inputs: [parser]
+          endpoints:
+            - https://logs.68cc.io/insert/elasticsearch/
+          mode: bulk
+          api_version: v8
+          compression: zstd
+          healthcheck:
+            enabled: false
+          buffer:
+            type: disk
+            max_size: 268435488
+            when_full: block
+          request:
+            headers:
+              VL-Time-Field: timestamp
+              VL-Stream-Fields: stream,kubernetes.pod_name,kubernetes.container_name,kubernetes.pod_namespace,app_name,hostname
+              VL-Msg-Field: message,msg,_msg,log.msg,log.message,log
+              AccountID: "0"
+              ProjectID: "0"
