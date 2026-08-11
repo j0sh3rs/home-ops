@@ -14,7 +14,6 @@ resources:
   - ./netdata/ks.yaml
   - ./unpoller/ks.yaml
   - ./vector/ks.yaml
-  - ./victoria-logs/ks.yaml
   - ./victoria-metrics-operator/ks.yaml
   - ./victoria-metrics/ks.yaml
 # node-exporter + kube-prometheus-stack need hostNetwork/hostPID/hostPath/hostPort,
