@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app trivy-operator
+spec:
+  interval: 1h
+  timeout: 10m
+  chart:
+    spec:
+      chart: trivy-operator
+      version: "0.35.0"
+      sourceRef:
+        kind: HelmRepository
+        name: aquasecurity
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # Vulnerability/ConfigAudit/ExposedSecret/ClusterCompliance(CIS)
+    # scanning are all chart defaults (operator.vulnerabilityScannerEnabled,
+    # operator.configAuditScannerEnabled, operator.exposedSecretScannerEnabled,
+    # operator.clusterComplianceEnabled are all true out of the box) - only
+    # serviceMonitor needs enabling. vmagent picks it up automatically via
+    # selectAllByDefault: true (see ../victoria-metrics/app/vmagent.yaml).
+    # trivy-operator's scan-job pods log to stdout, already tailed by
+    # Vector's kubernetes_logs source - no log-shipping config needed here.
+    serviceMonitor:
+      enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 500Mi
