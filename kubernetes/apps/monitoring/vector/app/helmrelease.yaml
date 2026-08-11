@@ -25,6 +25,11 @@ spec:
   values:
     role: Agent
     dataDir: /var/lib/vector
+    # No metrics-exporter sink/port in this pipeline (log shipping only,
+    # outbound-only to logs.68cc.io) - the chart's default service.enabled:
+    # true creates a Service with no ports to match, which k8s rejects.
+    service:
+      enabled: false
     args:
       - -w
       - --config-dir
