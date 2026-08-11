@@ -14,7 +14,7 @@ spec:
     access: proxy
     # Primary metrics datasource after home-ops-8bb decom of Prom + Thanos.
     isDefault: true
-    url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429
+    url: https://metrics.68cc.io
     jsonData:
       prometheusType: Prometheus
       # 30s matches vmagent scrapeInterval so dashboards step cleanly.

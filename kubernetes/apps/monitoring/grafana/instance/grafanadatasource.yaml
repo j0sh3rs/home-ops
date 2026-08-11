@@ -30,7 +30,7 @@ spec:
     type: victoriametrics-logs-datasource
     name: victoria-logs
     access: proxy
-    url: http://victoria-logs-server.monitoring.svc.cluster.local:9428
+    url: https://logs.68cc.io
     jsonData:
       # VictoriaLogs-specific settings
       maxLines: 1000
