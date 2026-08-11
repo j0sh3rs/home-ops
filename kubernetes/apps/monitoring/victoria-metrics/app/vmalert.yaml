@@ -11,12 +11,12 @@ spec:
   # across all namespaces without a selector.
   selectAllByDefault: true
   datasource:
-    url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429
+    url: https://metrics.68cc.io
   # Persist stateful alert state so `.for:` clauses survive restarts.
   remoteRead:
-    url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429
+    url: https://metrics.68cc.io
   remoteWrite:
-    url: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429
+    url: https://metrics.68cc.io
   notifiers:
     - url: http://prometheus-alertmanager.monitoring.svc.cluster.local:9093
   # Tag every vmalert-originated alert so Alertmanager can route them to a
