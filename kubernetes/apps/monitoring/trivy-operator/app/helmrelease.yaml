@@ -16,9 +16,11 @@ spec:
         name: aquasecurity
         namespace: flux-system
   install:
+    crds: CreateReplace
     remediation:
       retries: 3
   upgrade:
+    crds: CreateReplace
     cleanupOnFail: true
     remediation:
       retries: 3
@@ -33,6 +35,74 @@ spec:
     # Vector's kubernetes_logs source - no log-shipping config needed here.
     serviceMonitor:
       enabled: true
+    # accessGlobalSecretsAndServiceAccount (chart default: true) grants the
+    # operator ClusterRole create/update/get on Secrets cluster-wide plus
+    # get on nodes/proxy, solely to copy imagePullSecrets for scanning
+    # private-registry images. This cluster's registries are all anonymous
+    # (see the NAS mirrors set up in the sibling /volume1/docker Trivy work)
+    # - no imagePullSecrets are actually used anywhere in kubernetes/apps -
+    # so disable the extra cluster-wide Secret access.
+    operator:
+      accessGlobalSecretsAndServiceAccount: false
+    # node-collector jobs (driven by operator.clusterComplianceEnabled and
+    # operator.infraAssessmentScannerEnabled, both chart defaults) must run
+    # on every node, including the 3 tainted control-plane nodes, to check
+    # etcd/kube-scheduler/kube-controller-manager file permissions for CIS
+    # compliance. Toleration matches the pattern in
+    # ../../kube-system/coredns/app/helm/values.yaml.
+    nodeCollector:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      # Chart defaults also hostPath-mount /etc/systemd and /lib/systemd
+      # (no explicit `type:`) to check systemd unit file permissions. This
+      # cluster runs Talos, which has no systemd and a read-only /lib, so
+      # those two mounts would fail (EROFS / path doesn't exist), leaving
+      # node-collector pods stuck ContainerCreating. Override volumes/
+      # volumeMounts to the chart's full default list minus the two
+      # systemd-specific entries - the chart has no separate toggle to
+      # disable just the systemd checks.
+      volumeMounts:
+        - name: var-lib-etcd
+          mountPath: /var/lib/etcd
+          readOnly: true
+        - name: var-lib-kubelet
+          mountPath: /var/lib/kubelet
+          readOnly: true
+        - name: var-lib-kube-scheduler
+          mountPath: /var/lib/kube-scheduler
+          readOnly: true
+        - name: var-lib-kube-controller-manager
+          mountPath: /var/lib/kube-controller-manager
+          readOnly: true
+        - name: etc-kubernetes
+          mountPath: /etc/kubernetes
+          readOnly: true
+        - name: etc-cni-netd
+          mountPath: /etc/cni/net.d/
+          readOnly: true
+      volumes:
+        - name: var-lib-etcd
+          hostPath:
+            path: /var/lib/etcd
+        - name: var-lib-kubelet
+          hostPath:
+            path: /var/lib/kubelet
+        - name: var-lib-kube-scheduler
+          hostPath:
+            path: /var/lib/kube-scheduler
+        - name: var-lib-kube-controller-manager
+          hostPath:
+            path: /var/lib/kube-controller-manager
+        - name: etc-kubernetes
+          hostPath:
+            path: /etc/kubernetes
+        - name: etc-cni-netd
+          hostPath:
+            path: /etc/cni/net.d/
     resources:
       requests:
         cpu: 100m

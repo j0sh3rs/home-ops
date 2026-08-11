@@ -18,8 +18,9 @@ resources:
   - ./victoria-metrics-operator/ks.yaml
   - ./victoria-metrics/ks.yaml
 # node-exporter + kube-prometheus-stack need hostNetwork/hostPID/hostPath/hostPort,
-# which PodSecurity "baseline" rejects. Label the namespace "privileged" so those
-# workloads can run. Other namespaces are unaffected.
+# and trivy-operator's node-collector needs hostPath, which PodSecurity "baseline"
+# rejects. Label the namespace "privileged" so those workloads can run. Other
+# namespaces are unaffected.
 patches:
   - target:
       kind: Namespace

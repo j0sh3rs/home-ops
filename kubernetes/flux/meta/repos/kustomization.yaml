@@ -5,7 +5,6 @@ kind: Kustomization
 resources:
   - ./amd-gpu.yaml
   - ./aquasecurity.yaml
-
   - ./cloudnative-pg.yaml
   - ./cloudflare.yaml
   - ./descheduler.yaml
