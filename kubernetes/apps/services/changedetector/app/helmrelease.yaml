@@ -52,7 +52,7 @@ spec:
             image:
               repository: selenium/standalone-chrome
               # renovate: datasource=docker depName=selenium/standalone-chrome
-              tag: "150.0"
+              tag: "151.0"
             securityContext:
               privileged: true
             env:
