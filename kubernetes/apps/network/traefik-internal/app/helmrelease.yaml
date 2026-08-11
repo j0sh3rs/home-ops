@@ -71,11 +71,6 @@ spec:
         expose:
           default: true
         protocol: TCP
-      syslog:
-        port: 514
-        expose:
-          default: true
-        protocol: TCP
     gateway:
       enabled: true
       name: traefik-internal-gateway
