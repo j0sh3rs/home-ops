@@ -65,6 +65,52 @@ spec:
       fullnameOverride: node-exporter
     kube-state-metrics:
       fullnameOverride: kube-state-metrics
+      customResourceState:
+        enabled: true
+        config:
+          kind: CustomResourceStateMetrics
+          spec:
+            resources:
+              - groupVersionKind:
+                  group: aquasecurity.github.io
+                  version: v1alpha1
+                  kind: ClusterComplianceReport
+                labelsFromPath:
+                  name: [metadata, name]
+                metrics:
+                  - name: "clustercompliancereport_fail_count"
+                    help: "Number of failing CIS compliance checks"
+                    each:
+                      type: Gauge
+                      gauge:
+                        path: [status, summary, failCount]
+                  - name: "clustercompliancereport_pass_count"
+                    help: "Number of passing CIS compliance checks"
+                    each:
+                      type: Gauge
+                      gauge:
+                        path: [status, summary, passCount]
+              - groupVersionKind:
+                  group: aquasecurity.github.io
+                  version: v1alpha1
+                  kind: ExposedSecretReport
+                labelsFromPath:
+                  name: [metadata, name]
+                  namespace: [metadata, namespace]
+                metrics:
+                  - name: "exposedsecretreport_critical_count"
+                    help: "Number of critical-severity exposed secrets found"
+                    each:
+                      type: Gauge
+                      gauge:
+                        path: [report, summary, criticalCount]
+      # ClusterComplianceReport is cluster-scoped, ExposedSecretReport is
+      # namespaced - kube-state-metrics needs list/watch RBAC on both.
+      rbac:
+        extraRules:
+          - apiGroups: ["aquasecurity.github.io"]
+            resources: ["clustercompliancereports", "exposedsecretreports"]
+            verbs: ["list", "watch"]
     grafana:
       enabled: false
       forceDeployDashboards: true
