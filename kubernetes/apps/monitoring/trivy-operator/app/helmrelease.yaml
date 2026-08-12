@@ -44,6 +44,29 @@ spec:
     # so disable the extra cluster-wide Secret access.
     operator:
       accessGlobalSecretsAndServiceAccount: false
+      # Live cluster observation showed repeated scan-job failures:
+      #   1. "Failed to acquire cache or database lock ... cache may be in
+      #      use by another process: timeout" - chart default trivy.mode:
+      #      Standalone means every one of the up-to-scanJobsConcurrentLimit
+      #      (10) concurrent scan jobs embeds its own trivy binary and
+      #      independently downloads/locks the shared trivy vulnerability
+      #      DB file, so concurrent jobs race each other for the same lock.
+      #   2. OOMKilled scan containers on some of this cluster's larger
+      #      images - partly a symptom of #1, since redundant per-job DB
+      #      downloads/extracts add memory pressure on top of the scan
+      #      itself (see trivy.resources below for the direct fix).
+      #   3. DB download failing with "dial tcp [2607:...]: connect:
+      #      network is unreachable" - the chart default dbRegistry/
+      #      javaDbRegistry (mirror.gcr.io) resolved an IPv6 address this
+      #      cluster's network can't route to (see trivy.dbRegistry /
+      #      trivy.javaDbRegistry below).
+      # builtInTrivyServer switches to ClientServer mode with one shared
+      # trivy-server StatefulSet that scan jobs talk to over HTTP instead of
+      # each embedding its own trivy binary. This eliminates the DB lock
+      # contention (#1), and means the DB is downloaded/held in memory once
+      # instead of N times, reducing both OOM pressure (#2) and exposure to
+      # the flaky IPv6 mirror path (#3).
+      builtInTrivyServer: true
     # node-collector jobs (driven by operator.clusterComplianceEnabled and
     # operator.infraAssessmentScannerEnabled, both chart defaults) must run
     # on every node, including the 3 tainted control-plane nodes, to check
@@ -103,6 +126,46 @@ spec:
         - name: etc-cni-netd
           hostPath:
             path: /etc/cni/net.d/
+    # dbRegistry/javaDbRegistry: revert to the upstream ghcr.io origin
+    # registry instead of the chart-default mirror.gcr.io hop, which hit
+    # "dial tcp [2607:f8b0:...]: connect: network is unreachable" on this
+    # cluster (mirror.gcr.io resolved an IPv6 address with no route out of
+    # the cluster network). Registry/repository are separate fields in this
+    # chart's schema (combined at runtime into <registry>/<repository>:tag),
+    # so this is set as ghcr.io + aquasecurity/trivy-db (NOT the NAS
+    # registry mirrors from the sibling /volume1/docker repo - those live on
+    # a docker-only network with no route from cluster pods).
+    trivy:
+      dbRegistry: ghcr.io
+      dbRepository: aquasecurity/trivy-db
+      javaDbRegistry: ghcr.io
+      javaDbRepository: aquasecurity/trivy-java-db
+      # Chart default scan-job limits.memory (500M) is too low for some of
+      # this cluster's larger images and produced observed OOMKilled scan
+      # containers. Bump moderately above the default for headroom; request
+      # is bumped proportionally so the pod isn't wildly overcommitted
+      # relative to its limit.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 2Gi
+      server:
+        # trivy-server (used once operator.builtInTrivyServer: true) holds
+        # the vulnerability DB (a few hundred MB) in memory for all scan
+        # jobs to share. Chart default limits.memory (1Gi) is already a
+        # reasonable baseline; size up moderately for headroom now that
+        # every scan in the cluster goes through this single pod instead of
+        # N independent per-job downloads.
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1
+            memory: 2Gi
     resources:
       requests:
         cpu: 100m
