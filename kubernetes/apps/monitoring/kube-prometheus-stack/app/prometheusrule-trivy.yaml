@@ -1,0 +1,55 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: trivy-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: trivy-scan-pipeline-health
+      interval: 5m
+      rules:
+        - alert: TrivyNasScanStale
+          expr: time() - trivy_scan_last_success_timestamp > 8 * 86400
+          for: 1h
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "NAS Trivy image scan hasn't succeeded in over 8 days"
+            description: "trivy_scan_last_success_timestamp is stale - the weekly NAS registry-cache scan (trivy/scan.sh + report.sh via DSM Task Scheduler) has not reported success recently. Check /volume1/docker/trivy/scan.log on the NAS."
+
+        - alert: TrivyOperatorDown
+          expr: kube_deployment_status_replicas_available{namespace="monitoring", deployment="trivy-operator"} == 0
+          for: 15m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "trivy-operator has no available replicas"
+            description: "Cluster-wide vulnerability/compliance scanning is not running. Check kubectl -n monitoring get pods -l app.kubernetes.io/instance=trivy-operator."
+
+    - name: trivy-compliance-regressions
+      interval: 15m
+      rules:
+        - alert: CisComplianceRegression
+          expr: kube_customresource_clustercompliancereport_fail_count - (kube_customresource_clustercompliancereport_fail_count offset 1d) > 0
+          for: 30m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "CIS compliance fail count increased for {{ $labels.name }}"
+            description: "{{ $labels.name }} has {{ $value }} more failing checks than 24h ago. Check kubectl get clustercompliancereport {{ $labels.name }} -o jsonpath='{.status}' for details."
+
+        - alert: TrivyExposedSecretFound
+          expr: kube_customresource_exposedsecretreport_critical_count > 0
+          for: 0m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "Exposed secret found in {{ $labels.namespace }}/{{ $labels.name }}"
+            description: "trivy-operator's ExposedSecretReport for {{ $labels.namespace }}/{{ $labels.name }} shows {{ $value }} critical-severity exposed secret(s). Zero tolerance - investigate immediately."
