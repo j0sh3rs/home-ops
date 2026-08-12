@@ -12,7 +12,9 @@ spec:
       interval: 5m
       rules:
         - alert: TrivyNasScanStale
-          expr: time() - trivy_scan_last_success_timestamp > 8 * 86400
+          expr: >-
+            (time() - last_over_time(trivy_scan_last_success_timestamp[14d]) > 8 * 86400)
+            or absent_over_time(trivy_scan_last_success_timestamp[14d])
           for: 1h
           labels:
             severity: critical
@@ -34,14 +36,17 @@ spec:
     - name: trivy-compliance-regressions
       interval: 15m
       rules:
-        - alert: CisComplianceRegression
-          expr: kube_customresource_clustercompliancereport_fail_count - (kube_customresource_clustercompliancereport_fail_count offset 1d) > 0
+        - alert: ComplianceRegression
+          expr: >-
+            sum by (name) (kube_customresource_clustercompliancereport_fail_count)
+            - sum by (name) (kube_customresource_clustercompliancereport_fail_count offset 1d)
+            > 0
           for: 30m
           labels:
             severity: critical
             component: security
           annotations:
-            summary: "CIS compliance fail count increased for {{ $labels.name }}"
+            summary: "Compliance fail count increased for spec {{ $labels.name }}"
             description: "{{ $labels.name }} has {{ $value }} more failing checks than 24h ago. Check kubectl get clustercompliancereport {{ $labels.name }} -o jsonpath='{.status}' for details."
 
         - alert: TrivyExposedSecretFound
