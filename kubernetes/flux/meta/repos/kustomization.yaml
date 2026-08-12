@@ -16,4 +16,5 @@ resources:
   - ./qdrant.yaml
   - ./robusta.yaml
   - ./traefik.yaml
+  - ./twin.yaml
   - ./vectordotdev.yaml
