@@ -42,7 +42,7 @@ spec:
     image:
       repository: netdata/netdata
       # renovate: datasource=docker depName=netdata/netdata
-      tag: v2.10.4
+      tag: v2.11.0
       pullPolicy: IfNotPresent
     ingress:
       enabled: false
