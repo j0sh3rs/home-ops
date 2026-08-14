@@ -12,5 +12,5 @@ spec:
     operation: copy
   ref:
     # renovate: datasource=github-releases depName=kelos-dev/kelos
-    tag: "0.50.0"
+    tag: "0.51.0"
   url: oci://ghcr.io/kelos-dev/charts/kelos
