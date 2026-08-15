@@ -70,6 +70,8 @@ spec:
                 mkdir -p /home/node/.openclaw
                 cp /tmp/openclaw.json /home/node/.openclaw/openclaw.json
                 chmod 600 /home/node/.openclaw/openclaw.json
+                mkdir -p /home/node/.openclaw/workspace-automation
+                cp /tmp/automation-AGENTS.md /home/node/.openclaw/workspace-automation/AGENTS.md
           # GitHub CLI on the PVC at ~/.local/bin (on PATH for the agent's exec
           # tool). Auth comes from the GITHUB_TOKEN env, so no `gh auth login`.
           install-gh:
@@ -217,6 +219,13 @@ spec:
         globalMounts:
           - path: /tmp/openclaw.json
             subPath: openclaw.json
+      automation-agents-md:
+        type: configMap
+        name: openclaw-automation-agents-md
+        defaultMode: 0644
+        globalMounts:
+          - path: /tmp/automation-AGENTS.md
+            subPath: AGENTS.md
       # GitOps-managed skills bundle. Each ConfigMap key is mounted to its own
       # /skills/<name>/SKILL.md (OpenClaw discovers skills by the SKILL.md
       # filename); skills.load.extraDirs in openclaw.json points at /skills.
