@@ -44,12 +44,27 @@ spec:
     # this means anything in-cluster that can reach holmesgpt-holmes:80
     # can drive shell/internet-capable investigation. Acceptable for a
     # cluster-internal POC; revisit with a NetworkPolicy or auth layer
-    # if this graduates past POC (see home-ops-4rm).
+    # if this graduates past POC (see home-ops-4rm). Same caveat now also
+    # covers Grafana/Prometheus/VictoriaLogs/Postgres read access below —
+    # tracked as a follow-up hardening bead, not fixed in this pass.
+    #
+    # Every key in holmesgpt-secrets is mounted as an env var so toolset
+    # config below can reference it via Holmes's own {{ env.VAR }}
+    # templating (a runtime Jinja2 render, distinct from Helm's own
+    # templating — this string is inert to Helm, Holmes reads it at boot).
+    extraEnvVarsSecrets:
+      - holmesgpt-secrets
+
     toolsets:
       robusta:
         enabled: false
       prometheus/metrics:
         enabled: false  # cluster is mid-migration to VictoriaMetrics; no endpoint configured here, avoid auto-discovery of the wrong backend
+      grafana/dashboards:
+        enabled: true
+        config:
+          api_key: "{{ env.GRAFANA_API_KEY }}"
+          api_url: https://grafana.68cc.io
 
     # LLM backend: llama-swap's in-cluster OpenAI-compatible endpoint
     # (litellm+omniroute removed, no cloud providers). No auth required for
