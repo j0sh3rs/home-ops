@@ -80,5 +80,5 @@
 
 # OpenClaw Automation
 - name: automerge-candidate
-  color: "BFD4F2"
-  description: "Eligible for automatic merge by openclaw gh-issues sweep"
+  color: "bfd4f2"
+  description: "Eligible for openclaw's scheduled gh-issues sweep"
