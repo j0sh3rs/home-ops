@@ -152,9 +152,14 @@ second identity:
 - **`main`** (existing behavior, unchanged) — human chat sessions via
   `openclaw.68cc.io` and Discord/Signal DMs. Full tool access, as today.
 - **`automation`** (new) — the target for every hook-triggered and cron-fired
-  run in this epic. Minimal tool profile: no `kube-mcp`, no raw filesystem
-  access outside its own workspace, `exec` restricted to `git`/`gh` for the
-  `gh-issues`/`github` skills it needs. This follows OpenClaw's own documented
+  run in this epic. Reduced tool profile: no `kube-mcp`, its own workspace,
+  a narrowed skill list, and a per-agent `tools.exec.security: "restricted"`
+  override of the global `{ security: "full", ask: "off" }`. Note what this
+  is *not*: OpenClaw's agents are identities inside a single gateway process
+  in a single pod, so `automation` shares that pod's cluster-admin
+  ServiceAccount token with `main`. `restricted` narrows the shell it is
+  handed; it is not a sandbox boundary between the two identities. This
+  follows OpenClaw's own documented
   guidance for untrusted/automated input ("route through a purpose-built
   agent with a minimal tool allowlist rather than the primary, fully
   privileged agent") and keeps a mis-fired alert-triage or cron job from
@@ -260,10 +265,16 @@ the implementation plan, not an assumption baked into the skill text.
 
 ## Security considerations
 
-- `automation` identity gets a minimal tool profile specifically so a
+- `automation` identity gets a reduced tool profile specifically so a
   misconfigured `hooks.mappings` entry, a spoofed-but-token-valid hook call,
-  or a broad `gh-issues` sweep cannot reach kube-mcp or arbitrary shell —
-  worst case is a bad PR, not a cluster mutation.
+  or a broad `gh-issues` sweep does not run against the same fully-privileged
+  surface as human chat: no kube-mcp, and `tools.exec.security: "restricted"`
+  instead of the global `full`. This is a narrowing control, not a hard
+  boundary — `main` and `automation` are identities within one gateway
+  process in one pod, and that pod mounts a cluster-admin ServiceAccount
+  token. A cluster mutation is made harder and less likely, not impossible;
+  the expected worst case is a bad PR, but that is a probabilistic claim
+  about a restricted shell, not an isolation guarantee.
 - Hooks auth is a shared bearer token, not per-source HMAC — acceptable here
   because both trigger sources (Alertmanager, Flux notification-controller)
   are in-cluster callers on the same trust boundary as everything else in

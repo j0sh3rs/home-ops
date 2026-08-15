@@ -132,24 +132,54 @@ spec:
                 # file on the PVC) creates the two scheduled jobs, so this is
                 # safe to re-run on every pod restart.
                 (
-                  until curl -sf http://127.0.0.1:18789/healthz >/dev/null 2>&1; do
-                    sleep 2
-                  done
-                  MARKER=/home/node/.openclaw/.automations-provisioned-v1
-                  if [ ! -f "$MARKER" ]; then
-                    openclaw automations create --name hygiene-audit \
-                      --cron "0 6 * * *" --tz America/New_York \
-                      --agent automation --session isolated \
-                      --message "Run the repo's own hygiene checks: bd stale, bd orphans, task sops:verify. Summarize findings; file bd issues for anything actionable. Do not modify any files." \
-                      --announce --channel discord --to "channel:<Discord channel ID from Task 5>" \
-                      || echo "WARN: hygiene-audit automation create failed"
-                    openclaw automations create --name gh-issues-sweep \
-                      --every 30m \
-                      --agent automation --session isolated \
-                      --message "Run gh-issues j0sh3rs/home-ops --cron --label automerge-candidate. Follow your AGENTS.md guardrail on risk/critical paths." \
-                      --announce --channel discord --to "channel:<Discord channel ID from Task 5>" \
-                      || echo "WARN: gh-issues-sweep automation create failed"
-                    touch "$MARKER"
+                  # Both jobs --announce to a Discord channel. Until the bot
+                  # is real (Task 5's manual follow-up) that channel ID is a
+                  # placeholder, so provisioning them now would schedule
+                  # unattended agent runs nobody can see. Same CHANGEME idiom
+                  # as the gh auth gate above: once a real token lands and the
+                  # pod restarts, provisioning activates on its own with no
+                  # further code change.
+                  if [ -n "$DISCORD_BOT_TOKEN" ] && [ "$DISCORD_BOT_TOKEN" != "CHANGEME" ]; then
+                    # Bounded health poll. wget (not curl) because wget is the
+                    # only fetcher this image is confirmed to ship -- see the
+                    # install-gh initContainer. 60 x 5s = 5 minutes, then give
+                    # up loudly instead of spinning silently for the pod's
+                    # whole life.
+                    ready=1
+                    i=0
+                    until wget -q -O /dev/null http://127.0.0.1:18789/healthz 2>/dev/null; do
+                      i=$((i+1))
+                      if [ "$i" -ge 60 ]; then
+                        echo "WARN: gateway /healthz never became ready after 5m, skipping automations provisioning"
+                        ready=0
+                        break
+                      fi
+                      sleep 5
+                    done
+                    MARKER=/home/node/.openclaw/.automations-provisioned-v1
+                    if [ "$ready" = "1" ] && [ ! -f "$MARKER" ]; then
+                      # Only mark provisioning done if BOTH creates succeeded --
+                      # otherwise the marker would permanently suppress retries
+                      # on every future restart.
+                      ok=1
+                      openclaw automations create --name hygiene-audit \
+                        --cron "0 6 * * *" --tz America/New_York \
+                        --agent automation --session isolated \
+                        --message "Run the repo's own hygiene checks: bd stale, bd orphans, task sops:verify. Summarize findings; file bd issues for anything actionable. Do not modify any files." \
+                        --announce --channel discord --to "channel:<Discord channel ID from Task 5>" \
+                        || { echo "WARN: hygiene-audit automation create failed"; ok=0; }
+                      openclaw automations create --name gh-issues-sweep \
+                        --every 30m \
+                        --agent automation --session isolated \
+                        --message "Run gh-issues j0sh3rs/home-ops --cron --label openclaw-sweep. Follow your AGENTS.md guardrail on risk/critical paths." \
+                        --announce --channel discord --to "channel:<Discord channel ID from Task 5>" \
+                        || { echo "WARN: gh-issues-sweep automation create failed"; ok=0; }
+                      if [ "$ok" = "1" ]; then
+                        touch "$MARKER"
+                      fi
+                    fi
+                  else
+                    echo "Discord not configured yet, skipping automations provisioning"
                   fi
                 ) &
                 exec node dist/index.js gateway --bind lan

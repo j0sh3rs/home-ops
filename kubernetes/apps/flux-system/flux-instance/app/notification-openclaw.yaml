@@ -7,8 +7,14 @@ metadata:
 spec:
   type: generic
   address: http://openclaw.ai.svc.cluster.local:18789/hooks/flux
+  # The `generic` provider reads a literal "headers" key from this secret and
+  # parses it as HTTP headers -- it never looks at any other key name. That is
+  # the whole reason openclaw-hooks-secret exists (reflected in from the ai
+  # namespace); openclaw-secret's FLUX_ALERT_HEADERS key was silently ignored,
+  # leaving the request unauthenticated against the tokened /hooks/flux
+  # endpoint. See https://fluxcd.io/flux/components/notification/providers/.
   secretRef:
-    name: openclaw-secret
+    name: openclaw-hooks-secret
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/alert-notification-v1beta3.json
 apiVersion: notification.toolkit.fluxcd.io/v1beta3
@@ -28,6 +34,12 @@ spec:
   # (see automation-agents-md-configmap.yaml), and including it here risks
   # a self-referential bootstrap-failure loop.
   eventSources:
+    - kind: Kustomization
+      name: "*"
+      namespace: actions-runner-system
+    - kind: HelmRelease
+      name: "*"
+      namespace: actions-runner-system
     - kind: Kustomization
       name: "*"
       namespace: ai
