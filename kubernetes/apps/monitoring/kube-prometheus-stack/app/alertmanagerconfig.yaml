@@ -66,3 +66,13 @@ spec:
         - apiURL:
             name: alertmanager-secret
             key: DISCORD_WEBHOOK_URL
+      # Every alert that already reaches Discord (severity=critical, per the
+      # route above) also triggers an openclaw automation-identity triage
+      # session -- pure in-cluster traffic, no new exposure. See
+      # docs/superpowers/specs/2026-08-15-openclaw-automation-integrations-design.md.
+      webhookConfigs:
+        - url: "http://openclaw.ai.svc.cluster.local:18789/hooks/alertmanager"
+          httpConfig:
+            bearerTokenSecret:
+              name: openclaw-secret
+              key: OPENCLAW_HOOKS_TOKEN
