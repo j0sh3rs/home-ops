@@ -50,3 +50,6 @@ kubernetes/apps/**/*.txt
 
 # Beads / Dolt files (added by bd init)
 .beads/proxieddb/
+
+# Isolated git worktrees (superpowers:using-git-worktrees)
+.worktrees/
