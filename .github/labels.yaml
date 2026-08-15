@@ -77,3 +77,8 @@
   color: "370fb2"
 - name: hold
   color: "ee0701"
+
+# OpenClaw Automation
+- name: automerge-candidate
+  color: "BFD4F2"
+  description: "Eligible for automatic merge by openclaw gh-issues sweep"
