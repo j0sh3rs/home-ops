@@ -18,10 +18,10 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 | DB | Consumer | Namespace / app | Purpose | Reference |
 |----|----------|------------------|---------|-----------|
 | 0 | _(do not assign)_ | — | Default selection on connect; some clients touch it before `SELECT N`. Treat as transient — do NOT store data here. No consumer should target it. | — |
-| 1 | OmniRoute | `ai/omniroute` | Distributed rate limiter backend (falls back to in-memory if unset). Redis URL: `redis://...:6379/1`. | `kubernetes/apps/ai/omniroute/app/{helmrelease,secret.sops}.yaml` |
+| 1 | _free_ | — | Formerly OmniRoute rate limiter — freed 2026-08-14 (OmniRoute removed, cloud-gateway layer dropped in favor of llama-swap direct). | — |
 | 2 | Paperless-ngx | `services/paperless` | Celery task broker + result backend (document processing, OCR jobs). Redis URL: `redis://...:6379/2`. | `kubernetes/apps/services/paperless/app/helmrelease.yaml` |
 | 3 | _free_ | — | — | — |
-| 4 | LiteLLM | `ai/litellm` | Response cache (per-request key, TTL 600s). Default key prefix. | `kubernetes/apps/ai/litellm/app/{configmap,helmrelease,secret.sops}.yaml` |
+| 4 | _free_ | — | Formerly LiteLLM response cache — freed 2026-08-14 (LiteLLM removed, cloud-gateway layer dropped in favor of llama-swap direct). | — |
 | 5 | _free_ | — | Formerly LangFuse job queue — freed 2026-07-01 (LangFuse removed, see `docs/runbooks/anythingllm-role-and-overlap.md` for the broader AI-stack cleanup). | — |
 | 6 | Authentik | `security/authentik` | Celery broker, Django cache, django-channels WebSocket layer. Key prefix default (Authentik-managed). | `kubernetes/apps/security/authentik/app/helmrelease.yaml` |
 | 7 | _free_ | — | — | — |
@@ -61,7 +61,6 @@ Expected output shape:
 ```
 # Keyspace
 db0:keys=0,expires=0,...     # transient — DO NOT store here
-db4:keys=N,expires=N,...     # LiteLLM cache
 db6:keys=N,expires=N,...     # Authentik (Celery broker/cache/channels)
 ```
 

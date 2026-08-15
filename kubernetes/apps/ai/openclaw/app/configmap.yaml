@@ -1,0 +1,180 @@
+---
+# JSON5 OpenClaw gateway config. Flux postBuild is not used here; use $${VAR}
+# so the literal ${VAR} reaches OpenClaw's own runtime env substitution.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openclaw-config
+data:
+  openclaw.json: |
+    {
+      agents: {
+        defaults: {
+          model: {
+            // Local inference direct via llama-swap (litellm+omniroute
+            // removed, no cloud providers). "coder-large" alias resolves to
+            // agentic-coder (Qwen3-Coder-30B-A3B-Instruct) in llama-swap's
+            // model config.
+            primary: "llamaswap/coder-large",
+          },
+          contextInjection: "always",
+          bootstrapMaxChars: 50000,
+          bootstrapTotalMaxChars: 100000,
+          thinkingDefault: "medium",
+          timeoutSeconds: 600,
+          maxConcurrent: 4,
+          contextPruning: { mode: "off" },
+          // On context pressure, summarise the session into memory (memini)
+          // before compacting, so long-running work keeps its key facts.
+          compaction: {
+            mode: "default",
+            reserveTokensFloor: 30000,
+            memoryFlush: {
+              enabled: true,
+              softThresholdTokens: 80000,
+              prompt: "Extract key decisions, state changes, lessons, and blockers worth remembering. Skip routine work. Respond NO_FLUSH if nothing important.",
+              systemPrompt: "Compacting session context. Extract only what's worth remembering. No fluff.",
+            },
+          },
+        },
+      },
+      models: {
+        providers: {
+          // llama-swap's OpenAI-compatible endpoint, cluster-internal — no
+          // auth required for in-namespace traffic (Authentik forwardAuth
+          // only gates the external llm.68cc.io HTTPRoute).
+          llamaswap: {
+            baseUrl: "http://llama-swap.ai.svc.cluster.local:8080/v1",
+            apiKey: "not-required",
+            api: "openai-completions",
+            timeoutSeconds: 180,
+          },
+        },
+      },
+      commands: {
+        native: "auto",
+        nativeSkills: "auto",
+      },
+      // GitOps-managed skills mounted from the openclaw-skills ConfigMap teach
+      // the agent to query cluster metrics, logs, events, and GitOps
+      // reconciliation state during investigations (see skills.yaml).
+      skills: {
+        allowBundled: [],
+        load: {
+          extraDirs: ["/skills"],
+        },
+        entries: {
+          prometheus: { enabled: true },
+          victorialogs: { enabled: true },
+          "kubernetes-events": { enabled: true },
+          flux: { enabled: true },
+        },
+      },
+      tools: {
+        sessions: { visibility: "all" },
+        agentToAgent: { enabled: true },
+        // Full shell exec without prompting. openclaw already has cluster-admin,
+        // so this is consistent with the intended access level. Set ask: "on"
+        // or security: "restricted" to dial it back.
+        exec: { security: "full", ask: "off" },
+        web: {
+          fetch: { enabled: true },
+          // No in-cluster search provider (searxng) deployed yet. Enable once
+          // one exists.
+          search: { enabled: false },
+        },
+      },
+      session: {
+        dmScope: "main",
+        reset: { mode: "idle", idleMinutes: 1440 },
+        maintenance: {
+          mode: "enforce",
+          pruneAfter: "7d",
+          maxEntries: 1000,
+          resetArchiveRetention: "7d",
+        },
+      },
+      messages: {
+        responsePrefix: "[{model}]",
+      },
+      gateway: {
+        auth: { mode: "token", token: "$${OPENCLAW_GATEWAY_TOKEN}" },
+        controlUi: { allowedOrigins: ["https://openclaw.68cc.io"] },
+        mode: "local",
+        port: 18789,
+        // Cluster pod CIDR (Cilium).
+        trustedProxies: ["10.42.0.0/16"],
+      },
+      // Inbound HTTP triggers on the gateway port (POST /hooks/agent). Not
+      // wired to anything external yet (no alert-adapter deployed) — internal
+      // hooks below still fire on session lifecycle events.
+      hooks: {
+        enabled: true,
+        path: "/hooks",
+        token: "$${OPENCLAW_HOOKS_TOKEN}",
+        internal: {
+          enabled: true,
+          entries: {
+            "compaction-notifier": { enabled: true },
+            "session-memory": { enabled: true },
+          },
+        },
+      },
+      plugins: {
+        entries: {
+          codex: { enabled: true },
+          // Kanban-style task board in the dashboard; state persists in a
+          // plugin-owned SQLite DB under ~/.openclaw (on the PVC).
+          workboard: { enabled: true },
+          // Disable built-in memory-core so it doesn't fight the memini slot.
+          "memory-core": { enabled: false },
+          memini: {
+            enabled: true,
+            hooks: { allowConversationAccess: true },
+            config: {
+              base_url: "http://memini.ai.svc.cluster.local:8080",
+              namespace: "openclaw",
+              fallback_on_error: true,
+              timeout_ms: 5000,
+            },
+          },
+          // Render memini's memories into a browsable markdown vault (backlinks,
+          // daily notes, dashboards) under ~/.openclaw/wiki — view it via the
+          // code-server sidecar at openclaw-code.68cc.io.
+          "memory-wiki": {
+            enabled: true,
+            config: {
+              vaultMode: "bridge",
+              vault: {
+                path: "/home/node/.openclaw/wiki/main",
+                renderMode: "native",
+              },
+              bridge: {
+                enabled: true,
+                readMemoryArtifacts: true,
+                indexDailyNotes: true,
+                indexMemoryRoot: true,
+                followMemoryEvents: true,
+              },
+              search: { backend: "shared", corpus: "all" },
+              render: {
+                preserveHumanBlocks: true,
+                createBacklinks: true,
+                createDashboards: true,
+              },
+            },
+          },
+        },
+        slots: {
+          memory: "memini",
+        },
+      },
+      mcp: {
+        servers: {
+          kubernetes: {
+            url: "http://localhost:8081/mcp",
+            transport: "streamable-http",
+          },
+        },
+      },
+    }

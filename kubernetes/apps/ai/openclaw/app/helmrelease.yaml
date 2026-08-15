@@ -1,0 +1,255 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app openclaw
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    defaultPodOptions:
+      # openclaw is granted cluster-admin (see rbac.yaml); mount its SA token.
+      automountServiceAccountToken: true
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 100
+        fsGroup: 100
+        fsGroupChangePolicy: OnRootMismatch
+    serviceAccount:
+      openclaw: {}
+    controllers:
+      openclaw:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-config:
+            image:
+              repository: docker.io/library/alpine
+              tag: "3.24"
+            command:
+              - sh
+              - -c
+              - |
+                set -eu
+                mkdir -p /home/node/.openclaw
+                cp /tmp/openclaw.json /home/node/.openclaw/openclaw.json
+                chmod 600 /home/node/.openclaw/openclaw.json
+          # GitHub CLI on the PVC at ~/.local/bin (on PATH for the agent's exec
+          # tool). Auth comes from the GITHUB_TOKEN env, so no `gh auth login`.
+          install-gh:
+            image:
+              repository: docker.io/library/busybox
+              tag: "1.38"
+            command:
+              - sh
+              - -c
+              - |
+                set -eu
+                # renovate: datasource=github-releases depName=cli/cli
+                GH_VERSION=2.96.0
+                BIN=/home/node/.local/bin
+                mkdir -p "$BIN"
+                if [ "$(cat "$BIN/.ghver" 2>/dev/null)" != "$GH_VERSION" ]; then
+                  wget -qO /tmp/gh.tar.gz "https://github.com/cli/cli/releases/download/v$GH_VERSION/gh_${GH_VERSION}_linux_amd64.tar.gz"
+                  tar -xzf /tmp/gh.tar.gz -C /tmp
+                  cp "/tmp/gh_${GH_VERSION}_linux_amd64/bin/gh" "$BIN/gh"
+                  chmod +x "$BIN/gh"
+                  printf '%s' "$GH_VERSION" > "$BIN/.ghver"
+                  rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_VERSION}_linux_amd64"
+                fi
+        containers:
+          app:
+            image:
+              repository: ghcr.io/openclaw/openclaw
+              # renovate: datasource=docker depName=ghcr.io/openclaw/openclaw
+              tag: 2026.7.1
+            command:
+              - /bin/sh
+              - -c
+              - |
+                set -eu
+                # Persist gh credentials to the on-disk config. openclaw's exec
+                # tool strips secret env vars (GITHUB_TOKEN included), so the
+                # agent can't auth gh from the env — but it does read
+                # ~/.config/gh on the PVC. Re-runs each boot so token rotation
+                # is picked up.
+                if [ -n "$GITHUB_TOKEN" ] && [ "$GITHUB_TOKEN" != "CHANGEME" ]; then
+                  printf '%s' "$GITHUB_TOKEN" | env -u GITHUB_TOKEN -u GH_TOKEN gh auth login --with-token >/dev/null 2>&1 \
+                    && echo "gh: credentials persisted to ~/.config/gh" || echo "WARN: gh credential persist failed"
+                fi
+                # OpenClaw's config-integrity guard persists a self-saved
+                # "last-good" snapshot on the PVC and restores it whenever the
+                # config it reads lacks the runtime-injected "meta" block
+                # (missing-meta-vs-last-good). Our GitOps ConfigMap copy never
+                # has that meta block, so on every boot the guard would revert
+                # to a stale snapshot and silently drop config changes. Drop
+                # the persisted last-good/backup/health state so the gateway
+                # adopts the current ConfigMap-derived config as the new
+                # baseline. git is the source of truth for this deployment.
+                rm -f "${CFG}.last-good" "${CFG}".bak* /home/node/.openclaw/logs/config-health.json
+                exec node dist/index.js gateway --bind lan
+            env:
+              HOME: &homepath /home/node
+              CFG: /home/node/.openclaw/openclaw.json
+              TZ: America/New_York
+              # Prepend ~/.local/bin so the agent's exec tool finds gh (and any
+              # other PVC-installed binaries). /usr/local/bin keeps node on PATH.
+              PATH: /home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+              OPENCLAW_GATEWAY_PORT: &port 18789
+              OPENCLAW_LOG_LEVEL: info
+            envFrom:
+              - secretRef:
+                  name: openclaw-secret
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 10
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 4Gi
+          # Kubernetes MCP server sidecar. Auto-detects in-cluster config and
+          # so uses the pod's ServiceAccount token (cluster-admin). Listens on
+          # localhost:8081; openclaw reaches it in-pod.
+          kube-mcp:
+            image:
+              repository: ghcr.io/containers/kubernetes-mcp-server
+              tag: v0.0.65
+            args: ["--port", "8081"]
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+          # code-server sidecar to browse the memory-wiki vault and openclaw's
+          # config/state. Password-protected with the gateway token — this pod
+          # holds a cluster-admin token, so never expose it unauthed.
+          codeserver:
+            image:
+              repository: ghcr.io/coder/code-server
+              tag: 4.129.0
+            env:
+              HOME: *homepath
+              TZ: America/New_York
+              PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: openclaw-secret
+                    key: OPENCLAW_GATEWAY_TOKEN
+            args:
+              - --auth
+              - password
+              - --user-data-dir
+              - /home/node/.vscode
+              - --extensions-dir
+              - /home/node/.vscode
+              - --port
+              - "12321"
+              - /home/node/.openclaw
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 1Gi
+    persistence:
+      config:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 20Gi
+        retain: true
+        globalMounts:
+          - path: *homepath
+      configmap:
+        type: configMap
+        name: openclaw-config
+        defaultMode: 0644
+        globalMounts:
+          - path: /tmp/openclaw.json
+            subPath: openclaw.json
+      # GitOps-managed skills bundle. Each ConfigMap key is mounted to its own
+      # /skills/<name>/SKILL.md (OpenClaw discovers skills by the SKILL.md
+      # filename); skills.load.extraDirs in openclaw.json points at /skills.
+      skills:
+        type: configMap
+        name: openclaw-skills
+        defaultMode: 0644
+        globalMounts:
+          - path: /skills/prometheus/SKILL.md
+            subPath: prometheus.md
+          - path: /skills/victorialogs/SKILL.md
+            subPath: victorialogs.md
+          - path: /skills/kubernetes-events/SKILL.md
+            subPath: kubernetes-events.md
+          - path: /skills/flux/SKILL.md
+            subPath: flux.md
+      tmp:
+        type: emptyDir
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            primary: true
+            port: *port
+          codeserver:
+            port: &codeserverPort 12321
+    route:
+      app:
+        hostnames: ["openclaw.68cc.io"]
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
+              - name: *app
+                port: *port
+      codeserver:
+        hostnames: ["openclaw-code.68cc.io"]
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
+              - name: *app
+                port: *codeserverPort

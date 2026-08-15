@@ -47,3 +47,6 @@ kubernetes/apps/**/*.txt
 .beads/
 
 .env.local
+
+# Beads / Dolt files (added by bd init)
+.beads/proxieddb/

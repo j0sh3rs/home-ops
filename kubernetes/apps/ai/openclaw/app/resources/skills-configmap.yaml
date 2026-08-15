@@ -1,0 +1,79 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openclaw-skills
+data:
+  prometheus.md: |
+    ---
+    name: prometheus
+    description: Query cluster metrics and active alerts via the kube-prometheus-stack Prometheus.
+    ---
+    # Prometheus
+
+    In-cluster Prometheus (kube-prometheus-stack, `monitoring` namespace) holds
+    6h local retention; long-term data lives in Thanos-backed S3. For ad-hoc
+    PromQL, port-forward or use the kubernetes MCP tools to exec into a pod
+    with network access, then query:
+
+    - `http://prometheus-operated.monitoring.svc.cluster.local:9090/api/v1/query?query=<promql>`
+    - `http://prometheus-operated.monitoring.svc.cluster.local:9090/api/v1/alerts` — currently firing/pending alerts
+
+    Alertmanager (Discord webhook for severity=critical) is at
+    `http://alertmanager-operated.monitoring.svc.cluster.local:9093`.
+
+  victorialogs.md: |
+    ---
+    name: victorialogs
+    description: Query aggregated container logs via VictoriaLogs (LogsQL).
+    ---
+    # VictoriaLogs
+
+    `victoria-logs-server` (monitoring namespace) ingests via a per-node
+    vector DaemonSet; chunks land in the `victoria-logs-chunks` S3 bucket.
+    Query the HTTP API with LogsQL:
+
+    ```
+    GET http://victoria-logs-server.monitoring.svc.cluster.local:9428/select/logsql/query?query=<logsql>
+    ```
+
+    Example LogsQL: `{namespace="ai",app="openclaw"} error` — filters by
+    Kubernetes labels attached at ingest, then a free-text term.
+
+  kubernetes-events.md: |
+    ---
+    name: kubernetes-events
+    description: Inspect recent Kubernetes object events for a namespace or resource.
+    ---
+    # Kubernetes Events
+
+    Use the kubernetes MCP tools (or `kubectl` via exec) to list recent events,
+    sorted oldest-first:
+
+    ```
+    kubectl -n <namespace> get events --sort-by='.metadata.creationTimestamp'
+    ```
+
+    Narrow to one object with `--field-selector involvedObject.name=<name>`.
+    Do NOT pass `--context home` — this cluster has a single context
+    (`admin@kubernetes`) already selected via KUBECONFIG.
+
+  flux.md: |
+    ---
+    name: flux
+    description: Check FluxCD GitOps reconciliation state (Kustomizations, HelmReleases).
+    ---
+    # Flux
+
+    ```
+    flux get ks -A          # Kustomization status
+    flux get hr -A          # HelmRelease status
+    flux logs --kind=HelmRelease --namespace=<ns> --name=<app>
+    ```
+
+    A Kustomization or HelmRelease stuck `False`/not-ready usually means either
+    a manifest error (check `kubectl -n <ns> describe helmrelease <app>`) or an
+    upstream chart/image pull failure. Cross-reference with the
+    `kubernetes-events` and `victorialogs` skills for the underlying pod-level
+    cause. This is read-only investigation — never run `flux reconcile` or
+    `flux suspend/resume` without being explicitly asked to make a change.

@@ -339,39 +339,46 @@ Rules of thumb:
 
 ## Deployed Applications (ai namespace)
 
-Unified AI workloads. Topology: clients (n8n, OpenCode, Continue.dev) → **LiteLLM** (gateway, single OpenAI-compatible endpoint) → fan-out to **llama-swap** (local GGUFs on AMD GPU), cloud providers (Anthropic/OpenAI keys in secret), and local inference (faster-whisper STT, piper TTS via Home Assistant). Memory layer via Mem0 (when live image available). State: `postgres18` CNPG (DBs: `litellm`, `n8n`, `mem0` + pgvector); response cache in `dragonflydb` DB 4. Gateway auth via Authentik forwardAuth (`authentik-forwardauth` Middleware per-HTTPRoute). LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (code automation agent) were removed 2026-07-01 — unused, no consumers beyond a chat UI nobody used; see `docs/runbooks/anythingllm-role-and-overlap.md` and `archive/{langfuse,anythingllm,open-webui,goose}/` if reuse is considered later. claude-code (headless code-automation engine, daemon + runner Job template) was also removed 2026-07-01 — already disabled since 2026-06-16 (remote-control never worked in-cluster; superseded by Goose, which was itself dropped the same day for OpenCode); see `archive/claude-code/`.
+Fully self-hosted AI stack — no third-party/cloud LLM providers. Topology: **openclaw** (sole code-automation agent) and other in-cluster consumers (**memini** memory, **holmesgpt** observability) talk **directly** to **llama-swap**'s OpenAI-compatible endpoint (`http://llama-swap.ai.svc.cluster.local:8080/v1`) — no gateway layer in front of it. Cluster-internal traffic needs no auth; the external debug route (`llm.68cc.io`) is gated by Authentik forwardAuth. Local inference only: llama-swap (GGUFs on AMD GPU), faster-whisper (STT), piper (TTS) via Home Assistant.
+
+**LiteLLM and OmniRoute (both cloud-dependent gateways) were removed 2026-08-14**, along with n8n, OpenCode, agent-canvas, cognee, and the kelos-system namespace (Kelos + its GitHub-issue-spawner agents) — cutting every remaining path to a third-party LLM provider and collapsing multiple overlapping code-agent surfaces down to openclaw alone. See "Decisions explicitly rejected" below for why no gateway replaces them.
+
+LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (code automation agent) were removed 2026-07-01 — unused, no consumers beyond a chat UI nobody used; see `docs/runbooks/anythingllm-role-and-overlap.md` and `archive/{langfuse,anythingllm,open-webui,goose}/` if reuse is considered later. claude-code (headless code-automation engine, daemon + runner Job template) was also removed 2026-07-01.
 
 ### Currently deployed
 
-- **LiteLLM** — OpenAI-compatible gateway at `litellm.68cc.io` (LAN + Cloudflare, Authentik forwardAuth). Image `ghcr.io/berriai/litellm:vX.Y.Z` (renovate-tracked); chart `oci://ghcr.io/berriai/litellm-helm`. Master key + virtual keys per consumer stored in `litellm-secrets`. Model aliases:
-  - `local-fast` → llama-swap `qwen3-1.7b` (routing/classification)
-  - `local-balanced` → `qwen3-4b` (alias → Qwen3-8B-Q6_K; default chat / tool use, 32k ctx)
-  - `local-coder-small` → `coder-fim` (Qwen2.5-Coder-3B base, FIM autocomplete)
-  - `local-coder` → `agentic-coder` (Qwen3-Coder-30B-A3B-Instruct Q3_K_M, MoE 3B-active, 16k ctx; refactor/multi-file)
-  - `local-reason` → `reasoner` (Qwen3-30B-A3B-Thinking-2507 Q3_K_M, 16k ctx)
-  - `local-reason-agent` → `reasoner-agentic` (gpt-oss-20b MXFP4, 32k ctx; agentic reasoning + tool-calling)
-  - `local-large` → `qwen3-14b` (Qwen3-14B Q5_K_M, dense fallback if MoE Vulkan unstable, 24k ctx)
-  - `local-embed` → `qwen3-embed` (Qwen3-Embedding-0.6B, RAG embeddings, always-on)
-  - `local-rerank` → `qwen3-rerank` (Qwen3-Reranker-0.6B cross-encoder, always-on)
-  - `cloud-haiku` (claude-haiku-4-5) / `cloud-sonnet` (claude-sonnet-4-6) — ENABLED in `configmap.yaml` (keyed off `ANTHROPIC_API_KEY`); `cloud-gpt-mini` still commented OFF.
-  - **Important**: the `model:` value in litellm's model_list MUST be a llama-swap model key OR alias, NOT a GGUF filename. See `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for the source of truth.
-- **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 48 dGPU = Radeon RX 9070 XT, RDNA4/gfx1201, device-id `0x7550`, 16 GiB VRAM, node-label `node.kubernetes.io/gpu-tier=dgpu`) via nodeAffinity. RDNA4 has a working Vulkan flash-attention path (b9803+) — `--flash-attn on` is beneficial here, NOT the RDNA2 no-coopmat case. Direct UI at `llm.68cc.io` for debugging only — clients should go through LiteLLM. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC.
-- **n8n** — workflow automation at `n8n.68cc.io` (public via Cloudflare tunnel, Authentik forwardAuth). Postgres state (DB `n8n` on `postgres18`). LLM creds wired manually in n8n UI — point HTTP/OpenAI nodes at `http://litellm:4000/v1` with a virtual key from LiteLLM.
-- **Mem0** — Episodic memory server at `mem0:8000` (cluster-internal only, no external route). Postgres (DB `mem0` on `postgres18` + pgvector). Suspended if image unavailable; track `ghcr.io/mem0ai/mem0-server` for release.
+- **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 48 dGPU = Radeon RX 9070 XT, RDNA4/gfx1201, device-id `0x7550`, 16 GiB VRAM, node-label `node.kubernetes.io/gpu-tier=dgpu`) via nodeAffinity. RDNA4 has a working Vulkan flash-attention path (b9803+) — `--flash-attn on` is beneficial here, NOT the RDNA2 no-coopmat case. The primary/only entry point for every consumer now — `llm.68cc.io` route (Authentik forwardAuth) plus direct cluster-internal Service access. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC. Model aliases (see `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for source of truth):
+  - `fast`/`small`/`router` → `qwen3-1.7b` (routing/classification, always-on)
+  - `default`/`chat` → `qwen3-8b` (default chat / tool use, 32k ctx)
+  - `coder-fim`/`fim` → Qwen2.5-Coder-3B base (FIM autocomplete)
+  - `coder`/`code-large`/`coder-large` → `agentic-coder` (Qwen3-Coder-30B-A3B-Instruct, MoE 3B-active, 16k ctx; openclaw's primary model)
+  - `think`/`reasoning` → `reasoner` (Qwen3-30B-A3B-Thinking-2507, 16k ctx)
+  - `tool-agent`/`gpt-oss` → `reasoner-agentic` (gpt-oss-20b MXFP4, 32k ctx; agentic reasoning + tool-calling)
+  - `large`/`dense-floor` → `qwen3-14b` (dense fallback if MoE Vulkan unstable, 24k ctx)
+  - `frontier`/`frontier-chat` → `qwen3.6-27b` (RDNA4-only, GatedDeltaNet, highest quality)
+  - `embed`/`embedding` → `qwen3-embed` (RAG embeddings, always-on)
+  - `rerank`/`reranker` → `qwen3-rerank` (cross-encoder, always-on)
+- **openclaw** — sole code-automation agent at `openclaw.68cc.io` (Authentik forwardAuth), cluster-admin RBAC. Primary model `llamaswap/coder-large`. Memory via memini plugin slot. code-server sidecar at `openclaw-code.68cc.io` for browsing the memini-backed memory-wiki vault.
+- **memini** — memory/embedding backend at `memini.68cc.io` (deliberately unauthenticated at the route level — bearer-token gated at `/v1`/`/mcp`, LAN-only, no SSO). Embed + chat both routed to llama-swap directly.
+- **holmesgpt** — incident/observability LLM analysis (POC), routed to llama-swap directly (`llamaswap/coder-large`).
+- **mcpjungle** — MCP server aggregator, fronting tool access for openclaw (litellm's `/mcp` gateway is gone — consumers call mcpjungle directly now).
+- **omega-mcp** — MCP server, no LLM backend.
 - **faster-whisper** — Speech-to-text (Wyoming protocol, port 10300). `rhasspy/wyoming-whisper:3.3.0`, model `tiny-int8` (Wyoming TCP server HA's Wyoming integration speaks to — NOT the `fedirz/faster-whisper-server` OpenAI-HTTP image, which does not implement Wyoming and silently served nothing). Wired to Home Assistant Assist for STT. First request ~5s; cached afterward.
 - **piper** — Text-to-speech (Wyoming protocol, port 10200). `rhasspy/wyoming-piper:2.2.2`. Voice: `en_US-lessac-medium` (1 GiB PVC, ~65MB voice model). Wired to Home Assistant Assist for TTS. First start ~2 min for model download.
 
 ### Planned (not yet deployed)
 
-- **Continue.dev** (client-side, not cluster) — IDE coding assistant. Inline = `local-coder`, chat = `cloud-sonnet` (fallback to `local-large`). No deployment, just user config pointing at LiteLLM.
-- **Kid-safe layer** — per-kid LiteLLM virtual key with model allow-list (block `cloud-*`, allow `local-balanced` + `local-fast`). Client TBD now that Open WebUI is removed — likely a per-kid client config pointed at LiteLLM rather than a shared chat UI. Content filter middleware on LiteLLM if/when kids start using it heavily. Audit log already on by default in LiteLLM (DB-backed).
+- **Continue.dev** (client-side, not cluster) — IDE coding assistant. Would point at llama-swap directly (`coder`/`coder-fim` aliases). No deployment, just user config.
+- **Kid-safe layer** — deferred, build only if concrete need arises: a second llama-swap API key scoped via a Traefik middleware path-restriction, or a second llama-swap group, rather than speculative per-kid gateway infrastructure.
 
 ### Decisions explicitly rejected (do not relitigate without new evidence)
 
 - **AMD GPU Operator** — wrong fit for Talos + APU + consumer dGPU. KMM-managed DKMS conflicts with in-box `amdgpu` extension; APUs not on Instinct HCL; ANR/NPD/DCM features all require Instinct silicon. See [memory: project-amd-gpu-stack].
 - **ROCm DKMS** — Talos rootfs immutable; no path. ROCm userspace only matters inside workload containers, not at kernel level.
 - **Replacing llama-swap with Ollama** — duplicates the same role; would lose curated GGUF + model-fetch control. One engine policy.
-- **Replacing llama-swap with LiteLLM-only** — LiteLLM does not own model lifecycle. Hot-swap on a single 16 GiB UMA GPU is llama-swap's job. LiteLLM sits IN FRONT, doesn't replace.
+- **Keeping a gateway (LiteLLM or otherwise) in front of llama-swap** — removed 2026-08-14. Once cloud-provider fan-out is off the table (the whole point of this migration) and this is a single-user home-lab, a gateway's remaining value (per-consumer virtual keys, cost tracking, response caching) was already mostly inert: `disable_spend_logs: true`, Prometheus metrics disabled (needs LiteLLM Enterprise license, 404s), and llama-swap already exposes the same model-alias abstraction natively. Auth for the one external route is handled by the existing Authentik forwardAuth pattern, same as every other app — no new component needed.
+- **OmniRoute** (CLI-session-reuse via Playwright/Chromium scraping of Claude-web/Gemini-web) — removed 2026-08-14. Explicitly a ToS-boundary tool per its own code comments (uTLS spoofing, multi-account rotation, device-profile learning); still fundamentally cloud-dependent and a larger attack surface than a plain API key, directly contrary to the self-hosted-only goal.
+- **Kelos / kelos-system, n8n, OpenCode, agent-canvas, cognee** — removed 2026-08-14. Consolidating on openclaw as the single code-automation agent; the others were redundant surfaces (Kelos's GitHub-issue-spawner overlapped openclaw's role) or unused/unclear-purpose (agent-canvas, cognee, n8n).
 - **Khoj** — operator has no notes habit; Khoj's Obsidian round-trip is its main lever and would be wasted. Stable line stalled at v0.2.0; no first-party Helm chart.
 - **vLLM** — needs ROCm gfx10+; APU performance is BW-bound, vLLM's compute wins don't materialize. Revisit only if/when an Instinct or large dGPU is added.
 
@@ -485,7 +492,7 @@ kustomize build kubernetes/apps/{namespace}/{app}/app
 task sops:verify
 ```
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
 ## Beads Issue Tracker
 
 This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
@@ -505,29 +512,37 @@ bd close <id>         # Complete work
 - Run `bd prime` for detailed command reference and session close protocol
 - Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
 
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+
+## Agent Context Profiles
+
+The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
+
+- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
+- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
+
 ## Session Completion
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
 
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
+1. **File issues for remaining work** - Create beads for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
+4. **Handle git/sync by active profile**:
    ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+   # Conservative/minimal/default: report status and proposed commands; wait for approval.
+   git status
 
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+   # Team-maintainer opt-in only, unless current instructions forbid it:
+   git pull --rebase
+   git push
+   git status
+   ```
+5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
+
+**Critical rules:**
+- Explicit user or orchestrator instructions override this Beads block.
+- Do not commit or push without clear authority from the active profile or the current user request.
+- If a required sync or push is blocked, stop and report the exact command and error.
 <!-- END BEADS INTEGRATION -->

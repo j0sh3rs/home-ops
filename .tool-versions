@@ -1,2 +1,8 @@
 kubectl 1.36.3
 python 3.14.7
+kubectx latest
+kubens latest
+gh latest
+go latest
+sops latest
+pre-commit latest

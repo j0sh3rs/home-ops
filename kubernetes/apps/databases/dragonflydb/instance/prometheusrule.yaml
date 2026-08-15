@@ -103,45 +103,10 @@ spec:
             severity: warning
             component: capacity
 
-        - alert: DragonflyHitRatioLow
-          annotations:
-            description: >-
-              5m keyspace hit ratio on db4 (LiteLLM cache) = {{ $value |
-              humanizePercentage }} — below 70%. The cache is under-warmed
-              or undersized. If this persists post-deploy, the workload may
-              not benefit from caching at all and the consumer config is
-              wrong.
-            summary: DragonflyDB cache hit ratio low
-          # Scope to db4 (LiteLLM) ONLY — the single true cache consumer. The
-          # instance is shared (see docs/runbooks/dragonflydb-db-allocation.md):
-          # db2 = Paperless Celery broker, db6 = Authentik Celery broker. Broker
-          # DBs poll for not-yet-existent keys (queue-empty checks) and run a
-          # near-0% hit ratio BY DESIGN, which drags a global ratio below 70%
-          # permanently and fires a false positive. This is an explicit cache
-          # allowlist: add future cache DBs to the regex as they're wired up.
-          # Volume gate: db4 (LiteLLM cache) runs ~0.01 ops/sec at idle, so the
-          # 5m rate window often holds a handful of events and a single miss
-          # swings the ratio across 70% — pure sampling noise. Require >1 op/sec
-          # of real traffic before judging the ratio so the alert only fires
-          # when there's enough volume to be meaningful.
-          expr: |-
-            (
-              sum(rate(dragonfly_keyspace_hits_total{db=~"db4"}[5m]))
-              /
-              (
-                sum(rate(dragonfly_keyspace_hits_total{db=~"db4"}[5m]))
-                + sum(rate(dragonfly_keyspace_misses_total{db=~"db4"}[5m]))
-              )
-            ) < 0.70
-            and
-            (
-              sum(rate(dragonfly_keyspace_hits_total{db=~"db4"}[5m]))
-              + sum(rate(dragonfly_keyspace_misses_total{db=~"db4"}[5m]))
-            ) > 1
-          for: 15m
-          labels:
-            severity: warning
-            component: performance
+        # DragonflyHitRatioLow (scoped to db4, the LiteLLM cache) removed
+        # 2026-08-14 — db4's only consumer (LiteLLM) was removed as part of
+        # dropping the cloud-gateway layer. Re-add scoped to a new db if a
+        # future consumer actually caches through Dragonfly.
 
         - alert: DragonflyAvgCommandLatencyHigh
           annotations:

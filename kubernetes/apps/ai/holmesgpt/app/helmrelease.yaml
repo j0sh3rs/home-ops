@@ -51,20 +51,14 @@ spec:
       prometheus/metrics:
         enabled: false  # cluster is mid-migration to VictoriaMetrics; no endpoint configured here, avoid auto-discovery of the wrong backend
 
-    # LLM backend: omniroute's in-cluster OpenAI-compatible endpoint.
-    # api_key is rewritten by the chart at render time from `envRef:VAR` to
-    # the runtime `{{ env.VAR }}` template — VAR must be present via
-    # extraEnvVarsSecrets below.
-    extraEnvVarsSecrets:
-      - holmesgpt-secrets
+    # LLM backend: llama-swap's in-cluster OpenAI-compatible endpoint
+    # (litellm+omniroute removed, no cloud providers). No auth required for
+    # cluster-internal traffic.
     modelList:
-      omniroute:
-        # "best-coding" is an omniroute model alias, chosen during Task 1
-        # of the deployment plan. Re-derive available aliases via:
-        #   GET /v1/models (Bearer <omniroute API key>)
-        model: openai/best-coding
-        api_base: http://omniroute.ai.svc.cluster.local:20129/v1
-        api_key: envRef:OMNIROUTE_API_KEY
+      llamaswap:
+        model: openai/coder-large
+        api_base: http://llama-swap.ai.svc.cluster.local:8080/v1
+        api_key: not-required
 
     resources:
       requests:

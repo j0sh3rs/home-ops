@@ -1,25 +1,36 @@
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "jq -r '.tool_input.command // empty' | awk 'BEGIN{rc=0} { cmd=$0; stripped=cmd; gsub(/\"[^\"]*\"/, \"\", stripped); gsub(/\\x27[^\\x27]*\\x27/, \"\", stripped); n=split(stripped, segs, /(&&|\\|\\||;)/); for (i=1; i<=n; i++) { seg=segs[i]; sub(/^[[:space:]]+/, \"\", seg); sub(/^rtk[[:space:]]+/, \"\", seg); sub(/^sudo[[:space:]]+/, \"\", seg); if (seg ~ /^git[[:space:]]+commit([[:space:]]|$)/) { r=system(\"task sops:verify >/dev/null 2>&1\"); if (r != 0) { print \"SOPS guard: task sops:verify FAILED. Plaintext secret staged. Run: task sops:verify\" > \"/dev/stderr\"; rc=2 } } } } END { exit rc }'"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
-            "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_input.path // empty' | awk 'BEGIN{rc=0} /\\.sops\\.ya?ml$/ { f=$0; cmd=\"grep -c \\\"ENC\\\\[\\\" \\\"\" f \"\\\" 2>/dev/null\"; cmd | getline n; close(cmd); if (n+0 == 0) { print \"SOPS guard: \" f \" is plaintext after edit. Run: task sops:encrypt-file file=\" f > \"/dev/stderr\"; rc=2 } } END { exit rc }'"
+            "command": "jq -r '.tool_input.file_path // .tool_input.path // empty' | awk 'BEGIN{rc=0} /\\.sops\\.ya?ml$/ { f=$0; cmd=\"grep -c \\\"ENC\\\\[\\\" \\\"\" f \"\\\" 2\u003e/dev/null\"; cmd | getline n; close(cmd); if (n+0 == 0) { print \"SOPS guard: \" f \" is plaintext after edit. Run: task sops:encrypt-file file=\" f \u003e \"/dev/stderr\"; rc=2 } } END { exit rc }'",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Edit|Write|MultiEdit"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "jq -r '.tool_input.command // empty' | awk 'BEGIN{rc=0} { cmd=$0; stripped=cmd; gsub(/\"[^\"]*\"/, \"\", stripped); gsub(/\\x27[^\\x27]*\\x27/, \"\", stripped); n=split(stripped, segs, /(\u0026\u0026|\\|\\||;)/); for (i=1; i\u003c=n; i++) { seg=segs[i]; sub(/^[[:space:]]+/, \"\", seg); sub(/^rtk[[:space:]]+/, \"\", seg); sub(/^sudo[[:space:]]+/, \"\", seg); if (seg ~ /^git[[:space:]]+commit([[:space:]]|$)/) { r=system(\"task sops:verify \u003e/dev/null 2\u003e\u00261\"); if (r != 0) { print \"SOPS guard: task sops:verify FAILED. Plaintext secret staged. Run: task sops:verify\" \u003e \"/dev/stderr\"; rc=2 } } } } END { exit rc }'",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime --hook-json",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
       }
     ]
   }

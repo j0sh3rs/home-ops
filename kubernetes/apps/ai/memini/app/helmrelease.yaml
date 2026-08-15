@@ -1,0 +1,81 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app memini
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: memini
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      memini:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            env:
+              MEMINI_DEFAULT_NAMESPACE: openclaw
+              # Local inference direct via llama-swap (litellm+omniroute
+              # removed, no cloud providers). "embed" alias -> qwen3-embed.
+              MEMINI_EMBED_BASE_URL: "http://llama-swap.ai.svc.cluster.local:8080/v1"
+              MEMINI_EMBED_MODEL: embed
+              MEMINI_EMBED_DIMS: "1024"
+              # bearer token protecting /v1 and /mcp (shared with openclaw)
+              MEMINI_API_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: memini-secret
+                    key: MEMINI_API_KEY
+              # Opt-in LLM pipeline: dedup/consolidation, episodic->semantic
+              # promotion, /v1/answer, and rerank. "chat" alias -> qwen3-8b.
+              MEMINI_LLM_BASE_URL: "http://llama-swap.ai.svc.cluster.local:8080/v1"
+              MEMINI_LLM_API: openai
+              MEMINI_LLM_MODEL: chat
+              # llama-swap requires no auth for cluster-internal traffic.
+              MEMINI_LLM_API_KEY: "not-required"
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    persistence:
+      data:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        retain: true
+        globalMounts:
+          - path: /data
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: &port 8080
+    route:
+      app:
+        # Deliberately unauthenticated — memini's /v1 and /mcp are already
+        # bearer-token gated (MEMINI_API_KEY, shared with openclaw). No
+        # authentik-forwardauth here per explicit request: LAN-only, no SSO.
+        hostnames: ["memini.68cc.io"]
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          - backendRefs:
+              - name: *app
+                port: *port

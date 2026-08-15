@@ -1,13 +1,16 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
-# AI workloads namespace: LiteLLM gateway + local inference (llama-swap),
-# workflow automation (n8n), OpenCode. LiteLLM fronts llama-swap and
-# (eventually) cloud providers behind a single OpenAI-compatible API.
+# AI workloads namespace: fully self-hosted, no third-party providers.
+# llama-swap serves local GGUFs directly (OpenAI-compatible API); openclaw
+# (code agent, memini for memory, holmesgpt for observability) and other
+# consumers talk to it directly — no gateway layer. litellm/omniroute
+# (cloud-routing gateways), n8n, opencode, agent-canvas, cognee, and
+# kelos-system were removed 2026-08-14; see CLAUDE.md.
 #
 # Components:
 #   - common                 — namespace + cluster-secrets + sops-age
 #   - repos/app-template     — bjw-s app-template OCIRepository in this ns
-#                              (llama-swap, n8n use it)
+#                              (llama-swap uses it)
 #   - authentik-forwardauth  — authentik-forwardauth Middleware materialized
 #                              in-namespace; HTTPRoutes ExtensionRef it
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -18,15 +21,11 @@ components:
   - ../../components/repos/app-template
   - ../../components/authentik-forwardauth
 resources:
-  - ./agent-canvas/ks.yaml
-  - ./cognee/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./holmesgpt/ks.yaml
-  - ./litellm/ks.yaml
   - ./llama-swap/ks.yaml
-  - ./n8n/ks.yaml
-  - ./omniroute/ks.yaml
+  - ./memini/ks.yaml
+  - ./openclaw/ks.yaml
   - ./piper/ks.yaml
   - ./mcpjungle/ks.yaml
   - ./omega-mcp/ks.yaml
-  - ./opencode/ks.yaml

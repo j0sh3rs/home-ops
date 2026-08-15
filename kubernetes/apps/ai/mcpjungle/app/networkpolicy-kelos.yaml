@@ -2,19 +2,18 @@
 # Ingress allowlist for mcpjungle on port 8080.
 #
 # CRITICAL: the moment ANY NetworkPolicy selects mcpjungle, Cilium flips its
-# ingress to default-deny — INCLUDING same-namespace traffic. The original
-# single-source policy (kelos-system only) silently broke every other client:
-# the same-ns bootstrap Job (hung at the wait-for-mcpjungle init curl),
-# LiteLLM's MCP aggregator (server_url http://mcpjungle:8080/mcp), Open WebUI,
-# n8n, and traefik (network ns) serving the mcp.68cc.io route. This policy must
-# therefore enumerate EVERY legitimate source, not just the cross-ns one.
+# ingress to default-deny — INCLUDING same-namespace traffic. This policy
+# must therefore enumerate EVERY legitimate source, not just cross-ns ones.
 # Same class of bug as project_dragonfly_cross_ns_netpol.
+#
+# kelos-system removed 2026-08-14 (Kelos/n8n/opencode dropped in favor of
+# openclaw as the sole code agent) — cross-ns selector for it removed too.
 #
 # To add a client namespace: append another namespaceSelector below.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-kelos-to-mcpjungle
+  name: allow-ai-to-mcpjungle
   namespace: ai
 spec:
   podSelector:
@@ -24,14 +23,10 @@ spec:
     - Ingress
   ingress:
     - from:
-        # Same namespace (ai): bootstrap Job, LiteLLM, Open WebUI, n8n.
+        # Same namespace (ai): openclaw, bootstrap Job.
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: ai
-        # Kelos Task pods (cross-ns) — original reason this policy exists.
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kelos-system
         # Traefik (network ns) serving the mcp.68cc.io HTTPRoute.
         - namespaceSelector:
             matchLabels:
