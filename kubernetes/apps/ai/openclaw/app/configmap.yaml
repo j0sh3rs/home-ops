@@ -72,7 +72,10 @@ data:
       // the agent to query cluster metrics, logs, events, and GitOps
       // reconciliation state during investigations (see skills.yaml).
       skills: {
-        allowBundled: [],
+        // gh-issues: OpenClaw's bundled issue-fetch -> sub-agent-fix -> PR
+        // autopilot. github: thin `gh` CLI wrapper (PR/CI status, issue
+        // listing). Both were disabled by allowBundled: [] before this.
+        allowBundled: ["gh-issues", "github"],
         load: {
           extraDirs: ["/skills"],
         },
@@ -81,6 +84,8 @@ data:
           victorialogs: { enabled: true },
           "kubernetes-events": { enabled: true },
           flux: { enabled: true },
+          "gh-issues": { enabled: true },
+          github: { enabled: true },
         },
       },
       tools: {
@@ -135,7 +140,13 @@ data:
       },
       plugins: {
         entries: {
-          codex: { enabled: true },
+          // No openai/* model or API key exists in this deployment (or the
+          // ai namespace generally — self-hosted-only policy). This plugin
+          // only does anything when an openai/* model ref is selected, so
+          // it's dead config left in its default-enabled state. Re-enable
+          // explicitly if a future use needs its media-understanding
+          // capability with a real OpenAI credential.
+          codex: { enabled: false },
           // Kanban-style task board in the dashboard; state persists in a
           // plugin-owned SQLite DB under ~/.openclaw (on the PVC).
           workboard: { enabled: true },
