@@ -44,6 +44,25 @@ spec:
                 mkdir -p /home/node/.openclaw
                 cp /tmp/openclaw.json /home/node/.openclaw/openclaw.json
                 chmod 600 /home/node/.openclaw/openclaw.json
+          # memini claims the memory plugin slot (plugins.slots.memory) but
+          # is not a bundled extension — it must be installed from ClawHub
+          # onto the PVC once. Guarded on the extension dir so this is a
+          # no-op after the first boot (tracked install, kept current by
+          # openclaw's own updater from then on).
+          install-memini-plugin:
+            image:
+              repository: ghcr.io/openclaw/openclaw
+              tag: 2026.7.1
+            env:
+              HOME: /home/node
+            command:
+              - sh
+              - -c
+              - |
+                set -eu
+                if [ ! -d /home/node/.openclaw/extensions/memini ]; then
+                  openclaw plugins install clawhub:@eleboucher/memini
+                fi
           # GitHub CLI on the PVC at ~/.local/bin (on PATH for the agent's exec
           # tool). Auth comes from the GITHUB_TOKEN env, so no `gh auth login`.
           install-gh:
