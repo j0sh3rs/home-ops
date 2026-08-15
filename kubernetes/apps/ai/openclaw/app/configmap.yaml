@@ -52,14 +52,34 @@ data:
           },
         },
       },
-      // Empty for now -- no channel exists yet. hooks.mappings (Tasks 6-7)
-      // and automations (Task 8) set agentId: "automation" explicitly
-      // per-call, so they never need a binding entry. Task 5 adds an
-      // explicit binding once the Discord channel exists -- OpenClaw's
-      // docs frame bindings as the actual routing mechanism once
-      // agents.ownership is "explicit", with no confirmed silent fallback
-      // to a single unbound identity, so this plan does not rely on one.
-      bindings: [],
+      // Routes Discord messages to the "main" identity explicitly.
+      // hooks.mappings (Tasks 6-7) and automations (Task 8) set
+      // agentId: "automation" explicitly per-call, so they never need a
+      // binding entry here. OpenClaw's docs frame bindings as the actual
+      // routing mechanism once agents.ownership is "explicit", with no
+      // confirmed silent fallback to a single unbound identity, so this
+      // plan does not rely on one.
+      bindings: [{ agentId: "main", match: { channel: "discord" } }],
+      // Bidirectional Discord bot (Task 5). Bot created manually in the
+      // Discord Developer Portal -- token lives in openclaw-secret
+      // (DISCORD_BOT_TOKEN). Placeholders below (<your Discord user ID>,
+      // <your server ID>) must be replaced with real IDs once the bot
+      // exists; see docs/runbooks (Task 5 brief) for the setup steps.
+      channels: {
+        discord: {
+          enabled: true,
+          token: { source: "env", provider: "default", id: "DISCORD_BOT_TOKEN" },
+          dmPolicy: "allowlist",
+          allowFrom: ["<your Discord user ID>"],
+          groupPolicy: "allowlist",
+          guilds: {
+            "<your server ID>": {
+              requireMention: true,
+              users: ["<your Discord user ID>"],
+            },
+          },
+        },
+      },
       models: {
         providers: {
           // llama-swap's OpenAI-compatible endpoint, cluster-internal — no
