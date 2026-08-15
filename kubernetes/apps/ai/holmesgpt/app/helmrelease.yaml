@@ -63,11 +63,16 @@ spec:
         subtype: victoriametrics
         config:
           prometheus_url: https://metrics.68cc.io
+      # grafana.68cc.io sits behind the authentik-forwardauth Middleware on
+      # PathPrefix "/" (kubernetes/apps/monitoring/grafana/instance/httproute.yaml)
+      # — a Grafana service-account token is not an Authentik credential, so
+      # the outpost 302s before Grafana ever sees the request. Point at the
+      # in-cluster Service instead, same pattern as llama-swap below.
       grafana/dashboards:
         enabled: true
         config:
           api_key: "{{ env.GRAFANA_API_KEY }}"
-          api_url: https://grafana.68cc.io
+          api_url: http://grafana-service.monitoring.svc.cluster.local:3000
       victorialogs:
         enabled: true
         config:
@@ -82,6 +87,7 @@ spec:
       postgres17-stats:
         type: database
         enabled: true
+        llm_instructions: "Cluster-level PostgreSQL statistics only (pg_monitor). No table data access -- use pg_stat_activity, pg_locks, pg_stat_replication."
         config:
           connection_url: "{{ env.POSTGRES_CONNECTION_URL }}"
 
