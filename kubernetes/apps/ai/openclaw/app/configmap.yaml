@@ -48,6 +48,19 @@ data:
             apiKey: "not-required",
             api: "openai-completions",
             timeoutSeconds: 180,
+            // Custom (non-bundled) providers must declare their model
+            // catalog explicitly — openclaw has no way to discover
+            // llama-swap's aliases otherwise. ctx/maxTokens mirror the
+            // agentic-coder slot in llama-swap/app/configmap.yaml.
+            models: [
+              {
+                id: "coder-large",
+                name: "Qwen3-Coder-30B-A3B (llama-swap)",
+                reasoning: false,
+                contextWindow: 16384,
+                maxTokens: 4096,
+              },
+            ],
           },
         },
       },
