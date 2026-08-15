@@ -36,6 +36,27 @@ spec:
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
+  # holmesgpt_ro: read-only monitoring role for HolmesGPT's Postgres toolset
+  # (home-ops-c14). pg_monitor is a Postgres built-in role granting read access
+  # to pg_stat_activity/pg_stat_replication/pg_locks/pg_stat_statements etc.
+  # across the whole cluster — deliberately NOT granted access to any
+  # individual app database's table data. Connects to the `postgres`
+  # maintenance DB, not any app database. connectionLimit caps the blast
+  # radius on this shared, multi-tenant cluster (max_connections: "200",
+  # backing six other apps) if HolmesGPT's unauthenticated bash/internet
+  # toolsets ever cause a misbehaving investigation loop — 5 is generous
+  # for a stats-only role with no legitimate need for more than a couple
+  # concurrent connections.
+  managed:
+    roles:
+      - name: holmesgpt_ro
+        ensure: present
+        login: true
+        connectionLimit: 5
+        inRoles:
+          - pg_monitor
+        passwordSecret:
+          name: holmesgpt-db-creds
   postgresql:
     # Parameter tuning rationale (2026-05-21 audit, see
     # docs/runbooks/database-tuning-recommendations.md):
