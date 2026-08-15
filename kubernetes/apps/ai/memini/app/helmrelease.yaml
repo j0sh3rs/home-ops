@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app memini
+  name: memini
 spec:
   interval: 1h
   chartRef:
@@ -17,12 +17,17 @@ spec:
     remediation:
       retries: 3
   values:
+    # This chart's bjw-s common-library controller/container/service/route
+    # keys are all "main" (not the release name) — see chart values.yaml.
+    # Using any other key (e.g. "memini"/"app") silently adds a *second*,
+    # image-less controller instead of overriding the real one, which fails
+    # the chart's image-dictionary validation at render time.
     controllers:
-      memini:
+      main:
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
-          app:
+          main:
             env:
               MEMINI_DEFAULT_NAMESPACE: openclaw
               # Local inference direct via llama-swap (litellm+omniroute
@@ -59,13 +64,14 @@ spec:
         globalMounts:
           - path: /data
     service:
-      app:
-        controller: *app
+      main:
+        controller: main
         ports:
           http:
-            port: &port 8080
+            port: 8080
     route:
-      app:
+      main:
+        enabled: true
         # Deliberately unauthenticated — memini's /v1 and /mcp are already
         # bearer-token gated (MEMINI_API_KEY, shared with openclaw). No
         # authentik-forwardauth here per explicit request: LAN-only, no SSO.
@@ -77,5 +83,5 @@ spec:
             namespace: network
         rules:
           - backendRefs:
-              - name: *app
-                port: *port
+              - identifier: main
+                port: http

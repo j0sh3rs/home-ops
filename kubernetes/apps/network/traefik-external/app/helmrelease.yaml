@@ -11,7 +11,17 @@ spec:
     name: traefik-external
     namespace: network
   interval: 1h
-  timeout: 2m
+  # 4-node DaemonSet, maxUnavailable: 0 (see deployment.updateStrategy below)
+  # rolls nodes strictly sequentially — 2m was too tight and caused a
+  # spurious "timeout waiting for: [DaemonSet ... status: 'InProgress']"
+  # upgrade failure even though the rollout finished fine moments later.
+  timeout: 5m
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
   values:
     volumes:
       - name: botwrangler-robots-template
