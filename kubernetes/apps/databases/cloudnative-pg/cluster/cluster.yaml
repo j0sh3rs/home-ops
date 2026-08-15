@@ -36,6 +36,39 @@ spec:
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
+  # holmesgpt_ro: read-only monitoring role for HolmesGPT's Postgres toolset
+  # (home-ops-c14). pg_monitor is a Postgres built-in role granting read
+  # access to pg_stat_activity/pg_stat_replication/pg_locks across the whole
+  # cluster — deliberately NOT granted access to any individual app
+  # database's table data. pg_stat_statements is loaded process-wide via
+  # shared_preload_libraries, but the VIEW itself is only CREATE EXTENSIONed
+  # in the `app` DB today (docs/runbooks/database-tuning-recommendations.md)
+  # — NOT in `postgres`, which this role connects to. Querying it from here
+  # errors ("relation does not exist") until someone runs `CREATE EXTENSION
+  # IF NOT EXISTS pg_stat_statements;` in the `postgres` DB — would give
+  # whole-cluster slow-query visibility since the library is already
+  # preloaded. Note for whoever runs the deferred post-merge verification
+  # pass; not executed as part of this change. Connects to the `postgres`
+  # maintenance DB, not any app database. connectionLimit caps the blast
+  # radius on this shared, multi-tenant cluster (max_connections: "200",
+  # backing six other apps) if HolmesGPT's unauthenticated bash/internet
+  # toolsets ever cause a misbehaving investigation loop — 5 is generous
+  # for a stats-only role with no legitimate need for more than a couple
+  # concurrent connections. This is the first use of CNPG's declarative
+  # managed.roles in this repo: removing an entry from the `roles:` list
+  # below only stops CNPG from *managing* it going forward — the role
+  # persists in Postgres. `ensure: absent` is what actually issues
+  # `DROP ROLE`.
+  managed:
+    roles:
+      - name: holmesgpt_ro
+        ensure: present
+        login: true
+        connectionLimit: 5
+        inRoles:
+          - pg_monitor
+        passwordSecret:
+          name: holmesgpt-db-creds
   postgresql:
     # Parameter tuning rationale (2026-05-21 audit, see
     # docs/runbooks/database-tuning-recommendations.md):

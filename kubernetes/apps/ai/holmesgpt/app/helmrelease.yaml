@@ -44,12 +44,52 @@ spec:
     # this means anything in-cluster that can reach holmesgpt-holmes:80
     # can drive shell/internet-capable investigation. Acceptable for a
     # cluster-internal POC; revisit with a NetworkPolicy or auth layer
-    # if this graduates past POC (see home-ops-4rm).
+    # if this graduates past POC (see home-ops-4rm). Same caveat now also
+    # covers Grafana/Prometheus/VictoriaLogs/Postgres read access below —
+    # tracked as a follow-up hardening bead, not fixed in this pass.
+    #
+    # Every key in holmesgpt-secrets is mounted as an env var so toolset
+    # config below can reference it via Holmes's own {{ env.VAR }}
+    # templating (a runtime Jinja2 render, distinct from Helm's own
+    # templating — this string is inert to Helm, Holmes reads it at boot).
+    extraEnvVarsSecrets:
+      - holmesgpt-secrets
+
     toolsets:
       robusta:
         enabled: false
       prometheus/metrics:
-        enabled: false  # cluster is mid-migration to VictoriaMetrics; no endpoint configured here, avoid auto-discovery of the wrong backend
+        enabled: true
+        subtype: victoriametrics
+        config:
+          prometheus_url: https://metrics.68cc.io
+      # grafana.68cc.io sits behind the authentik-forwardauth Middleware on
+      # PathPrefix "/" (kubernetes/apps/monitoring/grafana/instance/httproute.yaml)
+      # — a Grafana service-account token is not an Authentik credential, so
+      # the outpost 302s before Grafana ever sees the request. Point at the
+      # in-cluster Service instead, same pattern as llama-swap below.
+      grafana/dashboards:
+        enabled: true
+        config:
+          api_key: "{{ env.GRAFANA_API_KEY }}"
+          api_url: http://grafana-service.monitoring.svc.cluster.local:3000
+      victorialogs:
+        enabled: true
+        config:
+          api_url: https://logs.68cc.io
+          headers:
+            AccountID: "0"
+            ProjectID: "0"
+      # Cluster-level Postgres stats only (pg_monitor role) — deliberately
+      # NOT granted access to any individual app database's table data.
+      # See kubernetes/apps/databases/cloudnative-pg/cluster/cluster.yaml
+      # for the holmesgpt_ro role definition.
+      postgres17-stats:
+        type: database
+        enabled: true
+        llm_instructions: "Cluster-level PostgreSQL statistics only (pg_monitor). No table data access -- use pg_stat_activity, pg_locks, pg_stat_replication."
+        config:
+          connection_url: "{{ env.POSTGRES_CONNECTION_URL }}"
 
     # LLM backend: llama-swap's in-cluster OpenAI-compatible endpoint
     # (litellm+omniroute removed, no cloud providers). No auth required for

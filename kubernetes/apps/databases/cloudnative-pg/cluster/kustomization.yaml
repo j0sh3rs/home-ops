@@ -12,3 +12,4 @@ resources:
   - ./grafanadashboard.yaml
   - ./tcproute.yaml
   - ./dnsendpoint.yaml
+  - ./holmesgpt-role-secret.sops.yaml
