@@ -59,7 +59,10 @@ spec:
       robusta:
         enabled: false
       prometheus/metrics:
-        enabled: false  # cluster is mid-migration to VictoriaMetrics; no endpoint configured here, avoid auto-discovery of the wrong backend
+        enabled: true
+        subtype: victoriametrics
+        config:
+          prometheus_url: https://metrics.68cc.io
       grafana/dashboards:
         enabled: true
         config:
