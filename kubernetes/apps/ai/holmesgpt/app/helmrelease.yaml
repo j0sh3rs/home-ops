@@ -68,6 +68,13 @@ spec:
         config:
           api_key: "{{ env.GRAFANA_API_KEY }}"
           api_url: https://grafana.68cc.io
+      victorialogs:
+        enabled: true
+        config:
+          api_url: https://logs.68cc.io
+          headers:
+            AccountID: "0"
+            ProjectID: "0"
 
     # LLM backend: llama-swap's in-cluster OpenAI-compatible endpoint
     # (litellm+omniroute removed, no cloud providers). No auth required for
