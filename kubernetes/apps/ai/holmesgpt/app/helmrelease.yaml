@@ -75,6 +75,15 @@ spec:
           headers:
             AccountID: "0"
             ProjectID: "0"
+      # Cluster-level Postgres stats only (pg_monitor role) — deliberately
+      # NOT granted access to any individual app database's table data.
+      # See kubernetes/apps/databases/cloudnative-pg/cluster/cluster.yaml
+      # for the holmesgpt_ro role definition.
+      postgres17-stats:
+        type: database
+        enabled: true
+        config:
+          connection_url: "{{ env.POSTGRES_CONNECTION_URL }}"
 
     # LLM backend: llama-swap's in-cluster OpenAI-compatible endpoint
     # (litellm+omniroute removed, no cloud providers). No auth required for
