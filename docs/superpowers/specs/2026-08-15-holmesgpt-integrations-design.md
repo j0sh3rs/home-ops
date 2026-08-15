@@ -140,10 +140,26 @@ omniroute API key in the POC spec). Token goes into a new
 ### 4. CloudNative-PG Postgres toolset
 
 Highest-risk change — touches the shared `postgres17` `Cluster` CR
-(`kubernetes/apps/databases/cloudnative-pg/cluster/cluster.yaml`), which also
-backs other apps (e.g. memini/RAG). No existing precedent in this repo for
-CNPG's declarative `spec.managed.roles` — today the cluster only sets
+(`kubernetes/apps/databases/cloudnative-pg/cluster/cluster.yaml`). No
+declarative `Database` CRD is used anywhere in this repo — every app on this
+cluster (`authentik`, `crowdsec`, `home-assistant`, `atuin`, `linkwarden`,
+`paperless`, plus `mcpjungle`/`memos` which are currently disabled)
+provisions its own DB out-of-band via a `postgres-init` initContainer at
+boot. No existing precedent in this repo for CNPG's declarative
+`spec.managed.roles` either — today the cluster only sets
 `enableSuperuserAccess: true` / `superuserSecret`.
+
+**Scope: cluster-level stats only, no per-app data access.** `holmesgpt_ro`
+gets the Postgres built-in `pg_monitor` role (grants read access to
+`pg_stat_activity`, `pg_stat_replication`, `pg_locks`,
+`pg_stat_statements`, and other monitoring views cluster-wide) and connects
+to the `postgres` maintenance database — not any app's own database. This
+covers connection counts, lock contention, replication status, and
+slow-query stats across the whole cluster, with zero exposure of any app's
+actual row data (Authentik sessions, CrowdSec ban lists, etc.) to a toolset
+sitting behind an still-unauthenticated Service (security hardening is
+deferred, see Non-goals). Per-app database access can be added later,
+incrementally, if a concrete debugging need arises — not speculatively now.
 
 Plan:
 
@@ -155,18 +171,15 @@ spec:
       - name: holmesgpt_ro
         ensure: present
         login: true
+        inRoles:
+          - pg_monitor
         passwordSecret:
           name: holmesgpt-db-creds
 ```
 
-CNPG creates the role but does **not** grant it access to existing
-databases/schemas — that needs an explicit one-off `GRANT SELECT` step
-(e.g. a `postInitApplicationSQL`-equivalent or a scoped one-shot `Job`
-running `psql` as the CNPG app user, granting `SELECT` on whichever specific
-database(s) HolmesGPT should be able to inspect — not a blanket grant across
-every database on the shared cluster). Exact target database(s) TBD during
-implementation — needs a decision on which app databases are actually useful
-for Holmes to see versus unnecessary blast radius.
+`pg_monitor` is a Postgres built-in role — `inRoles` is sufficient, no
+separate `GRANT`/one-off SQL Job needed (unlike a per-app-database `SELECT`
+grant, which isn't automatic and was the original concern here).
 
 `holmesgpt-secrets` values addition:
 
@@ -175,7 +188,7 @@ toolsets:
   database:
     enabled: true
     config:
-      connection_url: "postgresql://holmesgpt_ro:{{ env.POSTGRES_RO_PASSWORD }}@postgres17-rw.databases.svc.cluster.local:5432/<target_db>"
+      connection_url: "postgresql://holmesgpt_ro:{{ env.POSTGRES_RO_PASSWORD }}@postgres17-rw.databases.svc.cluster.local:5432/postgres"
 ```
 
 `POSTGRES_RO_PASSWORD` sourced from `holmesgpt-db-creds` (the CNPG-managed
@@ -209,7 +222,7 @@ already covers rotation for both.
    - Prometheus: "what's current CPU usage across nodes, per Prometheus metrics?"
    - VictoriaLogs: "show me recent error-level logs from the `ai` namespace"
    - Grafana: "what dashboards exist in the monitoring folder?"
-   - Postgres: "what tables exist in the `<target_db>` database?"
+   - Postgres: "how many active connections and any lock contention on the postgres17 cluster right now?"
 6. `GET /api/model` and `/api/info` as cheap pre-checks before the above
    (confirms the server booted with the new toolset config parsed, before
    spending an LLM call on the real probe).
@@ -217,9 +230,8 @@ already covers rotation for both.
 ## Open items / inputs needed from user before implementation
 
 - Grafana service-account token (Viewer role) — manual creation, same
-  category as the omniroute key in the POC spec.
-- Which target database(s) the Postgres `GRANT SELECT` should cover — needs
-  an explicit choice, not a blanket grant.
+  category as the omniroute key in the POC spec. User confirmed they'll
+  generate this when implementation reaches that step.
 
 ## Follow-up work (tracked as separate beads, not this epic)
 
