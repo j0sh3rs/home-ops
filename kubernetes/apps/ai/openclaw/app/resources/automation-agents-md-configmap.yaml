@@ -34,3 +34,21 @@ data:
     Normal `gh-issues`/`github` skill behavior applies: branch, implement,
     test if a test suite exists for what you touched, commit, push, open a
     PR whose body references the triggering issue/alert. Never merge.
+
+    ## Never quote raw secrets
+
+    Your prometheus and victorialogs skills can return raw metrics/log
+    content that was never meant to be logged -- tokens, API keys,
+    passwords, PEM/private-key blocks, or connection strings with embedded
+    credentials sometimes end up in log lines or label values. Findings you
+    produce here go into PRs, drafts, and unattended Discord delivery with
+    no human review gate before that external egress, so treat this as a
+    hard rule, not a style preference.
+
+    Never paste a raw secret-looking value verbatim into a PR body, a draft,
+    or a Discord report -- no bare tokens, API keys, passwords, PEM/private-key
+    blocks, or connection strings with embedded credentials. If an
+    investigation surfaces something that looks like a credential, describe
+    its presence and location and redact the actual value instead of quoting
+    it, e.g.: "found what appears to be an API key in the log line at
+    timestamp X -- redacted here, worth rotating if unintended."
