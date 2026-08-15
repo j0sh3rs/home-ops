@@ -15,8 +15,12 @@ spec:
       name: webhook
       webhook:
         image:
-          repository: ghcr.io/kashalls/external-dns-unifi-webhook
-          tag: v0.9.0@sha256:22f4106f44a0b9ac3c97cf29bbfef93026c1164492152dc797a1d6dc86ddfbb5
+          # kashalls/external-dns-unifi-webhook is unmaintained; the project
+          # moved to home-operations/external-dns-unifi-webhook (tags have no
+          # "v" prefix there).
+          # renovate: datasource=docker depName=ghcr.io/home-operations/external-dns-unifi-webhook
+          repository: ghcr.io/home-operations/external-dns-unifi-webhook
+          tag: 0.10.9@sha256:30ae224e23bb7c303d72901a85aea77060288872716b8bc50589216c1f9d0df0
         env:
           - name: UNIFI_HOST
             value: https://192.168.35.1
@@ -39,6 +43,12 @@ spec:
           timeoutSeconds: 5
     extraArgs:
       - --gateway-name=traefik-internal-gateway
+      # Default 5s/10s read/write budget is too tight for the webhook's
+      # cold-start login to the UniFi controller (192.168.35.1) — the first
+      # sync after every pod restart hit "context canceled" once before
+      # self-healing on retry. Give it more headroom.
+      - --webhook-provider-read-timeout=15s
+      - --webhook-provider-write-timeout=20s
     triggerLoopOnEvent: true
     policy: sync
     sources:
