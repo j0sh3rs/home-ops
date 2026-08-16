@@ -298,15 +298,15 @@ Rules of thumb:
 ### Observability
 
 - **Grafana** — Unified dashboards (deployed via Grafana Operator with `GrafanaInstance` + `GrafanaDashboard` CRDs). Anonymous auth enabled for LAN; root URL `grafana.68cc.io`.
-- **kube-prometheus-stack** — Prometheus with ServiceMonitors, recording rules, and alerting. Runs the `prompp/prompp` C++ PromQL drop-in image (version override `v2.55.1`). **Slated for replacement** by VictoriaMetrics under epic `home-ops-v17`.
-- **Thanos** — Long-term metrics storage with S3 backend (`thanos-blocks` bucket). Query, store-gateway, compact. **Slated for removal** after VMsingle migration.
+- **kube-prometheus-stack** — Prometheus server itself is disabled (`prometheus.enabled: false`, `home-ops-8bb` stage 2 complete — no in-cluster Prometheus CR, Thanos sidecar, or local TSDB). What remains from the chart: Alertmanager, prometheus-node-exporter, kube-state-metrics, and prometheus-operator (source of the ServiceMonitor/PodMonitor/PrometheusRule CRDs that `vm-operator` auto-converts).
+- **VictoriaMetrics** (`kubernetes/apps/monitoring/victoria-metrics/`, `victoria-metrics-operator`) — `vmagent` scrapes every ServiceMonitor/PodMonitor/Probe/VMRule cluster-wide (`selectAllByDefault: true`) and remote-writes to the externally-hosted VictoriaMetrics at `https://metrics.68cc.io`; `vmalert` (2 replicas) evaluates VMRules and reads/writes against the same endpoint. `https://metrics.68cc.io` is the primary metrics datasource in Grafana (`isDefault: true`) — there is no in-cluster `VMSingle`.
 - **Alertmanager** — Discord webhook for `severity=critical`, 12h repeat, `Watchdog`/`InfoInhibitor` blackholed.
 - **unpoller** — UniFi network device monitoring (2m scrape interval, UniFi API rate-limited).
 - **Tetragon** — Runtime security metrics + Grafana dashboard (deployed in `kube-system`, not `monitoring`).
 
-**Log aggregation: VictoriaLogs (active).** `victoria-logs` is deployed via `kubernetes/apps/monitoring/victoria-logs/ks.yaml` (enabled in `kubernetes/apps/monitoring/kustomization.yaml`). `victoria-logs-server` ingests via a `victoria-logs-vector` DaemonSet on every node; chunks land in the `victoria-logs-chunks` S3 bucket. Query at the VictoriaLogs server in the `monitoring` namespace.
+**Log aggregation**: the `vector` app (`kubernetes/apps/monitoring/vector/`) runs as a Vector Agent DaemonSet, tailing `kubernetes_logs` on every node and shipping them to the externally-hosted VictoriaLogs at `https://logs.68cc.io` via its Elasticsearch-bulk ingest endpoint (`/insert/elasticsearch/`, `api_version: v8`) — not a Loki-shim. There is no in-cluster VictoriaLogs server.
 
-**Note**: Single-replica deployments; S3 provides durability. Prometheus runs 6h local retention with all long-term data in Thanos-managed S3 blocks.
+**Note**: Grafana, Alertmanager, and the remaining kube-prometheus-stack exporters/operator are single-replica in-cluster deployments (`vmalert` runs 2 replicas for HA alert evaluation). Both metrics and logs are stored externally (`metrics.68cc.io`, `logs.68cc.io`) — no in-cluster long-term retention to manage.
 
 ### Databases
 
@@ -360,7 +360,7 @@ LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (co
   - `rerank`/`reranker` → `qwen3-rerank` (cross-encoder, always-on)
 - **openclaw** — sole code-automation agent at `openclaw.68cc.io` (Authentik forwardAuth), cluster-admin RBAC. Primary model `llamaswap/coder-large`. Memory via memini plugin slot. code-server sidecar at `openclaw-code.68cc.io` for browsing the memini-backed memory-wiki vault.
 - **memini** — memory/embedding backend at `memini.68cc.io` (deliberately unauthenticated at the route level — bearer-token gated at `/v1`/`/mcp`, LAN-only, no SSO). Embed + chat both routed to llama-swap directly.
-- **holmesgpt** — incident/observability LLM analysis (POC), routed to llama-swap directly (`llamaswap/coder-large`).
+- **holmesgpt** — incident/observability LLM analysis (POC), routed to llama-swap directly (`llamaswap/coder-large`). Toolsets: Kubernetes API state (built-in) plus `prometheus/metrics` (VictoriaMetrics at `https://metrics.68cc.io`), `victorialogs` (`https://logs.68cc.io`), `grafana/dashboards` (in-cluster `grafana-service.monitoring.svc.cluster.local:3000` — `grafana.68cc.io` sits behind Authentik forwardAuth, which a Grafana service-account token can't clear), and a `pg_monitor`-scoped Postgres toolset (`postgres17-stats`) via the `holmesgpt_ro` role — cluster-wide stats only (`pg_stat_activity`, `pg_stat_replication`, `pg_locks`; `pg_stat_statements` isn't queryable yet, only `CREATE EXTENSION`ed in the `app` DB, not `postgres`), no per-database table access.
 - **mcpjungle** — MCP server aggregator, fronting tool access for openclaw (litellm's `/mcp` gateway is gone — consumers call mcpjungle directly now).
 - **omega-mcp** — MCP server, no LLM backend.
 - **faster-whisper** — Speech-to-text (Wyoming protocol, port 10300). `rhasspy/wyoming-whisper:3.3.0`, model `tiny-int8` (Wyoming TCP server HA's Wyoming integration speaks to — NOT the `fedirz/faster-whisper-server` OpenAI-HTTP image, which does not implement Wyoming and silently served nothing). Wired to Home Assistant Assist for STT. First request ~5s; cached afterward.
