@@ -36,13 +36,21 @@ data:
           timeoutSeconds: 600,
           maxConcurrent: 4,
           contextPruning: { mode: "off" },
-          // On context pressure, extract key facts before compacting. No
-          // memory plugin is active to persist this (memini removed
-          // 2026-08-16) -- effectively inert until one is; harmless to
-          // leave on.
+          // On context pressure, extract key facts before compacting.
+          // 2026-08-16 incident: reserveTokensFloor was 30000 -- bigger
+          // than coder-large's entire 16384-token contextWindow (see
+          // model.primary above / llama-swap's model catalog), which
+          // silently collapsed promptBudgetBeforeReserve to ~8000
+          // regardless of any other setting. Harmless while no memory
+          // plugin was active to exercise real compaction (memini removed
+          // 2026-08-16), but the moment openviking's context-engine plugin
+          // went live, every brand-new session (0 messages) overflowed on
+          // system-prompt + tool-schema weight alone. Lowered to 4000 --
+          // ~24% of contextWindow, leaving real headroom for prompts on
+          // the smallest-context model in the fleet.
           compaction: {
             mode: "default",
-            reserveTokensFloor: 30000,
+            reserveTokensFloor: 4000,
             memoryFlush: {
               enabled: true,
               softThresholdTokens: 80000,
