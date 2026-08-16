@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/gitrepository-source-v1.json
+# Deliberate exception to this repo's OCIRepository+chartRef convention:
+# OpenViking (volcengine/OpenViking) publishes NO packaged Helm artifact --
+# no OCI chart, no HelmRepository index -- only chart source under
+# deploy/helm/openviking/ in the git repo itself. Flux's own documented
+# mechanism for exactly this case is a GitRepository source consumed via
+# HelmRelease.spec.chart.spec.sourceRef (see helmrelease.yaml), not the
+# legacy chart.spec.sourceRef+HelmRepository pattern CLAUDE.md warns
+# against -- that pattern is for chart-museum/index.yaml-style repos,
+# which don't apply here either.
+#
+# Pinned to v0.4.5: the newest git tag with a container image actually
+# published at ghcr.io/volcengine/openviking (confirmed via the registry
+# API -- the chart's own newest GitHub release, v0.4.13, has no matching
+# image tag yet, so following release tags 1:1 isn't safe here).
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: openviking
+spec:
+  interval: 12h
+  ref:
+    tag: v0.4.5
+  url: https://github.com/volcengine/OpenViking
