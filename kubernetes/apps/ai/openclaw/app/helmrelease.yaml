@@ -319,12 +319,18 @@ spec:
           codeserver:
             port: &codeserverPort 12321
     route:
+      # Moved to traefik-external-gateway 2026-08-16 for off-network browser
+      # access. Still behind Authentik forwardAuth (unlike the remote route
+      # below) -- browsers can complete the interactive SSO redirect fine,
+      # unlike the CLI/mobile clients remote exists for. Same protection
+      # model as before (Authentik), just reachable via the Cloudflare
+      # tunnel now instead of LAN-only.
       app:
         hostnames: ["openclaw.68cc.io"]
         annotations:
-          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
         parentRefs:
-          - name: traefik-internal-gateway
+          - name: traefik-external-gateway
             namespace: network
         rules:
           - filters:
@@ -360,8 +366,9 @@ spec:
       # and recommend the gateway's own token auth instead -- already the
       # real access boundary here (gateway.auth.mode: "token"), hardened
       # by Traefik TLS + CrowdSec + the Cloudflare tunnel, same as every
-      # other public route in this repo. openclaw.68cc.io (browser, LAN,
-      # Authentik) is untouched -- this is purely additive.
+      # other public route in this repo. openclaw.68cc.io (browser) also
+      # moved to traefik-external-gateway 2026-08-16, but keeps Authentik
+      # forwardAuth -- different protection model, same external gateway.
       remote:
         hostnames: ["openclaw-remote.68cc.io"]
         annotations:
