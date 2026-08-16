@@ -348,6 +348,8 @@ Fully self-hosted AI stack — no third-party/cloud LLM providers. Topology: **o
 
 LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (code automation agent) were removed 2026-07-01 — unused, no consumers beyond a chat UI nobody used; see `docs/runbooks/anythingllm-role-and-overlap.md` and `archive/{langfuse,anythingllm,open-webui,goose}/` if reuse is considered later. claude-code (headless code-automation engine, daemon + runner Job template) was also removed 2026-07-01.
 
+**ollama was archived 2026-08-16** — deployed as a same-node comparison spike against llama-swap (both need bigboi-jms-01's single GPU, so they ran mutually exclusive via manual HelmRelease suspend/resume); spike concluded, llama-swap remains the sole chat/completion engine. See `archive/ollama/`.
+
 ### Currently deployed
 
 - **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 48 dGPU = Radeon RX 9070 XT, RDNA4/gfx1201, device-id `0x7550`, 16 GiB VRAM, node-label `node.kubernetes.io/gpu-tier=dgpu`) via nodeAffinity. RDNA4 has a working Vulkan flash-attention path (b9803+) — `--flash-attn on` is beneficial here, NOT the RDNA2 no-coopmat case. The primary/only entry point for every consumer now — `llm.68cc.io` route (Authentik forwardAuth) plus direct cluster-internal Service access. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC. Model aliases (see `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for source of truth):
