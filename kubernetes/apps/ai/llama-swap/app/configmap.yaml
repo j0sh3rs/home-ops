@@ -143,6 +143,11 @@ data:
       # decode pathological). Do NOT route interactive/agentic traffic here.
       # Kept only as a batch/prefill-heavy experiment slot; treat as disabled
       # for chat until #26795 is resolved and re-benched on-node.
+      # Still listed in the "chat" group below and still fetched by the
+      # init container on purpose: re-enabling after a fix/re-bench should
+      # need zero code change, just deleting this warning. See CLAUDE.md's
+      # llama-swap bullet (`frontier`/`frontier-chat` alias) for the
+      # user-facing routing warning that mirrors this note.
       # Dense 27B; highest static quality (whichllm rank #1, 87.3) but the
       # decode collapse above makes that quality unreachable interactively.
       # Upgraded Q3_K_S → Q3_K_M per whichllm. ctx-size 8192 kept: KV q8_0

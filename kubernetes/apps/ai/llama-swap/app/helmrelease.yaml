@@ -14,8 +14,10 @@ spec:
   # container pulling up to ~60 GiB of GGUFs off HuggingFace into the RWO
   # PVC. The Helm default 5m timeout trips long before that completes,
   # failing the release and rolling back to a config that references a
-  # not-yet-downloaded file. 30m covers a cold multi-model fetch.
-  timeout: 30m
+  # not-yet-downloaded file. 45m covers a cold multi-model fetch; curl -C -
+  # resume means a Recreate mid-download continues rather than restarting,
+  # but a genuinely cold fetch on a slow link still needs real headroom.
+  timeout: 45m
   install:
     remediation:
       retries: 3
@@ -71,7 +73,7 @@ spec:
                   echo "[fetch] $out"
                   # Background curl; tail size every 5s until it exits.
                   # --no-progress-meter keeps stderr clean; we do our own reporting.
-                  curl --no-progress-meter -Lf -o "$out.part" "$url" &
+                  curl --no-progress-meter -C - -Lf -o "$out.part" "$url" &
                   cpid=$!
                   while kill -0 "$cpid" 2>/dev/null; do
                     sleep 5

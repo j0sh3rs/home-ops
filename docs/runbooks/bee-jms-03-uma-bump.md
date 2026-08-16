@@ -48,7 +48,7 @@ Run from workstation before maintenance window:
 # the Talos control-plane from 3 to 2 nodes temporarily.
 kubectl get nodes -o wide --context home
 
-# Verify llama-swap + any other pods pinned to bee-jms-03
+# Verify llama-swap-apu + any other pods pinned to bee-jms-03
 kubectl get pods -A \
     -o jsonpath='{range .items[?(@.spec.nodeName=="bee-jms-03")]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}' \
     --context home
@@ -80,7 +80,7 @@ kubectl drain bee-jms-03 \
     --context home
 ```
 
-`llama-swap` is a Deployment pinned via `nodeSelector` to `bee-jms-03`, so
+`llama-swap-apu` is a Deployment pinned via `nodeAffinity` to `bee-jms-03`, so
 drain evicts it — it will stay `Pending` until uncordon. Acceptable; there is
 no other GPU-capable node.
 

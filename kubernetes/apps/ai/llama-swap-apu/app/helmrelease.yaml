@@ -60,7 +60,7 @@ spec:
                     rm -f "$out"
                   fi
                   echo "[fetch] $out"
-                  curl --no-progress-meter -Lf -o "$out.part" "$url" &
+                  curl --no-progress-meter -C - -Lf -o "$out.part" "$url" &
                   cpid=$!
                   while kill -0 "$cpid" 2>/dev/null; do
                     sleep 5
@@ -152,7 +152,7 @@ spec:
         controller: *app
         ports:
           http:
-            port: &port 8080
+            port: 8080
     persistence:
       models:
         type: persistentVolumeClaim

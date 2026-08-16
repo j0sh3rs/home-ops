@@ -50,7 +50,11 @@ data:
           - "fim"
           - "code-fim"
           - "coder-small"
-        ttl: 600
+        # No ttl (unlike the main instance's copy of this model): bee-jms-03
+        # has ~27 GiB VRAM+GTT free for these two small models (~3.5 GiB
+        # combined) — no eviction pressure, so stay loaded to avoid a
+        # cold-load penalty on every request after an idle period.
+        ttl: 0
 
       # Fast router + HA/voice model. Accessible via fast/small/router
       # aliases. Caller system prompt should include /no_think to
@@ -65,7 +69,9 @@ data:
           - "fast"
           - "small"
           - "router"
-        ttl: 300
+        # No ttl (unlike the main instance's copy of this model): bee-jms-03
+        # has generous VRAM headroom here, no eviction pressure.
+        ttl: 0
 
     groups:
       # Both models resident together — combined footprint (~3.5 GiB) is
