@@ -215,7 +215,31 @@ data:
         // lowest-risk remaining cut to fit coder-large's 16384-token
         // context alongside the openviking plugin. Re-allow once
         // cron-based automations are actually reinstated.
-        deny: ["cron"],
+        //
+        // kube-mcp trims (2026-08-16, same incident): openclaw already
+        // has cluster-admin + a generic exec/process tool that can run
+        // kubectl directly, making these low-value/rarely-needed/
+        // duplicate kube-mcp tools redundant rather than a capability
+        // loss: projects_list and resources_list-2 (near-empty/duplicate
+        // schemas, "projects" isn't a vanilla-k8s concept), prompts_get/
+        // prompts_list (generic MCP-protocol prompt-template primitives,
+        // not k8s-resource operations), nodes_top/pods_top (metrics-
+        // server-dependent resource stats -- covered by the existing
+        // prometheus/victorialogs skills instead), pods_run (ad-hoc pod
+        // creation -- exec can `kubectl run` the same thing), and
+        // configuration_view (kubeconfig inspection -- irrelevant when
+        // running in-cluster via the pod's own ServiceAccount token).
+        deny: [
+          "cron",
+          "kubernetes__projects_list",
+          "kubernetes__prompts_get",
+          "kubernetes__prompts_list",
+          "kubernetes__resources_list-2",
+          "kubernetes__nodes_top",
+          "kubernetes__pods_top",
+          "kubernetes__pods_run",
+          "kubernetes__configuration_view",
+        ],
         sessions: { visibility: "all" },
         agentToAgent: { enabled: true },
         // Full shell exec without prompting. openclaw already has cluster-admin,
