@@ -8,31 +8,32 @@ metadata:
 spec:
   chart:
     spec:
-      chart: amd-gpu
-      version: 0.21.0
+      chart: gpu-operator-charts
+      # renovate: datasource=helm depName=gpu-operator-charts registryUrl=https://rocm.github.io/gpu-operator
+      version: v1.5.1
       sourceRef:
         kind: HelmRepository
         name: amd-gpu
         namespace: flux-system
   interval: 10m0s
   values:
-    nfd:
+    # KMM + NFD ship at chart defaults (both enabled). KMM stays idle here:
+    # DeviceConfig (deviceconfig.yaml) sets driver.enable=false, scoped to
+    # bigboi-jms-01 only, so KMM is never asked to build/DKMS-install a
+    # driver — Talos's siderolabs/amdgpu extension already owns that. This
+    # is what makes the operator safe on immutable Talos rootfs; see
+    # CLAUDE.md "Decisions explicitly rejected" for the scoped-exception note.
+    node-feature-discovery:
       enabled: true
-    labeller:
+    kmm:
       enabled: true
-    # Pin device-plugin + labeller image tags so Renovate's helm-values
-    # manager can bump them independently of the chart appVersion. Chart
-    # appVersion historically lags upstream image releases; pinning here
-    # means we get 1.31.0.x patches the moment they ship to docker.io.
-    # Labeller versioning is normalized to plain semver via the
-    # `amd-gpu-labeller` packageRule in .renovate/groups.json5.
-    dp:
-      image:
-        repository: docker.io/rocm/k8s-device-plugin
-        # renovate: datasource=docker depName=docker.io/rocm/k8s-device-plugin versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\.(?<build>\d+)$
-        tag: 1.31.0.10
-    lbl:
-      image:
-        repository: docker.io/rocm/k8s-device-plugin
-        # renovate: datasource=docker depName=docker.io/rocm/k8s-device-plugin versioning=regex:^labeller-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\.(?<build>\d+)$
-        tag: labeller-1.31.0.10
+    # Chart auto-creates a second, broader DeviceConfig (selector
+    # feature.node.kubernetes.io/amd-gpu=true, matches ANY AMD-GPU-PCI
+    # node incl. bee-* once NFD labels it) via templates/default-deviceconfig.yaml
+    # on fresh install. Our own scoped deviceconfig.yaml (dgpu, selector
+    # node.kubernetes.io/gpu-tier=dgpu) already covers bigboi — disable the
+    # chart's default to avoid duplicate device-plugin/labeller/metrics
+    # daemonsets targeting the same node.
+    crds:
+      defaultCR:
+        install: false

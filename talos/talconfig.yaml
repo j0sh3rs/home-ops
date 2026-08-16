@@ -19,6 +19,9 @@ cniConfig:
   name: none
 
 nodes:
+  # bee-* nodes (control-plane, AMD APU iGPU) share talos/schematic.yaml.
+  # bigboi-jms-01 (worker, discrete 9070 XT) uses its own
+  # talos/schematic-dgpu.yaml — see its talosImageURL comment below.
   - hostname: "bee-jms-02"
     ipAddress: "192.168.35.6"
     installDisk: "/dev/nvme0n1"
@@ -96,7 +99,11 @@ nodes:
     installDisk: "/dev/nvme0n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/9cc3b6b49c5bdf86905d1999fc8c2ec28aa03b3422377f4e86cb7ed5635b910b
+    # Own Talos Factory schematic (talos/schematic-dgpu.yaml), split from the
+    # bee-* nodes' talos/schematic.yaml: amd_iommu=off + dGPU-sized gttsize,
+    # tuned for this node's dedicated 16 GiB VRAM instead of APU shared-RAM
+    # tuning. Do not point this node back at the shared schematic hash.
+    talosImageURL: factory.talos.dev/installer/5345da12edd6b525b64de2ae6094825e716c72823ea83cbdb53f4d065c6c0d31
     controlPlane: false
     nodeLabels:
       node.kubernetes.io/cpu-tier: zen3

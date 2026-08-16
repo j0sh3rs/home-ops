@@ -1,0 +1,55 @@
+---
+# Talos Factory schematic for bigboi-jms-01 ONLY (discrete Navi 48 / RX 9070 XT,
+# RDNA4/gfx1201). Split from talos/schematic.yaml (bee-* APU nodes) because the
+# dGPU has its own dedicated 16 GiB VRAM and doesn't need the same
+# shared-system-RAM-as-VRAM tuning the APUs use. Kernel args live here because
+# UKI-based images (Talos v1.13 default) embed kernel cmdline into the UKI;
+# Talos refuses to use machine.install.extraKernelArgs alongside UKI.
+customization:
+  extraKernelArgs:
+    # --- Homelab hardening trade-offs (documented in talos/patches/README.md) ---
+    - apparmor=0
+    - mitigations=off
+    - security=none
+    - init_on_alloc=0
+    - init_on_free=0
+    - talos.auditd.disabled=1
+
+    # --- AMD perf tuning ---
+    # guided mode lets the kernel governor drive P-state transitions while still
+    # using the AMD P-state driver; pairs with cpufreq governor below.
+    - amd_pstate=guided
+    - cpufreq.default_governor=performance
+
+    # --- IOMMU (dGPU-specific: off) ---
+    # bee-* nodes keep amd_iommu=on + iommu.passthrough=1 (canonical form for
+    # those APUs). Talos's AMD GPU tuning guidance uses amd_iommu=off to cut
+    # IOMMU translation overhead for GPU-heavy workloads; llama-swap on this
+    # node runs the Vulkan backend (not ROCm), so this mainly removes overhead
+    # from the PCIe path to the discrete card. iommu.passthrough is meaningless
+    # with IOMMU off, so it's dropped rather than left as a no-op.
+    - amd_iommu=off
+
+    # --- AMD GPU memory expansion (dGPU-specific sizing) ---
+    # GTT (Graphics Translation Table) lets the amdgpu driver map pageable
+    # system RAM into the GPU address space on demand. On the bee-* APUs this
+    # is sized to 16 GiB because those GPUs have no dedicated VRAM of their
+    # own — GTT IS their model-size ceiling. bigboi's 9070 XT has its own
+    # dedicated 16 GiB VRAM, so GTT here only needs to cover staging-buffer
+    # spillover, not the model itself. 8192 MiB = 8 GiB leaves more of the
+    # node's 32 GiB system RAM headroom for other pods (local-hostpath
+    # storage, etc). Adjust upward if staging-buffer spillover becomes a
+    # measured bottleneck.
+    - amdgpu.gttsize=8192
+    # TTM (Translation Table Manager) global page-cap. Same ceiling as the
+    # APU nodes — it's an upper bound, not an allocation, so leaving it at
+    # Sidero's recommended value for "large model inference" is harmless here.
+    - ttm.pages_limit=33554432
+
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/nfsrahead # NFS read-ahead tuning for NFS provisioner
+      - siderolabs/amd-ucode # AMD CPU microcode
+      - siderolabs/amdgpu # AMD GPU drivers (dGPU)
+      - siderolabs/glibc # Standard C library for extensions needing it
+      - siderolabs/nvme-cli # NVMe install-disk management

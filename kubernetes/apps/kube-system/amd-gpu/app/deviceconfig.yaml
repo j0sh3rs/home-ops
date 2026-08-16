@@ -1,0 +1,23 @@
+---
+apiVersion: amd.com/v1alpha1
+kind: DeviceConfig
+metadata:
+  name: dgpu
+  namespace: kube-system
+spec:
+  driver:
+    # Skip KMM/DKMS driver management entirely — Talos's siderolabs/amdgpu
+    # system extension already loads the amdgpu kernel module (immutable
+    # rootfs, no DKMS build path available). This is the scoped exception
+    # documented in CLAUDE.md that makes the GPU Operator safe here.
+    enable: false
+  selector:
+    # bigboi-jms-01 (discrete 9070 XT) only — never targets the bee-* APU
+    # nodes, which stay on the previously-rejected-operator's exclusion.
+    node.kubernetes.io/gpu-tier: dgpu
+  devicePlugin:
+    enable: true
+  nodeLabeller:
+    enable: true
+  metricsExporter:
+    enable: true

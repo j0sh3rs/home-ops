@@ -94,6 +94,8 @@ task flux:reconcile-hr name=grafana ns=monitoring
 
 ### Talos Operations
 
+**Per-node Factory schematics**: `talos/schematic.yaml` covers the 3 `bee-*` control-plane nodes (AMD APU). `bigboi-jms-01` (worker, 9070 XT dGPU) has its own `talos/schematic-dgpu.yaml` with dGPU-tuned kernel args (`amd_iommu=off`, smaller `amdgpu.gttsize`) — see comments in both files and in `talconfig.yaml` before editing either. A kernel-arg or extension change on one file does NOT need mirroring to the other unless it's a shared hardening/perf flag. Changing `talosImageURL` alone (via `task talos:apply-node`) does not swap the running image — that requires `task talos:upgrade-node IP=<ip>`, which reads `talosImageURL` from `talconfig.yaml` and reboots the node into it.
+
 ```bash
 task talos:generate-config                       # Generate configs from talconfig.yaml
 task talos:apply-node IP=192.168.1.100 MODE=auto # Apply config to a node
@@ -186,7 +188,6 @@ Helm repository definitions live in `kubernetes/flux/meta/repos/`.
 - `kubernetes/apps/databases/cloudnative-pg/` — `cloudnative-pg.github.io` (OCI available: `ghcr.io/cloudnative-pg/charts`)
 - `kubernetes/apps/databases/dragonflydb/` — hybrid: `HelmRepository` kind but `oci://` URL → switch to proper `OCIRepository`
 - `kubernetes/apps/velero/` — `vmware-tanzu.github.io`
-- `kubernetes/apps/kube-system/amd-gpu/` — `rocm.github.io/k8s-device-plugin`
 - `kubernetes/apps/kube-system/descheduler/` — OCI available: `ghcr.io/kubernetes-sigs/descheduler`
 - `kubernetes/apps/kube-system/nfs-external-provisioner/` — `kubernetes-sigs.github.io/nfs-subdir-external-provisioner`
 - `kubernetes/apps/kube-system/tetragon/` — has local `helmrepository.yaml`; check for OCI
@@ -328,7 +329,7 @@ Rules of thumb:
 - **Spegel** — P2P container image distribution for faster pulls
 - **Descheduler** — Rebalances pods across nodes based on policies
 - **K8tz** — Timezone injection for pods
-- **AMD GPU Device Plugin** — AMD GPU support for workloads
+- **AMD GPU Operator** (ROCm GPU Operator, `kubernetes/apps/kube-system/amd-gpu/`) — device-plugin, node-labeller, and metrics-exporter for `bigboi-jms-01`'s 9070 XT only, driverless mode (see "Decisions explicitly rejected" for the scoped-exception reasoning). Not deployed to the bee-* APU nodes.
 - **Talos Backups** — Automated etcd backup CronJob
 - **IRQBalance** — Hardware interrupt balancing
 - **Tuppr** — System upgrade controller (manages Talos OS upgrades)
@@ -374,7 +375,8 @@ LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (co
 
 ### Decisions explicitly rejected (do not relitigate without new evidence)
 
-- **AMD GPU Operator** — wrong fit for Talos + APU + consumer dGPU. KMM-managed DKMS conflicts with in-box `amdgpu` extension; APUs not on Instinct HCL; ANR/NPD/DCM features all require Instinct silicon. See [memory: project-amd-gpu-stack].
+- **AMD GPU Operator, cluster-wide / driver-managed mode** — wrong fit for the bee-* APU nodes: KMM-managed DKMS conflicts with in-box `amdgpu` extension; APUs not on Instinct HCL; ANR/NPD/DCM features all require Instinct silicon. This rejection still stands for bee-*. See [memory: project-amd-gpu-stack].
+  **Scoped exception, adopted for bigboi-jms-01 (9070 XT dGPU) only**: `kubernetes/apps/kube-system/amd-gpu/` now runs the ROCm GPU Operator (`gpu-operator-charts`) with `DeviceConfig.spec.driver.enable: false` and `spec.selector: {node.kubernetes.io/gpu-tier: dgpu}`. Driverless mode means KMM is never asked to build/DKMS-install anything — Talos's `siderolabs/amdgpu` extension still owns the kernel module — and the node selector means KMM/NFD never even evaluate the bee-* nodes. Both objections above (DKMS conflict, Instinct-only features) are sidestepped by construction, not overridden. Do not widen the `DeviceConfig` selector to the bee-* nodes without re-reading this note.
 - **ROCm DKMS** — Talos rootfs immutable; no path. ROCm userspace only matters inside workload containers, not at kernel level.
 - **Replacing llama-swap with Ollama** — duplicates the same role; would lose curated GGUF + model-fetch control. One engine policy.
 - **Keeping a gateway (LiteLLM or otherwise) in front of llama-swap** — removed 2026-08-14. Once cloud-provider fan-out is off the table (the whole point of this migration) and this is a single-user home-lab, a gateway's remaining value (per-consumer virtual keys, cost tracking, response caching) was already mostly inert: `disable_spend_logs: true`, Prometheus metrics disabled (needs LiteLLM Enterprise license, 404s), and llama-swap already exposes the same model-alias abstraction natively. Auth for the one external route is handled by the existing Authentik forwardAuth pattern, same as every other app — no new component needed.
