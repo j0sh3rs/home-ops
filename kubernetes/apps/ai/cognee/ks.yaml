@@ -1,0 +1,35 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app cognee
+  namespace: &namespace ai
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  interval: 1h
+  dependsOn:
+    - name: cloudnative-pg
+      namespace: &cnpg-ns databases
+    - name: cloudnative-pg-cluster
+      namespace: *cnpg-ns
+    - name: qdrant
+      namespace: *cnpg-ns
+    - name: litellm
+      namespace: *namespace
+  path: ./kubernetes/apps/ai/cognee/app
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
+  timeout: 10m
+  wait: true
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
