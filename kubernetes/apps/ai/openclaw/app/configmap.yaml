@@ -24,10 +24,39 @@ data:
         defaults: {
           model: {
             // Local inference direct via llama-swap (litellm+omniroute
-            // removed, no cloud providers). "coder-large" alias resolves to
-            // agentic-coder (Qwen3-Coder-30B-A3B-Instruct) in llama-swap's
-            // model config.
-            primary: "llamaswap/coder-large",
+            // removed, no cloud providers). Switched 2026-08-16 from
+            // coder-large (agentic-coder / Qwen3-Coder-30B-A3B, 16384 ctx)
+            // as part of the context-overflow incident fix -- coder-large's
+            // 16k window left only ~8000 usable prompt tokens after
+            // reserve, which openviking's context-engine plugin plus the
+            // existing tool/skill surface overflowed even after trimming
+            // (see git history of this file).
+            //
+            // reasoner-agentic (gpt-oss-20b, 32768 ctx) was tried first --
+            // rejected outright by llama-swap: "400 Failed to initialize
+            // samplers: failed to parse grammar". Its MXFP4/no-KV-quant
+            // setup (see llama-swap/app/configmap.yaml's own comments on
+            // this model's Vulkan quirks) can't handle tool-call grammar
+            // compilation for openclaw's full tool set. Do not retry this
+            // model here without first confirming grammar-constrained
+            // tool-calling works against it directly.
+            //
+            // qwen3-14b (dense, standard llama-vulkan path, no exotic
+            // quantization workarounds) accepts tool-calling grammar fine
+            // and gives 24576 ctx -- 1.5x coder-large's window. Verified
+            // via `openclaw agent` CLI: reduces the fresh-session overflow
+            // from 736 to 542 tokens over budget -- narrows the gap but
+            // does NOT fully close it (reserveTokens scaled from 8384 to
+            // 16384, eating most of the extra context headroom -- the
+            // budget/reserve split for this route doesn't appear to be a
+            // fixed fraction of contextWindow, and isn't controlled by any
+            // config found so far: reserveTokensFloor, contextTokens, and
+            // maxTokens were all tested with zero effect). Trade-off:
+            // generic dense model, not code-specialized like agentic-coder.
+            // See conversation/commit history for the full investigation;
+            // closing the remaining ~542 tokens needs either more content
+            // trimming or resolving the reserve-scaling mystery upstream.
+            primary: "llamaswap/qwen3-14b",
           },
           contextInjection: "always",
           bootstrapMaxChars: 50000,
@@ -108,14 +137,25 @@ data:
             timeoutSeconds: 180,
             // Custom (non-bundled) providers must declare their model
             // catalog explicitly — openclaw has no way to discover
-            // llama-swap's aliases otherwise. ctx/maxTokens mirror the
-            // agentic-coder slot in llama-swap/app/configmap.yaml.
+            // llama-swap's aliases otherwise. ctx/maxTokens mirror each
+            // model's own slot in llama-swap/app/configmap.yaml. Both
+            // stay declared (not just the current primary) so /model can
+            // still switch to coder-large for code-heavy work where its
+            // smaller context is an acceptable trade for code
+            // specialization.
             models: [
               {
                 id: "coder-large",
                 name: "Qwen3-Coder-30B-A3B (llama-swap)",
                 reasoning: false,
                 contextWindow: 16384,
+                maxTokens: 4096,
+              },
+              {
+                id: "qwen3-14b",
+                name: "Qwen3-14B (llama-swap)",
+                reasoning: false,
+                contextWindow: 24576,
                 maxTokens: 4096,
               },
             ],
