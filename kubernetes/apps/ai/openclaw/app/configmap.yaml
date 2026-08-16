@@ -65,7 +65,16 @@ data:
       channels: {
         discord: {
           enabled: true,
-          token: { source: "env", provider: "default", id: "DISCORD_BOT_TOKEN" },
+          // `openclaw doctor` reported the structured SecretRef form
+          // ({source:"env",...}) failing to resolve at runtime ("channel
+          // exited: Discord bot token ... unavailable; resolve SecretRefs
+          // against the active runtime snapshot") on this pinned build,
+          // even though channels.discord.token is a documented SecretRef
+          // target. Switched to the plain $${VAR} substitution form
+          // instead -- the same mechanism already proven working for
+          // gateway.auth.token and hooks.token in this file (see this
+          // ConfigMap's header comment).
+          token: "$${DISCORD_BOT_TOKEN}",
           dmPolicy: "allowlist",
           allowFrom: ["120908692651507712"],
           groupPolicy: "allowlist",
@@ -106,6 +115,13 @@ data:
       commands: {
         native: "auto",
         nativeSkills: "auto",
+        // `openclaw doctor` warning: no command owner configured -- without
+        // this, nobody can approve owner-only commands (/diagnostics,
+        // /export-trajectory, /config, exec approvals). DM pairing
+        // (channels.discord.allowFrom) only lets someone talk to the bot,
+        // it doesn't grant owner privileges. Set to the operator's own
+        // Discord user ID.
+        ownerAllowFrom: ["discord:120908692651507712"],
       },
       // GitOps-managed skills mounted from the openclaw-skills ConfigMap teach
       // the agent to query cluster metrics, logs, events, and GitOps
@@ -209,6 +225,14 @@ data:
         },
       },
       plugins: {
+        // `openclaw doctor` warning: plugins.allow was empty, so any
+        // non-bundled plugin discovered on disk auto-loads implicitly.
+        // memini is the only non-bundled plugin installed here (via the
+        // init container, onto the PVC) -- trust it explicitly. This only
+        // gates non-bundled/discovered plugins; the bundled/core ones
+        // above (codex, device-pair, workboard, memory-core, etc.) aren't
+        // subject to this allowlist.
+        allow: ["memini"],
         entries: {
           // No openai/* model or API key exists in this deployment (or the
           // ai namespace generally — self-hosted-only policy). This plugin
@@ -229,7 +253,10 @@ data:
           // hardened by Traefik TLS + CrowdSec + the Cloudflare tunnel,
           // same as every other public route in this repo. The primary
           // openclaw.68cc.io route (browser, LAN, Authentik) is untouched.
+          // `openclaw doctor` warning: this is a bundled-but-
+          // disabled-by-default plugin -- config alone doesn't activate it.
           "device-pair": {
+            enabled: true,
             config: { publicUrl: "https://openclaw-remote.68cc.io" },
           },
           // Kanban-style task board in the dashboard; state persists in a
