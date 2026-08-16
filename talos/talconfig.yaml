@@ -76,6 +76,12 @@ nodes:
     nodeLabels:
       node.kubernetes.io/cpu-tier: zen3
       node.kubernetes.io/memory-tier: high
+      # This node's BIOS UMA framebuffer was manually expanded to 16 GiB
+      # dedicated VRAM (vs 3 GiB stock on bee-jms-01/-02) — see
+      # docs/superpowers/specs/2026-08-16-apu-light-inference-tier-design.md
+      # for the dmesg-verified hardware table. Only bee-jms-03 gets this
+      # label; -01/-02 are excluded (too little dedicated VRAM to target).
+      node.kubernetes.io/gpu-tier: apu-light
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "b0:41:6f:0c:78:28"
