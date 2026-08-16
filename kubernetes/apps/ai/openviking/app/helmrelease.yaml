@@ -1,0 +1,130 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openviking
+spec:
+  interval: 1h
+  chart:
+    spec:
+      # Chart lives only as git source (deploy/helm/openviking/), no OCI
+      # artifact or HelmRepository index published -- see gitrepository.yaml
+      # for why this uses chart.spec.sourceRef: GitRepository instead of
+      # this repo's usual OCIRepository+chartRef pattern. `version:` is
+      # deliberately omitted: Flux resolves the chart from the
+      # GitRepository's pinned ref directly, not via semver matching.
+      chart: ./deploy/helm/openviking
+      sourceRef:
+        kind: GitRepository
+        name: openviking
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    replicaCount: 1
+    image:
+      # Chart default tag is "latest" (moving); pin to match the
+      # GitRepository ref (see gitrepository.yaml for why v0.4.5, not the
+      # newer v0.4.13 git tag -- no matching image published yet).
+      tag: v0.4.5
+      pullPolicy: IfNotPresent
+    podAnnotations:
+      # The chart's own deployment template already hashes the ConfigMap
+      # (ov.conf) into a checksum/config pod annotation, so ConfigMap
+      # edits already trigger a restart natively. Reloader is still needed
+      # for the Secret side (extraEnv secretKeyRefs below) -- the chart
+      # has no equivalent checksum for those.
+      reloader.stakater.com/auto: "true"
+    persistence:
+      enabled: true
+      # RocksDB local state (the chart itself enforces replicaCount: 1 --
+      # "does not support concurrent access from multiple pods sharing the
+      # same PVC"); openebs-hostpath matches this repo's storage-class
+      # convention for single-pod, latency-sensitive local state (see
+      # CLAUDE.md's storage class selection table).
+      storageClass: openebs-hostpath
+      accessMode: ReadWriteOnce
+      size: 20Gi
+    service:
+      type: ClusterIP
+      port: 1933
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        memory: 4Gi
+    bot:
+      # vikingbot (chat-style bot runtime bundled in the image) isn't
+      # needed for the OpenClaw/Claude Code integration use case -- keep
+      # only the OpenViking API server running.
+      enabled: false
+    config:
+      server:
+        host: "0.0.0.0"
+        port: 1933
+        # ${VAR} is a literal placeholder OpenViking itself resolves from
+        # its own process env at config-load time (see extraEnv below and
+        # secret.sops.yaml) -- not Flux postBuild substitution, and safe
+        # to commit as-is (it's a template reference, not a secret value).
+        root_api_key: "${OPENVIKING_ROOT_API_KEY}"
+        # Chart default is ["*"] -- narrowed to deny-all. Every planned
+        # consumer (openclaw, Claude Code CLI) is a non-browser API
+        # client; CORS only governs browser cross-origin fetches, so this
+        # has no functional effect on them, and there's no browser UI
+        # consumer to justify any origin here. Revisit only if a browser-
+        # based client is ever added.
+        cors_origins: []
+      # Embedding/VLM provider: deliberately left as the chart's own
+      # Volcengine cloud defaults are NOT usable here -- this cluster is
+      # fully self-hosted, no third-party/cloud LLM providers (see
+      # CLAUDE.md). OpenViking does support a genuine local/self-hosted
+      # option (provider: "ollama", an OpenAI-compatible local server, no
+      # real API key required) that could point at this cluster's
+      # llama-swap instead, but llama-swap's current model catalog has no
+      # vision-capable/multimodal model, and OpenViking's default
+      # embedding config expects one (input: "multimodal"). Provider,
+      # model, and whether a multimodal model needs adding to llama-swap
+      # first are explicitly deferred -- see the epic this scaffold is
+      # tracked under. Left as inert placeholders so the chart deploys
+      # cleanly without wiring a real (and possibly cloud) provider by
+      # default.
+      embedding:
+        dense:
+          api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1"
+          api_key: "${OPENVIKING_EMBEDDING_API_KEY}"
+          provider: "ollama"
+          dimension: 1024
+          model: "CHANGEME"
+          input: "text"
+        max_concurrent: 10
+      vlm:
+        api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1"
+        api_key: "${OPENVIKING_VLM_API_KEY}"
+        provider: "ollama"
+        model: "CHANGEME"
+        temperature: 0.0
+        max_retries: 2
+        thinking: false
+        max_concurrent: 100
+    extraEnv:
+      - name: OPENVIKING_ROOT_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: openviking-secret
+            key: OPENVIKING_ROOT_API_KEY
+      - name: OPENVIKING_EMBEDDING_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: openviking-secret
+            key: OPENVIKING_EMBEDDING_API_KEY
+      - name: OPENVIKING_VLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: openviking-secret
+            key: OPENVIKING_VLM_API_KEY

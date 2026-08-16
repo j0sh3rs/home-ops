@@ -27,6 +27,7 @@ resources:
   - ./holmesgpt/ks.yaml
   - ./llama-swap/ks.yaml
   - ./openclaw/ks.yaml
+  - ./openviking/ks.yaml
   - ./piper/ks.yaml
   # - ./mcpjungle/ks.yaml
   # - ./omega-mcp/ks.yaml
