@@ -353,9 +353,9 @@ LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (co
 ### Currently deployed
 
 - **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 48 dGPU = Radeon RX 9070 XT, RDNA4/gfx1201, device-id `0x7550`, 16 GiB VRAM, node-label `node.kubernetes.io/gpu-tier=dgpu`) via nodeAffinity. RDNA4 has a working Vulkan flash-attention path (b9803+) — `--flash-attn on` is beneficial here, NOT the RDNA2 no-coopmat case. The primary/only entry point for every consumer now — `llm.68cc.io` route (Authentik forwardAuth) plus direct cluster-internal Service access. Hot-swap via `chat` group (exclusive); embed + rerank stay resident in `always-on` group. Init container pre-fetches GGUFs into the PVC. Model aliases (see `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for source of truth):
-  - `fast`/`small`/`router` → `qwen3-1.7b` (routing/classification, always-on)
+  - `fast`/`small`/`router` → `qwen3-1.7b` (routing/classification, always-on, served by **llama-swap-apu** on bee-jms-03 — see below)
   - `default`/`chat` → `qwen3-8b` (default chat / tool use, 32k ctx)
-  - `coder-fim`/`fim` → Qwen2.5-Coder-3B base (FIM autocomplete)
+  - `coder-fim`/`fim` → Qwen2.5-Coder-3B base (FIM autocomplete, served by **llama-swap-apu** on bee-jms-03 — see below)
   - `coder`/`code-large`/`coder-large` → `agentic-coder` (Qwen3-Coder-30B-A3B-Instruct, MoE 3B-active, 16k ctx; openclaw's primary model)
   - `think`/`reasoning` → `reasoner` (Qwen3-30B-A3B-Thinking-2507, 16k ctx)
   - `tool-agent`/`gpt-oss` → `reasoner-agentic` (gpt-oss-20b MXFP4, 32k ctx; agentic reasoning + tool-calling)
@@ -363,6 +363,7 @@ LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (co
   - `frontier`/`frontier-chat` → `qwen3.6-27b` (GatedDeltaNet; **decode-broken on gfx1201/RADV** — ~4 tok/s, llama.cpp #26795. Highest static quality but unusable interactively; do NOT route agentic/chat traffic here until re-benched)
   - `embed`/`embedding` → `qwen3-embed` (RAG embeddings, always-on)
   - `rerank`/`reranker` → `qwen3-rerank` (cross-encoder, always-on)
+- **llama-swap-apu** — second llama-swap instance, hard-pinned to `bee-jms-03` (Renoir iGPU, BIOS-expanded to 16 GiB dedicated VRAM — see `docs/superpowers/specs/2026-08-16-apu-light-inference-tier-design.md` for the bee-* hardware asymmetry). Hosts only `coder-fim` (FIM autocomplete) and `qwen3-1.7b` (`fast`/`small`/`router`), both always-on/non-exclusive — moved off the 9070 XT to stop FIM completions evicting large chat models from its tight exclusive-swap group. Cluster-internal only (`llama-swap-apu.ai.svc.cluster.local:8080`), no external route. `bee-jms-01`/`-02` are excluded (3 GiB stock dedicated VRAM, not worth targeting). No routing layer in front of the two llama-swap instances — consumers pick the endpoint that matches their model directly.
 - **openclaw** — sole code-automation agent at `openclaw.68cc.io` (Authentik forwardAuth) and `openclaw-remote.68cc.io` (mobile/CLI device pairing, no Authentik — gated by the gateway's own token auth instead), cluster-admin RBAC. Primary model `llamaswap/coder-large`. No memory plugin active (memini removed 2026-08-16). code-server sidecar at `openclaw-code.68cc.io` for browsing openclaw's config/state on the PVC.
 - **holmesgpt** — incident/observability LLM analysis (POC), routed to llama-swap directly (`llamaswap/coder-large`). Toolsets: Kubernetes API state (built-in) plus `prometheus/metrics` (VictoriaMetrics at `https://metrics.68cc.io`), `victorialogs` (`https://logs.68cc.io`), `grafana/dashboards` (in-cluster `grafana-service.monitoring.svc.cluster.local:3000` — `grafana.68cc.io` sits behind Authentik forwardAuth, which a Grafana service-account token can't clear), and a `pg_monitor`-scoped Postgres toolset (`postgres17-stats`) via the `holmesgpt_ro` role — cluster-wide stats only (`pg_stat_activity`, `pg_stat_replication`, `pg_locks`; `pg_stat_statements` isn't queryable yet, only `CREATE EXTENSION`ed in the `app` DB, not `postgres`), no per-database table access.
 - **mcpjungle** — MCP server aggregator, fronting tool access for openclaw (litellm's `/mcp` gateway is gone — consumers call mcpjungle directly now).
@@ -372,7 +373,7 @@ LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (co
 
 ### Planned (not yet deployed)
 
-- **Continue.dev** (client-side, not cluster) — IDE coding assistant. Would point at llama-swap directly (`coder`/`coder-fim` aliases). No deployment, just user config.
+- **Continue.dev** (client-side, not cluster) — IDE coding assistant. Chat (`coder`) points at the main `llama-swap` instance; FIM autocomplete (`coder-fim`/`fim`) points at `llama-swap-apu.ai.svc.cluster.local:8080` instead — see the APU-light tier entry above. No deployment yet, just user config.
 - **Kid-safe layer** — deferred, build only if concrete need arises: a second llama-swap API key scoped via a Traefik middleware path-restriction, or a second llama-swap group, rather than speculative per-kid gateway infrastructure.
 
 ### Decisions explicitly rejected (do not relitigate without new evidence)
