@@ -73,8 +73,13 @@ spec:
         # secret.sops.yaml) -- not Flux postBuild substitution, and safe
         # to commit as-is (it's a template reference, not a secret value).
         root_api_key: "${OPENVIKING_ROOT_API_KEY}"
-        cors_origins:
-          - "*"
+        # Chart default is ["*"] -- narrowed to deny-all. Every planned
+        # consumer (openclaw, Claude Code CLI) is a non-browser API
+        # client; CORS only governs browser cross-origin fetches, so this
+        # has no functional effect on them, and there's no browser UI
+        # consumer to justify any origin here. Revisit only if a browser-
+        # based client is ever added.
+        cors_origins: []
       # Embedding/VLM provider: deliberately left as the chart's own
       # Volcengine cloud defaults are NOT usable here -- this cluster is
       # fully self-hosted, no third-party/cloud LLM providers (see
