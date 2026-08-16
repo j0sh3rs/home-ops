@@ -80,6 +80,11 @@ spec:
           headers:
             AccountID: "0"
             ProjectID: "0"
+        # Vector (kubernetes/apps/monitoring/vector/app/helmrelease.yaml) sets
+        # VL-Stream-Fields to these exact field names -- without this hint the
+        # model guesses a generic "namespace" field and silently gets zero
+        # hits (confirmed live: home-ops-c14 post-merge verification).
+        llm_instructions: "Log stream fields are: stream, kubernetes.pod_name, kubernetes.container_name, kubernetes.pod_namespace (NOT 'namespace'), app_name, hostname. Message content is in the 'log' field."
       # Cluster-level Postgres stats only (pg_monitor role) — deliberately
       # NOT granted access to any individual app database's table data.
       # See kubernetes/apps/databases/cloudnative-pg/cluster/cluster.yaml
