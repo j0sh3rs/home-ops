@@ -80,34 +80,30 @@ spec:
         # consumer to justify any origin here. Revisit only if a browser-
         # based client is ever added.
         cors_origins: []
-      # Embedding/VLM provider: deliberately left as the chart's own
-      # Volcengine cloud defaults are NOT usable here -- this cluster is
-      # fully self-hosted, no third-party/cloud LLM providers (see
-      # CLAUDE.md). OpenViking does support a genuine local/self-hosted
-      # option (provider: "ollama", an OpenAI-compatible local server, no
-      # real API key required) that could point at this cluster's
-      # llama-swap instead, but llama-swap's current model catalog has no
-      # vision-capable/multimodal model, and OpenViking's default
-      # embedding config expects one (input: "multimodal"). Provider,
-      # model, and whether a multimodal model needs adding to llama-swap
-      # first are explicitly deferred -- see the epic this scaffold is
-      # tracked under. Left as inert placeholders so the chart deploys
-      # cleanly without wiring a real (and possibly cloud) provider by
-      # default.
+      # Embedding/VLM provider: points at this cluster's llama-swap
+      # (provider: "ollama" = generic OpenAI-compatible local server, no
+      # real API key required). dense.model is wired to the real
+      # `qwen3-embed` alias (CLAUDE.md's llama-swap model table) --
+      # unblocks the readiness probe, which depends on a live embedding
+      # call succeeding. vlm.model reuses the same text-only alias as a
+      # placeholder: llama-swap's catalog has no vision-capable model
+      # yet, so this is NOT a real VLM wire-up, just enough to clear
+      # `/ready` until a multimodal model is added and this is revisited
+      # -- see the epic this scaffold is tracked under.
       embedding:
         dense:
           api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1"
           api_key: "${OPENVIKING_EMBEDDING_API_KEY}"
           provider: "ollama"
           dimension: 1024
-          model: "CHANGEME"
+          model: "qwen3-embed"
           input: "text"
         max_concurrent: 10
       vlm:
         api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1"
         api_key: "${OPENVIKING_VLM_API_KEY}"
         provider: "ollama"
-        model: "CHANGEME"
+        model: "qwen3-embed"
         temperature: 0.0
         max_retries: 2
         thinking: false
