@@ -9,11 +9,6 @@
 # extension threw a command-registration error on every openclaw boot) was
 # removed 2026-08-16; see CLAUDE.md and archive/{cognee,memini}/.
 #
-# ollama (2026-08-16): comparison spike, NOT a replacement for llama-swap.
-# Shares the same single-GPU node (bigboi-jms-01, amd.com/gpu: 1
-# allocatable) -- the two cannot run concurrently. Suspend llama-swap's
-# HelmRelease before scaling ollama up. See ollama/app/helmrelease.yaml.
-#
 # Components:
 #   - common                 — namespace + cluster-secrets + sops-age
 #   - repos/app-template     — bjw-s app-template OCIRepository in this ns
@@ -31,7 +26,6 @@ resources:
   - ./faster-whisper/ks.yaml
   - ./holmesgpt/ks.yaml
   - ./llama-swap/ks.yaml
-  - ./ollama/ks.yaml
   - ./openclaw/ks.yaml
   - ./openviking/ks.yaml
   - ./piper/ks.yaml
