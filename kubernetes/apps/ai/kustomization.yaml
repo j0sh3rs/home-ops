@@ -2,10 +2,12 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 # AI workloads namespace: fully self-hosted, no third-party providers.
 # llama-swap serves local GGUFs directly (OpenAI-compatible API); openclaw
-# (code agent, memini for memory, holmesgpt for observability) and other
-# consumers talk to it directly — no gateway layer. litellm/omniroute
+# (code agent, no memory plugin active) and holmesgpt (observability) and
+# other consumers talk to it directly — no gateway layer. litellm/omniroute
 # (cloud-routing gateways), n8n, opencode, agent-canvas, cognee, and
-# kelos-system were removed 2026-08-14; see CLAUDE.md.
+# kelos-system were removed 2026-08-14; memini (memory plugin -- its own
+# extension threw a command-registration error on every openclaw boot) was
+# removed 2026-08-16; see CLAUDE.md and archive/{cognee,memini}/.
 #
 # Components:
 #   - common                 — namespace + cluster-secrets + sops-age
@@ -24,7 +26,6 @@ resources:
   - ./faster-whisper/ks.yaml
   - ./holmesgpt/ks.yaml
   - ./llama-swap/ks.yaml
-  - ./memini/ks.yaml
   - ./openclaw/ks.yaml
   - ./piper/ks.yaml
   # - ./mcpjungle/ks.yaml

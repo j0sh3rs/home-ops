@@ -36,8 +36,10 @@ data:
           timeoutSeconds: 600,
           maxConcurrent: 4,
           contextPruning: { mode: "off" },
-          // On context pressure, summarise the session into memory (memini)
-          // before compacting, so long-running work keeps its key facts.
+          // On context pressure, extract key facts before compacting. No
+          // memory plugin is active to persist this (memini removed
+          // 2026-08-16) -- effectively inert until one is; harmless to
+          // leave on.
           compaction: {
             mode: "default",
             reserveTokensFloor: 30000,
@@ -225,14 +227,15 @@ data:
         },
       },
       plugins: {
-        // `openclaw doctor` warning: plugins.allow was empty, so any
-        // non-bundled plugin discovered on disk auto-loads implicitly.
-        // memini is the only non-bundled plugin installed here (via the
-        // init container, onto the PVC) -- trust it explicitly. This only
-        // gates non-bundled/discovered plugins; the bundled/core ones
-        // above (codex, device-pair, workboard, memory-core, etc.) aren't
-        // subject to this allowlist.
-        allow: ["memini"],
+        // `openclaw doctor` log warning (2026-08-16): "channels.discord:
+        // channel is configured, but plugin 'discord' is installed but
+        // omitted from plugins.allow" -- the discord channel plugin is
+        // not bundled/core either (same as the removed memini extension
+        // was), and needs the same explicit trust. This only gates
+        // non-bundled/discovered plugins; the bundled/core ones below
+        // (codex, device-pair, workboard, memory-core) aren't subject to
+        // this allowlist.
+        allow: ["discord"],
         entries: {
           // No openai/* model or API key exists in this deployment (or the
           // ai namespace generally — self-hosted-only policy). This plugin
@@ -262,47 +265,14 @@ data:
           // Kanban-style task board in the dashboard; state persists in a
           // plugin-owned SQLite DB under ~/.openclaw (on the PVC).
           workboard: { enabled: true },
-          // Disable built-in memory-core so it doesn't fight the memini slot.
+          // memini (memory plugin) and memory-wiki (its markdown-vault
+          // renderer) were removed 2026-08-16 -- memini's own plugin threw
+          // a command-registration error on every boot ("Command name
+          // must start with a letter...") and is archived at
+          // archive/memini/. memory-core stays disabled rather than
+          // silently becoming the new memory backend by default; re-enable
+          // explicitly if openclaw should have memory again.
           "memory-core": { enabled: false },
-          memini: {
-            enabled: true,
-            hooks: { allowConversationAccess: true },
-            config: {
-              base_url: "http://memini.ai.svc.cluster.local:8080",
-              namespace: "openclaw",
-              fallback_on_error: true,
-              timeout_ms: 5000,
-            },
-          },
-          // Render memini's memories into a browsable markdown vault (backlinks,
-          // daily notes, dashboards) under ~/.openclaw/wiki — view it via the
-          // code-server sidecar at openclaw-code.68cc.io.
-          "memory-wiki": {
-            enabled: true,
-            config: {
-              vaultMode: "bridge",
-              vault: {
-                path: "/home/node/.openclaw/wiki/main",
-                renderMode: "native",
-              },
-              bridge: {
-                enabled: true,
-                readMemoryArtifacts: true,
-                indexDailyNotes: true,
-                indexMemoryRoot: true,
-                followMemoryEvents: true,
-              },
-              search: { backend: "shared", corpus: "all" },
-              render: {
-                preserveHumanBlocks: true,
-                createBacklinks: true,
-                createDashboards: true,
-              },
-            },
-          },
-        },
-        slots: {
-          memory: "memini",
         },
       },
       mcp: {

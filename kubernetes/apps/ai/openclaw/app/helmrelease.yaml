@@ -32,32 +32,13 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
-          # memini claims the memory plugin slot (plugins.slots.memory) but
-          # is not a bundled extension — it must be installed from ClawHub
-          # onto the PVC once. Guarded on the extension dir so this is a
-          # no-op after the first boot (tracked install, kept current by
-          # openclaw's own updater from then on). Must run BEFORE init-config
-          # (name sorts first — bjw-s renders initContainers in key order):
-          # `openclaw plugins install` validates openclaw.json first and
-          # refuses to run while it already claims the not-yet-installed
-          # memini slot, so any config left on the PVC from a prior boot is
-          # cleared here too. init-config always overwrites it afterward
-          # regardless, so this is safe on every boot, not just the first.
-          00-install-memini-plugin:
-            image:
-              repository: ghcr.io/openclaw/openclaw
-              tag: 2026.7.1
-            env:
-              HOME: /home/node
-            command:
-              - sh
-              - -c
-              - |
-                set -eu
-                if [ ! -d /home/node/.openclaw/extensions/memini ]; then
-                  rm -f /home/node/.openclaw/openclaw.json
-                  openclaw plugins install clawhub:@eleboucher/memini
-                fi
+          # memini (memory plugin) removed 2026-08-16 -- this used to
+          # install it from ClawHub onto the PVC on first boot. The
+          # already-installed extension files remain harmlessly at
+          # /home/node/.openclaw/extensions/memini on the retained PVC
+          # (plugins.allow no longer trusts it, so it won't auto-load);
+          # delete that directory manually if reclaiming the disk space
+          # matters.
           init-config:
             image:
               repository: docker.io/library/alpine
@@ -229,9 +210,9 @@ spec:
                 memory: 64Mi
               limits:
                 memory: 256Mi
-          # code-server sidecar to browse the memory-wiki vault and openclaw's
-          # config/state. Password-protected with the gateway token — this pod
-          # holds a cluster-admin token, so never expose it unauthed.
+          # code-server sidecar to browse openclaw's config/state on the PVC.
+          # Password-protected with the gateway token — this pod holds a
+          # cluster-admin token, so never expose it unauthed.
           codeserver:
             image:
               repository: ghcr.io/coder/code-server

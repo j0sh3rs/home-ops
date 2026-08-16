@@ -182,13 +182,16 @@ spec:
 # The operator's auto-created NetworkPolicy only allows port 6379 (RESP)
 # from pods in the `databases` namespace (`podSelector: {}`, no
 # namespaceSelector). But our Redis clients live in OTHER namespaces:
-# `ai` (memini) and `services` (paperless db2). When the operator
-# deletes+recreates the Dragonfly instance (e.g. on a VolumeClaimTemplates
-# change) it re-applies that lockdown, severing every cross-namespace
-# client — a client then blocks on Redis connect during startup and
-# crashloops past its probe budget. NetworkPolicies are additive, so this
-# sibling policy unions with the operator's to allow cross-namespace
-# clients on 6379.
+# `services` (paperless db2). When the operator deletes+recreates the
+# Dragonfly instance (e.g. on a VolumeClaimTemplates change) it re-applies
+# that lockdown, severing every cross-namespace client — a client then
+# blocks on Redis connect during startup and crashloops past its probe
+# budget. NetworkPolicies are additive, so this sibling policy unions with
+# the operator's to allow cross-namespace clients on 6379.
+#
+# `ai` namespace access was removed 2026-08-16 (memini, its only client
+# there, was archived) — re-add a namespaceSelector entry here if a
+# future ai-namespace app needs Dragonfly.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -207,9 +210,6 @@ spec:
     - Ingress
   ingress:
     - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: ai
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: services
