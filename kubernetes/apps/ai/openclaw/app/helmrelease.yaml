@@ -345,3 +345,23 @@ spec:
             backendRefs:
               - name: *app
                 port: *codeserverPort
+      # Second, internet-facing surface for mobile/CLI device pairing and
+      # off-network access. Deliberately NOT behind Authentik forwardAuth:
+      # OpenClaw's own docs warn that interactive SSO blocks non-browser
+      # clients (mobile apps, CLI) that can't complete an OAuth redirect,
+      # and recommend the gateway's own token auth instead -- already the
+      # real access boundary here (gateway.auth.mode: "token"), hardened
+      # by Traefik TLS + CrowdSec + the Cloudflare tunnel, same as every
+      # other public route in this repo. openclaw.68cc.io (browser, LAN,
+      # Authentik) is untouched -- this is purely additive.
+      remote:
+        hostnames: ["openclaw-remote.68cc.io"]
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+        parentRefs:
+          - name: traefik-external-gateway
+            namespace: network
+        rules:
+          - backendRefs:
+              - name: *app
+                port: *port

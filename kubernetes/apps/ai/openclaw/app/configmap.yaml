@@ -156,7 +156,7 @@ data:
       },
       gateway: {
         auth: { mode: "token", token: "$${OPENCLAW_GATEWAY_TOKEN}" },
-        controlUi: { allowedOrigins: ["https://openclaw.68cc.io"] },
+        controlUi: { allowedOrigins: ["https://openclaw.68cc.io", "https://openclaw-remote.68cc.io"] },
         mode: "local",
         port: 18789,
         // Cluster pod CIDR (Cilium).
@@ -217,6 +217,21 @@ data:
           // explicitly if a future use needs its media-understanding
           // capability with a real OpenAI credential.
           codex: { enabled: false },
+          // Mobile/CLI device pairing. publicUrl tells the plugin what URL
+          // to embed in setup codes/QR -- it auto-normalizes https:// to
+          // wss://. Points at openclaw-remote.68cc.io (see route: below),
+          // a second hostname on traefik-external-gateway with NO
+          // Authentik forwardAuth: OpenClaw's own docs say interactive SSO
+          // breaks non-browser clients (mobile apps, CLI) that can't
+          // complete an OAuth redirect, and recommend relying on the
+          // gateway's own token auth (gateway.auth.mode: "token" above)
+          // instead -- which is already the real access boundary here,
+          // hardened by Traefik TLS + CrowdSec + the Cloudflare tunnel,
+          // same as every other public route in this repo. The primary
+          // openclaw.68cc.io route (browser, LAN, Authentik) is untouched.
+          "device-pair": {
+            config: { publicUrl: "https://openclaw-remote.68cc.io" },
+          },
           // Kanban-style task board in the dashboard; state persists in a
           // plugin-owned SQLite DB under ~/.openclaw (on the PVC).
           workboard: { enabled: true },
