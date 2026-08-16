@@ -358,7 +358,7 @@ LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (co
   - `think`/`reasoning` → `reasoner` (Qwen3-30B-A3B-Thinking-2507, 16k ctx)
   - `tool-agent`/`gpt-oss` → `reasoner-agentic` (gpt-oss-20b MXFP4, 32k ctx; agentic reasoning + tool-calling)
   - `large`/`dense-floor` → `qwen3-14b` (dense fallback if MoE Vulkan unstable, 24k ctx)
-  - `frontier`/`frontier-chat` → `qwen3.6-27b` (RDNA4-only, GatedDeltaNet, highest quality)
+  - `frontier`/`frontier-chat` → `qwen3.6-27b` (GatedDeltaNet; **decode-broken on gfx1201/RADV** — ~4 tok/s, llama.cpp #26795. Highest static quality but unusable interactively; do NOT route agentic/chat traffic here until re-benched)
   - `embed`/`embedding` → `qwen3-embed` (RAG embeddings, always-on)
   - `rerank`/`reranker` → `qwen3-rerank` (cross-encoder, always-on)
 - **openclaw** — sole code-automation agent at `openclaw.68cc.io` (Authentik forwardAuth) and `openclaw-remote.68cc.io` (mobile/CLI device pairing, no Authentik — gated by the gateway's own token auth instead), cluster-admin RBAC. Primary model `llamaswap/coder-large`. No memory plugin active (memini removed 2026-08-16). code-server sidecar at `openclaw-code.68cc.io` for browsing openclaw's config/state on the PVC.
