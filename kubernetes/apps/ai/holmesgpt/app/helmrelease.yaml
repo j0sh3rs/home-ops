@@ -94,9 +94,18 @@ spec:
     # LLM backend: llama-swap's in-cluster OpenAI-compatible endpoint
     # (litellm+omniroute removed, no cloud providers). No auth required for
     # cluster-internal traffic.
+    #
+    # tool-agent (gpt-oss-20b, 32k ctx) instead of coder-large (16k ctx):
+    # registering 4 more toolsets (home-ops-c14) pushed the full toolset
+    # registry HolmesGPT sends in every system prompt past coder-large's
+    # 16k window -- every investigation failed with
+    # litellm.ContextWindowExceededError, even ones not using the new
+    # toolsets. tool-agent is llama-swap's alias built for agentic
+    # reasoning + tool-calling (see kubernetes/apps/ai/llama-swap/app/configmap.yaml),
+    # double the context and purpose-fit for HolmesGPT's actual workload.
     modelList:
       llamaswap:
-        model: openai/coder-large
+        model: openai/tool-agent
         api_base: http://llama-swap.ai.svc.cluster.local:8080/v1
         api_key: not-required
 
