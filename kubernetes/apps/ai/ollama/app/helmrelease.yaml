@@ -30,8 +30,12 @@ spec:
             env:
               OLLAMA_HOST: "0.0.0.0"
               OLLAMA_MODELS: /models
-              # Vulkan is enabled by default when present; this pins device
-              # selection the same way llama-swap does on this node.
+              # 2026-08-16: confirmed live -- Vulkan is NOT on by default in
+              # 0.23.0 despite docs.ollama.com/gpu implying it is ("server
+              # config" log line shows OLLAMA_VULKAN:false, "experimental
+              # Vulkan support disabled" until this is set). Without it,
+              # ollama silently falls back to CPU.
+              OLLAMA_VULKAN: "1"
               GGML_VK_VISIBLE_DEVICES: "0"
               OLLAMA_NUM_PARALLEL: "1"
               OLLAMA_MAX_LOADED_MODELS: "1"
