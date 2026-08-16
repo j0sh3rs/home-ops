@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up a second llama-swap instance pinned to `bee-jms-03`'s
-Renoir iGPU (16 GiB BIOS-expanded VRAM) to host `coder-fim` and
-`qwen3-1.7b` (router/fast/small), removing them from the 9070 XT's tight
-`chat` exclusive-swap group so FIM completions stop evicting large chat
-models.
+**Goal:** Restore `llama-swap` as the running inference engine on
+`bigboi-jms-01` (archiving the `ollama` comparison spike that currently
+holds that node's GPU instead), then stand up a second llama-swap
+instance pinned to `bee-jms-03`'s Renoir iGPU (16 GiB BIOS-expanded VRAM)
+to host `coder-fim` and `qwen3-1.7b` (router/fast/small), removing them
+from the 9070 XT's tight `chat` exclusive-swap group so FIM completions
+stop evicting large chat models.
 
 **Architecture:** Two independent, unrelated llama-swap `HelmRelease`s in
 the `ai` namespace, each hard-pinned to one node by hostname, each with
@@ -45,14 +47,160 @@ via a second `DeviceConfig` CR — no new operator install.
 
 ---
 
-### Task 1: Label `bee-jms-03` for the APU-light tier
+### Task 1: Archive `ollama`, restore `llama-swap` on `bigboi-jms-01`
+
+**Context:** `ollama` (`kubernetes/apps/ai/ollama/`) was deployed
+2026-08-16 as a comparison spike against `llama-swap`, sharing
+`bigboi-jms-01`'s single `amd.com/gpu: 1` allocatable — the two cannot
+run concurrently on that node (see the existing warning comment in
+`kubernetes/apps/ai/kustomization.yaml`). `llama-swap`'s `HelmRelease` is
+currently suspended live (`kubectl -n ai get helmrelease llama-swap -o
+jsonpath='{.spec.suspend}'` → `true`; not set in git, an imperative `flux
+suspend` done for the spike) while `ollama` runs instead. User has
+concluded the spike: archive `ollama`, restore `llama-swap` as the
+running engine on this node. This must land before Task 6 (which
+verifies the main `llama-swap` instance live) and doesn't depend on
+anything else in this plan — do it first.
+
+**Files:**
+- Move: `kubernetes/apps/ai/ollama/` → `archive/ollama/ollama/`
+  (matches the existing archive pattern — see `archive/goose/goose/`,
+  `archive/cognee/`)
+- Modify: `kubernetes/apps/ai/kustomization.yaml` (remove the `ollama`
+  resource entry and the now-stale explanatory comment block)
+- Modify: `CLAUDE.md`
+
+**Interfaces:**
+- Produces: `bigboi-jms-01`'s `amd.com/gpu: 1` allocatable freed for
+  `llama-swap`; no interface other tasks in this plan consume (they only
+  need `llama-swap` un-suspended and serving, which this task delivers).
+
+- [ ] **Step 1: Move the ollama app into archive**
+
+```bash
+mkdir -p archive/ollama
+git mv kubernetes/apps/ai/ollama archive/ollama/ollama
+```
+
+- [ ] **Step 2: Remove ollama from the `ai` namespace kustomization**
+
+In `kubernetes/apps/ai/kustomization.yaml`, remove this comment block
+(it documents the now-archived spike and the suspend/resume dance this
+task makes permanent):
+```yaml
+# ollama (2026-08-16): comparison spike, NOT a replacement for llama-swap.
+# Shares the same single-GPU node (bigboi-jms-01, amd.com/gpu: 1
+# allocatable) -- the two cannot run concurrently. Suspend llama-swap's
+# HelmRelease before scaling ollama up. See ollama/app/helmrelease.yaml.
+#
+```
+and remove the `./ollama/ks.yaml` line from `resources:`:
+```yaml
+resources:
+  - ./faster-whisper/ks.yaml
+  - ./holmesgpt/ks.yaml
+  - ./llama-swap/ks.yaml
+  - ./ollama/ks.yaml
+  - ./openclaw/ks.yaml
+  - ./openviking/ks.yaml
+  - ./piper/ks.yaml
+  # - ./mcpjungle/ks.yaml
+  # - ./omega-mcp/ks.yaml
+```
+becomes:
+```yaml
+resources:
+  - ./faster-whisper/ks.yaml
+  - ./holmesgpt/ks.yaml
+  - ./llama-swap/ks.yaml
+  - ./openclaw/ks.yaml
+  - ./openviking/ks.yaml
+  - ./piper/ks.yaml
+  # - ./mcpjungle/ks.yaml
+  # - ./omega-mcp/ks.yaml
+```
+(This plan's Task 4 will add `./llama-swap-apu/ks.yaml` back into this
+same list, alphabetically between `llama-swap` and `openclaw` — expect to
+touch this file again there.)
+
+- [ ] **Step 3: Validate the build**
+
+```bash
+kustomize build kubernetes/apps/ai | kubectl apply --dry-run=client -f - 2>&1 | grep -v "^namespace/ai"
+```
+Expected: no `ollama` resources in the output, no errors.
+
+- [ ] **Step 4: Commit and push**
+
+```bash
+git add archive/ollama kubernetes/apps/ai/ollama kubernetes/apps/ai/kustomization.yaml
+git commit -m "chore(ai): archive ollama comparison spike"
+git push
+```
+(`git add kubernetes/apps/ai/ollama` stages the deletion half of the
+`git mv`; both halves are needed in the same commit for git to record it
+as a rename rather than an unexplained delete + untracked add.)
+
+- [ ] **Step 5: Reconcile and confirm ollama is gone**
+
+```bash
+flux reconcile kustomization ai -n ai --with-source
+kubectl -n ai get pods -l app.kubernetes.io/name=ollama
+```
+Expected: `No resources found` (prune removes the Deployment/PVC/etc.
+once the Kustomization no longer references the `ollama` `ks.yaml`).
+Note: `retain: true` on ollama's PVC (if it has one — check
+`archive/ollama/ollama/app/helmrelease.yaml`'s `persistence` block) means
+the underlying PV/data survives even though the PVC object is pruned;
+that's an accepted, harmless leftover, same as the stale GGUF files noted
+in Task 6.
+
+- [ ] **Step 6: Un-suspend and verify llama-swap**
+
+```bash
+flux resume helmrelease llama-swap -n ai
+flux get hr -n ai llama-swap
+```
+Expected: `SUSPENDED` column now `False`, `READY` `True`. Then:
+```bash
+kubectl -n ai get pods -l app.kubernetes.io/name=llama-swap -o wide
+curl -s http://llama-swap.ai.svc.cluster.local:8080/v1/models | jq
+```
+Expected: pod `Running 1/1` on `bigboi-jms-01`, `/v1/models` returns the
+full existing catalog (this is before Task 6 trims it — `coder-fim` and
+`router`/`fast`/`small` should still be present here, confirming
+`llama-swap` itself is healthy before this plan changes its model list).
+
+- [ ] **Step 7: Update CLAUDE.md**
+
+Find the existing sentence in the `ai` namespace section documenting the
+2026-07-01 removals:
+```
+LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (code automation agent) were removed 2026-07-01 — unused, no consumers beyond a chat UI nobody used; see `docs/runbooks/anythingllm-role-and-overlap.md` and `archive/{langfuse,anythingllm,open-webui,goose}/` if reuse is considered later. claude-code (headless code-automation engine, daemon + runner Job template) was also removed 2026-07-01.
+```
+Add a new sentence immediately after it:
+```
+**ollama was archived 2026-08-16** — deployed as a same-node comparison spike against llama-swap (both need bigboi-jms-01's single GPU, so they ran mutually exclusive via manual HelmRelease suspend/resume); spike concluded, llama-swap remains the sole chat/completion engine. See `archive/ollama/`.
+```
+
+- [ ] **Step 8: Commit and push**
+
+```bash
+git add CLAUDE.md
+git commit -m "docs: note ollama spike archival"
+git push
+```
+
+---
+
+### Task 2: Label `bee-jms-03` for the APU-light tier
 
 **Files:**
 - Modify: `talos/talconfig.yaml` (bee-jms-03 node block, `nodeLabels`)
 
 **Interfaces:**
 - Produces: node label `node.kubernetes.io/gpu-tier: apu-light` on
-  `bee-jms-03`, consumed by Task 2's `DeviceConfig` selector.
+  `bee-jms-03`, consumed by Task 3's `DeviceConfig` selector.
 
 - [ ] **Step 1: Add the node label**
 
@@ -106,15 +254,15 @@ git push
 
 ---
 
-### Task 2: Expose `bee-jms-03`'s GPU via a second `DeviceConfig`
+### Task 3: Expose `bee-jms-03`'s GPU via a second `DeviceConfig`
 
 **Files:**
 - Modify: `kubernetes/apps/kube-system/amd-gpu/app/deviceconfig.yaml`
 
 **Interfaces:**
-- Consumes: node label from Task 1 (`node.kubernetes.io/gpu-tier: apu-light`)
+- Consumes: node label from Task 2 (`node.kubernetes.io/gpu-tier: apu-light`)
 - Produces: `amd.com/gpu: 1` allocatable on `bee-jms-03`, consumed by
-  Task 4's pod resource request.
+  Task 5's pod resource request.
 
 - [ ] **Step 1: Verify the live CRD schema before writing anything**
 
@@ -187,7 +335,7 @@ kubectl -n kube-system get pods -o wide | grep apu-light
 
 ---
 
-### Task 3: Scaffold the `llama-swap-apu` app (Flux plumbing + ConfigMap)
+### Task 4: Scaffold the `llama-swap-apu` app (Flux plumbing + ConfigMap)
 
 **Files:**
 - Create: `kubernetes/apps/ai/llama-swap-apu/ks.yaml`
@@ -198,7 +346,7 @@ kubectl -n kube-system get pods -o wide | grep apu-light
 
 **Interfaces:**
 - Produces: `ConfigMap/llama-swap-apu-config` in namespace `ai`, mounted
-  by Task 4's `HelmRelease` at `/app/config.yaml`. Model aliases served:
+  by Task 5's `HelmRelease` at `/app/config.yaml`. Model aliases served:
   `fim`/`code-fim`/`coder-small` (→ `coder-fim`), `fast`/`small`/`router`
   (→ `qwen3-1.7b`).
 
@@ -395,14 +543,14 @@ spec:
 - [ ] **Step 5: Register the app in the `ai` namespace kustomization**
 
 In `kubernetes/apps/ai/kustomization.yaml`, the `resources:` list is
-alphabetical. Add the new entry between `llama-swap` and `ollama`:
+alphabetical. By this point Task 1 has already removed the `ollama`
+entry — add the new entry between `llama-swap` and `openclaw`:
 ```yaml
 resources:
   - ./faster-whisper/ks.yaml
   - ./holmesgpt/ks.yaml
   - ./llama-swap/ks.yaml
   - ./llama-swap-apu/ks.yaml
-  - ./ollama/ks.yaml
   - ./openclaw/ks.yaml
   - ./openviking/ks.yaml
   - ./piper/ks.yaml
@@ -414,11 +562,11 @@ resources:
 kustomize build kubernetes/apps/ai/llama-swap-apu/app
 ```
 Expected: renders 3 documents (ConfigMap, TracingPolicy — HelmRelease not
-yet created, that's Task 4) with no errors. This will fail to find
-`./helmrelease.yaml` until Task 4 — that's expected; don't run the
-`--dry-run` apply check until Task 4 is also done.
+yet created, that's Task 5) with no errors. This will fail to find
+`./helmrelease.yaml` until Task 5 — that's expected; don't run the
+`--dry-run` apply check until Task 5 is also done.
 
-- [ ] **Step 7: Commit** (do not push yet — Task 4 completes this app)
+- [ ] **Step 7: Commit** (do not push yet — Task 5 completes this app)
 
 ```bash
 git add kubernetes/apps/ai/llama-swap-apu kubernetes/apps/ai/kustomization.yaml
@@ -427,14 +575,14 @@ git commit -m "feat(ai): scaffold llama-swap-apu config, tracing policy, and Flu
 
 ---
 
-### Task 4: `llama-swap-apu` HelmRelease
+### Task 5: `llama-swap-apu` HelmRelease
 
 **Files:**
 - Create: `kubernetes/apps/ai/llama-swap-apu/app/helmrelease.yaml`
 
 **Interfaces:**
-- Consumes: `ConfigMap/llama-swap-apu-config` (Task 3), `amd.com/gpu`
-  allocatable on `bee-jms-03` (Task 2)
+- Consumes: `ConfigMap/llama-swap-apu-config` (Task 4), `amd.com/gpu`
+  allocatable on `bee-jms-03` (Task 3)
 - Produces: `Service/llama-swap-apu` on port 8080 in namespace `ai`,
   reachable cluster-internal at
   `llama-swap-apu.ai.svc.cluster.local:8080` (OpenAI-compatible API)
@@ -681,7 +829,7 @@ similar) — confirms the FIM model loads and serves on this node's GPU.
 
 ---
 
-### Task 5: Trim the main `llama-swap` instance
+### Task 6: Trim the main `llama-swap` instance
 
 **Files:**
 - Modify: `kubernetes/apps/ai/llama-swap/app/configmap.yaml`
@@ -689,7 +837,7 @@ similar) — confirms the FIM model loads and serves on this node's GPU.
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks (independent of `llama-swap-apu`
-  being live, but do this AFTER Task 4 so there's no window where
+  being live, but do this AFTER Task 5 so there's no window where
   `coder-fim`/`router` are served by neither instance)
 - Produces: main `llama-swap` no longer serves `coder-fim` or
   `qwen3-1.7b`/`fast`/`small`/`router`; its `chat` group drops from 7 to
@@ -909,7 +1057,7 @@ curl -s http://llama-swap.ai.svc.cluster.local:8080/v1/chat/completions \
 
 ---
 
-### Task 6: Documentation
+### Task 7: Documentation
 
 **Files:**
 - Modify: `CLAUDE.md`
