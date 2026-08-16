@@ -80,21 +80,30 @@ spec:
         # consumer to justify any origin here. Revisit only if a browser-
         # based client is ever added.
         cors_origins: []
-      # Embedding/VLM provider: points at this cluster's llama-swap
-      # (provider: "ollama" = generic OpenAI-compatible local server, no
-      # real API key required). dense.model is wired to the real
-      # `qwen3-embed` alias (CLAUDE.md's llama-swap model table) --
-      # unblocks the readiness probe, which depends on a live embedding
-      # call succeeding. vlm.model reuses the same text-only alias as a
-      # placeholder: llama-swap's catalog has no vision-capable model
-      # yet, so this is NOT a real VLM wire-up, just enough to clear
-      # `/ready` until a multimodal model is added and this is revisited
-      # -- see the epic this scaffold is tracked under.
+      # Embedding/VLM provider: points at this cluster's llama-swap.
+      # provider: "openai" -- NOT "ollama". llama-swap is an OpenAI-
+      # compatible proxy, not a real Ollama server; OpenViking's "ollama"
+      # provider triggers a readiness probe against Ollama's *native*
+      # /api/tags endpoint (openviking_cli/utils/ollama.py), which
+      # llama-swap doesn't implement, permanently failing /ready with
+      # "ollama: unreachable" even once embedding calls succeed. The
+      # "openai" provider talks OpenAI-compatible /v1 only (what
+      # llama-swap actually serves) and explicitly allows a missing
+      # api_key when api_base is set (see embedding_config.py) --
+      # correct for this cluster-internal, no-auth-needed endpoint.
+      # dense.model is wired to the real `qwen3-embed` alias (CLAUDE.md's
+      # llama-swap model table) -- required for the embedding readiness
+      # check, which depends on a live embedding call succeeding.
+      # vlm.model reuses the same text-only alias as a placeholder:
+      # llama-swap's catalog has no vision-capable model yet, so this is
+      # NOT a real VLM wire-up, just enough to clear `/ready` until a
+      # multimodal model is added and this is revisited -- see the epic
+      # this scaffold is tracked under.
       embedding:
         dense:
           api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1"
           api_key: "${OPENVIKING_EMBEDDING_API_KEY}"
-          provider: "ollama"
+          provider: "openai"
           dimension: 1024
           model: "qwen3-embed"
           input: "text"
@@ -102,7 +111,7 @@ spec:
       vlm:
         api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1"
         api_key: "${OPENVIKING_VLM_API_KEY}"
-        provider: "ollama"
+        provider: "openai"
         model: "qwen3-embed"
         temperature: 0.0
         max_retries: 2
