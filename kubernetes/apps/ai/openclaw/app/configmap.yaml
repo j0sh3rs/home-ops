@@ -234,8 +234,9 @@ data:
         // was), and needs the same explicit trust. This only gates
         // non-bundled/discovered plugins; the bundled/core ones below
         // (codex, device-pair, workboard, memory-core) aren't subject to
-        // this allowlist.
-        allow: ["discord"],
+        // this allowlist. openviking (installed via the initContainer
+        // below, same mechanism memini used) needs it too.
+        allow: ["discord", "openviking"],
         entries: {
           // No openai/* model or API key exists in this deployment (or the
           // ai namespace generally — self-hosted-only policy). This plugin
@@ -270,9 +271,34 @@ data:
           // a command-registration error on every boot ("Command name
           // must start with a letter...") and is archived at
           // archive/memini/. memory-core stays disabled rather than
-          // silently becoming the new memory backend by default; re-enable
-          // explicitly if openclaw should have memory again.
+          // silently becoming the new memory backend by default -- the
+          // openviking plugin below claims the memory slot instead.
           "memory-core": { enabled: false },
+          // OpenViking context-engine plugin (first-party,
+          // @openviking/openclaw-plugin from ClawHub) -- replaces memini
+          // as the memory backend, now pointed at the OpenViking
+          // deployment in this namespace. apiKey is a per-user key (role
+          // ADMIN, account_id=openclaw, user_id=openclaw) minted via
+          // OpenViking's admin API -- NOT root_api_key, which is
+          // structurally forbidden from these tenant-data endpoints. Only
+          // baseUrl/apiKey are set; accountId/userId are deliberately
+          // omitted (the plugin derives both from the key itself per its
+          // own configSchema docs) and every other knob (autoRecall,
+          // recallLimit, etc.) is left at the plugin's own default.
+          openviking: {
+            enabled: true,
+            hooks: { allowConversationAccess: true },
+            config: {
+              baseUrl: "http://openviking.ai.svc.cluster.local:1933",
+              apiKey: "${OPENVIKING_API_KEY}",
+              recallTargetTypes: ["user", "agent"],
+            },
+          },
+        },
+        // Assigns which installed plugin fills openclaw's "memory" role
+        // (same mechanism memini used, see git history of this file).
+        slots: {
+          memory: "openviking",
         },
       },
       mcp: {

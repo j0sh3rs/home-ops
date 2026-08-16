@@ -39,6 +39,33 @@ spec:
           # (plugins.allow no longer trusts it, so it won't auto-load);
           # delete that directory manually if reclaiming the disk space
           # matters.
+          #
+          # openviking claims the memory plugin slot (plugins.slots.memory)
+          # but is not a bundled extension -- it must be installed from
+          # ClawHub onto the PVC once, same mechanism memini used. Guarded
+          # on the extension dir so this is a no-op after the first boot.
+          # Must run BEFORE init-config (name sorts first -- bjw-s renders
+          # initContainers in key order): `openclaw plugins install`
+          # validates openclaw.json first and refuses to run while it
+          # already claims the not-yet-installed openviking slot, so any
+          # config left on the PVC from a prior boot is cleared here too.
+          # init-config always overwrites it afterward regardless, so this
+          # is safe on every boot, not just the first.
+          00-install-openviking-plugin:
+            image:
+              repository: ghcr.io/openclaw/openclaw
+              tag: 2026.7.1
+            env:
+              HOME: /home/node
+            command:
+              - sh
+              - -c
+              - |
+                set -eu
+                if [ ! -d /home/node/.openclaw/extensions/openviking ]; then
+                  rm -f /home/node/.openclaw/openclaw.json
+                  openclaw plugins install clawhub:@openviking/openclaw-plugin
+                fi
           init-config:
             image:
               repository: docker.io/library/alpine
