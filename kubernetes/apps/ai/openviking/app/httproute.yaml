@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openviking
+  annotations:
+    external-dns.alpha.kubernetes.io/target: 192.168.35.17
+spec:
+  hostnames:
+    - openviking.68cc.io
+  parentRefs:
+    - name: traefik-internal-gateway
+      namespace: network
+  rules:
+    - backendRefs:
+        - name: openviking
+          port: 1933
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
