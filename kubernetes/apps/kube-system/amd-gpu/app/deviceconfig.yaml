@@ -16,8 +16,7 @@ spec:
     # nodes, which stay on the previously-rejected-operator's exclusion.
     node.kubernetes.io/gpu-tier: dgpu
   devicePlugin:
-    enable: true
-  nodeLabeller:
-    enable: true
+    enableDevicePlugin: true
+    enableNodeLabeller: true
   metricsExporter:
     enable: true
