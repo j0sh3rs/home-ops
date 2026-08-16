@@ -9,34 +9,18 @@ data:
   openclaw.json: |
     {
       agents: {
-        // Two identities: "main" (human chat, full access, unchanged
-        // behavior) and "automation" (hook/cron-triggered, no kube-mcp,
-        // reduced skills, own workspace + AGENTS.md guardrail). A non-empty
-        // per-agent `skills` list is exclusive, not additive, so "main"
-        // stays unset here to keep inheriting every globally-enabled skill.
-        ownership: "explicit",
-        entries: {
-          main: {},
-          automation: {
-            workspace: "~/.openclaw/workspace-automation",
-            skills: ["gh-issues", "github", "prometheus", "victorialogs", "flux"],
-            mcpServers: [],
-            // Global tools.exec is { security: "full", ask: "off" } -- an
-            // unrestricted shell, shared across every agent identity, since
-            // "main" and "automation" are identities inside one process/pod
-            // (not separate pods) and that pod holds a cluster-admin
-            // ServiceAccount token. Dial this identity back to "restricted":
-            // it is the target of every hook- and cron-triggered,
-            // externally-influenceable input path in this epic (alert data,
-            // Flux event messages, GitHub issue bodies). This narrows -- it
-            // does not eliminate -- the blast radius of a successful prompt
-            // injection. Confirmed against docs.openclaw.ai/gateway/config-agents
-            // that agents.entries.<id>.tools overrides the global tools config.
-            tools: {
-              exec: { security: "restricted" },
-            },
-          },
-        },
+        // ROLLBACK 2026-08-16: agents.ownership/entries (multi-agent
+        // identities) crashed the pinned gateway build (2026.7.1) at
+        // startup -- "Invalid config ... agents: Unrecognized keys:
+        // ownership, entries". docs.openclaw.ai documents this schema but
+        // it isn't supported by this pinned image; reverting to
+        // single-implicit-agent config to restore startup. The scoped
+        // "automation" identity (no kube-mcp, restricted exec) this
+        // enabled is temporarily gone -- hooks.mappings/automations
+        // referencing agentId: "automation" are dormant until this is
+        // redone against the correct schema for 2026.7.1 (check via
+        // `openclaw doctor --fix` / `openclaw config schema` against the
+        // live pod, or a newer pinned image's changelog, before retrying).
         defaults: {
           model: {
             // Local inference direct via llama-swap (litellm+omniroute
@@ -67,13 +51,12 @@ data:
         },
       },
       // Routes Discord messages to the "main" identity explicitly.
-      // hooks.mappings (Tasks 6-7) and automations (Task 8) set
-      // agentId: "automation" explicitly per-call, so they never need a
-      // binding entry here. OpenClaw's docs frame bindings as the actual
-      // routing mechanism once agents.ownership is "explicit", with no
-      // confirmed silent fallback to a single unbound identity, so this
-      // plan does not rely on one.
-      bindings: [{ agentId: "main", match: { channel: "discord" } }],
+      // ROLLBACK 2026-08-16: bindings paired specifically with
+      // agents.ownership: "explicit", which just crashed the pinned
+      // gateway (see the `agents` block above). Removed rather than risk
+      // a second unrecognized-key crash on this pinned build -- in
+      // single-implicit-agent mode there's only one agent for Discord to
+      // route to anyway.
       // Bidirectional Discord bot (Task 5). Bot created manually in the
       // Discord Developer Portal -- token lives in openclaw-secret
       // (DISCORD_BOT_TOKEN). Placeholders below (120908692651507712,
