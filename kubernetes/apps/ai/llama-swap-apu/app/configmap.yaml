@@ -1,0 +1,80 @@
+---
+# yamllint disable rule:line-length
+# yaml-language-server: $schema=https://kubernetesjsonschema.dev/master/configmap-v1.json
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llama-swap-apu-config
+data:
+  config.yaml: |
+    # llama-swap config for the APU-light tier (bee-jms-03).
+    # Docs: https://github.com/mostlygeek/llama-swap
+    #
+    # Renoir iGPU on bee-jms-03, BIOS-expanded to 16 GiB dedicated VRAM
+    # (see docs/superpowers/specs/2026-08-16-apu-light-inference-tier-design.md).
+    # Both models are small enough to stay resident together — no
+    # exclusive-swap group needed here, unlike the 9070 XT's tight fit.
+    healthCheckTimeout: 180
+    logLevel: info
+    startPort: 5800
+
+    macros:
+      # No --flash-attn / KV quant: older Vega/gfx90c silicon, not tuned
+      # or verified for those flags, and VRAM headroom doesn't require
+      # the trade-off here. Re-check before enabling if profiling shows
+      # a need.
+      "apu-vulkan": >-
+        /app/llama-server
+        --host 0.0.0.0 --port ${PORT}
+        -ngl 99
+        --jinja
+
+      # FIM / base model invocation. No --jinja: base models have no chat
+      # template; applying one produces garbled infill output.
+      "apu-fim": >-
+        /app/llama-server
+        --host 0.0.0.0 --port ${PORT}
+        -ngl 99
+
+    models:
+      # FIM autocomplete for Continue.dev. Qwen2.5-Coder-3B BASE (not
+      # Instruct): pretrained with FIM tokens, no chat post-training.
+      # apu-fim macro omits --jinja so infill gets raw completion.
+      "coder-fim":
+        cmd: |
+          ${apu-fim}
+          --model /models/Qwen2.5-Coder-3B-Q5_K_M.gguf
+          --ctx-size 32768
+          --temp 0.2 --top-p 0.95
+        aliases:
+          - "fim"
+          - "code-fim"
+          - "coder-small"
+        ttl: 600
+
+      # Fast router + HA/voice model. Accessible via fast/small/router
+      # aliases. Caller system prompt should include /no_think to
+      # suppress CoT.
+      "qwen3-1.7b":
+        cmd: |
+          ${apu-vulkan}
+          --model /models/Qwen3-1.7B-Q5_K_M.gguf
+          --ctx-size 8192
+          --temp 0.7 --top-p 0.8
+        aliases:
+          - "fast"
+          - "small"
+          - "router"
+        ttl: 300
+
+    groups:
+      # Both models resident together — combined footprint (~3.5 GiB) is
+      # a small fraction of this node's 16 GiB dedicated VRAM, so no
+      # exclusive-swap contention like the 9070 XT's chat group.
+      "always-on":
+        swap: false
+        exclusive: false
+        persistent: true
+        members:
+          - "coder-fim"
+          - "qwen3-1.7b"

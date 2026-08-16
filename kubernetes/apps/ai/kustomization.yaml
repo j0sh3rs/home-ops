@@ -26,6 +26,7 @@ resources:
   - ./faster-whisper/ks.yaml
   - ./holmesgpt/ks.yaml
   - ./llama-swap/ks.yaml
+  - ./llama-swap-apu/ks.yaml
   - ./openclaw/ks.yaml
   - ./openviking/ks.yaml
   - ./piper/ks.yaml

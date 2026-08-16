@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/tetragon/main/pkg/k8s/apis/cilium.io/client/crds/v1alpha1/cilium.io_tracingpolicies.yaml
+# llama-swap-apu model-fetch initContainer downloads weights to /models
+# (shared PVC) as root via curl from HuggingFace. After init, the main
+# container (llama-server) only READS /models — never writes. Same
+# supply-chain rationale as the main llama-swap instance's policy
+# (kubernetes/apps/ai/llama-swap/app/tracingpolicy-models-write.yaml) —
+# see that file for full context. This is a separate policy, not a
+# shared one, because podSelector is namespace-scoped by pod label and
+# this app's pods carry app.kubernetes.io/name: llama-swap-apu.
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: monitor-llama-swap-apu-models-write
+  namespace: ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: llama-swap-apu
+  kprobes:
+    - call: "security_file_permission"
+      syscall: false
+      args:
+        - index: 0
+          type: "file"
+        - index: 1
+          type: "int"
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: "Prefix"
+              values:
+                - "/models/"
+            - index: 1
+              # MAY_WRITE (0x2) — file is being opened/modified for write.
+              operator: "Mask"
+              values:
+                - "2"
+          matchBinaries:
+            - operator: "NotIn"
+              values:
+                - "/usr/bin/curl"
+                - "/bin/curl"
+          matchActions:
+            - action: Post
