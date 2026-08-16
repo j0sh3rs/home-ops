@@ -20,3 +20,24 @@ spec:
     enableNodeLabeller: true
   metricsExporter:
     enable: true
+---
+apiVersion: amd.com/v1alpha1
+kind: DeviceConfig
+metadata:
+  name: apu-light
+  namespace: kube-system
+spec:
+  driver:
+    # Same driverless rationale as dgpu — Talos's siderolabs/amdgpu
+    # extension already owns the kernel module on every bee-* node.
+    enable: false
+  selector:
+    # bee-jms-03 only (16 GiB BIOS-expanded dedicated VRAM). Never widen
+    # this to match bee-jms-01/-02 — see the apu-light design doc for why
+    # (3 GiB stock VRAM is too tight to be worth targeting).
+    node.kubernetes.io/gpu-tier: apu-light
+  devicePlugin:
+    enableDevicePlugin: true
+    enableNodeLabeller: true
+  metricsExporter:
+    enable: true
