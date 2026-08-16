@@ -151,9 +151,31 @@ data:
           flux: { enabled: true },
           "gh-issues": { enabled: true },
           github: { enabled: true },
+          // openviking plugin-bundled skills, disabled 2026-08-16 (context
+          // overflow incident): install-openviking-memory is a one-time
+          // setup-wizard doc, redundant now the plugin is installed and
+          // configured. openviking-context-database and
+          // ov-experience-memory document the ov_search/ov_read/archive/
+          // tool_result tools -- already excluded via
+          // plugins.entries.openviking.config.enabledTools above, so
+          // these would describe tools the agent can no longer call.
+          "install-openviking-memory": { enabled: false },
+          "openviking-context-database": { enabled: false },
+          "ov-experience-memory": { enabled: false },
         },
       },
       tools: {
+        // cron denied 2026-08-16 (context overflow incident): by far the
+        // single largest tool schema (9606 chars, ~35% of the entire
+        // native+kube-mcp tool surface) -- and cron-triggered automations
+        // are already dormant (see the ROLLBACK comment on `agents` above:
+        // hooks.mappings/automations referencing agentId: "automation"
+        // were removed when the multi-agent schema crashed this pinned
+        // build). Denying a currently-unused tool is the highest-value,
+        // lowest-risk remaining cut to fit coder-large's 16384-token
+        // context alongside the openviking plugin. Re-allow once
+        // cron-based automations are actually reinstated.
+        deny: ["cron"],
         sessions: { visibility: "all" },
         agentToAgent: { enabled: true },
         // Full shell exec without prompting. openclaw already has cluster-admin,
