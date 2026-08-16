@@ -9,6 +9,7 @@ resources:
   - ./secret.sops.yaml
   - ./receiver.yaml
   - ./grafanadashboard.yaml
+  - ./notification-openclaw.yaml
 configMapGenerator:
   - name: flux-instance-values
     files:

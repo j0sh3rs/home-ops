@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/provider-notification-v1beta3.json
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: openclaw
+spec:
+  type: generic
+  address: http://openclaw.ai.svc.cluster.local:18789/hooks/flux
+  # The `generic` provider reads a literal "headers" key from this secret and
+  # parses it as HTTP headers -- it never looks at any other key name. That is
+  # the whole reason openclaw-hooks-secret exists (reflected in from the ai
+  # namespace); openclaw-secret's FLUX_ALERT_HEADERS key was silently ignored,
+  # leaving the request unauthenticated against the tokened /hooks/flux
+  # endpoint. See https://fluxcd.io/flux/components/notification/providers/.
+  secretRef:
+    name: openclaw-hooks-secret
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/alert-notification-v1beta3.json
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: openclaw
+spec:
+  providerRef:
+    name: openclaw
+  eventSeverity: error
+  # An eventSources entry with no `namespace` defaults to the Alert's own
+  # namespace (flux-system), per Flux's documented behavior -- there is no
+  # cross-namespace wildcard in the Alert CRD, so "watch every namespace"
+  # can only be expressed as an explicit per-namespace list. flux-system
+  # itself is deliberately excluded: it's core bootstrap infrastructure,
+  # already guarded by the automation agent's own AGENTS.md no-touch rule
+  # (see automation-agents-md-configmap.yaml), and including it here risks
+  # a self-referential bootstrap-failure loop.
+  eventSources:
+    - kind: Kustomization
+      name: "*"
+      namespace: actions-runner-system
+    - kind: HelmRelease
+      name: "*"
+      namespace: actions-runner-system
+    - kind: Kustomization
+      name: "*"
+      namespace: ai
+    - kind: HelmRelease
+      name: "*"
+      namespace: ai
+    - kind: Kustomization
+      name: "*"
+      namespace: cert-manager
+    - kind: HelmRelease
+      name: "*"
+      namespace: cert-manager
+    - kind: Kustomization
+      name: "*"
+      namespace: databases
+    - kind: HelmRelease
+      name: "*"
+      namespace: databases
+    - kind: Kustomization
+      name: "*"
+      namespace: kube-system
+    - kind: HelmRelease
+      name: "*"
+      namespace: kube-system
+    - kind: Kustomization
+      name: "*"
+      namespace: monitoring
+    - kind: HelmRelease
+      name: "*"
+      namespace: monitoring
+    - kind: Kustomization
+      name: "*"
+      namespace: network
+    - kind: HelmRelease
+      name: "*"
+      namespace: network
+    - kind: Kustomization
+      name: "*"
+      namespace: security
+    - kind: HelmRelease
+      name: "*"
+      namespace: security
+    - kind: Kustomization
+      name: "*"
+      namespace: services
+    - kind: HelmRelease
+      name: "*"
+      namespace: services
+    - kind: Kustomization
+      name: "*"
+      namespace: system-upgrade
+    - kind: HelmRelease
+      name: "*"
+      namespace: system-upgrade
+    - kind: Kustomization
+      name: "*"
+      namespace: velero
+    - kind: HelmRelease
+      name: "*"
+      namespace: velero

@@ -355,10 +355,13 @@ Immediately after the `agents: { ... }` block's closing (before the top-level
 `models:` key), add:
 
 ```json5
-      // Discord (Task 5) and future channels route to "main" by default;
-      // hooks.mappings (Tasks 6-7) and automations (Task 8) explicitly set
-      // agentId: "automation" per-call, so no binding entry is needed for
-      // them here.
+      // Empty for now -- no channel exists yet. hooks.mappings (Tasks 6-7)
+      // and automations (Task 8) set agentId: "automation" explicitly
+      // per-call, so they never need a binding entry. Task 5 adds an
+      // explicit binding once the Discord channel exists -- OpenClaw's
+      // docs frame bindings as the actual routing mechanism once
+      // agents.ownership is "explicit", with no confirmed silent fallback
+      // to a single unbound identity, so this plan does not rely on one.
       bindings: [],
 ```
 
@@ -593,6 +596,15 @@ In `kubernetes/apps/ai/openclaw/app/configmap.yaml`, add a new top-level key
           },
         },
       },
+```
+
+Also replace the `bindings: []` array Task 3 added with an explicit entry —
+do not rely on an unconfirmed "unbound channels default to the only
+non-automation identity" behavior when `agents.ownership: "explicit"` is
+set; route Discord to `main` explicitly instead:
+
+```json5
+      bindings: [{ agentId: "main", match: { channel: "discord" } }],
 ```
 
 `DISCORD_BOT_TOKEN` must reach the container's env — add it to the
@@ -1052,6 +1064,10 @@ variant. Renovate will keep this pinned version current the same way it does
           allowFrom: ["<your existing phone number, if linking your own account>"],
         },
       },
+      bindings: [
+        { agentId: "main", match: { channel: "discord" } },
+        { agentId: "main", match: { channel: "signal" } },
+      ],
 ```
 
 - [ ] **Step 4: Validate**

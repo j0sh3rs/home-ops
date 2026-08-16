@@ -7,38 +7,45 @@ data:
   prometheus.md: |
     ---
     name: prometheus
-    description: Query cluster metrics and active alerts via the kube-prometheus-stack Prometheus.
+    description: Query cluster metrics and active alerts via the externally-hosted VictoriaMetrics and in-cluster Alertmanager.
     ---
-    # Prometheus
+    # Prometheus / VictoriaMetrics
 
-    In-cluster Prometheus (kube-prometheus-stack, `monitoring` namespace) holds
-    6h local retention; long-term data lives in Thanos-backed S3. For ad-hoc
-    PromQL, port-forward or use the kubernetes MCP tools to exec into a pod
-    with network access, then query:
+    Prometheus itself was decommissioned (home-ops-8bb). Metrics now live in an
+    externally-hosted VictoriaMetrics reached via a Prometheus-compatible API:
 
-    - `http://prometheus-operated.monitoring.svc.cluster.local:9090/api/v1/query?query=<promql>`
-    - `http://prometheus-operated.monitoring.svc.cluster.local:9090/api/v1/alerts` — currently firing/pending alerts
+    - `https://metrics.68cc.io/api/v1/query?query=<promql>` — instant query
+    - `https://metrics.68cc.io/api/v1/query_range?query=<promql>&start=<ts>&end=<ts>&step=<dur>` — range query
 
-    Alertmanager (Discord webhook for severity=critical) is at
-    `http://alertmanager-operated.monitoring.svc.cluster.local:9093`.
+    Alertmanager (still in-cluster, unaffected by the Prometheus decommission)
+    holds currently firing/pending alerts:
+
+    - `http://alertmanager-operated.monitoring.svc.cluster.local:9093/api/v2/alerts`
+
+    If a query against `metrics.68cc.io` fails with a connection error, this
+    endpoint may be LAN-only — check reachability from this pod's network
+    context before assuming the metric doesn't exist.
 
   victorialogs.md: |
     ---
     name: victorialogs
-    description: Query aggregated container logs via VictoriaLogs (LogsQL).
+    description: Query aggregated container logs via the externally-hosted VictoriaLogs (LogsQL).
     ---
     # VictoriaLogs
 
-    `victoria-logs-server` (monitoring namespace) ingests via a per-node
-    vector DaemonSet; chunks land in the `victoria-logs-chunks` S3 bucket.
-    Query the HTTP API with LogsQL:
+    There is no in-cluster VictoriaLogs server. The `vector` DaemonSet ships
+    logs to an externally-hosted VictoriaLogs instance. Query it with LogsQL:
 
     ```
-    GET http://victoria-logs-server.monitoring.svc.cluster.local:9428/select/logsql/query?query=<logsql>
+    GET https://logs.68cc.io/select/logsql/query?query=<logsql>
     ```
 
     Example LogsQL: `{namespace="ai",app="openclaw"} error` — filters by
     Kubernetes labels attached at ingest, then a free-text term.
+
+    If this endpoint fails with a connection error, it may be LAN-only —
+    check reachability from this pod's network context before assuming the
+    logs don't exist.
 
   kubernetes-events.md: |
     ---
