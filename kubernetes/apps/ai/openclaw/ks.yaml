@@ -10,8 +10,6 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: memini
-      namespace: *namespace
     - name: llama-swap
       namespace: *namespace
   interval: 1h
