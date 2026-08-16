@@ -285,6 +285,21 @@ data:
           // omitted (the plugin derives both from the key itself per its
           // own configSchema docs) and every other knob (autoRecall,
           // recallLimit, etc.) is left at the plugin's own default.
+          //
+          // enabledTools: ["memory"] -- 2026-08-16 incident: the plugin's
+          // full default tool set (14 tools -- ov_search, ov_read,
+          // ov_multi_read, ov_list, ov_recall_trace, ov_archive_search,
+          // ov_archive_expand, add_skill, 3x openviking_tool_result_*, plus
+          // the 3 memory_* tools) pushed coder-large's baseline system
+          // prompt to ~10.7k tokens against its 8k prompt budget (16k ctx
+          // minus reserve) -- every brand-new session (0 messages)
+          // immediately overflowed, breaking both Discord conversations
+          // and fresh sessions from the web UI. The actual long-term-memory
+          // feature (auto-recall on assemble, auto-capture on afterTurn) is
+          // hook-driven, not tool-call-driven -- scoping to the "memory"
+          // group (memory_recall/memory_store/memory_forget only) keeps
+          // that fully intact while dropping the other 11 agent-invokable
+          // tools' schema weight from every prompt.
           openviking: {
             enabled: true,
             hooks: { allowConversationAccess: true },
@@ -292,6 +307,7 @@ data:
               baseUrl: "http://openviking.ai.svc.cluster.local:1933",
               apiKey: "${OPENVIKING_API_KEY}",
               recallTargetTypes: ["user", "agent"],
+              enabledTools: ["memory"],
             },
           },
         },
