@@ -88,11 +88,6 @@ spec:
                 }
                 # ── Always-on group (fetched first; llama-swap won't start without these) ──
 
-                # Qwen3-1.7B Q5_K_M (~1.17 GiB) — router, always-on
-                fetch \
-                  "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
-                  "Qwen3-1.7B-Q5_K_M.gguf" \
-                  1200000000
                 # Qwen3-Embedding-0.6B Q8_0 (~640 MB) — RAG embeddings, always-on
                 # --pooling last required; dims 1024 (was nomic 768 — re-index pgvector)
                 fetch \
@@ -114,12 +109,6 @@ spec:
                   "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q6_K.gguf?download=true" \
                   "Qwen3-8B-Q6_K.gguf" \
                   6500000000
-                # Qwen2.5-Coder-3B BASE Q5_K_M (~2.2 GiB) — FIM autocomplete
-                # BASE not Instruct: pretrained with FIM tokens, no chat template
-                fetch \
-                  "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-GGUF/resolve/main/Qwen2.5-Coder-3B-Q5_K_M.gguf?download=true" \
-                  "Qwen2.5-Coder-3B-Q5_K_M.gguf" \
-                  2100000000
                 # Qwen3-Coder-30B-A3B-Instruct Q3_K_S (~13.3 GiB) — agentic coder
                 # Q3_K_S not Q3_K_M: bench showed gen speed a wash but Q3_K_S
                 # frees ~1.4 GiB so the coder stays resident alongside the
@@ -272,31 +261,17 @@ spec:
             subPath: config.yaml
             readOnly: true
     defaultPodOptions:
-      # Prefer bigboi-jms-01 dGPU (Navi 48/9070 XT, 64CU, 16G VRAM, weight 100).
-      # Falls back to bee-jms-03 APU (Cezanne 8CU, 16G UMA, weight 50).
-      # `amd.com/gpu.vram In ["16G"]` is REQUIRED — bee-jms-01/02 have 3G UMA
-      # which OOMs on Qwen3-14B / Coder-7B.
-      # Note: amd.com/gpu.family NOT required — Navi 48 (device-id 7550) is
-      # unrecognized by the labeller and emits no family label. vram sufficient.
-      # ROCm is non-functional on Talos (HIP ABI mismatch); Vulkan on both.
+      # Hard-required to bigboi-jms-01's dgpu tier — no fallback. The old
+      # fallback to bee-jms-03 (weight 50) is gone: that node now runs a
+      # dedicated, always-resident llama-swap-apu pod holding its single
+      # amd.com/gpu allocatable, so this instance scheduling there would
+      # leave it permanently Pending. See
+      # docs/superpowers/specs/2026-08-16-apu-light-inference-tier-design.md.
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: amd.com/gpu.vram
-                    operator: In
-                    values: ["16G"]
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
                   - key: node.kubernetes.io/gpu-tier
                     operator: In
                     values: ["dgpu"]
-            - weight: 50
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values: ["bee-jms-03"]
