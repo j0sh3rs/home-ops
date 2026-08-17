@@ -131,17 +131,6 @@ task sops:updatekeys                             # Update keys based on .sops.ya
 
 ## Application Deployment Pattern
 
-Each app follows this structure:
-
-```
-kubernetes/apps/{namespace}/{app}/
-├── ks.yaml                    # Flux Kustomization (entry point)
-└── app/
-    ├── kustomization.yaml     # Kustomize overlay
-    ├── helmrelease.yaml       # Helm chart configuration
-    └── secret.sops.yaml       # Encrypted secrets (optional)
-```
-
 ### IMPORTANT: Use OCIRepository + chartRef Pattern
 
 New applications **must** use the `OCIRepository` + `chartRef` pattern. Do NOT use the old `chart.spec.sourceRef` with `HelmRepository`:
@@ -338,110 +327,16 @@ Rules of thumb:
 
 `ai`, `cert-manager`, `databases`, `flux-system`, `kube-system`, `monitoring`, `network`, `security`, `services`, `system-upgrade`, `velero`
 
-## Deployed Applications (ai namespace)
+## Deployed Applications
 
-Fully self-hosted AI stack — no third-party/cloud LLM providers. Topology: **openclaw** (sole code-automation agent, no memory plugin active) and **holmesgpt** (observability) talk **directly** to **llama-swap**'s OpenAI-compatible endpoint (`http://llama-swap.ai.svc.cluster.local:8080/v1`) — no gateway layer in front of it. Cluster-internal traffic needs no auth; the external debug route (`llm.68cc.io`) is gated by Authentik forwardAuth. Local inference only: llama-swap (GGUFs on AMD GPU), faster-whisper (STT), piper (TTS) via Home Assistant.
-
-**LiteLLM and OmniRoute (both cloud-dependent gateways) were removed 2026-08-14**, along with n8n, OpenCode, agent-canvas, cognee, and the kelos-system namespace (Kelos + its GitHub-issue-spawner agents) — cutting every remaining path to a third-party LLM provider and collapsing multiple overlapping code-agent surfaces down to openclaw alone. See "Decisions explicitly rejected" below for why no gateway replaces them.
-
-**memini (memory/embedding backend, `memini.68cc.io`) was archived 2026-08-16** — its own plugin extension threw a command-registration error on every openclaw boot ("Command name must start with a letter..."), and the wiki-vault rendering built on top of it (`memory-wiki` plugin) went with it. openclaw currently has no memory plugin active (`memory-core` explicitly disabled rather than silently becoming the default); see `archive/memini/`.
-
-LangFuse (observability), AnythingLLM (RAG), Open WebUI (chat UI), and Goose (code automation agent) were removed 2026-07-01 — unused, no consumers beyond a chat UI nobody used; see `docs/runbooks/anythingllm-role-and-overlap.md` and `archive/{langfuse,anythingllm,open-webui,goose}/` if reuse is considered later. claude-code (headless code-automation engine, daemon + runner Job template) was also removed 2026-07-01.
-
-**ollama was archived 2026-08-16** — deployed as a same-node comparison spike against llama-swap (both need bigboi-jms-01's single GPU, so they ran mutually exclusive via manual HelmRelease suspend/resume); spike concluded, llama-swap remains the sole chat/completion engine. See `archive/ollama/`.
-
-### Currently deployed
-
-- **llama-swap** — local GGUF inference, Vulkan via `ghcr.io/mostlygeek/llama-swap:vXXX-vulkan-bXXXX`. Pinned to `bigboi-jms-01` (Navi 48 dGPU = Radeon RX 9070 XT, RDNA4/gfx1201, device-id `0x7550`, 16 GiB VRAM, node-label `node.kubernetes.io/gpu-tier=dgpu`) via nodeAffinity. RDNA4 has a working Vulkan flash-attention path (b9803+) — `--flash-attn on` is beneficial here, NOT the RDNA2 no-coopmat case. The entry point for large/dense chat, reasoning, and coder models — `llm.68cc.io` route (Authentik forwardAuth) plus direct cluster-internal Service access. Chat-only as of 2026-08-17: the `always-on` group (embed/rerank/router) moved to `llama-swap-apu` (see below), and `qwen3-8b`, `reasoner` (Qwen3-30B-Thinking), and `reasoner-agentic` (gpt-oss-20b) were dropped — zero confirmed consumers anywhere in the repo. Hot-swap via `chat` group (exclusive). Init container pre-fetches GGUFs into the PVC. Model aliases (see `kubernetes/apps/ai/llama-swap/app/configmap.yaml` for source of truth):
-  - `coder`/`code-large`/`coder-large` → `agentic-coder` (Qwen3-Coder-30B-A3B-Instruct, MoE 3B-active, 16k ctx; holmesgpt's model)
-  - `large`/`dense-floor` → `qwen3-14b` (openclaw's current stopgap primary, 24k ctx; retiring once `qwen3.6-27b` below is confirmed)
-  - `frontier`/`frontier-chat` → `qwen3.6-27b` (GatedDeltaNet; the earlier "decode-broken on gfx1201/RADV, ~4 tok/s" warning (llama.cpp #26795) did NOT reproduce on a 2026-08-17 retest — ~30.8 tok/s sustained over 800 tokens. Candidate to become openclaw's real primary pending an on-node ctx-size/VRAM check, in progress)
-- **llama-swap-apu** — second llama-swap instance, hard-pinned to `bee-jms-03` (Renoir iGPU, BIOS-expanded to 16 GiB dedicated VRAM — see `docs/superpowers/specs/2026-08-16-apu-light-inference-tier-design.md` for the bee-* hardware asymmetry). Always-on/non-exclusive, all models resident together:
-  - `fast`/`small`/`router` → `qwen3-1.7b` (routing/classification; HA Assist's documented future hook, not yet wired in HA's config)
-  - `embed`/`embedding` → `qwen3-embed` (RAG embeddings; moved from `llama-swap` 2026-08-17 — small, latency-tolerant, doesn't need dGPU horsepower. openviking is the live consumer)
-  `coder-fim` (FIM autocomplete) was removed 2026-08-17 — its only consumer was Continue.dev, which is explicitly rejected (see "Decisions explicitly rejected" below). Cluster-internal only (`llama-swap-apu.ai.svc.cluster.local:8080`), no external route. `bee-jms-01`/`-02` are excluded (3 GiB stock dedicated VRAM, not worth targeting). No routing layer in front of the two llama-swap instances — consumers pick the endpoint that matches their model directly.
-- **openclaw** — sole code-automation agent at `openclaw.68cc.io` (Authentik forwardAuth) and `openclaw-remote.68cc.io` (mobile/CLI device pairing, no Authentik — gated by the gateway's own token auth instead), cluster-admin RBAC. Primary model `llamaswap/qwen3-14b` (stopgap since the 2026-08-16 context-overflow incident; migrating to `llamaswap/qwen3.6-27b` once its ctx-size/VRAM check is confirmed — see llama-swap entry above). No memory plugin active (memini removed 2026-08-16). code-server sidecar at `openclaw-code.68cc.io` for browsing openclaw's config/state on the PVC.
-- **holmesgpt** — incident/observability LLM analysis (POC), routed to llama-swap directly (`llamaswap/coder-large`). Toolsets: Kubernetes API state (built-in) plus `prometheus/metrics` (VictoriaMetrics at `https://metrics.68cc.io`), `victorialogs` (`https://logs.68cc.io`), `grafana/dashboards` (in-cluster `grafana-service.monitoring.svc.cluster.local:3000` — `grafana.68cc.io` sits behind Authentik forwardAuth, which a Grafana service-account token can't clear), and a `pg_monitor`-scoped Postgres toolset (`postgres17-stats`) via the `holmesgpt_ro` role — cluster-wide stats only (`pg_stat_activity`, `pg_stat_replication`, `pg_locks`; `pg_stat_statements` isn't queryable yet, only `CREATE EXTENSION`ed in the `app` DB, not `postgres`), no per-database table access.
-- **mcpjungle** — MCP server aggregator, fronting tool access for openclaw (litellm's `/mcp` gateway is gone — consumers call mcpjungle directly now).
-- **omega-mcp** — MCP server, no LLM backend.
-- **faster-whisper** — Speech-to-text (Wyoming protocol, port 10300). `rhasspy/wyoming-whisper:3.3.0`, model `tiny-int8` (Wyoming TCP server HA's Wyoming integration speaks to — NOT the `fedirz/faster-whisper-server` OpenAI-HTTP image, which does not implement Wyoming and silently served nothing). Wired to Home Assistant Assist for STT. First request ~5s; cached afterward.
-- **piper** — Text-to-speech (Wyoming protocol, port 10200). `rhasspy/wyoming-piper:2.2.2`. Voice: `en_US-lessac-medium` (1 GiB PVC, ~65MB voice model). Wired to Home Assistant Assist for TTS. First start ~2 min for model download.
-
-### Planned (not yet deployed)
-
-- **Kid-safe layer** — deferred, build only if concrete need arises: a second llama-swap API key scoped via a Traefik middleware path-restriction, or a second llama-swap group, rather than speculative per-kid gateway infrastructure.
-
-### Decisions explicitly rejected (do not relitigate without new evidence)
-
-- **Continue.dev** — explicitly rejected 2026-08-17. Was the sole planned consumer of `coder-fim` (FIM autocomplete on `llama-swap-apu`); that model block, its litellm mirror, and its init-container fetch were all removed. Do not reintroduce Continue.dev or re-add a FIM-only model without a new, explicit ask.
-- **AMD GPU Operator, cluster-wide / driver-managed mode** — wrong fit for the bee-* APU nodes: KMM-managed DKMS conflicts with in-box `amdgpu` extension; APUs not on Instinct HCL; ANR/NPD/DCM features all require Instinct silicon. This rejection still stands for bee-*. See [memory: project-amd-gpu-stack].
-  **Scoped exception, adopted for `bigboi-jms-01` (dgpu tier) AND `bee-jms-03` (apu-light tier) via two disjoint driverless `DeviceConfig`s, each scoped to exactly one node by a unique `node.kubernetes.io/gpu-tier` label value**: `kubernetes/apps/kube-system/amd-gpu/` now runs the ROCm GPU Operator (`gpu-operator-charts`) with `DeviceConfig.spec.driver.enable: false` on both `DeviceConfig`s — one selects `{node.kubernetes.io/gpu-tier: dgpu}` (bigboi-jms-01), the other `{node.kubernetes.io/gpu-tier: apu-light}` (bee-jms-03). Driverless mode means KMM is never asked to build/DKMS-install anything — Talos's `siderolabs/amdgpu` extension still owns the kernel module on every node — and the per-node-unique label values mean KMM/NFD never evaluate any node outside the one each selector targets. Both objections above (DKMS conflict, Instinct-only features) are sidestepped by construction, not overridden. `bee-jms-01`/`bee-jms-02` remain excluded on hardware grounds (3 GiB dedicated VRAM vs `bee-jms-03`'s 16 GiB BIOS-expanded VRAM) — do not widen either selector to include them.
-- **ROCm DKMS** — Talos rootfs immutable; no path. ROCm userspace only matters inside workload containers, not at kernel level.
-- **Replacing llama-swap with Ollama** — duplicates the same role; would lose curated GGUF + model-fetch control. One engine policy.
-- **Keeping a gateway (LiteLLM or otherwise) in front of llama-swap** — removed 2026-08-14. Once cloud-provider fan-out is off the table (the whole point of this migration) and this is a single-user home-lab, a gateway's remaining value (per-consumer virtual keys, cost tracking, response caching) was already mostly inert: `disable_spend_logs: true`, Prometheus metrics disabled (needs LiteLLM Enterprise license, 404s), and llama-swap already exposes the same model-alias abstraction natively. Auth for the one external route is handled by the existing Authentik forwardAuth pattern, same as every other app — no new component needed.
-- **OmniRoute** (CLI-session-reuse via Playwright/Chromium scraping of Claude-web/Gemini-web) — removed 2026-08-14. Explicitly a ToS-boundary tool per its own code comments (uTLS spoofing, multi-account rotation, device-profile learning); still fundamentally cloud-dependent and a larger attack surface than a plain API key, directly contrary to the self-hosted-only goal.
-- **Kelos / kelos-system, n8n, OpenCode, agent-canvas, cognee** — removed 2026-08-14. Consolidating on openclaw as the single code-automation agent; the others were redundant surfaces (Kelos's GitHub-issue-spawner overlapped openclaw's role) or unused/unclear-purpose (agent-canvas, cognee, n8n).
-- **Khoj** — operator has no notes habit; Khoj's Obsidian round-trip is its main lever and would be wasted. Stable line stalled at v0.2.0; no first-party Helm chart.
-- **vLLM** — needs ROCm gfx10+; APU performance is BW-bound, vLLM's compute wins don't materialize. Revisit only if/when an Instinct or large dGPU is added.
-
-## Deployed Applications (services namespace)
-
-- **Atuin** — Shell history sync server
-- **Home Assistant** — Home automation platform (hostNetwork for mDNS/UPnP)
-- **Homebridge** — HomeKit bridge via `homebridge.68cc.io` (hostNetwork for mDNS/HAP; ciao in-process advertiser; `HOMEBRIDGE_INSECURE=1` enables Homepage widget + prometheus-exporter plugin). Pairing PIN shown in pod logs on first boot.
-- **Homepage** — Dashboard at `68cc.io` (root). Service tiles + widgets configured via SOPS-encrypted Secret; widget creds injected via `HOMEPAGE_VAR_*` env vars.
-- **IT-Tools** — Collection of IT utility tools
-- **Linkwarden** — Collaborative bookmark manager
-- **Paperless-NGX** — Document management system (OCR + full-text search). Tika + Gotenberg sidecars for document conversion. Uses DragonflyDB **db2** as its Celery task broker + result backend (`redis://...:6379/2`) — see `docs/runbooks/dragonflydb-db-allocation.md`. The idle Celery worker parks on `BRPOP`, which is the expected baseline behind the tuned `DragonflyBlockedClients` / `DragonflyAvgCommandLatencyHigh` alert thresholds.
-- **MetaMCP** — MCP server
-
-Currently disabled (commented out in `kubernetes/apps/services/kustomization.yaml`):
-- ~~ChangeDetector~~ — Website change monitoring
-- ~~Memos~~ — Lightweight note-taking service
+- `ai` namespace: see `kubernetes/apps/ai/CLAUDE.md`
+- `services` namespace: see `kubernetes/apps/services/CLAUDE.md`
 
 ## Grafana Operator Pattern
 
-Grafana is deployed using the **Grafana Operator** with a multi-kustomization structure:
-
-```
-kubernetes/apps/monitoring/grafana/
-├── ks.yaml                          # Root Flux Kustomization
-├── operator/                        # Grafana Operator deployment
-├── instance/                        # GrafanaInstance CR
-└── dashboards/                      # Individual GrafanaDashboard CRDs
-    └── app/
-        ├── kustomization.yaml
-        └── {dashboard-name}.json    # Grafana dashboard JSON
-```
+Grafana is deployed using the **Grafana Operator** with a multi-kustomization structure. See `.claude/skills/ci-cd-reference/SKILL.md` for CI workflow and Renovate details.
 
 ## CI/CD
-
-### GitHub Actions Workflows
-
-**Validation & Testing:**
-- **validate-secrets** — Verifies all `*.sops.yaml` files are properly encrypted
-- **flux-local** — Flux manifest validation, kubeconform schema validation, and diff generation for PRs
-- **e2e** — End-to-end testing
-
-**Automation:**
-- **labeler** — Auto-labels PRs based on changed paths (includes risk-based labels)
-- **label-sync** — Syncs GitHub labels from `.github/labels.yaml`
-
-**PR Risk Labels:**
-- `risk/critical` — Core infrastructure (Cilium, CoreDNS, Flux, Talos, SOPS config)
-- `risk/high` — Networking, cert-manager, security, storage, system-upgrade
-- `risk/medium` — Databases, monitoring, backup systems
-- `risk/low` — Application services, documentation
-
-### Renovate
-
-Config at `.github/renovate.json5`. Auto-merge behavior:
-
-- **Patch + Minor** — container images, Helm charts, GitHub releases auto-merge
-- **Major** — manual review required
-- **Talos installer** — scheduled for Saturday after 2pm, no auto-merge
-
-Commit prefixes: `fix(container):`, `fix(helm):`, `fix(deps):`, `feat(deps):`
 
 ### Pre-Commit Validation
 
@@ -465,34 +360,7 @@ flux build kustomization {name} --path kubernetes/apps/{path} --dry-run
 
 ## Debugging Cheat Sheet
 
-```bash
-# Check Flux status
-flux get ks -A --context home
-flux get hr -A --context home
-flux logs --kind=HelmRelease --namespace={ns} --name={app} --context home
-
-# Check pod issues
-kubectl -n {ns} get pods -o wide --context home
-kubectl -n {ns} describe pod {pod} --context home
-kubectl -n {ns} logs {pod} -f --context home
-kubectl -n {ns} get events --sort-by='.metadata.creationTimestamp' --context home
-
-# Check HelmRelease
-kubectl -n {ns} describe helmrelease {app} --context home
-
-# Check Grafana Operator resources
-kubectl -n monitoring get grafanainstance --context home
-kubectl -n monitoring get grafanadashboard --context home
-
-# Dump common cluster resources
-task template:debug
-
-# Validate manifests before pushing
-kustomize build kubernetes/apps/{namespace}/{app}/app
-
-# Check SOPS encryption status
-task sops:verify
-```
+See `.claude/skills/debug-cheatsheet/SKILL.md`.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
 ## Beads Issue Tracker
