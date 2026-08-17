@@ -21,7 +21,7 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 | 1 | _free_ | — | Formerly OmniRoute rate limiter — freed 2026-08-14 (OmniRoute removed, cloud-gateway layer dropped in favor of llama-swap direct). | — |
 | 2 | Paperless-ngx | `services/paperless` | Celery task broker + result backend (document processing, OCR jobs). Redis URL: `redis://...:6379/2`. | `kubernetes/apps/services/paperless/app/helmrelease.yaml` |
 | 3 | _free_ | — | — | — |
-| 4 | _free_ | — | Formerly LiteLLM response cache — freed 2026-08-14 (LiteLLM removed, cloud-gateway layer dropped in favor of llama-swap direct). | — |
+| 4 | litellm | `ai/litellm` | Router coordination + response cache. Reintroduced 2026-08-17 as a cluster-internal-only mirror in front of llama-swap/llama-swap-apu (no cloud provider routing, unlike the instance removed 2026-08-14). Redis URL: `redis://...:6379/4`. | `kubernetes/apps/ai/litellm/app/litellmproxy.yaml` |
 | 5 | _free_ | — | Formerly LangFuse job queue — freed 2026-07-01 (LangFuse removed, see `docs/runbooks/anythingllm-role-and-overlap.md` for the broader AI-stack cleanup). | — |
 | 6 | Authentik | `security/authentik` | Celery broker, Django cache, django-channels WebSocket layer. Key prefix default (Authentik-managed). | `kubernetes/apps/security/authentik/app/helmrelease.yaml` |
 | 7 | _free_ | — | — | — |

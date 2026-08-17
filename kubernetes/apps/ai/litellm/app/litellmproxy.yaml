@@ -1,0 +1,68 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMProxy
+metadata:
+  name: litellm
+spec:
+  # renovate: datasource=docker depName=ghcr.io/berriai/litellm versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-stable$
+  image: ghcr.io/berriai/litellm:v1.83.14-stable@sha256:d6401c001f90f3bab4bb23c5fd6d9302a7df58999ec6fa9e3f175e1f5f26544b
+  replicas: 1
+  generalSettings:
+    health_check_endpoint: /v1/health
+  routerSettings:
+    routing_strategy: simple-shuffle
+    redis_host: os.environ/REDIS_HOST
+    redis_port: os.environ/REDIS_PORT
+    redis_password: os.environ/REDIS_PASSWORD
+    num_retries: 3
+    timeout: 600
+  litellmSettings:
+    drop_params: true
+    cache: true
+    cache_params:
+      type: redis
+      host: os.environ/REDIS_HOST
+      port: os.environ/REDIS_PORT
+      password: os.environ/REDIS_PASSWORD
+      db: os.environ/REDIS_DB
+  env:
+    - name: LITELLM_LOG
+      value: INFO
+    - name: LITELLM_MODE
+      value: PRODUCTION
+    # Shared dragonflydb instance (databases ns) — see
+    # docs/runbooks/dragonflydb-db-allocation.md. DB 4 was freed 2026-08-14
+    # (old LiteLLM removal); reused here for the reintroduced proxy.
+    - name: REDIS_HOST
+      value: dragonflydb.databases.svc.cluster.local
+    - name: REDIS_PORT
+      value: "6379"
+    - name: REDIS_DB
+      value: "4"
+    # dragonflydb-auth is reflected into the ai namespace by Reflector from
+    # databases/dragonflydb/instance/secret.sops.yaml — not owned here.
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: dragonflydb-auth
+          key: password
+    - name: LITELLM_MASTER_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: LITELLM_MASTER_KEY
+  podAnnotations:
+    reloader.stakater.com/auto: "true"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 4000
+  # No external/internal Gateway route: the operator's route block has no
+  # ExtensionRef support to attach the authentik-forwardauth Middleware, and
+  # every consumer (openclaw, holmesgpt) is cluster-internal already —
+  # same no-gateway-needed rationale as llama-swap's direct-access model.

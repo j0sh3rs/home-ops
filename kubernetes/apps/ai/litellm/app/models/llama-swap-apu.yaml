@@ -1,0 +1,27 @@
+---
+# Mirrors llama-swap-apu's model catalog (bee-jms-03, iGPU) — source of
+# truth is kubernetes/apps/ai/llama-swap-apu/app/configmap.yaml. Both
+# models here are always-on/non-exclusive.
+# Aliases: fast, small, router.
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: router
+spec:
+  modelName: router
+  params:
+    model: openai/router
+    apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
+    apiKey: "not-needed"
+---
+# Aliases: coder-fim, fim. FIM autocomplete.
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: fim
+spec:
+  modelName: fim
+  params:
+    model: openai/fim
+    apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
+    apiKey: "not-needed"
