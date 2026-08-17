@@ -207,20 +207,26 @@
       },
     },
     {
-      // Tags are "vNNN-vulkan-bMMMM" (e.g. v250-vulkan-b10454) -- not
-      // semver, and multiple builds share the same vNNN (v230 alone has
-      // -b9787/-b9803/-b9821/-b9828). Without an explicit versioning
-      // scheme Renovate's default docker versioning can't reliably order
-      // these and silently stalls (confirmed stuck on v230-vulkan-b9803
-      // while v250-vulkan-b10454 was already published). Regex versioning
-      // maps vNNN -> major, bMMMM -> build so both the release and its
-      // rebuild count are compared correctly. allowedVersions is anchored
-      // full-string so it excludes -non-root/-cuda/-cpu/-rootless variants
-      // that the old substring regex let through.
-      description: "llama-swap: only allow vulkan-b tagged builds, ordered by release+build number",
+      // Switched 2026-08-17 from the plain "vNNN-vulkan-bMMMM" tag family
+      // to "unified-vulkan-YYYY-MM-DD" -- the unified image is the only
+      // one that bundles rocm-smi (docker/unified/Dockerfile only; see
+      // commit 1f3c68e). Date-stamped tags sort correctly as
+      // major.minor.patch = year.month.day. allowedVersions excludes
+      // -rootless/-cache/-cuda variants -- we run root (matches existing
+      // runAsUser: 0) vulkan backend only.
+      //
+      // NOTE: audio.cpp/whisper-server/llama-tts in this image were
+      // evaluated 2026-08-17 as a path to consolidate faster-whisper/piper
+      // behind llama-swap and explicitly rejected -- llama-tts has no
+      // --host/--port (one-shot CLI, not a server) and whisper-server is
+      // the same OpenAI-HTTP lineage as the already-rejected
+      // fedirz/faster-whisper-server (no Wyoming protocol support, which
+      // HA Assist requires). faster-whisper/piper stay as-is. Do not
+      // relitigate without a real Wyoming-speaking option.
+      description: "llama-swap: only allow unified-vulkan dated builds, ordered by date",
       matchPackageNames: ["ghcr.io/mostlygeek/llama-swap"],
-      versioning: "regex:^v(?<major>\\d+)-vulkan-b(?<build>\\d+)$",
-      allowedVersions: "/^v\\d+-vulkan-b\\d+$/",
+      versioning: "regex:^unified-vulkan-(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})$",
+      allowedVersions: "/^unified-vulkan-\\d{4}-\\d{2}-\\d{2}$/",
       automerge: false,
       groupName: null,
     },
