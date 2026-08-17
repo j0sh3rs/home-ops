@@ -80,7 +80,8 @@ spec:
         # consumer to justify any origin here. Revisit only if a browser-
         # based client is ever added.
         cors_origins: []
-      # Embedding/VLM provider: points at this cluster's llama-swap.
+      # Embedding/VLM provider: points at llama-swap-apu (bee-jms-03) —
+      # qwen3-embed moved off the main dGPU instance 2026-08-17.
       # provider: "openai" -- NOT "ollama". llama-swap is an OpenAI-
       # compatible proxy, not a real Ollama server; OpenViking's "ollama"
       # provider triggers a readiness probe against Ollama's *native*
@@ -101,7 +102,7 @@ spec:
       # this scaffold is tracked under.
       embedding:
         dense:
-          api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1"
+          api_base: "http://llama-swap-apu.ai.svc.cluster.local:8080/v1"
           api_key: "${OPENVIKING_EMBEDDING_API_KEY}"
           provider: "openai"
           dimension: 1024
@@ -109,7 +110,7 @@ spec:
           input: "text"
         max_concurrent: 10
       vlm:
-        api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1"
+        api_base: "http://llama-swap-apu.ai.svc.cluster.local:8080/v1"
         api_key: "${OPENVIKING_VLM_API_KEY}"
         provider: "openai"
         model: "qwen3-embed"
