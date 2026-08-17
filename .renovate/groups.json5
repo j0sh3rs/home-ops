@@ -207,9 +207,20 @@
       },
     },
     {
-      description: "llama-swap: only allow vulkan-b tagged builds",
+      // Tags are "vNNN-vulkan-bMMMM" (e.g. v250-vulkan-b10454) -- not
+      // semver, and multiple builds share the same vNNN (v230 alone has
+      // -b9787/-b9803/-b9821/-b9828). Without an explicit versioning
+      // scheme Renovate's default docker versioning can't reliably order
+      // these and silently stalls (confirmed stuck on v230-vulkan-b9803
+      // while v250-vulkan-b10454 was already published). Regex versioning
+      // maps vNNN -> major, bMMMM -> build so both the release and its
+      // rebuild count are compared correctly. allowedVersions is anchored
+      // full-string so it excludes -non-root/-cuda/-cpu/-rootless variants
+      // that the old substring regex let through.
+      description: "llama-swap: only allow vulkan-b tagged builds, ordered by release+build number",
       matchPackageNames: ["ghcr.io/mostlygeek/llama-swap"],
-      allowedVersions: "/.*-vulkan-b.*/",
+      versioning: "regex:^v(?<major>\\d+)-vulkan-b(?<build>\\d+)$",
+      allowedVersions: "/^v\\d+-vulkan-b\\d+$/",
       automerge: false,
       groupName: null,
     },
