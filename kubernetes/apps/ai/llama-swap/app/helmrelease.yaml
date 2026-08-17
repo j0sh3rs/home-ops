@@ -38,10 +38,14 @@ spec:
         initContainers:
           model-fetch:
             # One-shot GGUF downloader. Idempotent — skips files that
-            # already exist and match the expected size. Uses the same
-            # /models PVC as the main container so weights persist across
-            # restarts. curlimages/curl is 12 MiB and pins to a known
-            # digest pattern (see renovate annotation).
+            # already exist and match the expected size (checked against
+            # the FINAL filename, never the in-progress ".part", so a
+            # completed download is never re-touched or re-split). Uses
+            # the same /models PVC as the main container so weights
+            # persist across restarts. curlimages/curl is Alpine-based and
+            # already runs as root (securityContext below), so `apk add`
+            # works to layer aria2 on top at init time — avoids maintaining
+            # a second pinned base image just for this one binary.
             image:
               repository: curlimages/curl
               # renovate: datasource=docker depName=curlimages/curl
@@ -50,6 +54,7 @@ spec:
             args:
               - |
                 set -eu
+                apk add --no-cache aria2
                 cd /models
                 human() {
                   # Pretty-print bytes in SI (MiB/GiB) without bc.
@@ -70,20 +75,14 @@ spec:
                     echo "[retry] $out too small ($have < $min_bytes), re-fetching"
                     rm -f "$out"
                   fi
-                  echo "[fetch] $out"
-                  # Background curl; tail size every 5s until it exits.
-                  # --no-progress-meter keeps stderr clean; we do our own reporting.
-                  curl --no-progress-meter -C - -Lf -o "$out.part" "$url" &
-                  cpid=$!
-                  while kill -0 "$cpid" 2>/dev/null; do
-                    sleep 5
-                    if [ -f "$out.part" ]; then
-                      cur=$(stat -c %s "$out.part" 2>/dev/null || echo 0)
-                      echo "[progress] $out: $(human $cur)"
-                    fi
-                  done
-                  # Propagate curl exit status.
-                  wait "$cpid"
+                  echo "[fetch] $out (aria2, 8 parallel connections)"
+                  # -c resumes a partial "$out.part"/.aria2 pair left by a
+                  # prior interrupted run (both live on the PVC, so this
+                  # survives pod restarts) instead of restarting cold.
+                  aria2c -x 8 -s 8 -k 1M -c --file-allocation=none \
+                    --allow-overwrite=false --auto-file-renaming=false \
+                    --summary-interval=5 --console-log-level=warn \
+                    -d /models -o "$out.part" "$url"
                   final=$(stat -c %s "$out.part" 2>/dev/null || echo 0)
                   mv "$out.part" "$out"
                   echo "[done]  $out: $(human $final)"
