@@ -42,21 +42,24 @@ data:
             // tool-calling works against it directly.
             //
             // qwen3-14b (dense, standard llama-vulkan path, no exotic
-            // quantization workarounds) accepts tool-calling grammar fine
-            // and gives 24576 ctx -- 1.5x coder-large's window. Verified
-            // via `openclaw agent` CLI: reduces the fresh-session overflow
-            // from 736 to 542 tokens over budget -- narrows the gap but
-            // does NOT fully close it (reserveTokens scaled from 8384 to
-            // 16384, eating most of the extra context headroom -- the
-            // budget/reserve split for this route doesn't appear to be a
-            // fixed fraction of contextWindow, and isn't controlled by any
-            // config found so far: reserveTokensFloor, contextTokens, and
-            // maxTokens were all tested with zero effect). Trade-off:
-            // generic dense model, not code-specialized like agentic-coder.
-            // See conversation/commit history for the full investigation;
-            // closing the remaining ~542 tokens needs either more content
-            // trimming or resolving the reserve-scaling mystery upstream.
-            primary: "llamaswap/qwen3-14b",
+            // quantization workarounds) accepted tool-calling grammar fine
+            // and gave 24576 ctx -- 1.5x coder-large's window. Verified
+            // via `openclaw agent` CLI: reduced the fresh-session overflow
+            // from 736 to 542 tokens over budget -- narrowed the gap but
+            // did NOT fully close it. Used as a stopgap primary from
+            // 2026-08-16 until qwen3.6-27b below was validated.
+            //
+            // qwen3.6-27b (GatedDeltaNet) replaced qwen3-14b as primary
+            // 2026-08-17. Its "decode collapses to ~4 tok/s" warning
+            // (llama.cpp #26795) did not reproduce on retest (~30.8 tok/s
+            // sustained). ctx-size 65536 chosen from real rocm-smi VRAM
+            // measurements on bigboi-jms-01 (1283 MiB / 7.9% free at this
+            // size -- see llama-swap/app/configmap.yaml's qwen3.6-27b
+            // comment for the full VRAM data table). 65536 is 2.7x
+            // qwen3-14b's window and should close the reserve-token gap
+            // that qwen3-14b's 24576 ctx never fully solved. qwen3-14b
+            // was retired from llama-swap's chat group the same day.
+            primary: "llamaswap/qwen3.6-27b",
           },
           contextInjection: "always",
           bootstrapMaxChars: 50000,
@@ -152,10 +155,10 @@ data:
                 maxTokens: 4096,
               },
               {
-                id: "qwen3-14b",
-                name: "Qwen3-14B (llama-swap)",
+                id: "qwen3.6-27b",
+                name: "Qwen3.6-27B (llama-swap)",
                 reasoning: false,
-                contextWindow: 24576,
+                contextWindow: 65536,
                 maxTokens: 4096,
               },
             ],

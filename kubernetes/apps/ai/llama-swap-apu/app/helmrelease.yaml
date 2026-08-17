@@ -11,7 +11,7 @@ spec:
     kind: OCIRepository
     name: app-template
   # Cold fetch is only ~1.8 GiB (2 small GGUFs: router + embed) vs the
-  # main instance's ~35.7 GiB, but keep the same generous timeout pattern
+  # main instance's ~25.5 GiB, but keep the same generous timeout pattern
   # for consistency and slow-link tolerance.
   timeout: 15m
   install:
