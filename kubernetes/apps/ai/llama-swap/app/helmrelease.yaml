@@ -216,8 +216,9 @@ spec:
               - name: *app
                 port: *port
     persistence:
-      # Persistent GGUF cache. bjw-s auto-names the PVC "llama-swap-models"
-      # from the release name + volume key. Shared with the init container.
+      # Persistent GGUF cache. bjw-s names the PVC after the release
+      # ("llama-swap") since this is the app's only volume — not
+      # "llama-swap-models". Shared with the init container.
       models:
         type: persistentVolumeClaim
         storageClass: openebs-hostpath-fast
