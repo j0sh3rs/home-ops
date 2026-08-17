@@ -23,7 +23,7 @@ data:
       # --flash-attn on is mandatory for RDNA2 MoE prefill perf (build >=b6272).
       # KV q8_0 stretches VRAM headroom on all MoE models.
       "llama-vulkan": >-
-        /app/llama-server
+        /usr/local/bin/llama-server
         --host 0.0.0.0 --port ${PORT}
         -ngl 99
         --flash-attn on
