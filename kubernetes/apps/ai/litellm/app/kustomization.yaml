@@ -4,4 +4,5 @@ kind: Kustomization
 resources:
   - ./secret.sops.yaml
   - ./litellmproxy.yaml
+  - ./httproute.yaml
   - ./models

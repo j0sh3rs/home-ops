@@ -62,7 +62,6 @@ spec:
   service:
     type: ClusterIP
     port: 4000
-  # No external/internal Gateway route: the operator's route block has no
-  # ExtensionRef support to attach the authentik-forwardauth Middleware, and
-  # every consumer (openclaw, holmesgpt) is cluster-internal already —
-  # same no-gateway-needed rationale as llama-swap's direct-access model.
+  # No spec.route block here — the LAN-only HTTPRoute is hand-written in
+  # httproute.yaml instead, since the operator's route field can't carry
+  # the external-dns target annotation. See httproute.yaml for why.

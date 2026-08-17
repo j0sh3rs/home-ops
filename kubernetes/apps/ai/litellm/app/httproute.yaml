@@ -1,0 +1,22 @@
+---
+# LAN-only debug/mirror route — no authentik-forwardauth (litellm's own
+# LITELLM_MASTER_KEY bearer token gates it instead). The operator's own
+# spec.route block can't carry the external-dns target annotation, so this
+# HTTPRoute is hand-written against the Service it creates (named after the
+# LiteLLMProxy: "litellm", port from spec.service.port).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: litellm
+  annotations:
+    external-dns.alpha.kubernetes.io/target: 192.168.35.17
+spec:
+  hostnames:
+    - litellm.68cc.io
+  parentRefs:
+    - name: traefik-internal-gateway
+      namespace: network
+  rules:
+    - backendRefs:
+        - name: litellm
+          port: 4000
