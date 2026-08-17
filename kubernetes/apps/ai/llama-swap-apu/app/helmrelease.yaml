@@ -104,7 +104,7 @@ spec:
               # Same Vulkan build as the main instance — portable across
               # AMD GPUs, no ROCm dependency.
               # renovate: datasource=docker depName=ghcr.io/mostlygeek/llama-swap
-              tag: v230-vulkan-b9803
+              tag: v250-vulkan-b10454
             args:
               - --config
               - /app/config.yaml
