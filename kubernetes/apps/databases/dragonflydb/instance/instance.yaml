@@ -190,8 +190,8 @@ spec:
 # the operator's to allow cross-namespace clients on 6379.
 #
 # `ai` namespace access was removed 2026-08-16 (memini, its only client
-# there, was archived) — re-add a namespaceSelector entry here if a
-# future ai-namespace app needs Dragonfly.
+# there, was archived) — re-added 2026-08-17 for litellm (DB 4, response
+# cache + router coordination; see kubernetes/apps/ai/litellm/app/).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -213,6 +213,9 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: services
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai
       ports:
         - port: 6379
           protocol: TCP
