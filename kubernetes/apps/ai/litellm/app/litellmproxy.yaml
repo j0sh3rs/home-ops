@@ -63,6 +63,27 @@ spec:
           key: DATABASE_URL
   podAnnotations:
     reloader.stakater.com/auto: "true"
+  # Default probes (10s delay, period 10s, failure 3 -> dead by ~40s) fire
+  # before the prisma migrate-on-boot + first DB/Redis connect finishes,
+  # so kubelet was sending SIGTERM right as "Application startup complete"
+  # printed — a race, not a hang. No startupProbe field on this CRD, so
+  # loosen both probes directly instead.
+  livenessProbe:
+    httpGet:
+      path: /health/liveliness
+      port: 4000
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 10
+  readinessProbe:
+    httpGet:
+      path: /health/readiness
+      port: 4000
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 10
   resources:
     requests:
       cpu: 250m
