@@ -59,6 +59,12 @@ spec:
   # below only stops CNPG from *managing* it going forward — the role
   # persists in Postgres. `ensure: absent` is what actually issues
   # `DROP ROLE`.
+  # litellm: owner role for the litellm proxy's own `litellm` database
+  # (admin UI model/key/team management, usage tracking — the proxy
+  # returns "No connected db" on the UI's Models page without this).
+  # Database itself is declared via the Database CRD in sibling
+  # litellm-database.yaml, owner: litellm. connectionLimit 20 matches the
+  # single-replica proxy's expected pool size with headroom.
   managed:
     roles:
       - name: holmesgpt_ro
@@ -69,6 +75,12 @@ spec:
           - pg_monitor
         passwordSecret:
           name: holmesgpt-db-creds
+      - name: litellm
+        ensure: present
+        login: true
+        connectionLimit: 20
+        passwordSecret:
+          name: litellm-db-creds
   postgresql:
     # Parameter tuning rationale (2026-05-21 audit, see
     # docs/runbooks/database-tuning-recommendations.md):

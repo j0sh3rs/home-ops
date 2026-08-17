@@ -1,0 +1,16 @@
+---
+# Declares the `litellm` database inside the shared postgres17 cluster,
+# owned by the `litellm` role (managed.roles in cluster.yaml). First use
+# of CNPG's declarative Database CRD in this repo — other consumers
+# (paperless) bootstrap their DB via a postgres-init initContainer instead
+# because the LiteLLMProxy CRD (litellm-operator) has no initContainers
+# field to hook that pattern into.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: litellm
+spec:
+  name: litellm
+  owner: litellm
+  cluster:
+    name: postgres17

@@ -11,6 +11,10 @@ spec:
   dependsOn:
     - name: litellm-operator
       namespace: *namespace
+    - name: cloudnative-pg
+      namespace: &cnpg-ns databases
+    - name: cloudnative-pg-cluster
+      namespace: *cnpg-ns
   interval: 30m
   path: ./kubernetes/apps/ai/litellm/app
   prune: true

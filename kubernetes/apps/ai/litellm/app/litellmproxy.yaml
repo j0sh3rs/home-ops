@@ -51,6 +51,16 @@ spec:
         secretKeyRef:
           name: litellm-secret
           key: LITELLM_MASTER_KEY
+    # DB mode: admin UI model/key/team management + usage tracking. Backed
+    # by the `litellm` database on the shared postgres17 CNPG cluster —
+    # see kubernetes/apps/databases/cloudnative-pg/cluster/litellm-database.yaml
+    # and litellm-role-secret.sops.yaml. Image runs prisma migrations
+    # automatically on startup when this is set.
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: DATABASE_URL
   podAnnotations:
     reloader.stakater.com/auto: "true"
   resources:
