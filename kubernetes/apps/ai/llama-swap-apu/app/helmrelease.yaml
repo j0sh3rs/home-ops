@@ -10,9 +10,9 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  # Cold fetch is only ~3.5 GiB (2 small GGUFs) vs the main instance's
-  # ~60 GiB, but keep the same generous timeout pattern for consistency
-  # and slow-link tolerance.
+  # Cold fetch is only ~1.8 GiB (2 small GGUFs: router + embed) vs the
+  # main instance's ~35.7 GiB, but keep the same generous timeout pattern
+  # for consistency and slow-link tolerance.
   timeout: 15m
   install:
     remediation:
@@ -79,11 +79,12 @@ spec:
                   "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf?download=true" \
                   "Qwen3-1.7B-Q5_K_M.gguf" \
                   1200000000
-                # Qwen2.5-Coder-3B BASE Q5_K_M (~2.2 GiB) — FIM autocomplete
+                # Qwen3-Embedding-0.6B Q8_0 (~640 MB) — RAG embeddings.
+                # Moved from the main llama-swap instance 2026-08-17.
                 fetch \
-                  "https://huggingface.co/bartowski/Qwen2.5-Coder-3B-GGUF/resolve/main/Qwen2.5-Coder-3B-Q5_K_M.gguf?download=true" \
-                  "Qwen2.5-Coder-3B-Q5_K_M.gguf" \
-                  2100000000
+                  "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true" \
+                  "Qwen3-Embedding-0.6B-Q8_0.gguf" \
+                  600000000
                 echo "[finished] model staging complete"
                 ls -lh /models
             env:
@@ -118,7 +119,7 @@ spec:
                 cpu: 250m
                 memory: 2Gi
               limits:
-                # Two small models (~3.5 GiB combined) plus KV cache and
+                # Two small models (~1.8 GiB combined) plus KV cache and
                 # process overhead — well under this ceiling.
                 memory: 6Gi
                 amd.com/gpu: "1"

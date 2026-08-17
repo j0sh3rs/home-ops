@@ -65,10 +65,13 @@ spec:
     reloader.stakater.com/auto: "true"
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
+      cpu: 250m
       memory: 1Gi
+    limits:
+      # DB mode (prisma client + migration burst on cold start) OOMKilled at
+      # 1Gi within ~13s of boot, before any log line. Generous headroom here
+      # deliberately — resize down later once steady-state usage is known.
+      memory: 4Gi
   service:
     type: ClusterIP
     port: 4000

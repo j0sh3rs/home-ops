@@ -2,18 +2,10 @@
 # Mirrors llama-swap's model catalog (bigboi-jms-01, dGPU) — source of truth
 # for aliases is kubernetes/apps/ai/llama-swap/app/configmap.yaml.
 # No auth required for cluster-internal llama-swap traffic — apiKey is a
-# placeholder, not a secret.
-apiVersion: litellm.home-operations.com/v1alpha1
-kind: LiteLLMModel
-metadata:
-  name: chat
-spec:
-  modelName: chat
-  params:
-    model: openai/chat
-    apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
-    apiKey: "not-needed"
----
+# placeholder, not a secret. chat/reasoning/gpt-oss/reranker mirrors removed
+# 2026-08-17: those models had zero confirmed consumers and were dropped
+# from llama-swap itself. embedding moved to llama-swap-apu.yaml (embed
+# model relocated to bee-jms-03 the same day).
 # Aliases: coder, code-large, coder-large — openclaw's primary model.
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
@@ -23,30 +15,6 @@ spec:
   modelName: coder-large
   params:
     model: openai/coder-large
-    apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
-    apiKey: "not-needed"
----
-# Aliases: think, reasoning.
-apiVersion: litellm.home-operations.com/v1alpha1
-kind: LiteLLMModel
-metadata:
-  name: reasoning
-spec:
-  modelName: reasoning
-  params:
-    model: openai/reasoning
-    apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
-    apiKey: "not-needed"
----
-# Aliases: tool-agent, gpt-oss.
-apiVersion: litellm.home-operations.com/v1alpha1
-kind: LiteLLMModel
-metadata:
-  name: gpt-oss
-spec:
-  modelName: gpt-oss
-  params:
-    model: openai/gpt-oss
     apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"
 ---
@@ -73,29 +41,5 @@ spec:
   modelName: frontier-chat
   params:
     model: openai/frontier-chat
-    apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
-    apiKey: "not-needed"
----
-# Aliases: embed, embedding. Always-on group.
-apiVersion: litellm.home-operations.com/v1alpha1
-kind: LiteLLMModel
-metadata:
-  name: embedding
-spec:
-  modelName: embedding
-  params:
-    model: openai/embedding
-    apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
-    apiKey: "not-needed"
----
-# Aliases: rerank, reranker. Always-on group.
-apiVersion: litellm.home-operations.com/v1alpha1
-kind: LiteLLMModel
-metadata:
-  name: reranker
-spec:
-  modelName: reranker
-  params:
-    model: openai/reranker
     apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"

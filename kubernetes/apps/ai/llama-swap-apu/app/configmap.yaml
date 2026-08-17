@@ -12,8 +12,10 @@ data:
     #
     # Renoir iGPU on bee-jms-03, BIOS-expanded to 16 GiB dedicated VRAM
     # (see docs/superpowers/specs/2026-08-16-apu-light-inference-tier-design.md).
-    # Both models are small enough to stay resident together — no
-    # exclusive-swap group needed here, unlike the 9070 XT's tight fit.
+    # All models here are small/latency-tolerant and stay resident together
+    # — no exclusive-swap group needed here, unlike the 9070 XT's tight fit.
+    # coder-fim (Continue.dev FIM) was removed 2026-08-17 — Continue.dev is
+    # explicitly rejected, do not reintroduce.
     healthCheckTimeout: 180
     logLevel: info
     startPort: 5800
@@ -29,36 +31,18 @@ data:
         -ngl 99
         --jinja
 
-      # FIM / base model invocation. No --jinja: base models have no chat
-      # template; applying one produces garbled infill output.
-      "apu-fim": >-
+      # Embedding-only. --embedding restricts to /embedding endpoint.
+      "apu-embed": >-
         /app/llama-server
         --host 0.0.0.0 --port ${PORT}
         -ngl 99
+        --embedding
 
     models:
-      # FIM autocomplete for Continue.dev. Qwen2.5-Coder-3B BASE (not
-      # Instruct): pretrained with FIM tokens, no chat post-training.
-      # apu-fim macro omits --jinja so infill gets raw completion.
-      "coder-fim":
-        cmd: |
-          ${apu-fim}
-          --model /models/Qwen2.5-Coder-3B-Q5_K_M.gguf
-          --ctx-size 32768
-          --temp 0.2 --top-p 0.95
-        aliases:
-          - "fim"
-          - "code-fim"
-          - "coder-small"
-        # No ttl (unlike the main instance's copy of this model): bee-jms-03
-        # has ~27 GiB VRAM+GTT free for these two small models (~3.5 GiB
-        # combined) — no eviction pressure, so stay loaded to avoid a
-        # cold-load penalty on every request after an idle period.
-        ttl: 0
-
       # Fast router + HA/voice model. Accessible via fast/small/router
       # aliases. Caller system prompt should include /no_think to
-      # suppress CoT.
+      # suppress CoT. Home Assistant Assist routing/title-gen is this
+      # model's live target use case (not yet wired in HA's config).
       "qwen3-1.7b":
         cmd: |
           ${apu-vulkan}
@@ -73,14 +57,30 @@ data:
         # has generous VRAM headroom here, no eviction pressure.
         ttl: 0
 
+      # RAG embedding. Moved from llama-swap (bigboi-jms-01) 2026-08-17 —
+      # small (~0.64 GiB) and latency-tolerant, doesn't need dGPU horsepower.
+      # openviking's real, live consumer (embedding.dense + vlm placeholder
+      # in kubernetes/apps/ai/openviking/app/helmrelease.yaml — update the
+      # api_base there if this ever moves again). --pooling last mandatory;
+      # dims 1024 with MRL truncation, instruction-aware — callers must send
+      # a query instruction prefix or retrieval quality degrades.
+      "qwen3-embed":
+        cmd: |
+          ${apu-embed}
+          --model /models/Qwen3-Embedding-0.6B-Q8_0.gguf
+          --ctx-size 32768
+          --pooling last
+        aliases:
+          - "embed"
+          - "embedding"
+          - "text-embedding-ada-002"
+        ttl: 0
+
     groups:
-      # Both models resident together — combined footprint (~3.5 GiB) is
-      # a small fraction of this node's 16 GiB dedicated VRAM, so no
-      # exclusive-swap contention like the 9070 XT's chat group.
       "always-on":
         swap: false
         exclusive: false
         persistent: true
         members:
-          - "coder-fim"
           - "qwen3-1.7b"
+          - "qwen3-embed"

@@ -11,8 +11,9 @@ data:
     # Docs: https://github.com/mostlygeek/llama-swap
     #
     # Navi 48 dGPU on bigboi-jms-01 (Radeon RX 9070 XT, 16 GiB GDDR6, ~640 GB/s).
-    # Chat models hot-swap through the 'chat' group (exclusive).
-    # Router + embed + rerank stay resident in 'always-on' (~2.6 GiB total).
+    # Chat models hot-swap through the 'chat' group (exclusive). This
+    # instance is chat-only — embed/rerank/router moved to llama-swap-apu
+    # (bee-jms-03) 2026-08-17, freeing the full 16 GiB for the swap group.
     healthCheckTimeout: 180
     logLevel: info
     startPort: 5800
@@ -29,53 +30,16 @@ data:
         --jinja
         --cache-type-k q8_0 --cache-type-v q8_0
 
-      # gpt-oss-20b (MXFP4 MoE) — flash-attn MUST be off. Vulkan FA path
-      # lacks attention-sink support for this arch; enabling it segfaults or
-      # silently CPU-falls-back (#15100, #15107). KV quant disabled for same
-      # reason (-ctk/-ctv segfaults on gpt-oss).
-      "llama-vulkan-nofa": >-
-        /app/llama-server
-        --host 0.0.0.0 --port ${PORT}
-        -ngl 99
-        --jinja
-
-      # Embedding-only. --embedding restricts to /embedding endpoint.
-      "llama-embed": >-
-        /app/llama-server
-        --host 0.0.0.0 --port ${PORT}
-        -ngl 99
-        --embedding
-
     models:
       # ==================== CHAT GROUP (exclusive swap) ====================
-
-      # Default chat / tool use / long context. Qwen3-8B Q6_K replaces
-      # Qwen3-4B-Instruct-2507. whichllm rank #11 (score 67.2); 7.9 GiB
-      # VRAM vs 2.3 GiB — large quality step for ~5.6 GiB extra cost.
-      # q8_0 KV at 32768 ctx adds ~2 GiB; total ~10 GiB. Fine on 16 GiB.
-      # qwen3-4b alias retained for backward compat with older client configs.
-      "qwen3-8b":
-        cmd: |
-          ${llama-vulkan}
-          --model /models/Qwen3-8B-Q6_K.gguf
-          --ctx-size 32768
-          --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
-          --presence-penalty 1.0
-        aliases:
-          - "default"
-          - "chat"
-          - "gpt-4o-mini"
-          - "qwen3-4b"
-        ttl: 300
 
       # Agentic coder flagship. Pure-attention qwen3_moe — no GatedDeltaNet/SSM.
       # Q3_K_S (not Q3_K_M): on-node bench (b9803, 16k ctx, q8_0 KV, FA on)
       # measured Q3_K_S at 14.19 GB vs Q3_K_M 15.6 GB — gen speed a wash
-      # (152 vs 148 tok/s). The 1.4 GB saved is what lets the coder stay
-      # resident alongside the always-on group (embed+rerank+router/voice
-      # ~2.6 GB): 14.19 + 2.6 = 16.8 < 17.1 GB total. Q3_K_M did not fit
-      # (15.6 + 2.6 = 18.2 > 17.1), forcing a coder eviction on every
-      # router/voice call. This is the #465 de-thrash fix. Keep ctx <=16384.
+      # (152 vs 148 tok/s). Originally chosen to coexist with the always-on
+      # group under #465's de-thrash fix; that group has since moved to
+      # llama-swap-apu (2026-08-17), but Q3_K_S is kept as the still-better
+      # quant. Keep ctx <=16384.
       "agentic-coder":
         cmd: |
           ${llama-vulkan}
@@ -86,35 +50,6 @@ data:
           - "coder"
           - "code-large"
           - "coder-large"
-        ttl: 120
-
-      # Deep reasoning. Qwen3-30B-A3B-Thinking-2507: AIME25 85.0, GPQA 73.4,
-      # MMLU-Pro 80.9. MoE 3B-active decode ~107–120 tok/s on gfx1030.
-      # Upgraded Q3_K_S → Q3_K_M per whichllm (general rank #18, score 60.0).
-      # Same VRAM profile as agentic-coder slot (~14.8 GiB); keep ctx ≤16384.
-      "reasoner":
-        cmd: |
-          ${llama-vulkan}
-          --model /models/Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf
-          --ctx-size 16384
-          --temp 0.7 --top-p 0.8
-        aliases:
-          - "think"
-          - "reasoning"
-          - "thinking"
-        ttl: 120
-
-      # Agentic reasoning + tool-calling. GPT-OSS-20B MXFP4 MoE (3.6B active).
-      # llama-vulkan-nofa: FA off, no KV quant (mandatory for this arch).
-      "reasoner-agentic":
-        cmd: |
-          ${llama-vulkan-nofa}
-          --model /models/gpt-oss-20b-mxfp4.gguf
-          --ctx-size 32768
-          --temp 0.7
-        aliases:
-          - "tool-agent"
-          - "gpt-oss"
         ttl: 120
 
       # Dense safety floor. Retained as hot-swap fallback if MoE Vulkan
@@ -135,23 +70,17 @@ data:
         ttl: 120
 
       # GatedDeltaNet frontier chat. Qwen3.6-27B Q3_K_M (~12.2 GiB).
-      # WARNING (2026-08-16 research, llama.cpp #26795): the GatedDeltaNet
-      # Vulkan path on gfx1201/RADV runs PREFILL fine (~3200 tok/s) but DECODE
-      # collapses to ~4 tok/s — effectively unusable for interactive
-      # generation. The earlier "RDNA4-only, works" framing was wrong: GDN is
-      # dead for decode on BOTH gfx1030 (no kernel) and gfx1201 (kernel exists,
-      # decode pathological). Do NOT route interactive/agentic traffic here.
-      # Kept only as a batch/prefill-heavy experiment slot; treat as disabled
-      # for chat until #26795 is resolved and re-benched on-node.
-      # Still listed in the "chat" group below and still fetched by the
-      # init container on purpose: re-enabling after a fix/re-bench should
-      # need zero code change, just deleting this warning. See CLAUDE.md's
-      # llama-swap bullet (`frontier`/`frontier-chat` alias) for the
-      # user-facing routing warning that mirrors this note.
-      # Dense 27B; highest static quality (whichllm rank #1, 87.3) but the
-      # decode collapse above makes that quality unreachable interactively.
-      # Upgraded Q3_K_S → Q3_K_M per whichllm. ctx-size 8192 kept: KV q8_0
-      # headroom tight at this quant; do not raise without on-node VRAM check.
+      # RE-TEST 2026-08-17: the 2026-08-16 "decode collapses to ~4 tok/s"
+      # warning (llama.cpp #26795) did NOT reproduce. Live curl test against
+      # this exact model/node: 800 completion tokens in 26.01s = ~30.8 tok/s
+      # sustained decode — well above the reported collapse. Candidate to
+      # become openclaw's primary once a live on-node VRAM check confirms a
+      # safe ctx-size raise (currently under test; see bd/conversation
+      # history around 2026-08-17). Do not re-add the "do not route
+      # interactive/agentic traffic here" warning without a fresh repro.
+      # Dense 27B; highest static quality (whichllm rank #1, 87.3).
+      # Upgraded Q3_K_S → Q3_K_M per whichllm. ctx-size below is a live
+      # experiment value, not yet a confirmed-safe production setting.
       "qwen3.6-27b":
         cmd: |
           ${llama-vulkan}
@@ -178,61 +107,14 @@ data:
       #     - "code-7b"
       #   ttl: 600
 
-      # ==================== ALWAYS-ON GROUP (no swap) ====================
-
-      # RAG embedding. Qwen3-Embedding-0.6B Q8_0: MTEB-Code 75.41 vs nomic
-      # near-baseline; 32K ctx, 1024 dims with MRL truncation, instruction-aware.
-      # --pooling last mandatory. Callers must send query instruction prefix or
-      # retrieval quality degrades below nomic (asymmetric query/doc embedding).
-      # Migration note: dims change 768->1024 requires full pgvector re-index.
-      "qwen3-embed":
-        cmd: |
-          ${llama-embed}
-          --model /models/Qwen3-Embedding-0.6B-Q8_0.gguf
-          --ctx-size 32768
-          --pooling last
-        aliases:
-          - "embed"
-          - "embedding"
-          - "text-embedding-ada-002"
-        ttl: 0
-
-      # RAG reranker. Qwen3-Reranker-0.6B Q8_0: MTEB-R 65.80 vs bge 57.03;
-      # MTEB-Code 73.42 vs bge 41.38 (+32pt gap). Q8_0 not Q4: quant noise
-      # hurts precision-critical scoring head; ~0.64 GiB is negligible.
-      # LiteLLM must route local-rerank to /v1/rerank, not chat completions.
-      "qwen3-rerank":
-        cmd: |
-          ${llama-embed}
-          --model /models/qwen3-reranker-0.6b-q8_0.gguf
-          --ctx-size 32768
-          --pooling rank
-          --reranking
-        aliases:
-          - "rerank"
-          - "reranker"
-        ttl: 0
-
     groups:
       # Chat models swap exclusively. Only one can hold 11–15 GiB at a time.
+      # qwen3-14b retires once qwen3.6-27b's ctx-size/decode-speed retest
+      # (2026-08-17) is confirmed safe — see qwen3.6-27b's comment above.
       "chat":
         swap: true
         exclusive: true
         members:
-          - "qwen3-8b"
           - "agentic-coder"
-          - "reasoner"
-          - "reasoner-agentic"
           - "qwen3-14b"
           - "qwen3.6-27b"
-
-      # Always-on: embed + rerank, ~1.3 GiB resident. Router/voice/FIM
-      # moved to llama-swap-apu (bee-jms-03) — see
-      # docs/superpowers/specs/2026-08-16-apu-light-inference-tier-design.md.
-      "always-on":
-        swap: false
-        exclusive: false
-        persistent: true
-        members:
-          - "qwen3-embed"
-          - "qwen3-rerank"

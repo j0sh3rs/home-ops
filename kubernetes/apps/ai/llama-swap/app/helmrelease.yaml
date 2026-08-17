@@ -88,50 +88,20 @@ spec:
                   mv "$out.part" "$out"
                   echo "[done]  $out: $(human $final)"
                 }
-                # ── Always-on group (fetched first; llama-swap won't start without these) ──
-
-                # Qwen3-Embedding-0.6B Q8_0 (~640 MB) — RAG embeddings, always-on
-                # --pooling last required; dims 1024 (was nomic 768 — re-index pgvector)
-                fetch \
-                  "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true" \
-                  "Qwen3-Embedding-0.6B-Q8_0.gguf" \
-                  600000000
-                # Qwen3-Reranker-0.6B Q8_0 (~640 MB) — RAG reranker, always-on
-                # filename is lowercase in ggml-org repo
-                fetch \
-                  "https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/resolve/main/qwen3-reranker-0.6b-q8_0.gguf?download=true" \
-                  "qwen3-reranker-0.6b-q8_0.gguf" \
-                  600000000
-
                 # ── Chat group (hot-swap) ──
+                # Always-on group (embed/rerank/router) moved to
+                # llama-swap-apu (bee-jms-03) 2026-08-17 — this instance is
+                # chat-only now. qwen3-8b, reasoner (Qwen3-30B-Thinking), and
+                # reasoner-agentic (gpt-oss-20b) were dropped same day: zero
+                # confirmed consumers anywhere in the repo.
 
-                # Qwen3-8B Q6_K (~6.6 GiB) — default chat (replaces Qwen3-4B)
-                # whichllm rank #11 (score 67.2); 7.9 GiB VRAM on 16 GiB GPU.
-                fetch \
-                  "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q6_K.gguf?download=true" \
-                  "Qwen3-8B-Q6_K.gguf" \
-                  6500000000
                 # Qwen3-Coder-30B-A3B-Instruct Q3_K_S (~13.3 GiB) — agentic coder
                 # Q3_K_S not Q3_K_M: bench showed gen speed a wash but Q3_K_S
-                # frees ~1.4 GiB so the coder stays resident alongside the
-                # always-on group (embed+rerank+router/voice). #465 de-thrash.
+                # is the better-fitting quant. holmesgpt's model.
                 fetch \
                   "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf?download=true" \
                   "Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf" \
                   13300000000
-                # Qwen3-30B-A3B-Thinking-2507 Q3_K_M (~13.1 GiB) — deep reasoner
-                # Upgraded Q3_K_S → Q3_K_M per whichllm. Keep ctx ≤16384.
-                # bartowski file actual size 13.11 GiB; threshold corrected.
-                fetch \
-                  "https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-Thinking-2507-GGUF/resolve/main/Qwen_Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf?download=true" \
-                  "Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf" \
-                  13000000000
-                # GPT-OSS-20B MXFP4 (~11.27 GiB) — agentic reasoning + tool-calling
-                # flash-attn MUST be off; no KV quant (-ctk/-ctv segfaults)
-                fetch \
-                  "https://huggingface.co/ggml-org/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-mxfp4.gguf?download=true" \
-                  "gpt-oss-20b-mxfp4.gguf" \
-                  11000000000
                 # Qwen3-14B Q5_K_M (~10.2 GiB) — dense safety floor
                 # Upgraded Q4_K_M → Q5_K_M per whichllm (rank #5, score 75.1).
                 # ctx 24576 retained; still well within 16 GiB at this quant.
@@ -189,7 +159,9 @@ spec:
                 cpu: 500m
                 memory: 4Gi
               limits:
-                # 16 GiB covers Qwen3.6-27B Q3_K_S (11.8 GiB) + KV cache + always-on.
+                # 16 GiB covers the largest resident chat model (~14.2 GiB
+                # agentic-coder) + KV cache. No always-on group on this
+                # instance anymore (moved to llama-swap-apu 2026-08-17).
                 memory: 16Gi
                 amd.com/gpu: "1"
             probes:

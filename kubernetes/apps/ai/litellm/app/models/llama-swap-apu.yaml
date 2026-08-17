@@ -1,7 +1,8 @@
 ---
 # Mirrors llama-swap-apu's model catalog (bee-jms-03, iGPU) — source of
-# truth is kubernetes/apps/ai/llama-swap-apu/app/configmap.yaml. Both
-# models here are always-on/non-exclusive.
+# truth is kubernetes/apps/ai/llama-swap-apu/app/configmap.yaml. Always-on,
+# non-exclusive. coder-fim/fim (Continue.dev FIM autocomplete) was removed
+# 2026-08-17 — Continue.dev is explicitly rejected, do not reintroduce.
 # Aliases: fast, small, router.
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
@@ -14,14 +15,16 @@ spec:
     apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"
 ---
-# Aliases: coder-fim, fim. FIM autocomplete.
+# Aliases: embed, embedding. Moved from llama-swap.yaml 2026-08-17 — small,
+# latency-tolerant, doesn't need dGPU horsepower. openviking is the real
+# consumer (see kubernetes/apps/ai/openviking/app/helmrelease.yaml).
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
-  name: fim
+  name: embedding
 spec:
-  modelName: fim
+  modelName: embedding
   params:
-    model: openai/fim
+    model: openai/embedding
     apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"
