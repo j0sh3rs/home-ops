@@ -106,7 +106,12 @@ spec:
     # extraEnvVarsSecrets below -- not duplicated into holmesgpt-secrets.
     modelList:
       litellm:
-        model: litellm/coder-large
+        # litellm_proxy/ (not litellm/) is the LiteLLM SDK's required prefix
+        # for calling another LiteLLM proxy server as the backend -- see
+        # https://docs.litellm.ai/docs/providers/litellm_proxy. Confirmed
+        # live 2026-08-18: "litellm/coder-large" 500s with
+        # "LLM Provider NOT provided".
+        model: litellm_proxy/coder-large
         api_base: http://litellm.ai.svc.cluster.local:4000/v1
         api_key: "{{ env.LITELLM_MASTER_KEY }}"
 
