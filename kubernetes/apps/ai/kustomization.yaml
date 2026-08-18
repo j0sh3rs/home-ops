@@ -25,6 +25,7 @@ components:
   - ../../components/repos/app-template
   - ../../components/authentik-forwardauth
 resources:
+  - ./argus/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./holmesgpt/ks.yaml
   - ./litellm/ks.yaml

@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/gitrepository-source-v1.json
+# Deliberate exception to this repo's OCIRepository+chartRef convention,
+# same reasoning as kubernetes/apps/ai/openviking/app/gitrepository.yaml:
+# argus (olivecasazza/argus) publishes no packaged Helm artifact -- chart
+# source only, under charts/argus/ in the git repo itself.
+#
+# No tags exist yet upstream (verified via `git ls-remote --tags` on
+# 2026-08-18 -- empty output). Pinned to the current `main` HEAD commit SHA
+# instead of the branch name, since a branch ref moves and a SHA doesn't.
+# Revisit once argus cuts its first tag (should match Chart.yaml's
+# version: 0.1.0) and switch to `ref.tag` at that point.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: argus
+spec:
+  interval: 12h
+  ref:
+    commit: bc6f4813a668398ca76b5415054f535fbd6dff25
+  url: https://github.com/olivecasazza/argus
