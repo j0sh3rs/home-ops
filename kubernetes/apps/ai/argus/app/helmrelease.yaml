@@ -71,6 +71,19 @@ spec:
     holmes:
       operator:
         enabled: true
+      # The chart's own default (charts/argus/values.yaml) points holmes at
+      # a nixlab-specific omniroute gateway via additionalEnvVars
+      # (OPENAI_API_BASE/OPENAI_API_KEY, the latter sourced from a
+      # cliproxyapi-secrets Secret that doesn't exist in this cluster) and
+      # selects it via modelList.auto + config.model: auto. additionalEnvVars
+      # is a list, so Helm doesn't merge it away -- it must be explicitly
+      # cleared here, or the holmes pod CrashLoops on a missing Secret.
+      # config.model must be re-pointed at our own modelList.litellm entry
+      # below (modelList itself deep-merges, so chart's own "auto" entry
+      # still exists but is simply never selected).
+      additionalEnvVars: []
+      config:
+        model: litellm
       # holmesgpt-secrets carries LITELLM_API_KEY (dedicated litellm virtual
       # key for holmesgpt), GRAFANA_API_KEY, and POSTGRES_CONNECTION_URL --
       # all referenced below via Holmes's runtime {{ env.VAR }} templating.
