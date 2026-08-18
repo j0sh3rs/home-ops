@@ -1,0 +1,125 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app argus
+spec:
+  interval: 1h
+  timeout: 10m
+  chart:
+    spec:
+      # Chart lives only as git source (charts/argus/), no OCI artifact or
+      # HelmRepository index published -- see gitrepository.yaml. version:
+      # deliberately omitted: Flux resolves from the pinned GitRepository
+      # ref, not semver matching.
+      chart: ./charts/argus
+      sourceRef:
+        kind: GitRepository
+        name: argus
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
+
+    forwarder:
+      # holmesUrl left at chart default (http://argus-holmes:80) -- with
+      # release name "argus" the holmes subchart's Service is exactly that.
+      investigateSeverities: "critical,warning"
+      dedupeTtlSec: 3600
+      discordEnabled: true
+      # DISCORD_WEBHOOK_URL comes from monitoring/kube-prometheus-stack's
+      # alertmanager-secret, Reflector-mirrored into this namespace (see
+      # kubernetes/apps/monitoring/kube-prometheus-stack/app/secret.sops.yaml
+      # reflection-allowed-namespaces/reflection-auto-namespaces = "security,ai")
+      # -- not duplicated into argus-forwarder.
+      discordSecret:
+        name: alertmanager-secret
+        key: DISCORD_WEBHOOK_URL
+      discordChannels:
+        critical: ""
+        warning: ""
+      discordBotToken:
+        name: argus-forwarder
+        key: DISCORD_BOT_TOKEN
+      discordControlChannelId: "1538553763441410059"
+      # No repoMappings -- HolmesGPT's own github mcpAddon (Task 8) handles
+      # durable git commits directly; argus's parallel repo-mapping feature
+      # is unused for this design.
+      repoMappings: {}
+
+    # Holmes subchart override -- consolidates everything validated in
+    # Tasks 2-3 of this plan onto the one Holmes instance argus manages.
+    # Deliberately does NOT override createServiceAccount/k8sRBAC/
+    # customServiceAccountName -- this repo's live-audited standalone
+    # holmesgpt deployment already proves the chart's own RBAC defaults
+    # work at v0.39.0 (kubectl get clusterrole confirmed a working,
+    # bound, read-only ClusterRole); no need to port argus's own
+    # nixlab-specific RBAC workaround.
+    #
+    # cilium/core, hubble/observability, and helm/core are deliberately NOT
+    # carried forward here -- home-ops-qv0.10 (open): enabling even one of
+    # them (helm/core alone) overflowed coder-large's 49152-token context
+    # budget and made /api/chat 500 on every request. Only the toolsets
+    # already proven working on the standalone deployment are enabled.
+    holmes:
+      operator:
+        enabled: true
+      # holmesgpt-secrets carries LITELLM_API_KEY (dedicated litellm virtual
+      # key for holmesgpt), GRAFANA_API_KEY, and POSTGRES_CONNECTION_URL --
+      # all referenced below via Holmes's runtime {{ env.VAR }} templating.
+      # Still owned by kubernetes/apps/ai/holmesgpt/app/ for now; Task 10
+      # relocates it under argus's own app dir once the standalone app is
+      # retired.
+      extraEnvVarsSecrets:
+        - holmesgpt-secrets
+      modelList:
+        litellm:
+          # litellm_proxy/ (not litellm/) is the LiteLLM SDK's required
+          # prefix for calling another LiteLLM proxy server as the backend.
+          # Confirmed live 2026-08-18 against the standalone holmesgpt
+          # deployment: "litellm/coder-large" 500s with "LLM Provider NOT
+          # provided"; litellm_proxy/coder-large returns 200 with real
+          # tool_calls[].
+          model: litellm_proxy/coder-large
+          api_base: http://litellm.ai.svc.cluster.local:4000/v1
+          api_key: "{{ env.LITELLM_API_KEY }}"
+      toolsets:
+        robusta:
+          enabled: false
+        prometheus/metrics:
+          enabled: true
+          subtype: victoriametrics
+          config:
+            prometheus_url: https://metrics.68cc.io
+        grafana/dashboards:
+          enabled: true
+          config:
+            api_key: "{{ env.GRAFANA_API_KEY }}"
+            api_url: http://grafana-service.monitoring.svc.cluster.local:3000
+        victorialogs:
+          enabled: true
+          config:
+            api_url: https://logs.68cc.io
+            headers:
+              AccountID: "0"
+              ProjectID: "0"
+          llm_instructions: "Log stream fields are: stream, kubernetes.pod_name, kubernetes.container_name, kubernetes.pod_namespace (NOT 'namespace'), app_name, hostname. Message content is in the 'log' field."
+        postgres17-stats:
+          type: database
+          enabled: true
+          llm_instructions: "Cluster-level PostgreSQL statistics only (pg_monitor). No table data access -- use pg_stat_activity, pg_locks, pg_stat_replication."
+          config:
+            connection_url: "{{ env.POSTGRES_CONNECTION_URL }}"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 2048Mi
+        limits:
+          memory: 2048Mi

@@ -1,0 +1,26 @@
+---
+# Scopes ingress to the argus-managed Holmes pod. Per the Cilium
+# default-deny-on-select rule, every legitimate source must be listed, not
+# just cross-namespace ones -- the moment ANY NetworkPolicy selects a pod,
+# Cilium flips that pod's ingress to default-deny, including same-namespace
+# traffic.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-forwarder-to-holmes
+  namespace: ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: holmes
+      app.kubernetes.io/instance: argus
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai
+      ports:
+        - protocol: TCP
+          port: 80
