@@ -44,7 +44,7 @@ data:
         cmd: |
           ${llama-vulkan}
           --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf
-          --ctx-size 65536
+          --ctx-size 49152
           --temp 0.6 --top-p 0.95
         aliases:
           - "coder"
