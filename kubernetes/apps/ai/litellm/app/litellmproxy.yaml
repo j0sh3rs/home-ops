@@ -25,6 +25,12 @@ spec:
       port: os.environ/REDIS_PORT
       password: os.environ/REDIS_PASSWORD
       db: os.environ/REDIS_DB
+      # No ttl previously = cached forever. Agentic callers (openclaw,
+      # holmesgpt) retrying an identical prompt after a transient backend
+      # hiccup would get served the same stale/failed completion
+      # indefinitely instead of a fresh attempt. 1h caps that blast radius
+      # while still absorbing legitimate repeat-prompt traffic.
+      ttl: 3600
   env:
     - name: LITELLM_LOG
       value: INFO
@@ -51,6 +57,15 @@ spec:
         secretKeyRef:
           name: litellm-secret
           key: LITELLM_MASTER_KEY
+    # Encrypts virtual key material + stored model credentials in Postgres
+    # (DB mode). Must be set before any virtual key is generated — see
+    # secret.sops.yaml comment. Zero virtual keys existed when this was
+    # added, so no rotation-invalidation risk.
+    - name: LITELLM_SALT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: LITELLM_SALT_KEY
     # DB mode: admin UI model/key/team management + usage tracking. Backed
     # by the `litellm` database on the shared postgres17 CNPG cluster —
     # see kubernetes/apps/databases/cloudnative-pg/cluster/litellm-database.yaml

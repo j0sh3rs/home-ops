@@ -4,11 +4,13 @@ _.python.venv = { path = "{{config_root}}/.venv", create = true }
 # of git (.gitignored below). Expected contents:
 #   cloudflare-mcp.env:  export CLOUDFLARE_API_TOKEN=...  # Phase 4.3 runbook
 #   github-personal.env: export GH_TOKEN=... / GITHUB_TOKEN=...  # j0sh3rs PAT
+#   litellm-mcp.env:     export LITELLM_API_BASE=... LITELLM_MASTER_KEY=...
 # github-personal.env overrides the global work GITHUB_TOKEN so `gh`, github
 # MCP tools, and Claude sessions act as the personal account in this dir only.
 _.file = [
   { path = "{{config_root}}/cloudflare-mcp.env", redact = true },
   { path = "{{config_root}}/github-personal.env", redact = true },
+  { path = "{{config_root}}/litellm-mcp.env", redact = true },
   { path = "{{config_root}}/.env.local", redact = true },
 ]
 KUBECONFIG = "{{config_root}}/kubeconfig"

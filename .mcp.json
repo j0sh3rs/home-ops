@@ -17,6 +17,10 @@
       "headers": {
         "Authorization": "Bearer ${CLOUDFLARE_API_TOKEN}"
       }
+    },
+    "litellm": {
+      "command": "/volume1/git/j0sh3rs/home-ops/.venv/bin/python3",
+      "args": ["/volume1/git/j0sh3rs/home-ops/scripts/litellm-mcp.py"]
     }
   }
 }

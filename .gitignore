@@ -10,6 +10,7 @@ cloudflare-tunnel.json.old
 /github-deploy.key.pub
 /github-push-token.txt
 /github-personal.env
+/litellm-mcp.env
 # Template config files
 /cluster.yaml
 /nodes.yaml
