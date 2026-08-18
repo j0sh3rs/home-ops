@@ -102,10 +102,14 @@ spec:
       # `kubectl exec ... -- cilium version` / `hubble version` both fail
       # with "executable file not found in $PATH". Enabling either toolset
       # here would register a tool that fails its own preflight check.
-      # helm is present (v3.21.0), so helm/core is enabled below. Tracked
-      # as a follow-up bead for the missing CLI binaries.
-      helm/core:
-        enabled: true
+      # helm is present (v3.21.0) and was briefly enabled (commit fa242f61),
+      # but reverted the same day (fix round 1) -- adding helm/core alone
+      # pushed the toolset-registry system prompt from 49152 (working) to
+      # 63735 tokens against coder-large's context window, a live 500
+      # regression on every /api/chat request, not just helm-related ones.
+      # Context-budget work (raise coder-large's ctx-size, VRAM-gated, or
+      # drop an existing toolset to make room) is tracked separately and is
+      # out of scope for toolset-enablement here.
 
     # LLM backend: LiteLLM proxy in front of both llama-swap instances
     # (reintroduced 2026-08-18, see kubernetes/apps/ai/litellm/). coder-large
