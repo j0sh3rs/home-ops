@@ -33,13 +33,26 @@ data:
     models:
       # ==================== CHAT GROUP (exclusive swap) ====================
 
-      # Agentic coder flagship. Pure-attention qwen3_moe — no GatedDeltaNet/SSM.
-      # Q3_K_S (not Q3_K_M): on-node bench (b9803, 16k ctx, q8_0 KV, FA on)
-      # measured Q3_K_S at 14.19 GB vs Q3_K_M 15.6 GB — gen speed a wash
-      # (152 vs 148 tok/s). Originally chosen to coexist with the always-on
-      # group under #465's de-thrash fix; that group has since moved to
-      # llama-swap-apu (2026-08-17), but Q3_K_S is kept as the still-better
-      # quant. Keep ctx <=16384.
+      # Agentic coder flagship. Pure-attention qwen3_moe — no GatedDeltaNet/SSM
+      # (standard full attention every layer, unlike qwen3.6-27b below —
+      # KV cost grows faster with ctx-size as a result). Q3_K_S (not
+      # Q3_K_M): on-node bench (b9803, 16k ctx, q8_0 KV, FA on) measured
+      # Q3_K_S at 14.19 GB vs Q3_K_M 15.6 GB — gen speed a wash (152 vs
+      # 148 tok/s). Originally chosen to coexist with the always-on group
+      # under #465's de-thrash fix; that group has since moved to
+      # llama-swap-apu (2026-08-17), but Q3_K_S is kept as the
+      # still-better quant.
+      #
+      # openclaw's primary as of 2026-08-17 (replacing qwen3.6-27b, which
+      # was primary for less than a day). whichllm re-run confirmed
+      # qwen3.6-27b's real-world decode (17.83 tok/s at 20K prompt depth,
+      # user-reported) against this MoE model's ~149.5 tok/s estimate —
+      # ~7x faster for an 8-point quality-score gap (79.2 vs 87.3).
+      # ctx-size 49152 chosen from real rocm-smi VRAM measurements: 32768
+      # -> 1939 MiB free (11.9%); 49152 -> 1105 MiB (6.8%, chosen — solid
+      # margin, 3x the original 16384 window that caused the 2026-08-16
+      # context-overflow incident); 65536 -> only 273 MiB (1.7%, too
+      # tight, same near-ceiling instability pattern as qwen3.6-27b).
       "agentic-coder":
         cmd: |
           ${llama-vulkan}
@@ -53,11 +66,18 @@ data:
         ttl: 120
 
       # GatedDeltaNet frontier chat. Qwen3.6-27B Q3_K_M (~12.2 GiB).
-      # openclaw's primary as of 2026-08-17, replacing qwen3-14b (retired,
-      # see git history). RE-TEST 2026-08-17: the 2026-08-16 "decode
-      # collapses to ~4 tok/s" warning (llama.cpp #26795) did NOT
-      # reproduce. Live curl test: 800 completion tokens in 26.01s =
-      # ~30.8 tok/s sustained decode.
+      # Was openclaw's primary for less than a day (2026-08-17) — reverted
+      # to agentic-coder above once real-world use showed ~17.83 tok/s at
+      # 20K prompt depth (dense 27B, all params active every token) vs
+      # agentic-coder's MoE ~149.5 tok/s estimate. Kept in the fleet as
+      # the highest-static-quality option (whichllm 87.3 vs 79.2), pick
+      # via /model when quality matters more than speed. RE-TEST
+      # 2026-08-17: the 2026-08-16 "decode collapses to ~4 tok/s" warning
+      # (llama.cpp #26795) did NOT reproduce. Live curl test: 800
+      # completion tokens in 26.01s = ~30.8 tok/s sustained decode on a
+      # near-empty context — the gap to 17.83 tok/s at 20K prompt depth
+      # shows real decode cost scales with context depth even for this
+      # hybrid architecture, not just a benchmark artifact.
       # ctx-size 65536 chosen from real on-node rocm-smi VRAM measurements
       # (unified image; plain vulkan tags lack rocm-smi): 65536 -> 1283 MiB
       # free (7.9%, solid margin); 81920 -> 720 MiB (4.4%); 98304 -> only

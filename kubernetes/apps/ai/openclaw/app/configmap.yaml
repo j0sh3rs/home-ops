@@ -50,16 +50,24 @@ data:
             // 2026-08-16 until qwen3.6-27b below was validated.
             //
             // qwen3.6-27b (GatedDeltaNet) replaced qwen3-14b as primary
-            // 2026-08-17. Its "decode collapses to ~4 tok/s" warning
-            // (llama.cpp #26795) did not reproduce on retest (~30.8 tok/s
-            // sustained). ctx-size 65536 chosen from real rocm-smi VRAM
-            // measurements on bigboi-jms-01 (1283 MiB / 7.9% free at this
-            // size -- see llama-swap/app/configmap.yaml's qwen3.6-27b
-            // comment for the full VRAM data table). 65536 is 2.7x
-            // qwen3-14b's window and should close the reserve-token gap
-            // that qwen3-14b's 24576 ctx never fully solved. qwen3-14b
-            // was retired from llama-swap's chat group the same day.
-            primary: "llamaswap/qwen3.6-27b",
+            // 2026-08-17, ctx-size 65536 confirmed via rocm-smi VRAM
+            // measurement -- but real-world use the same day showed only
+            // ~17.83 tok/s at 20K prompt depth (70s for a trivial
+            // request). Root cause: qwen3.6-27b is DENSE (all 27B params
+            // active every token); a fresh whichllm run confirmed
+            // agentic-coder (MoE, ~3B active/token) estimates ~149.5
+            // tok/s vs qwen3.6-27b's ~20.7 tok/s -- ~7x faster for an
+            // 8-point quality-score gap (79.2 vs 87.3). Switched primary
+            // back to agentic-coder same day, but NOT at its old 16384
+            // ctx (that exact window is what caused the 2026-08-16
+            // overflow incident in the first place) -- bumped to 49152
+            // via the same rocm-smi VRAM-measurement method (1105 MiB /
+            // 6.8% free, 3x the original window). See
+            // llama-swap/app/configmap.yaml's agentic-coder comment for
+            // the full VRAM data table. qwen3.6-27b stays in the fleet
+            // (65536 ctx) as the highest-quality option, available via
+            // /model when quality matters more than speed.
+            primary: "llamaswap/coder-large",
           },
           contextInjection: "always",
           bootstrapMaxChars: 50000,
@@ -77,9 +85,12 @@ data:
           // plugin was active to exercise real compaction (memini removed
           // 2026-08-16), but the moment openviking's context-engine plugin
           // went live, every brand-new session (0 messages) overflowed on
-          // system-prompt + tool-schema weight alone. Lowered to 4000 --
-          // ~24% of contextWindow, leaving real headroom for prompts on
-          // the smallest-context model in the fleet.
+          // system-prompt + tool-schema weight alone. Lowered to 4000.
+          // coder-large's contextWindow grew 16384 -> 49152 2026-08-17
+          // (see model.primary above), so this floor is now ~8% of the
+          // smallest-context model in the fleet, not ~24% -- still a
+          // real reserve, just proportionally smaller headroom pressure
+          // than when this was tuned.
           compaction: {
             mode: "default",
             reserveTokensFloor: 4000,
@@ -151,7 +162,7 @@ data:
                 id: "coder-large",
                 name: "Qwen3-Coder-30B-A3B (llama-swap)",
                 reasoning: false,
-                contextWindow: 16384,
+                contextWindow: 49152,
                 maxTokens: 4096,
               },
               {
