@@ -200,6 +200,17 @@ spec:
               PATH: /home/node/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
               OPENCLAW_GATEWAY_PORT: &port 18789
               OPENCLAW_LOG_LEVEL: info
+              # LiteLLM proxy auth for the "litellm" provider in
+              # openclaw.json (models.providers.litellm.apiKey uses
+              # $${LITELLM_MASTER_KEY} substitution). Read directly from
+              # litellm's own secret (same namespace) rather than
+              # duplicating the key into openclaw-secret — one source of
+              # truth, no copy to keep in sync. See litellm/app/secret.sops.yaml.
+              LITELLM_MASTER_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: litellm-secret
+                    key: LITELLM_MASTER_KEY
             envFrom:
               - secretRef:
                   name: openclaw-secret

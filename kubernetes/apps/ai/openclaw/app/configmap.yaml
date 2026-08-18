@@ -64,10 +64,20 @@ data:
             // via the same rocm-smi VRAM-measurement method (1105 MiB /
             // 6.8% free, 3x the original window). See
             // llama-swap/app/configmap.yaml's agentic-coder comment for
-            // the full VRAM data table. qwen3.6-27b stays in the fleet
-            // (65536 ctx) as the highest-quality option, available via
-            // /model when quality matters more than speed.
-            primary: "llamaswap/coder-large",
+            // the full VRAM data table.
+            //
+            // 2026-08-18: routing switched from direct-to-llama-swap to
+            // the litellm provider below (litellm.ai.svc.cluster.local:4000)
+            // -- reverses the 2026-08-14 "no gateway" decision, done on
+            // explicit request so all fleet models are reachable/testable
+            // through one endpoint. Same underlying llama-swap backends,
+            // just proxied. qwen3.6-27b was retired same day (replaced by
+            // the MoE qwen3.5-35b-a3b, "frontier-chat" below -- dense
+            // decode was the exact problem this fixes); a dedicated
+            // reasoner (gpt-oss-20b) and a light apu chat model were added
+            // to cover the Reasoning and Chat categories. See
+            // llama-swap/app/configmap.yaml and llama-swap-apu/app/configmap.yaml.
+            primary: "litellm/coder-large",
           },
           contextInjection: "always",
           bootstrapMaxChars: 50000,
@@ -141,37 +151,70 @@ data:
       },
       models: {
         providers: {
-          // llama-swap's OpenAI-compatible endpoint, cluster-internal — no
-          // auth required for in-namespace traffic (Authentik forwardAuth
-          // only gates the external llm.68cc.io HTTPRoute).
-          llamaswap: {
-            baseUrl: "http://llama-swap.ai.svc.cluster.local:8080/v1",
-            apiKey: "not-required",
+          // LiteLLM proxy in front of both llama-swap instances —
+          // cluster-internal, requires the master key (litellm has no
+          // per-consumer virtual keys configured, master key is the only
+          // credential). See litellm/app/litellmproxy.yaml. Switched from
+          // direct llama-swap access 2026-08-18 (see model.primary
+          // comment above).
+          litellm: {
+            baseUrl: "http://litellm.ai.svc.cluster.local:4000/v1",
+            apiKey: "$${LITELLM_MASTER_KEY}",
             api: "openai-completions",
             timeoutSeconds: 180,
             // Custom (non-bundled) providers must declare their model
-            // catalog explicitly — openclaw has no way to discover
-            // llama-swap's aliases otherwise. ctx/maxTokens mirror each
-            // model's own slot in llama-swap/app/configmap.yaml. Both
-            // stay declared (not just the current primary) so /model can
-            // still switch to coder-large for code-heavy work where its
-            // smaller context is an acceptable trade for code
-            // specialization.
+            // catalog explicitly. ctx/maxTokens mirror each model's own
+            // slot in llama-swap/app/configmap.yaml (litellm proxies
+            // through unchanged, so the real backend's ctx-size is the
+            // true ceiling). Only 2 of the 4 fleet models are actually
+            // usable through openclaw's heavy agent harness -- reasoner
+            // (gpt-oss-20b) and chat (qwen3.5-4b, APU) both failed real
+            // 2026-08-18 tests (grammar rejection and prefill timeout,
+            // respectively; see their exclusion comments below). Both
+            // remain live in litellm for non-openclaw callers.
             models: [
               {
                 id: "coder-large",
-                name: "Qwen3-Coder-30B-A3B (llama-swap)",
+                name: "Qwen3-Coder-30B-A3B (agentic/coding, dGPU)",
                 reasoning: false,
                 contextWindow: 49152,
                 maxTokens: 4096,
               },
               {
-                id: "qwen3.6-27b",
-                name: "Qwen3.6-27B (llama-swap)",
+                id: "frontier-chat",
+                name: "Qwen3.5-35B-A3B (chat, dGPU)",
                 reasoning: false,
-                contextWindow: 65536,
+                contextWindow: 49152,
                 maxTokens: 4096,
               },
+              // gpt-oss-20b ("reasoner") deliberately NOT listed here.
+              // Tested 2026-08-18 via `openclaw agent --model
+              // litellm/reasoner`: llama-swap returned 400 on
+              // /v1/chat/completions with openclaw's full tool set
+              // (confirmed in llama-swap's own logs: "non-200 response
+              // ... status=400"). Same failure class as the earlier
+              // "reasoner-agentic" attempt ("400 Failed to initialize
+              // samplers: failed to parse grammar") -- gpt-oss-20b's
+              // MXFP4 quant doesn't compile tool-call grammar against
+              // openclaw's tool schema, full stop, on two separate
+              // llama-swap slot configs now. Do not re-add without a
+              // llama.cpp/quant change that actually fixes grammar
+              // support for this architecture. gpt-oss-20b stays live in
+              // litellm for non-agentic reasoning callers (no tool
+              // schema in the request).
+              // qwen3.5-4b ("chat", bee-jms-03/APU) deliberately NOT
+              // listed here either. Tested 2026-08-18 via `openclaw agent
+              // --model litellm/chat`: timed out after 442s (7.4 min)
+              // trying to prefill openclaw's ~22-27K token system prompt
+              // (AGENTS.md, tool schemas, bootstrap files) -- the APU's
+              // DDR4-bandwidth-starved iGPU can't prefill at a usable
+              // rate for openclaw's context weight, even though the model
+              // itself decodes fine standalone (~11.5 tok/s measured
+              // directly against llama-swap-apu with a tiny prompt). This
+              // model's real role is lightweight standalone chat (HA
+              // Assist tier, small prompts) -- it stays live in litellm
+              // for those callers, just not through openclaw's heavy
+              // agent harness.
             ],
           },
         },
