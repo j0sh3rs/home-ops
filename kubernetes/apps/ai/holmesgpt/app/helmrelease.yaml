@@ -54,6 +54,7 @@ spec:
     # templating — this string is inert to Helm, Holmes reads it at boot).
     extraEnvVarsSecrets:
       - holmesgpt-secrets
+      - litellm-secret
 
     toolsets:
       robusta:
@@ -96,23 +97,18 @@ spec:
         config:
           connection_url: "{{ env.POSTGRES_CONNECTION_URL }}"
 
-    # LLM backend: llama-swap's in-cluster OpenAI-compatible endpoint
-    # (litellm+omniroute removed, no cloud providers). No auth required for
-    # cluster-internal traffic.
-    #
-    # tool-agent (gpt-oss-20b, 32k ctx) instead of coder-large (16k ctx):
-    # registering 4 more toolsets (home-ops-c14) pushed the full toolset
-    # registry HolmesGPT sends in every system prompt past coder-large's
-    # 16k window -- every investigation failed with
-    # litellm.ContextWindowExceededError, even ones not using the new
-    # toolsets. tool-agent is llama-swap's alias built for agentic
-    # reasoning + tool-calling (see kubernetes/apps/ai/llama-swap/app/configmap.yaml),
-    # double the context and purpose-fit for HolmesGPT's actual workload.
+    # LLM backend: LiteLLM proxy in front of both llama-swap instances
+    # (reintroduced 2026-08-18, see kubernetes/apps/ai/litellm/). coder-large
+    # (Qwen3-Coder-30B-A3B, MoE, 49152 ctx) is the only fleet model confirmed
+    # tool-calling-safe under a heavy toolset registry -- same model openclaw
+    # already uses successfully for its own agentic harness. Auth reuses
+    # litellm-secret (litellm/app/secret.sops.yaml) directly via
+    # extraEnvVarsSecrets below -- not duplicated into holmesgpt-secrets.
     modelList:
-      llamaswap:
-        model: openai/tool-agent
-        api_base: http://llama-swap.ai.svc.cluster.local:8080/v1
-        api_key: not-required
+      litellm:
+        model: litellm/coder-large
+        api_base: http://litellm.ai.svc.cluster.local:4000/v1
+        api_key: "{{ env.LITELLM_MASTER_KEY }}"
 
     resources:
       requests:
