@@ -54,7 +54,6 @@ spec:
     # templating — this string is inert to Helm, Holmes reads it at boot).
     extraEnvVarsSecrets:
       - holmesgpt-secrets
-      - litellm-secret
 
     toolsets:
       robusta:
@@ -115,9 +114,10 @@ spec:
     # (reintroduced 2026-08-18, see kubernetes/apps/ai/litellm/). coder-large
     # (Qwen3-Coder-30B-A3B, MoE, 49152 ctx) is the only fleet model confirmed
     # tool-calling-safe under a heavy toolset registry -- same model openclaw
-    # already uses successfully for its own agentic harness. Auth reuses
-    # litellm-secret (litellm/app/secret.sops.yaml) directly via
-    # extraEnvVarsSecrets below -- not duplicated into holmesgpt-secrets.
+    # already uses successfully for its own agentic harness. Auth uses a
+    # dedicated litellm virtual key (key_alias "holmesgpt", unrestricted --
+    # no consumer shares litellm-secret's LITELLM_MASTER_KEY anymore) stored
+    # in holmesgpt-secrets as LITELLM_API_KEY.
     modelList:
       litellm:
         # litellm_proxy/ (not litellm/) is the LiteLLM SDK's required prefix
@@ -127,7 +127,7 @@ spec:
         # "LLM Provider NOT provided".
         model: litellm_proxy/coder-large
         api_base: http://litellm.ai.svc.cluster.local:4000/v1
-        api_key: "{{ env.LITELLM_MASTER_KEY }}"
+        api_key: "{{ env.LITELLM_API_KEY }}"
 
     resources:
       requests:

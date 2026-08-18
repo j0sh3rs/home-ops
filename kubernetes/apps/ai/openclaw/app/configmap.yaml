@@ -152,14 +152,14 @@ data:
       models: {
         providers: {
           // LiteLLM proxy in front of both llama-swap instances —
-          // cluster-internal, requires the master key (litellm has no
-          // per-consumer virtual keys configured, master key is the only
-          // credential). See litellm/app/litellmproxy.yaml. Switched from
-          // direct llama-swap access 2026-08-18 (see model.primary
-          // comment above).
+          // cluster-internal, dedicated virtual key (key_alias "openclaw",
+          // unrestricted, stored in openclaw-secret as LITELLM_API_KEY —
+          // no consumer shares litellm-secret's master key anymore). See
+          // litellm/app/litellmproxy.yaml. Switched from direct llama-swap
+          // access 2026-08-18 (see model.primary comment above).
           litellm: {
             baseUrl: "http://litellm.ai.svc.cluster.local:4000/v1",
-            apiKey: "$${LITELLM_MASTER_KEY}",
+            apiKey: "$${LITELLM_API_KEY}",
             api: "openai-completions",
             timeoutSeconds: 180,
             // Custom (non-bundled) providers must declare their model
