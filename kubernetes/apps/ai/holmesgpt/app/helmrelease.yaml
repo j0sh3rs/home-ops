@@ -96,6 +96,16 @@ spec:
         llm_instructions: "Cluster-level PostgreSQL statistics only (pg_monitor). No table data access -- use pg_stat_activity, pg_locks, pg_stat_replication."
         config:
           connection_url: "{{ env.POSTGRES_CONNECTION_URL }}"
+      # cilium/core and hubble/observability were evaluated 2026-08-18 and
+      # NOT enabled: the holmes container image (robusta/holmes chart
+      # 0.39.0) does not bundle the cilium or hubble CLI binaries --
+      # `kubectl exec ... -- cilium version` / `hubble version` both fail
+      # with "executable file not found in $PATH". Enabling either toolset
+      # here would register a tool that fails its own preflight check.
+      # helm is present (v3.21.0), so helm/core is enabled below. Tracked
+      # as a follow-up bead for the missing CLI binaries.
+      helm/core:
+        enabled: true
 
     # LLM backend: LiteLLM proxy in front of both llama-swap instances
     # (reintroduced 2026-08-18, see kubernetes/apps/ai/litellm/). coder-large
