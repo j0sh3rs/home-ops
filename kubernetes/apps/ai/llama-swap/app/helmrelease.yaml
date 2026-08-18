@@ -11,7 +11,7 @@ spec:
     kind: OCIRepository
     name: app-template
   # First-boot (or new-model) reconciles block on the model-fetch init
-  # container pulling up to ~25.5 GiB of GGUFs off HuggingFace into the RWO
+  # container pulling up to ~38.5 GiB of GGUFs off HuggingFace into the RWO
   # PVC. The Helm default 5m timeout trips long before that completes,
   # failing the release and rolling back to a config that references a
   # not-yet-downloaded file. 45m covers a cold multi-model fetch; curl -C -
@@ -101,17 +101,20 @@ spec:
                   "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf?download=true" \
                   "Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf" \
                   13290000000
-                # Qwen3.6-27B Q3_K_M (~12.2 GiB) — GatedDeltaNet frontier
-                # chat, openclaw's primary as of 2026-08-17 (retired
-                # qwen3-14b). RDNA4/gfx1201 has KHR_coopmat; GDN Vulkan
-                # kernel active. Dead on gfx1030 (no coopmat) — 9070 XT
-                # specific. Upgraded Q3_K_S → Q3_K_M per whichllm (rank #1,
-                # score 87.3). ctx-size 65536 confirmed via rocm-smi VRAM
-                # measurement — see configmap.yaml's qwen3.6-27b comment.
+                # Qwen3.5-35B-A3B UD-IQ3_S (~13.6 GiB) — MoE frontier chat,
+                # replaces dense qwen3.6-27b (removed 2026-08-18, too slow
+                # decode). See configmap.yaml's qwen3.5-35b-a3b comment.
                 fetch \
-                  "https://huggingface.co/unsloth/Qwen3.6-27B-GGUF/resolve/main/Qwen3.6-27B-Q3_K_M.gguf?download=true" \
-                  "Qwen3.6-27B-Q3_K_M.gguf" \
-                  12000000000
+                  "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-UD-IQ3_S.gguf?download=true" \
+                  "Qwen3.5-35B-A3B-UD-IQ3_S.gguf" \
+                  13600000000
+                # GPT-OSS-20B Q4_K_M (~11.6 GiB) — reasoning, fills the gap
+                # left when `reasoner` was dropped 2026-08-17. See
+                # configmap.yaml's gpt-oss-20b comment.
+                fetch \
+                  "https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf?download=true" \
+                  "gpt-oss-20b-Q4_K_M.gguf" \
+                  11600000000
                 echo "[finished] model staging complete"
                 ls -lh /models
             env:

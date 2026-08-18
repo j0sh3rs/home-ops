@@ -2,12 +2,13 @@
 # Mirrors llama-swap's model catalog (bigboi-jms-01, dGPU) — source of truth
 # for aliases is kubernetes/apps/ai/llama-swap/app/configmap.yaml.
 # No auth required for cluster-internal llama-swap traffic — apiKey is a
-# placeholder, not a secret. chat/reasoning/gpt-oss/reranker mirrors removed
-# 2026-08-17: those models had zero confirmed consumers and were dropped
-# from llama-swap itself. embedding moved to llama-swap-apu.yaml (embed
-# model relocated to bee-jms-03 the same day). dense-floor (qwen3-14b)
-# retired same day too, once qwen3.6-27b's ctx-size/VRAM check confirmed
-# it as a safe openclaw primary replacement.
+# placeholder, not a secret. embedding moved to llama-swap-apu.yaml (embed
+# model relocated to bee-jms-03 2026-08-17). dense-floor (qwen3-14b)
+# retired same day, once qwen3.6-27b's ctx-size/VRAM check confirmed it as
+# a safe openclaw primary replacement — qwen3.6-27b itself was then
+# retired 2026-08-18 in favor of the MoE qwen3.5-35b-a3b below (dense
+# decode too slow). gpt-oss-20b (reasoning) mirror added same day —
+# fills the gap left when the original `reasoner` was dropped 2026-08-17.
 # Aliases: coder, code-large, coder-large — openclaw's primary model
 # (reverted from qwen3.6-27b 2026-08-17, ~7x faster MoE decode) and
 # holmesgpt's model.
@@ -22,14 +23,12 @@ spec:
     apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"
 ---
-# Aliases: frontier, frontier-chat. Was openclaw's primary for less than
-# a day (2026-08-17) — reverted to coder-large once real-world use showed
-# the dense-model decode cost (~17.83 tok/s at 20K prompt depth) vs
-# coder-large's MoE speed. Highest static quality in the fleet (whichllm
-# 87.3 vs 79.2); available via /model when quality matters more than
-# speed. The earlier "decode-broken on gfx1201/RADV" warning (llama.cpp
-# #26795, ~4 tok/s) did NOT reproduce on retest (~30.8 tok/s sustained
-# decode on a near-empty context).
+# Aliases: frontier, frontier-chat. Underlying model swapped 2026-08-18:
+# dense qwen3.6-27b (was openclaw's primary for <1 day on 2026-08-17,
+# reverted for ~17.83 tok/s decode at 20K prompt depth) -> MoE
+# qwen3.5-35b-a3b (3B active params, same speed class as coder-large,
+# beats qwen3.6-27b on most benchmarks — see llama-swap configmap.yaml).
+# Alias name unchanged, no consumer config changes needed.
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
@@ -38,5 +37,20 @@ spec:
   modelName: frontier-chat
   params:
     model: openai/frontier-chat
+    apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
+    apiKey: "not-needed"
+---
+# Aliases: reasoner, reasoning. New 2026-08-18 — fills the gap left when
+# the original `reasoner` (Qwen3-30B-Thinking) was dropped 2026-08-17 for
+# zero consumers. gpt-oss-20b: MoE, 3.6B active, dominant reasoning/math
+# benchmarks (aime 98.7, mmlu_pro 85.3). See llama-swap configmap.yaml.
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: reasoner
+spec:
+  modelName: reasoner
+  params:
+    model: openai/reasoner
     apiBase: http://llama-swap.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"

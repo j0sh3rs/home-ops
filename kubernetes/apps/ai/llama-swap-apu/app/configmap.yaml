@@ -76,6 +76,26 @@ data:
           - "text-embedding-ada-002"
         ttl: 0
 
+      # Light chat model — fills the "Chat" category on this tier. Beats
+      # Phi-4-mini at the same size across the board (mmlu_pro 79.1 vs
+      # 52.8, ifeval 89.8 vs 66.8, livecodebench 55.8) per fitmyllm.
+      # Q6_K (~3.53 GiB) — DDR4-bandwidth-bound here, not VRAM-bound.
+      # Measured ~11.45 tok/s decode via live curl test (10 tokens),
+      # confirms the bandwidth estimate. ctx-size 32768 (matches embed's
+      # window) confirmed via rocm-smi --showmeminfo vram with all three
+      # always-on models loaded together: 11.10 GiB/16 GiB used, 4.90 GiB
+      # free (30.6%) — solid margin, not near-ceiling like bigboi's picks.
+      "qwen3.5-4b":
+        cmd: |
+          ${apu-vulkan}
+          --model /models/Qwen3.5-4B-Q6_K.gguf
+          --ctx-size 32768
+          --temp 0.7 --top-p 0.8
+        aliases:
+          - "chat"
+          - "small-chat"
+        ttl: 0
+
     groups:
       "always-on":
         swap: false
@@ -84,3 +104,4 @@ data:
         members:
           - "qwen3-1.7b"
           - "qwen3-embed"
+          - "qwen3.5-4b"

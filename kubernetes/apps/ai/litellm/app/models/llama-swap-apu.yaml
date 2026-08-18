@@ -28,3 +28,16 @@ spec:
     model: openai/embedding
     apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"
+---
+# Aliases: chat, small-chat. Added 2026-08-18 — fills the "Chat" category
+# on this tier with a DDR4-bandwidth-appropriate small model.
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: chat
+spec:
+  modelName: chat
+  params:
+    model: openai/chat
+    apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
+    apiKey: "not-needed"

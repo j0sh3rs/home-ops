@@ -65,40 +65,60 @@ data:
           - "coder-large"
         ttl: 120
 
-      # GatedDeltaNet frontier chat. Qwen3.6-27B Q3_K_M (~12.2 GiB).
-      # Was openclaw's primary for less than a day (2026-08-17) — reverted
-      # to agentic-coder above once real-world use showed ~17.83 tok/s at
-      # 20K prompt depth (dense 27B, all params active every token) vs
-      # agentic-coder's MoE ~149.5 tok/s estimate. Kept in the fleet as
-      # the highest-static-quality option (whichllm 87.3 vs 79.2), pick
-      # via /model when quality matters more than speed. RE-TEST
-      # 2026-08-17: the 2026-08-16 "decode collapses to ~4 tok/s" warning
-      # (llama.cpp #26795) did NOT reproduce. Live curl test: 800
-      # completion tokens in 26.01s = ~30.8 tok/s sustained decode on a
-      # near-empty context — the gap to 17.83 tok/s at 20K prompt depth
-      # shows real decode cost scales with context depth even for this
-      # hybrid architecture, not just a benchmark artifact.
-      # ctx-size 65536 chosen from real on-node rocm-smi VRAM measurements
-      # (unified image; plain vulkan tags lack rocm-smi): 65536 -> 1283 MiB
-      # free (7.9%, solid margin); 81920 -> 720 MiB (4.4%); 98304 -> only
-      # 160 MiB (1.0%, too tight). KV cost ~35 KiB/token measured across
-      # 65536-98304 (linear). Do NOT raise without re-measuring via
-      # rocm-smi --showmeminfo vram — VRAM behavior gets unpredictable
-      # near the ceiling (a 131072 measurement showed LESS usage than
-      # 98304, an anomaly, not a safe data point to extrapolate from).
-      # Dense 27B; highest static quality (whichllm rank #1, 87.3).
-      # Upgraded Q3_K_S → Q3_K_M per whichllm.
-      "qwen3.6-27b":
+      # MoE frontier chat — replaces qwen3.6-27b (dense, removed 2026-08-18).
+      # Dense qwen3.6-27b was openclaw's primary for less than a day
+      # (2026-08-17), reverted for ~17.83 tok/s decode at 20K prompt depth
+      # (all 27B params active every token). This is the same MoE-over-dense
+      # fix applied here: Qwen3.5-35B-A3B, only 3B active params, same
+      # speed class as agentic-coder. fitmyllm comparison vs qwen3.6-27b:
+      # mmlu_pro 85.3 vs 40.3, ifeval 91.9 vs 34.2, gpqa_diamond 81.9 vs
+      # 82.9 (near tied) — beats it on real throughput AND most benchmarks.
+      # UD-IQ3_S (Unsloth Dynamic, ~13.6 GiB weights) chosen over plain
+      # Q3_K_S (15.3 GiB) to leave headroom for KV cache on this card's
+      # ~15.9 GiB usable ceiling (rocm-smi reports 17095983104 B total,
+      # not the nominal 16 GiB — same on this card for every model) —
+      # same reasoning as agentic-coder's Q3_K_S pick.
+      # ctx-size 49152 chosen from real on-node rocm-smi VRAM measurements
+      # (matches agentic-coder's window for consistency): 8192 -> 3.19 GiB
+      # free (20.0%); 32768 -> 2.92 GiB free (18.4%); 49152 -> 2.74 GiB
+      # free (17.2%, chosen — solid margin, better than qwen3.6-27b ever
+      # achieved even at its lowest ctx). Re-measure via rocm-smi before
+      # raising further.
+      "qwen3.5-35b-a3b":
         cmd: |
           ${llama-vulkan}
-          --model /models/Qwen3.6-27B-Q3_K_M.gguf
-          --ctx-size 65536
-          -np 1
+          --model /models/Qwen3.5-35B-A3B-UD-IQ3_S.gguf
+          --ctx-size 49152
           --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
           --presence-penalty 1.0
         aliases:
           - "frontier"
           - "frontier-chat"
+        ttl: 120
+
+      # Reasoning — fills the gap left when `reasoner` (Qwen3-30B-Thinking)
+      # was dropped 2026-08-17 for zero consumers. MoE, 3.6B active params,
+      # dominant on reasoning/math benchmarks: aime 98.7, mmlu_pro 85.3,
+      # livecodebench 65.2, humaneval 81.7. Q4_K_M (~11.6 GiB weights per
+      # unsloth listing, smaller than fitmyllm's 13.3 GiB estimate) — real
+      # decode ~66 tok/s measured via live curl test, confirms MoE speed.
+      # ctx-size 65536 chosen from real on-node rocm-smi VRAM measurements
+      # (15.924 GiB usable total on this card): 32768 -> 4.87 GiB free
+      # (30.6%); 49152 -> 4.65 GiB free (29.2%); 65536 -> 4.44 GiB free
+      # (27.9%, chosen — comfortable margin, well clear of the near-ceiling
+      # instability zone seen with qwen3.6-27b's picks). Smaller weights
+      # than agentic-coder/qwen3.5-35b-a3b give this model much more
+      # headroom per ctx-size step; could go higher but 65536 already
+      # matches production sizes used elsewhere in the fleet.
+      "gpt-oss-20b":
+        cmd: |
+          ${llama-vulkan}
+          --model /models/gpt-oss-20b-Q4_K_M.gguf
+          --ctx-size 65536
+          --temp 1.0 --top-p 1.0 --top-k 0
+        aliases:
+          - "reasoner"
+          - "reasoning"
         ttl: 120
 
       # Qwen2.5-Coder-7B — superseded by agentic-coder for multi-step work.
@@ -115,10 +135,11 @@ data:
       #   ttl: 600
 
     groups:
-      # Chat models swap exclusively. Only one can hold 11–15 GiB at a time.
+      # Chat models swap exclusively. Only one can hold VRAM at a time.
       "chat":
         swap: true
         exclusive: true
         members:
           - "agentic-coder"
-          - "qwen3.6-27b"
+          - "gpt-oss-20b"
+          - "qwen3.5-35b-a3b"
