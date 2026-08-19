@@ -129,7 +129,11 @@ data:
       # tokens)") and silently dropping that session's long-term memory
       # extraction. 16384 gives real margin over the observed failure, not
       # just clearing it -- re-measure via rocm-smi if extraction starts
-      # failing again at a larger session size.
+      # failing again at a larger session size. Real on-node headroom
+      # after this bump, all five always-on models loaded: 14.12 GiB/16 GiB
+      # used, 1.88 GiB free (11.7%) -- down from 2.21 GiB before the ctx
+      # increase, no OOM, but genuinely little room left on this tier.
+      # Do not add another always-on model here without re-measuring.
       "qwen2-vl-2b":
         cmd: |
           ${apu-vulkan}
