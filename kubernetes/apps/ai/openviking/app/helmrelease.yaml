@@ -116,6 +116,14 @@ spec:
       # pointed at the text-only qwen3-embed as a placeholder just to
       # clear /ready; now it's a genuine vision-capable VLM.
       embedding:
+        # allow_metadata_override: OpenViking stamps the embedding
+        # provider/model identity into stored vector collection metadata
+        # and refuses to boot on a mismatch (EmbeddingRebuildRequiredError)
+        # -- tripped here because the route changed (llama-swap-apu direct
+        # -> litellm), even though it's the same underlying qwen3-embed
+        # weights at the same 1024 dimension. Safe to override since the
+        # dimension is unchanged; only set this when you've verified that.
+        allow_metadata_override: true
         dense:
           api_base: "http://litellm.ai.svc.cluster.local:4000/v1"
           api_key: "${OPENVIKING_EMBEDDING_API_KEY}"
