@@ -56,3 +56,23 @@ spec:
     model: openai/vlm
     apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"
+---
+# Aliases: rerank, reranker. Added 2026-08-19 — openviking's real rerank
+# model (jina-reranker-v2), routed through litellm. Uses the `infinity/`
+# provider, NOT `openai/` like every other entry in this file -- llama-
+# server's rerank endpoints (/rerank, /v1/rerank, /v1/reranking) aren't
+# the OpenAI chat/completions surface the other models use. apiBase is
+# deliberately bare (NO /v1) -- litellm's infinity transform appends
+# plain `/rerank` itself; giving it a `/v1` suffix here would double up
+# to a path llama-server doesn't serve. This is the opposite convention
+# from every other model in this file -- don't "fix" it to match them.
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: rerank
+spec:
+  modelName: rerank
+  params:
+    model: infinity/rerank
+    apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080
+    apiKey: "not-needed"

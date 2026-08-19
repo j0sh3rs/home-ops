@@ -38,6 +38,20 @@ data:
         -ngl 99
         --embedding
 
+      # Rerank-only. --reranking + --pooling rank restricts to /rerank
+      # (+/v1/rerank, /v1/reranking) endpoints. Deliberately its own macro,
+      # not shared with apu-embed's --embedding flag on the same process --
+      # llama.cpp issue #21256: combining --rerank/--embedding on one
+      # instance forces pooling_type=RANK cluster-wide, breaking plain
+      # embedding calls on that same process. Each model here already gets
+      # its own llama-server process via llama-swap, so this is naturally
+      # isolated -- just don't ever merge this macro into apu-embed.
+      "apu-rerank": >-
+        /usr/local/bin/llama-server
+        --host 0.0.0.0 --port ${PORT}
+        -ngl 99
+        --reranking --pooling rank
+
     models:
       # Fast router + HA/voice model. Accessible via fast/small/router
       # aliases. Caller system prompt should include /no_think to
@@ -117,6 +131,31 @@ data:
           - "vision"
         ttl: 0
 
+      # Reranker for OpenViking's `retrieval.rerank` (result reranking on
+      # retrieval), added 2026-08-19. Only jina-reranker-v2 is confirmed to
+      # produce sane scores through llama-server's rerank pooling as of this
+      # writing -- an open, unresolved llama.cpp issue (#16407) reports
+      # bge-reranker-v2-m3 and Qwen3-Reranker (all sizes) returning garbage
+      # (e.g. 1e-28) scores via this same code path. Do not substitute
+      # either of those without re-verifying score sanity first (query a
+      # doc set with an obviously-correct top result and check ordering) --
+      # a silently-broken reranker is worse than none, since OpenViking
+      # trusts the ordering it returns. Q8_0 (~305 MiB, gpustack's GGUF,
+      # same trusted-quantizer pattern as this fleet's other models) --
+      # real on-node headroom measured via rocm-smi with the other four
+      # always-on models loaded: 13.79 GiB/16 GiB used, 2.21 GiB free
+      # (13.8%) -- tight relative to this tier's earlier picks, but ~300
+      # MiB fits with real margin left over for KV cache.
+      "jina-reranker-v2":
+        cmd: |
+          ${apu-rerank}
+          --model /models/jina-reranker-v2-base-multilingual-Q8_0.gguf
+          --ctx-size 8192
+        aliases:
+          - "rerank"
+          - "reranker"
+        ttl: 0
+
     groups:
       "always-on":
         swap: false
@@ -127,3 +166,4 @@ data:
           - "qwen3-embed"
           - "qwen3.5-4b"
           - "qwen2-vl-2b"
+          - "jina-reranker-v2"

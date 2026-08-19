@@ -10,10 +10,10 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  # Cold fetch is ~7.5 GiB (3 small GGUFs: router + embed + chat, plus the
-  # qwen2-vl-2b weights + mmproj) vs the main instance's ~38.5 GiB, but
-  # keep the same generous timeout pattern for consistency and slow-link
-  # tolerance.
+  # Cold fetch is ~7.8 GiB (3 small GGUFs: router + embed + chat, plus the
+  # qwen2-vl-2b weights + mmproj, plus jina-reranker-v2) vs the main
+  # instance's ~38.5 GiB, but keep the same generous timeout pattern for
+  # consistency and slow-link tolerance.
   timeout: 15m
   install:
     remediation:
@@ -102,6 +102,14 @@ spec:
                   "https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/mmproj-Qwen2-VL-2B-Instruct-f16.gguf?download=true" \
                   "mmproj-Qwen2-VL-2B-Instruct-f16.gguf" \
                   1320000000
+                # jina-reranker-v2-base-multilingual Q8_0 (~305 MiB) —
+                # openviking's real rerank, added 2026-08-19. See
+                # configmap.yaml's jina-reranker-v2 comment for why this
+                # specific model (not bge/Qwen3-Reranker).
+                fetch \
+                  "https://huggingface.co/gpustack/jina-reranker-v2-base-multilingual-GGUF/resolve/main/jina-reranker-v2-base-multilingual-Q8_0.gguf?download=true" \
+                  "jina-reranker-v2-base-multilingual-Q8_0.gguf" \
+                  300000000
                 echo "[finished] model staging complete"
                 ls -lh /models
             env:
@@ -136,10 +144,12 @@ spec:
                 cpu: 250m
                 memory: 2Gi
               limits:
-                # Four small models (~7.5 GiB combined) plus KV cache and
-                # process overhead — bumped from 10Gi 2026-08-19 to fit
-                # qwen2-vl-2b's addition (weights + mmproj) with headroom.
-                memory: 12Gi
+                # Five small models (~7.8 GiB combined) plus KV cache and
+                # process overhead — bumped from 12Gi 2026-08-19 to fit
+                # jina-reranker-v2's addition (small, but VRAM headroom is
+                # now genuinely tight per rocm-smi -- see configmap.yaml's
+                # jina-reranker-v2 comment for the real measurement).
+                memory: 13Gi
                 amd.com/gpu: "1"
             probes:
               liveness:

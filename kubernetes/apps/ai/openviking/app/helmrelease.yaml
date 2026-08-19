@@ -141,6 +141,43 @@ spec:
         max_retries: 2
         thinking: false
         max_concurrent: 100
+      # Rerank: routed through litellm, added 2026-08-19. `rerank` is a
+      # top-level config key (sibling of `embedding`/`vlm`, NOT nested
+      # under `retrieval`). model MUST be "litellm_proxy/rerank" -- OpenViking's
+      # litellm rerank client calls the litellm Python SDK directly
+      # (litellm.rerank(model=...)), so it needs the litellm_proxy/ prefix
+      # to know "rerank" is a model_name on ANOTHER litellm proxy rather
+      # than a raw provider name -- same chaining case as argus's
+      # litellm_proxy/coder-large (see ai/argus's HelmRelease comment).
+      # Plain "litellm/rerank" or "rerank" would misroute. api_base is the
+      # bare litellm proxy root (NO /v1) -- the SDK's Cohere-shaped
+      # transform appends /v1/rerank itself.
+      rerank:
+        provider: "litellm"
+        model: "litellm_proxy/rerank"
+        api_base: "http://litellm.ai.svc.cluster.local:4000"
+        api_key: "${OPENVIKING_RERANK_API_KEY}"
+      retrieval:
+        # hotness_alpha: 0 (chart default) disables recency entirely --
+        # pure relevance ranking. 0.2 gives a modest recency nudge (relevance
+        # still dominates; a newer memory edges out an older one of similar
+        # relevance) -- a taste call for a personal/dynamic knowledge base,
+        # not a correctness fix. Confirmed present in the pinned v0.4.5
+        # image's config schema (openviking_cli/utils/config/
+        # retrieval_config.py at the v0.4.5 tag) before setting.
+        hotness_alpha: 0.2
+      memory:
+        # session_skill_extraction_enabled: extract reusable skills from
+        # sessions in addition to long-term memories (extraction_enabled,
+        # already true by default). Added 2026-08-19 -- the skill registry
+        # was sitting empty despite being wired into this session's
+        # openviking-context hook. Confirmed present in the pinned v0.4.5
+        # image's config schema before enabling (openviking_cli/utils/
+        # config/memory_config.py at the v0.4.5 tag) -- docs.openviking.ai
+        # tracks a newer git tag than the published image and has drifted
+        # ahead before (see the `ingest` CLI subcommand, which is
+        # documented but not present in v0.4.5).
+        session_skill_extraction_enabled: true
     extraEnv:
       - name: OPENVIKING_ROOT_API_KEY
         valueFrom:
@@ -157,3 +194,8 @@ spec:
           secretKeyRef:
             name: openviking-secret
             key: OPENVIKING_VLM_API_KEY
+      - name: OPENVIKING_RERANK_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: openviking-secret
+            key: OPENVIKING_RERANK_API_KEY
