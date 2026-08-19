@@ -166,9 +166,17 @@ spec:
           limits:
             cpu: 1
             memory: 2Gi
+    # Operator's own container was OOMKilled ~2s after start (exit 137),
+    # before finishing registering its ~30 controllers/watches - the full
+    # scanner suite here (vulnerability + configAudit + exposedSecret +
+    # infraAssessment + clusterCompliance, all chart defaults) needs more
+    # headroom than the chart's 500Mi default limit at controller-startup
+    # time. Node had 60% memory free, so this was a container-limit issue,
+    # not node pressure. Bumped in line with the trivy.resources /
+    # trivy.server.resources tuning above.
     resources:
       requests:
         cpu: 100m
-        memory: 128Mi
+        memory: 256Mi
       limits:
-        memory: 500Mi
+        memory: 1Gi
