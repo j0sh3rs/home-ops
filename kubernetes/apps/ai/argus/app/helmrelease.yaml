@@ -84,6 +84,20 @@ spec:
       additionalEnvVars: []
       config:
         model: litellm
+      # modelList deep-merges (it's a map), so the chart's default "auto"
+      # entry (envRef:OPENAI_API_BASE / envRef:OPENAI_API_KEY, nixlab's
+      # omniroute gateway) otherwise survives alongside our "litellm" key
+      # below even though config.model never selects it. Holmes validates
+      # every modelList entry's env-var substitution at boot -- not just
+      # the selected one -- so the orphaned "auto" entry crashloops the pod
+      # on "ENV var replacement OPENAI_API_BASE does not exist" regardless
+      # of which model is actually selected (see the modelList override
+      # below for the fix -- `null` does NOT work here). Discovered live
+      # 2026-08-19: both argus-holmes and the standalone holmesgpt-holmes
+      # pod crashed on this, because the chart doesn't scope
+      # custom-toolsets-configmap's name to the release -- both HelmReleases
+      # in the `ai` namespace render/mount the SAME ConfigMap name, so
+      # whichever reconciled last wins and both pods share its content.
       # holmesgpt-secrets carries LITELLM_API_KEY (dedicated litellm virtual
       # key for holmesgpt), GRAFANA_API_KEY, and POSTGRES_CONNECTION_URL --
       # all referenced below via Holmes's runtime {{ env.VAR }} templating.
@@ -93,6 +107,20 @@ spec:
       extraEnvVarsSecrets:
         - holmesgpt-secrets
       modelList:
+        # modelList is a map, so Helm deep-merges rather than replaces --
+        # and setting a key to `null` here does NOT delete it from the
+        # merged map (confirmed via local `helm template`: it renders as a
+        # literal `auto: null` line, which Holmes still chokes on trying to
+        # parse a model entry). Instead, overwrite every field the chart's
+        # own default "auto" entry sets (api_base/api_key/model) with the
+        # same working litellm values below, so the merged "auto" key is
+        # harmless (points at the same backend) instead of referencing
+        # OPENAI_API_BASE/OPENAI_API_KEY, which don't exist in this cluster.
+        # See the comment above config.model for the full crash story.
+        auto:
+          model: litellm_proxy/coder-large
+          api_base: http://litellm.ai.svc.cluster.local:4000/v1
+          api_key: "{{ env.LITELLM_API_KEY }}"
         litellm:
           # litellm_proxy/ (not litellm/) is the LiteLLM SDK's required
           # prefix for calling another LiteLLM proxy server as the backend.
