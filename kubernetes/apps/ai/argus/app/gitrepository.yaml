@@ -19,5 +19,5 @@ metadata:
 spec:
   interval: 12h
   ref:
-    tag: v0.1.1
+    tag: v0.1.2
   url: https://github.com/j0sh3rs/argus
