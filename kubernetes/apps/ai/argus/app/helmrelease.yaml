@@ -95,15 +95,18 @@ spec:
       # below for the fix -- `null` does NOT work here). Discovered live
       # 2026-08-19: both argus-holmes and the standalone holmesgpt-holmes
       # pod crashed on this, because the chart doesn't scope
-      # custom-toolsets-configmap's name to the release -- both HelmReleases
-      # in the `ai` namespace render/mount the SAME ConfigMap name, so
-      # whichever reconciled last wins and both pods share its content.
+      # custom-toolsets-configmap's name to the release -- with two
+      # HelmReleases in the `ai` namespace, both rendered/mounted the SAME
+      # ConfigMap name and whichever reconciled last won for both pods.
+      # This was one of the reasons the standalone holmesgpt app was
+      # retired shortly after (Task 10) -- argus-holmes is now the only
+      # Holmes instance in this namespace, so the collision is moot.
       # holmesgpt-secrets carries LITELLM_API_KEY (dedicated litellm virtual
       # key for holmesgpt), GRAFANA_API_KEY, and POSTGRES_CONNECTION_URL --
       # all referenced below via Holmes's runtime {{ env.VAR }} templating.
-      # Still owned by kubernetes/apps/ai/holmesgpt/app/ for now; Task 10
-      # relocates it under argus's own app dir once the standalone app is
-      # retired.
+      # Relocated from the (now-deleted) standalone holmesgpt app to
+      # kubernetes/apps/ai/argus/app/secret-holmesgpt.sops.yaml -- see
+      # kustomization.yaml. Secret name is unchanged.
       extraEnvVarsSecrets:
         - holmesgpt-secrets
       modelList:
