@@ -88,3 +88,12 @@ spec:
             bearerTokenSecret:
               name: openclaw-hooks-secret
               key: token
+        # argus's forwarder does its own severity filtering
+        # (forwarder.investigateSeverities: "critical,warning") and dedupe
+        # (forwarder.dedupeTtlSec) -- safe to send every alert this receiver
+        # already handles, not just severity=critical. Investigates via
+        # argus-holmes and posts a triage summary to Discord (optionally
+        # gated behind HITL approve/reject buttons). See
+        # kubernetes/apps/ai/argus/, home-ops-qv0.6.
+        - url: "http://argus-forwarder.ai.svc.cluster.local/webhook"
+          sendResolved: false
