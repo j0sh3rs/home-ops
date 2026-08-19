@@ -140,15 +140,37 @@ spec:
           model: "embedding"
           input: "text"
         max_concurrent: 10
+      # timeout/max_retries/max_concurrent tuned 2026-08-19 after repeated
+      # openai.APITimeoutError failures during Phase 2 long_term memory
+      # extraction (bee-jms-03/qwen2-vl-2b). Root cause confirmed via the
+      # pinned v0.4.15 image's actual source (openviking_cli/utils/config's
+      # VLMConfig + session.py): the chart default `timeout` is 600s per
+      # HTTP attempt, and session.py wraps every vlm call in its OWN retry
+      # loop (hardcoded _MEMORY_EXTRACTION_MAX_RETRIES=3 -> 4 attempts) on
+      # top of the vlm-client layer's own max_retries (2 -> 3 attempts) --
+      # worst case was 4*3=12 raw attempts * 600s = up to 2 hours with no
+      # real ceiling. timeout: 90 + max_retries: 1 (2 attempts at this
+      # layer) bounds the compounded worst case to 4*2*90s = 720s (~12
+      # min), matching the operator's 10-15 min ceiling for "slow is fine,
+      # hung is not". max_concurrent dropped 100 -> 20: 100 let requests
+      # pile up against one small model process on a 5-model, VRAM-tight
+      # node (llama-swap-apu, 1.88 GiB free), stretching real per-request
+      # latency and making the retries above pile onto an already-congested
+      # backend instead of a merely slow one. Revert toward the prior
+      # values (600/2/100) if legitimate slow-but-healthy VLM calls start
+      # getting killed early -- watch for a rise in ERROR-level "Phase 2
+      # step long_term failed" logs with APITimeoutError specifically at
+      # ~90s elapsed (vs. genuine backend unavailability, which fails fast).
       vlm:
         api_base: "http://litellm.ai.svc.cluster.local:4000/v1"
         api_key: "${OPENVIKING_VLM_API_KEY}"
         provider: "openai"
         model: "vlm"
         temperature: 0.0
-        max_retries: 2
+        timeout: 90
+        max_retries: 1
         thinking: false
-        max_concurrent: 100
+        max_concurrent: 20
       # Rerank: routed through litellm, added 2026-08-19. `rerank` is a
       # top-level config key (sibling of `embedding`/`vlm`, NOT nested
       # under `retrieval`). model MUST be "litellm_proxy/rerank" -- OpenViking's
