@@ -137,6 +137,28 @@ spec:
       toolsets:
         robusta:
           enabled: false
+        # Live 2026-08-19: real Alertmanager-triggered investigations
+        # (KubePodNotReady, KubeDeploymentReplicasMismatch) were hitting
+        # "litellm.InternalServerError: Context size has been exceeded"
+        # against coder-large's 49152-token ctx-size -- NOT a slow model,
+        # Holmes retries the same doomed request until the forwarder's
+        # holmesTimeoutSec (300s default) kills it, which surfaces in
+        # Discord as a misleading "Holmes timed out after 300s". Root
+        # cause: coder-large's ctx-size is already at the max safe VRAM
+        # headroom (49152 chosen at 6.8% free; 65536 measured at 1.7%,
+        # rejected as too tight -- see kubernetes/apps/ai/llama-swap/app/
+        # configmap.yaml), so raising it isn't a safe option. Disabling
+        # these three chart-default toolsets (never explicitly requested,
+        # not needed for triage) trims the fixed per-request tool-schema
+        # overhead to leave headroom for actual investigation content.
+        # kubernetes/core, kubernetes/logs, and skills stay enabled --
+        # those are core to triage. See home-ops-qv0.10.
+        bash:
+          enabled: false
+        internet:
+          enabled: false
+        connectivity_check:
+          enabled: false
         prometheus/metrics:
           enabled: true
           subtype: victoriametrics
