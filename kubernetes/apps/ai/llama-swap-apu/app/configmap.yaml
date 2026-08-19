@@ -96,6 +96,27 @@ data:
           - "small-chat"
         ttl: 0
 
+      # Vision-language model for OpenViking's `vlm` config (content
+      # understanding / memory extraction from images) — no vision-capable
+      # model existed anywhere in the fleet before this; openviking's vlm
+      # previously pointed at the text-only qwen3-embed as a placeholder
+      # just to pass /ready. Q4_K_M weights (940 MiB) + f16 mmproj (1.27 GiB
+      # — vision encoders are kept at f16, quantizing them measurably hurts
+      # vision quality) = ~2.2 GiB total, fits the 4.90 GiB free headroom
+      # measured with the other three always-on models loaded (see
+      # qwen3.5-4b's comment above) with solid margin left for KV cache.
+      "qwen2-vl-2b":
+        cmd: |
+          ${apu-vulkan}
+          --model /models/Qwen2-VL-2B-Instruct-Q4_K_M.gguf
+          --mmproj /models/mmproj-Qwen2-VL-2B-Instruct-f16.gguf
+          --ctx-size 8192
+          --temp 0.0
+        aliases:
+          - "vlm"
+          - "vision"
+        ttl: 0
+
     groups:
       "always-on":
         swap: false
@@ -105,3 +126,4 @@ data:
           - "qwen3-1.7b"
           - "qwen3-embed"
           - "qwen3.5-4b"
+          - "qwen2-vl-2b"

@@ -41,3 +41,18 @@ spec:
     model: openai/chat
     apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
     apiKey: "not-needed"
+---
+# Aliases: vlm, vision. Added 2026-08-19 — openviking's real vision model
+# (Qwen2-VL-2B-Instruct), routed through litellm instead of hitting
+# llama-swap-apu directly. See llama-swap-apu configmap.yaml's
+# qwen2-vl-2b comment for sizing/placement rationale.
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: vlm
+spec:
+  modelName: vlm
+  params:
+    model: openai/vlm
+    apiBase: http://llama-swap-apu.ai.svc.cluster.local:8080/v1
+    apiKey: "not-needed"
