@@ -28,9 +28,17 @@ spec:
   values:
     replicaCount: 1
     image:
-      # Chart default tag is "latest" (moving); pin to match the
-      # GitRepository ref (see gitrepository.yaml for why v0.4.5, not the
-      # newer v0.4.13 git tag -- no matching image published yet).
+      # Chart default tag is "latest" (moving); pin instead. This lags the
+      # GitRepository ref (see gitrepository.yaml) -- volcengine publishes
+      # chart-source git tags more often than container images, so
+      # v0.4.5 can be (and has been) the newest published image for a
+      # while even as the chart tag climbs well past it. The two are
+      # tracked independently: gitrepository.yaml's ref.tag is handled by
+      # Renovate's native flux manager (no annotation needed, confirmed via
+      # git history: v0.4.5 -> v0.4.14 -> v0.4.15, all automatic), but this
+      # image.tag is a plain Helm value with no native Renovate manager --
+      # it needs the explicit annotation below or it silently never bumps.
+      # renovate: datasource=docker depName=ghcr.io/volcengine/openviking
       tag: v0.4.5
       pullPolicy: IfNotPresent
     podAnnotations:
