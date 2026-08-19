@@ -5,5 +5,6 @@ kind: Kustomization
 resources:
   - ./gitrepository.yaml
   - ./secret.sops.yaml
+  - ./secret-holmesgpt.sops.yaml
   - ./networkpolicy-holmes.yaml
   - ./helmrelease.yaml
