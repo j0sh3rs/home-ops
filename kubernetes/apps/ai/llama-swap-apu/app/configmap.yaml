@@ -119,12 +119,23 @@ data:
       # vision quality) = ~2.2 GiB total, fits the 4.90 GiB free headroom
       # measured with the other three always-on models loaded (see
       # qwen3.5-4b's comment above) with solid margin left for KV cache.
+      #
+      # ctx-size bumped 8192 -> 16384 2026-08-19: VikingBot inherits the
+      # root-level `vlm` block as its general Agent model (not just image
+      # understanding) -- its memory-extraction/session-compression step
+      # (openviking.session.compressor_v2) sent an 8989-token prompt within
+      # hours of bot mode going live, 400'ing 6 times in a row
+      # ("request (8989 tokens) exceeds the available context size (8192
+      # tokens)") and silently dropping that session's long-term memory
+      # extraction. 16384 gives real margin over the observed failure, not
+      # just clearing it -- re-measure via rocm-smi if extraction starts
+      # failing again at a larger session size.
       "qwen2-vl-2b":
         cmd: |
           ${apu-vulkan}
           --model /models/Qwen2-VL-2B-Instruct-Q4_K_M.gguf
           --mmproj /models/mmproj-Qwen2-VL-2B-Instruct-f16.gguf
-          --ctx-size 8192
+          --ctx-size 16384
           --temp 0.0
         aliases:
           - "vlm"
