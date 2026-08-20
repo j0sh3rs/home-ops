@@ -32,6 +32,10 @@ spec:
               # tags manually on updates.
               repository: ghcr.io/atuinsh/atuin-ai-server
               tag: latest@sha256:3d11028588ebfddb0685169e35cbc7121d3577b6eee3831e845fbe5c28e48d92
+            # CHAT_API_KEY = outbound litellm virtual key. AUTH_TOKEN =
+            # inbound bearer auth — required since this route is LAN-wide,
+            # not cluster-internal-only. Unset AUTH_TOKEN = open server
+            # (see atuinsh/atuin-ai-server's application.ex).
             envFrom:
               - secretRef:
                   name: atuin-ai-server-secrets
