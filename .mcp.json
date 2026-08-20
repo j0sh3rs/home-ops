@@ -1,26 +1,86 @@
 {
-  "mcpServers": {
-    "kubernetes": {
-      "command": "npx",
-      "args": ["-y", "kubernetes-mcp-server@latest"],
-      "env": {
-        "KUBECONFIG": "${workspaceFolder}/kubeconfig"
+   "mcpServers": {
+      "cloudflare-api": {
+         "type": "http",
+         "url": "https://mcp.cloudflare.com/mcp"
+      },
+      "context7": {
+         "args": [
+            "-y",
+            "@upstash/context7-mcp@latest"
+         ],
+         "command": "npx"
+      },
+      "flux-operator": {
+         "args": [
+            "serve",
+            "--read-only=true"
+         ],
+         "command": "/root/.local/share/mise/shims/flux-operator-mcp",
+         "env": {
+            "KUBECONFIG": "/volume1/git/j0sh3rs/home-ops/kubeconfig"
+         }
+      },
+      "github": {
+         "args": [
+            "run",
+            "-i",
+            "--rm",
+            "-e",
+            "GITHUB_PERSONAL_ACCESS_TOKEN",
+            "ghcr.io/github/github-mcp-server",
+            "stdio"
+         ],
+         "command": "docker",
+         "env": {
+            "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+         }
+      },
+      "grafana": {
+         "args": [
+            "run",
+            "--rm",
+            "-i",
+            "-e",
+            "GRAFANA_URL",
+            "-e",
+            "GRAFANA_SERVICE_ACCOUNT_TOKEN",
+            "grafana/mcp-grafana",
+            "-t",
+            "stdio"
+         ],
+         "command": "docker",
+         "env": {
+            "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${GRAFANA_SERVICE_ACCOUNT_TOKEN}",
+            "GRAFANA_URL": "https://grafana.68cc.io"
+         }
+      },
+      "kubernetes": {
+         "args": [
+            "-y",
+            "kubernetes-mcp-server@latest"
+         ],
+         "command": "npx",
+         "env": {
+            "KUBECONFIG": "/volume1/git/j0sh3rs/home-ops/kubeconfig"
+         }
+      },
+      "litellm": {
+         "args": [
+            "/volume1/git/j0sh3rs/home-ops/scripts/litellm-mcp.py"
+         ],
+         "command": "/volume1/git/j0sh3rs/home-ops/.venv/bin/python3"
+      },
+      "unifi": {
+         "args": [
+            "unifi-network-mcp"
+         ],
+         "command": "uvx",
+         "env": {
+            "UNIFI_HOST": "${UNIFI_HOST}",
+            "UNIFI_PASSWORD": "${UNIFI_PASSWORD}",
+            "UNIFI_USERNAME": "${UNIFI_USERNAME}"
+         }
       }
-    },
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
-    },
-    "cloudflare-api": {
-      "type": "http",
-      "url": "https://mcp.cloudflare.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${CLOUDFLARE_API_TOKEN}"
-      }
-    },
-    "litellm": {
-      "command": "/volume1/git/j0sh3rs/home-ops/.venv/bin/python3",
-      "args": ["/volume1/git/j0sh3rs/home-ops/scripts/litellm-mcp.py"]
-    }
-  }
+   }
 }

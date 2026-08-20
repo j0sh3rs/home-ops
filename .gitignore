@@ -54,3 +54,4 @@ kubernetes/apps/**/*.txt
 
 # Isolated git worktrees (superpowers:using-git-worktrees)
 .worktrees/
+.env

@@ -6,3 +6,4 @@ gh latest
 go latest
 sops latest
 pre-commit latest
+talosctl latest
