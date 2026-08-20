@@ -1,0 +1,88 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app atuin-ai-server
+spec:
+  interval: 1h
+  timeout: 10m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      atuin-ai-server:
+        replicas: 1
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              # No semver releases published upstream (only main/latest tags)
+              # — Renovate can't version-bump this. Digest pin only; re-check
+              # tags manually on updates.
+              repository: ghcr.io/atuinsh/atuin-ai-server
+              tag: latest@sha256:3d11028588ebfddb0685169e35cbc7121d3577b6eee3831e845fbe5c28e48d92
+            envFrom:
+              - secretRef:
+                  name: atuin-ai-server-secrets
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
+        pod:
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            runAsNonRoot: true
+            fsGroup: 65534
+            fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            primary: true
+            port: 8080
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        hostnames: ["atuin-ai.68cc.io"]
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          - backendRefs:
+              - name: *app
+                port: 8080
+    persistence:
+      config:
+        type: configMap
+        name: atuin-ai-server-config
+        globalMounts:
+          - path: /etc/atuin-ai/config.toml
+            subPath: config.toml
+            readOnly: true
+      # readOnlyRootFilesystem: BEAM/Erlang releases can write erl_crash.dump
+      # and other scratch files to /tmp at runtime — give it a writable spot
+      # rather than risk a crashloop on first write.
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

@@ -29,6 +29,7 @@ components:
   - ../../components/authentik-forwardauth
 resources:
   - ./argus/ks.yaml
+  - ./atuin-ai-server/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./litellm/ks.yaml
   - ./litellm-operator/ks.yaml

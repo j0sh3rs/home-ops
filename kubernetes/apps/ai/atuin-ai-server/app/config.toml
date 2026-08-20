@@ -1,0 +1,16 @@
+port = 8080
+
+# LiteLLM proxy, cluster-internal (kubernetes/apps/ai/litellm/). Mirrors
+# llama-swap's coder-large model — see litellm/app/models/llama-swap.yaml.
+endpoint = "http://litellm.ai.svc.cluster.local:4000/v1"
+
+default_model = "coder-large"
+
+[api_key]
+env = "CHAT_API_KEY"
+
+[[models]]
+alias = "coder-large"
+name = "Coder Large"
+description = "Qwen3-Coder-30B-A3B (MoE) via llama-swap, mirrored through litellm"
+model = "coder-large"

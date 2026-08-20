@@ -87,7 +87,10 @@ The Component creates `Middleware/authentik-forwardauth` in that namespace.
 - **Paperless-NGX** — `paperless.68cc.io`
 - **Linkwarden** — `linkwarden.68cc.io`
 - **IT-Tools** — `it-tools.68cc.io`
-- **Atuin** — `atuin.68cc.io`
+
+### Apps Deliberately Excluded from forwardAuth
+
+- **Atuin** — `sh.68cc.io`. The `services` namespace has the `authentik-forwardauth` component enabled, but Atuin's HTTPRoute has no `ExtensionRef` to it. The CLI sync client is a plain HTTP client, not a browser — a forwardAuth redirect would break sync. Atuin gates itself instead (`ATUIN_OPEN_REGISTRATION: "false"`, per-user login/key). The client also supports `extra_headers` in its own config for cases like a Cloudflare Access Service Token, if edge-layer auth is ever added on top.
 
 ### Grafana auth.proxy Header
 
