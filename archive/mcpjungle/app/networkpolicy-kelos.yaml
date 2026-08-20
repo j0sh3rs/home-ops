@@ -1,0 +1,36 @@
+---
+# Ingress allowlist for mcpjungle on port 8080.
+#
+# CRITICAL: the moment ANY NetworkPolicy selects mcpjungle, Cilium flips its
+# ingress to default-deny — INCLUDING same-namespace traffic. This policy
+# must therefore enumerate EVERY legitimate source, not just cross-ns ones.
+# Same class of bug as project_dragonfly_cross_ns_netpol.
+#
+# kelos-system removed 2026-08-14 (Kelos/n8n/opencode dropped in favor of
+# openclaw as the sole code agent) — cross-ns selector for it removed too.
+#
+# To add a client namespace: append another namespaceSelector below.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ai-to-mcpjungle
+  namespace: ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mcpjungle
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Same namespace (ai): openclaw, bootstrap Job.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai
+        # Traefik (network ns) serving the mcp.68cc.io HTTPRoute.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: network
+      ports:
+        - protocol: TCP
+          port: 8080

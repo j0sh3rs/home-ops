@@ -1,0 +1,83 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Added 2026-08-20 alongside the -ub/-b prompt-batch-size rollout across
+# the chat group. agentic-coder now runs at ~3.94% VRAM free (~647 MiB)
+# on bigboi-jms-01 — the thinnest margin in the fleet, deliberately
+# accepted after a live near-ceiling-context test (46563/49152 tokens)
+# showed VRAM usage is static at model-load time (llama.cpp pre-allocates
+# the full KV buffer for --ctx-size), not something that creeps up
+# mid-session. This rule set is the safety net for that decision.
+#
+# drm_memory_{used,total}_bytes{pool="vram"} come from drm-exporter
+# (monitoring ns, already scraped — see prometheusrule-infrastructure.yaml's
+# "gpu" group for the sibling temp/power alerts and their node-labeling
+# note). No node/device filter here: drm-exporter covers all 4 GPU nodes,
+# so this also catches the APU tier (llama-swap-apu, bee-jms-03) if its
+# always-on model set ever grows tight.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: llama-swap-rules
+  namespace: ai
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: llama-swap.rules
+      rules:
+        - alert: GPUVRAMHeadroomLow
+          annotations:
+            summary: "GPU VRAM headroom low on {{ $labels.node }}"
+            description: >-
+              GPU VRAM free is {{ $value | humanizePercentage }} on {{
+              $labels.node }}. Expected/steady-state while agentic-coder
+              is the active swapped model on bigboi-jms-01 (~3.94% free
+              by design) — informational only, does not page. Watch for
+              this widening unexpectedly on a model that should have more
+              headroom (qwen3.5-35b-a3b, gpt-oss-20b).
+            runbook: >-
+              kubernetes/apps/ai/llama-swap/app/configmap.yaml comments
+              document the measured headroom per model.
+          expr: |-
+            (drm_memory_used_bytes{pool="vram"} / drm_memory_total_bytes{pool="vram"}) > 0.90
+          for: 15m
+          labels:
+            severity: warning
+            component: gpu
+
+        - alert: GPUVRAMCritical
+          annotations:
+            summary: "GPU VRAM nearly exhausted on {{ $labels.node }}"
+            description: >-
+              GPU VRAM free is {{ $value | humanizePercentage }} on {{
+              $labels.node }} for 5m+ — one allocation away from a
+              Vulkan/RADV OOM on whichever llama-swap model is loaded.
+              Check `rocm-smi --showmeminfo vram` and consider reverting
+              the -ub/-b prompt-batch flags or trimming --ctx-size on the
+              active model (see kubernetes/apps/ai/llama-swap/app/configmap.yaml).
+          expr: |-
+            (drm_memory_used_bytes{pool="vram"} / drm_memory_total_bytes{pool="vram"}) > 0.98
+          for: 5m
+          labels:
+            severity: critical
+            component: gpu
+
+        - alert: LlamaSwapPodRestartingFrequently
+          annotations:
+            summary: "llama-swap pod restarting on {{ $labels.pod }}"
+            description: >-
+              {{ $labels.namespace }}/{{ $labels.pod }} has restarted in
+              the last 15m. A Vulkan out-of-device-memory crash exits
+              non-zero with reason "Error", not "OOMKilled" — the
+              cluster-wide OomKilled alert (kube-prometheus-stack
+              additionalPrometheusRulesMap) only fires on the latter, so
+              this is the real catch-all for GPU-allocation-failure
+              crashes on the swap-heavy chat models.
+          expr: |-
+            increase(kube_pod_container_status_restarts_total{namespace="ai", pod=~"llama-swap.*"}[15m]) >= 1
+          for: 0m
+          labels:
+            severity: warning
+            component: gpu

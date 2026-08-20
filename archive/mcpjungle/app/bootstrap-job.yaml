@@ -1,0 +1,93 @@
+---
+# Idempotent bootstrap: inits enterprise mode, then registers each
+# upstream MCP server via `mcpjungle register -c <file>`.
+# Already-present servers are skipped.
+#
+# v0.4.5 notes:
+# - Binary is /mcpjungle (not on PATH). Use absolute path everywhere.
+# - init-server has no --admin-email/--admin-password flags; server
+#   reads MCPJUNGLE_ADMIN_EMAIL/PASSWORD from env automatically.
+# - init-server does NOT write ~/.mcpjungle.conf when server is already
+#   initialized. Always run `login MCPJUNGLE_API_KEY` after init-server.
+# - `list servers` (not bare `list`) returns plain-text numbered list:
+#   "1. name\ndescription\nTransport: ...\n..."
+# - ${VAR_NAME} substitution in JSON config files is a documented
+#   MCPJungle CLI feature; tokens are injected from env, never in ConfigMap.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mcpjungle-bootstrap
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: "true"
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        - name: upstream-config
+          configMap:
+            name: mcpjungle-upstream-config
+      initContainers:
+        - name: wait-for-mcpjungle
+          image: curlimages/curl:8.21.0
+          command:
+            - sh
+            - -c
+            - |
+              until curl -sf http://mcpjungle:8080/health; do
+                echo "waiting for mcpjungle..."; sleep 5
+              done
+      containers:
+        - name: bootstrap
+          image: ghcr.io/mcpjungle/mcpjungle:latest-stdio
+          env:
+            - name: MCPJUNGLE_URL
+              value: "http://mcpjungle:8080"
+          envFrom:
+            - secretRef:
+                name: mcpjungle-secrets
+          volumeMounts:
+            - name: upstream-config
+              mountPath: /config
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+
+              # Write ~/.mcpjungle.conf directly using the admin token stored
+              # in the secret. init-server only writes this file on first run
+              # and does NOT update it on subsequent runs ("already initialized"),
+              # so we cannot rely on it. Writing the conf directly is idempotent.
+              mkdir -p /root
+              printf 'registry_url: %s\naccess_token: %s\n' \
+                "${MCPJUNGLE_URL}" "${MCPJUNGLE_ADMIN_TOKEN}" \
+                > /root/.mcpjungle.conf
+
+              # List existing servers; output is plain-text numbered list,
+              # e.g. "1. context7\n...". Skip registration if name present.
+              EXISTING=$(/mcpjungle list servers \
+                --registry "${MCPJUNGLE_URL}" 2>/dev/null \
+                || echo "")
+
+              # Single source of truth: every *.json key mounted from the
+              # ConfigMap is one upstream. Server name = filename minus
+              # the .json extension, which must match the "name" field
+              # inside the JSON (that is how `list servers` reports it).
+              # To add an upstream, add ONE key to configmap.yaml — the
+              # loop below picks it up; nothing here changes.
+              for CONFIG in /config/*.json; do
+                [ -e "${CONFIG}" ] || continue   # guard: no glob match
+                NAME=$(basename "${CONFIG}" .json)
+                if echo "${EXISTING}" | grep -q "^[0-9]*\. ${NAME}$"; then
+                  echo "skip ${NAME} (exists)"; continue
+                fi
+                echo "registering ${NAME}..."
+                /mcpjungle register \
+                  --registry "${MCPJUNGLE_URL}" \
+                  -c "${CONFIG}"
+              done
+
+              echo "bootstrap complete"
