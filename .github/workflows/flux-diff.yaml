@@ -86,10 +86,8 @@ jobs:
             --allow-missing-secrets \
             --api-versions monitoring.coreos.com/v1
 
-      - name: Comment on PR
+      - name: Render diff comment body
         if: ${{ github.event_name == 'pull_request' && always() }}
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           {
             echo '## flate render diff'
@@ -100,9 +98,42 @@ jobs:
               echo '_No rendered resource changes detected._'
             fi
           } > comment.md
-          gh pr comment "${{ github.event.pull_request.number }}" \
-            --edit-last --create-if-none \
-            --body-file comment.md
+        # actions/github-script instead of `gh pr comment`: this runner's image
+        # (post 2026-08-21 legacy-ARC migration) doesn't bundle the gh CLI, and
+        # installing it here would be one more thing to keep patched. JS action
+        # needs nothing beyond what's already on every runner. Replicates gh's
+        # `--edit-last --create-if-none`: find our own prior comment by its
+        # marker heading and update it in place, else create a new one.
+      - name: Comment on PR
+        if: ${{ github.event_name == 'pull_request' && always() }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('comment.md', 'utf8');
+            const marker = '## flate render diff';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const prior = comments.reverse().find(c =>
+              c.user.type === 'Bot' && c.body.startsWith(marker));
+            if (prior) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: prior.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              });
+            }
 
       - name: Clean up baseline worktree
         if: always()
