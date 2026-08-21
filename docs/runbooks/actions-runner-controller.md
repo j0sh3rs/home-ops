@@ -35,9 +35,13 @@ actions-runner-controller (Deployment, actions-runner-system)
                     (TotalNumberOfQueuedAndInProgressWorkflowRuns metric)
 ```
 
-- **Chart**: `oci://ghcr.io/actions/actions-runner-controller-charts/actions-runner-controller`
-  `0.23.7` (GitHub's official "legacy mode" chart — still maintained, just
-  superseded by scale sets for org/enterprise use).
+- **Chart**: `actions-runner-controller` `0.23.7` via classic `HelmRepository`
+  (`https://actions-runner-controller.github.io/actions-runner-controller`) —
+  GitHub's official "legacy mode" chart, still maintained, just superseded by
+  scale sets for org/enterprise use. **Not published as an OCI artifact**
+  (only `gha-runner-scale-set` is), hence `HelmRepository` + `sourceRef`
+  instead of this repo's usual `OCIRepository` + `chartRef` — confirmed by a
+  `DENIED` token response when Flux tried the OCI path first.
 - **Runner image**: `ghcr.io/home-operations/actions-runner` (community image
   bundling kubectl / flux / sops / task etc.), Renovate-tracked.
 - **Execution**: `containerMode: kubernetes` — each job step runs in a pod;

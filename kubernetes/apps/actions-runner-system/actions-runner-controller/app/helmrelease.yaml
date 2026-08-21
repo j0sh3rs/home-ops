@@ -6,9 +6,15 @@ metadata:
   name: &name actions-runner-controller
 spec:
   interval: 1h
-  chartRef:
-    kind: OCIRepository
-    name: actions-runner-controller
+  chart:
+    spec:
+      chart: actions-runner-controller
+      # renovate: datasource=github-releases packageName=actions/actions-runner-controller extractVersion=^actions-runner-controller-(?<version>.*)$
+      version: 0.23.7
+      sourceRef:
+        kind: HelmRepository
+        name: actions-runner-controller
+        namespace: flux-system
   install:
     remediation:
       retries: 3
