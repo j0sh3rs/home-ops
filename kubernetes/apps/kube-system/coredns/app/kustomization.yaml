@@ -11,3 +11,4 @@ configMapGenerator:
       - values.yaml=./helm/values.yaml
 configurations:
   - ./helm/kustomizeconfig.yaml
+# verify flux-diff fix 1787337976
