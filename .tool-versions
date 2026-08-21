@@ -1,9 +1,9 @@
-kubectl 1.36.3
-python 3.14.7
-kubectx latest
-kubens latest
-gh latest
-go latest
-sops latest
+kubectl    1.36.4
+python     3.14.7
+kubectx    latest
+kubens     latest
+gh         latest
+golang     latest
+sops       latest
 pre-commit latest
-talosctl latest
+talosctl   latest
