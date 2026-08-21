@@ -37,19 +37,20 @@ spec:
       # image built FROM summerwind/actions-runner (has the entrypoint), not
       # from ghcr.io/actions/actions-runner directly.
       serviceAccountName: *name
-      # Kubernetes container mode (matches the previous scale-set setup) —
-      # each job step runs in its own pod instead of dind-in-runner-container.
-      containerMode: kubernetes
-      workVolumeClaimTemplate:
-        storageClassName: openebs-hostpath-fast
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 10Gi
+      # NOT containerMode: kubernetes — that mode requires every job step to
+      # declare a `container:`, relaxable via ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+      # only on newer runner binaries. The chart's default runner image
+      # bundles an older one that doesn't honor it, so k8s mode hard-fails
+      # every job at "Set up job" with "Jobs without a job container are
+      # forbidden on this runner" (confirmed 2026-08-21 via job logs — this
+      # is what was actually behind the rapid runner-pod churn, not the
+      # autoscaler). None of the 3 workflows targeting this runner
+      # (release, label-sync, flux-diff) use Docker or per-step containers —
+      # checkout, JS actions, and shell + the `flate` binary — so steps just
+      # run directly in the runner container. dockerEnabled: false since
+      # nothing here needs a dind sidecar either.
+      dockerEnabled: false
       env:
-        - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
-          value: "false"
         - name: NODE
           valueFrom:
             fieldRef:
