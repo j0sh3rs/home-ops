@@ -14,8 +14,19 @@ spec:
   template:
     spec:
       repository: j0sh3rs/home-ops
-      # renovate: datasource=docker depName=ghcr.io/home-operations/actions-runner
-      image: ghcr.io/home-operations/actions-runner:2.336.0
+      # No image override — ghcr.io/home-operations/actions-runner (used by
+      # the previous gha-runner-scale-set setup) is built FROM the plain
+      # official ghcr.io/actions/actions-runner base with no entrypoint
+      # wrapper. Legacy-mode ARC needs an image whose entrypoint runs
+      # config.sh with the RUNNER_TOKEN/RUNNER_NAME/etc. env vars ARC injects
+      # — that wrapper only exists in the chart's default runner image
+      # (image.actionsRunnerRepositoryAndTag). Without it the container
+      # starts unconfigured, run.sh no-ops, and it exits 0 within ~1s with
+      # zero log output (confirmed 2026-08-21: exitCode 0, empty logs,
+      # "Completed" the same second it started). If bundled kubectl/flux/
+      # sops/task are ever needed again, they'd have to come from a custom
+      # image built FROM summerwind/actions-runner (has the entrypoint), not
+      # from ghcr.io/actions/actions-runner directly.
       serviceAccountName: *name
       # Kubernetes container mode (matches the previous scale-set setup) —
       # each job step runs in its own pod instead of dind-in-runner-container.
