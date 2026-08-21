@@ -1,0 +1,53 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/actions/actions-runner-controller/master/config/crd/bases/actions.summerwind.dev_runnerdeployments.yaml
+# Legacy-mode ARC runner pool for j0sh3rs/home-ops. j0sh3rs is a GitHub USER
+# account, not an Org — repo-level runner GROUPS (and therefore the
+# gha-runner-scale-set chart) aren't available on personal accounts, which is
+# why this uses the classic RunnerDeployment/HorizontalRunnerAutoscaler CRDs
+# (actions.summerwind.dev) instead. Scaling is via the HorizontalRunnerAutoscaler
+# below — do not set `replicas:` here, it's mutually exclusive with autoscaling.
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: &name home-ops-runner
+spec:
+  template:
+    spec:
+      repository: j0sh3rs/home-ops
+      # renovate: datasource=docker depName=ghcr.io/home-operations/actions-runner
+      image: ghcr.io/home-operations/actions-runner:2.336.0
+      serviceAccountName: *name
+      # Kubernetes container mode (matches the previous scale-set setup) —
+      # each job step runs in its own pod instead of dind-in-runner-container.
+      containerMode: kubernetes
+      workVolumeClaimTemplate:
+        storageClassName: openebs-hostpath-fast
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+      env:
+        - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+          value: "false"
+        - name: NODE
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 2Gi
+      securityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+      volumes:
+        - name: talos
+          secret:
+            secretName: *name
+      volumeMounts:
+        - name: talos
+          mountPath: /var/run/secrets/talos.dev
+          readOnly: true

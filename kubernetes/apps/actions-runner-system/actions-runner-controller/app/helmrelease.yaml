@@ -8,7 +8,7 @@ spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
-    name: gha-runner-scale-set-controller
+    name: actions-runner-controller
   install:
     remediation:
       retries: 3
@@ -18,3 +18,15 @@ spec:
       retries: 3
   values:
     fullnameOverride: *name
+    # certManagerEnabled: true (chart default) — webhook serving cert is
+    # issued via the cert-manager already deployed cluster-wide.
+    authSecret:
+      enabled: true
+      create: false
+      name: home-ops-runner-secret
+    rbac:
+      # Required for runner pods using containerMode: kubernetes (see
+      # runners/home-ops/runnerdeployment.yaml) — without this, ARC is
+      # blocked from creating the per-runner Role/ServiceAccount it needs
+      # to grant itself (privilege-escalation guard).
+      allowGrantingKubernetesContainerModePermissions: true

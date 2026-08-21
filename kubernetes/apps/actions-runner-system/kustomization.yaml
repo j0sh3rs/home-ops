@@ -1,11 +1,18 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
-# GitHub Actions Runner Controller (ARC) + per-repo runner scale sets.
+# GitHub Actions Runner Controller (ARC) — legacy mode (RunnerDeployment +
+# HorizontalRunnerAutoscaler, actions.summerwind.dev CRDs).
 #
-# j0sh3rs is a GitHub USER account (not an Org), so scale sets register
-# per-repo only — there is no native org-wide default. Start with home-ops;
-# add repos by copying actions-runner-controller/runners/home-ops/ and
-# installing the GitHub App on the new repo.
+# j0sh3rs is a GitHub USER account (not an Org). The newer gha-runner-scale-set
+# chart registers scale sets through GitHub's runner-GROUPS API, which is an
+# org/enterprise-only feature — on a personal account that registration call
+# never resolves (silent hang, no runners ever register). Legacy-mode ARC
+# uses per-repo registration tokens instead, which personal accounts do
+# support. See docs/runbooks/actions-runner-controller.md.
+#
+# Start with home-ops; add repos by copying
+# actions-runner-controller/runners/home-ops/ and installing the GitHub App
+# on the new repo.
 #
 # Components:
 #   - common — namespace + cluster-secrets + sops-age

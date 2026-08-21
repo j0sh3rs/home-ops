@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/actions/actions-runner-controller/master/config/crd/bases/actions.summerwind.dev_horizontalrunnerautoscalers.yaml
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: HorizontalRunnerAutoscaler
+metadata:
+  name: home-ops-runner
+spec:
+  scaleTargetRef:
+    kind: RunnerDeployment
+    name: home-ops-runner
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: TotalNumberOfQueuedAndInProgressWorkflowRuns
+      repositoryNames:
+        - j0sh3rs/home-ops
