@@ -39,7 +39,7 @@ spec:
       # image.tag is a plain Helm value with no native Renovate manager --
       # it needs the explicit annotation below or it silently never bumps.
       # renovate: datasource=docker depName=ghcr.io/volcengine/openviking
-      tag: v0.4.15
+      tag: v0.4.16
       pullPolicy: IfNotPresent
     podAnnotations:
       # The chart's own deployment template already hashes the ConfigMap
