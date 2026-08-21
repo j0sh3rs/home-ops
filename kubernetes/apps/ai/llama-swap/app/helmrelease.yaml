@@ -139,7 +139,7 @@ spec:
               # power profiles incl. profile_peak. pp=510 vs Vulkan pp=9217. Not fixable
               # without AMD SMU14 firmware patch. Revisit only when patch ships.
               # renovate: datasource=docker depName=ghcr.io/mostlygeek/llama-swap
-              tag: unified-vulkan-2026-08-19
+              tag: unified-vulkan-2026-08-21
             args:
               - --config
               - /app/config.yaml
