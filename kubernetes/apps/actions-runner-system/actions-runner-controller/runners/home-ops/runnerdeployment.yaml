@@ -14,6 +14,15 @@ spec:
   template:
     spec:
       repository: j0sh3rs/home-ops
+      # Legacy-mode ARC does NOT auto-label runners with the RunnerDeployment
+      # name (unlike gha-runner-scale-set, where the scale-set name IS the
+      # match target). Without this, registered runners only carry GitHub's
+      # defaults (self-hosted, Linux, X64) and `runs-on: home-ops-runner` in
+      # workflows queues forever waiting for a label that's never present —
+      # confirmed 2026-08-21 after the controller/image fixes got a runner
+      # online and idle, yet a real job still sat queued indefinitely.
+      labels:
+        - home-ops-runner
       # No image override — ghcr.io/home-operations/actions-runner (used by
       # the previous gha-runner-scale-set setup) is built FROM the plain
       # official ghcr.io/actions/actions-runner base with no entrypoint
