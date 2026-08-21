@@ -50,6 +50,27 @@ spec:
       # run directly in the runner container. dockerEnabled: false since
       # nothing here needs a dind sidecar either.
       dockerEnabled: false
+      # This cluster's pod network has no IPv6 route (confirmed 2026-08-21:
+      # `curl -6` gets an instant "network unreachable", `curl -4` succeeds
+      # in ~60ms) — Cilium/node-level, out of scope to fix here. Flux's own
+      # source-controller tolerates this fine (its HTTP client falls back to
+      # IPv4 cleanly), but flate's Go HTTP client does not: it picks
+      # whichever address the resolver returns first and, when that's an
+      # AAAA record, fails hard with no IPv4 retry. `flate test` renders
+      # kube-system/amd-gpu, whose HelmRepository is rocm.github.io — a
+      # GitHub Pages domain that publishes both A and AAAA records — so
+      # every `flate test` run failed deterministically on this one host
+      # (two separate CI runs, two different IPv6 addresses, same error).
+      # Pinning it to a GitHub Pages IPv4 address here forces resolution via
+      # /etc/hosts (checked before DNS), sidestepping the AAAA record
+      # entirely. IPs are GitHub's documented, stable Pages CDN addresses
+      # (185.199.108-111.153) — safe to pin, but if this ever needs another
+      # external chart host with the same problem, add it here rather than
+      # re-diagnosing from scratch.
+      hostAliases:
+        - ip: "185.199.108.153"
+          hostnames:
+            - rocm.github.io
       env:
         - name: NODE
           valueFrom:
