@@ -250,7 +250,7 @@ spec:
           codeserver:
             image:
               repository: ghcr.io/coder/code-server
-              tag: 4.133.0
+              tag: 4.134.0
             env:
               HOME: *homepath
               TZ: America/New_York
