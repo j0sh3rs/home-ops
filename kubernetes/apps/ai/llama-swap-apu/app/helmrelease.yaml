@@ -38,9 +38,9 @@ spec:
             # on top at init time — same pattern as the main llama-swap
             # instance's init container.
             image:
-              repository: curlimages/curl
-              # renovate: datasource=docker depName=curlimages/curl
-              tag: 8.21.0
+              repository: ghcr.io/j0sh3rs/llama-init
+              # renovate: datasource=docker depName=ghcr.io/j0sh3rs/llama-init
+              tag: "3.22"
             command: ["/bin/sh", "-c"]
             args:
               - |

@@ -47,14 +47,13 @@ spec:
             # works to layer aria2 on top at init time — avoids maintaining
             # a second pinned base image just for this one binary.
             image:
-              repository: curlimages/curl
-              # renovate: datasource=docker depName=curlimages/curl
-              tag: 8.21.0
+              repository: ghcr.io/j0sh3rs/llama-init
+              # renovate: datasource=docker depName=ghcr.io/j0sh3rs/llama-init
+              tag: "3.22"
             command: ["/bin/sh", "-c"]
             args:
               - |
                 set -eu
-                apk add --no-cache aria2
                 cd /models
                 human() {
                   # Pretty-print bytes in SI (MiB/GiB) without bc.
