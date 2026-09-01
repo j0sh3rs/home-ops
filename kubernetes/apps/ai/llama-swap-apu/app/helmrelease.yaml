@@ -45,7 +45,6 @@ spec:
             args:
               - |
                 set -eu
-                apk add --no-cache aria2
                 cd /models
                 human() {
                   awk -v b="$1" 'BEGIN{
