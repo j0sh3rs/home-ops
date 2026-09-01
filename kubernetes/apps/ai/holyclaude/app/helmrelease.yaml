@@ -38,13 +38,12 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
-          workspace-perms:
-            # Kubernetes auto-creates the /workspace subPath directory as
+          home-perms:
+            # Kubernetes auto-creates a subPath mount's target directory as
             # root:root on first mount (kubelet subPath behavior, unrelated
-            # to fsGroup) even though the pod itself runs as root and the
-            # rest of the PVC ends up owned by claude:claude (1000:1000) via
-            # the app container's own PUID/PGID remap. Fix it explicitly so
-            # /workspace matches every other directory on the PVC.
+            # to fsGroup) regardless of the pod's own PUID/PGID remap. Fix
+            # every persisted mount point explicitly so each one matches the
+            # claude:claude (1000:1000) ownership of the rest of the PVC.
             image:
               repository: docker.io/coderluii/holyclaude
               # renovate: datasource=docker depName=docker.io/coderluii/holyclaude
@@ -53,6 +52,10 @@ spec:
               - chown
               - -R
               - "1000:1000"
+              - /home/claude/.claude
+              - /home/claude/.cloudcli
+              - /home/claude/.config/opencode
+              - /home/claude/.taskmaster
               - /workspace
           gh-auth:
             image:
@@ -61,6 +64,14 @@ spec:
               tag: 1.5.7
             env:
               HOME: /home/claude
+              # gh-auth runs before the app container's entrypoint sets up
+              # the $HOME/.config/gh -> ~/.claude/.config/gh symlink
+              # (prepare-cli-persistence.sh), and /home/claude/.config/gh
+              # itself is no longer a persisted mount (see persistence.home
+              # below) -- point gh directly at the durable location so this
+              # login survives a restart instead of writing to this
+              # init container's own throwaway filesystem.
+              GH_CONFIG_DIR: /home/claude/.claude/.config/gh
             envFrom:
               - secretRef:
                   name: holyclaude-secret
@@ -120,13 +131,32 @@ spec:
                 memory: 6Gi
     persistence:
       home:
+        # Deliberately NOT a single mount of the whole /home/claude --
+        # doing that shadows everything the image bakes into that
+        # directory at build time (most critically /home/claude/.local/bin,
+        # which is where the real `claude`/cursor-agent/junie binaries
+        # live), since nothing in HolyClaude's entrypoint/bootstrap
+        # restores missing image content onto an empty PVC. Mount only the
+        # specific subtrees that actually need to survive a restart,
+        # mirroring upstream's own docker-compose.yaml (~/.claude,
+        # /workspace) plus the two additions this deployment needs
+        # (~/.cloudcli, ~/.config/opencode, ~/.taskmaster). subPath names
+        # match the directory names already sitting at this PVC's root
+        # from the prior whole-home mount, so no data migration is needed.
         type: persistentVolumeClaim
         storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
         size: 50Gi
         retain: true
         globalMounts:
-          - path: /home/claude
+          - path: /home/claude/.claude
+            subPath: .claude
+          - path: /home/claude/.cloudcli
+            subPath: .cloudcli
+          - path: /home/claude/.config/opencode
+            subPath: .config/opencode
+          - path: /home/claude/.taskmaster
+            subPath: .taskmaster
           - path: /workspace
             subPath: workspace
       shm:
