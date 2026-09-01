@@ -101,3 +101,28 @@ spec:
         type: emptyDir
         medium: Memory
         sizeLimit: 2Gi
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            primary: true
+            port: 3001
+    route:
+      app:
+        hostnames: ["holyclaude.68cc.io"]
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+        parentRefs:
+          - name: traefik-external-gateway
+            namespace: network
+        rules:
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
+              - name: *app
+                port: 3001
