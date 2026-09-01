@@ -42,7 +42,7 @@ spec:
             image:
               repository: docker.io/coderluii/holyclaude
               # renovate: datasource=docker depName=docker.io/coderluii/holyclaude
-              tag: 1.5.7
+              tag: 1.5.7-slim
             env:
               HOME: /home/claude
             envFrom:
@@ -62,7 +62,7 @@ spec:
             image:
               repository: docker.io/coderluii/holyclaude
               # renovate: datasource=docker depName=docker.io/coderluii/holyclaude
-              tag: 1.5.7
+              tag: 1.5.7-slim
             # NOTE: no command/args override -- the image's own ENTRYPOINT
             # handles PUID/GID remap, credential restore, and first-boot
             # bootstrap, then execs s6-overlay as PID 1. See Global
@@ -74,7 +74,7 @@ spec:
               NODE_OPTIONS: "--max-old-space-size=4096"
               GIT_USER_NAME: BarryBot
               GIT_USER_EMAIL: github+barrybot@beholdthehurricane.com
-              HOLYCLAUDE_DESLOPPIFY_SETUP: "claude,opencode"
+              HOLYCLAUDE_DESLOPPIFY_SETUP: "claude"
             envFrom:
               - secretRef:
                   name: holyclaude-secret
