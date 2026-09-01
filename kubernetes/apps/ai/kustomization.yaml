@@ -31,6 +31,7 @@ resources:
   - ./argus/ks.yaml
   - ./atuin-ai-server/ks.yaml
   - ./faster-whisper/ks.yaml
+  - ./holyclaude/ks.yaml
   - ./litellm/ks.yaml
   - ./litellm-operator/ks.yaml
   - ./llama-swap/ks.yaml
