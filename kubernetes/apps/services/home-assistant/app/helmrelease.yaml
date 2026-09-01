@@ -30,8 +30,9 @@ spec:
           # the home-assistant-db-secret. Idempotent; safe to re-run.
           init-db:
             image:
-              repository: ghcr.io/onedr0p/postgres-init
-              tag: "16"
+              repository: ghcr.io/home-operations/postgres-init
+              # Tracks the PG major version of the shared CNPG cluster.
+              tag: "18"
             envFrom:
               - secretRef:
                   name: home-assistant-db-secret
