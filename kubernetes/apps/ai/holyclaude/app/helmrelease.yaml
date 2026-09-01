@@ -17,6 +17,22 @@ spec:
     remediation:
       retries: 3
   values:
+    defaultPodOptions:
+      # 50Gi openebs-hostpath PVC (node-local, RWO) -- pin to bigboi-jms-01
+      # so the first (and only) scheduling decision lands off the
+      # etcd-quorum-sensitive bee-* control-plane nodes, colocated with the
+      # other heavy AI/browser-capable workloads already there. Rebinding
+      # this PVC to a different node later means deleting and recreating
+      # it, which destroys the Claude Code OAuth session and /workspace --
+      # get this right before first deploy, not after.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: ["bigboi-jms-01"]
     controllers:
       holyclaude:
         annotations:
