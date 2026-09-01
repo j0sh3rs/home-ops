@@ -25,7 +25,7 @@ spec:
           gh-auth:
             image:
               repository: docker.io/coderluii/holyclaude
-              # renovate: datasource=docker depName=coderluii/holyclaude
+              # renovate: datasource=docker depName=docker.io/coderluii/holyclaude
               tag: 1.5.7
             env:
               HOME: /home/claude
@@ -45,7 +45,7 @@ spec:
           app:
             image:
               repository: docker.io/coderluii/holyclaude
-              # renovate: datasource=docker depName=coderluii/holyclaude
+              # renovate: datasource=docker depName=docker.io/coderluii/holyclaude
               tag: 1.5.7
             # NOTE: no command/args override -- the image's own ENTRYPOINT
             # handles PUID/GID remap, credential restore, and first-boot
@@ -101,6 +101,8 @@ spec:
         type: emptyDir
         medium: Memory
         sizeLimit: 2Gi
+        globalMounts:
+          - path: /dev/shm
     service:
       app:
         controller: *app
