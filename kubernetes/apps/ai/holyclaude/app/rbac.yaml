@@ -1,0 +1,21 @@
+---
+# holyclaude is granted full cluster access, matching openclaw's rbac.yaml
+# pattern. Its ServiceAccount (created by the HelmRelease) is bound to the
+# built-in cluster-admin ClusterRole so the pod's auto-mounted SA token
+# (see helmrelease.yaml defaultPodOptions.automountServiceAccountToken) works
+# for both the rendered in-cluster kubeconfig and the kube-mcp sidecar.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: &app holyclaude
+  labels:
+    app.kubernetes.io/instance: *app
+    app.kubernetes.io/name: *app
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: *app
+    namespace: ai

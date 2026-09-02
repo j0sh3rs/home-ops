@@ -33,11 +33,57 @@ spec:
                   - key: kubernetes.io/hostname
                     operator: In
                     values: ["bigboi-jms-01"]
+      # holyclaude is granted cluster-admin (see rbac.yaml); mount its SA
+      # token so the rendered kubeconfig (00-render-kubeconfig initContainer
+      # below) and the kube-mcp sidecar both have something to authenticate
+      # with.
+      automountServiceAccountToken: true
+    serviceAccount:
+      holyclaude: {}
     controllers:
       holyclaude:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
+          # Renders an in-cluster kubeconfig from the pod's own ServiceAccount
+          # token/CA cert (auto-mounted via defaultPodOptions above and kept
+          # fresh in place by kubelet) rather than copying the real local
+          # admin@kubernetes kubeconfig into a Secret -- no static admin
+          # credential ever leaves the operator's machine. Named to sort
+          # before gh-auth/home-perms (bjw-s renders initContainers in key
+          # order) so home-perms' chown -R /workspace below still fixes
+          # ownership on this freshly written file.
+          00-render-kubeconfig:
+            image:
+              repository: docker.io/library/alpine
+              tag: "3.24"
+            command:
+              - sh
+              - -c
+              - |
+                set -eu
+                mkdir -p /workspace/home-ops
+                cat > /workspace/home-ops/kubeconfig <<'EOF'
+                apiVersion: v1
+                kind: Config
+                clusters:
+                  - name: in-cluster
+                    cluster:
+                      server: https://kubernetes.default.svc
+                      certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                users:
+                  - name: holyclaude
+                    user:
+                      tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                contexts:
+                  - name: in-cluster
+                    context:
+                      cluster: in-cluster
+                      user: holyclaude
+                      namespace: ai
+                current-context: in-cluster
+                EOF
+                chmod 600 /workspace/home-ops/kubeconfig
           home-perms:
             # Kubernetes auto-creates a subPath mount's target directory as
             # root:root on first mount (kubelet subPath behavior, unrelated
@@ -129,6 +175,27 @@ spec:
                 memory: 1Gi
               limits:
                 memory: 6Gi
+          # Kubernetes MCP server sidecar, matching openclaw's kube-mcp
+          # sidecar exactly. Auto-detects in-cluster config and so uses the
+          # pod's own ServiceAccount token (cluster-admin, see rbac.yaml).
+          # Listens on localhost:8081; reachable from the app container
+          # in-pod. Registering it in Claude Code/OpenCode's own MCP config
+          # is a separate, per-tool follow-up -- not done here.
+          kube-mcp:
+            image:
+              repository: ghcr.io/containers/kubernetes-mcp-server
+              tag: v0.0.66
+            args: ["--port", "8081"]
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
     persistence:
       home:
         # Deliberately NOT a single mount of the whole /home/claude --
@@ -165,6 +232,20 @@ spec:
         sizeLimit: 2Gi
         globalMounts:
           - path: /dev/shm
+      # Reuses the same global sops-age Secret Flux itself decrypts with
+      # (kubernetes/components/common/sops-age.sops.yaml) instead of a
+      # second copy of the key material. subPath addresses the Secret's
+      # age.agekey data key; the destination filename (age.key) is set
+      # independently by path, matching this repo's local dev convention
+      # (mise's SOPS_AGE_KEY_FILE=./age.key) inside the checked-out
+      # /workspace/home-ops clone.
+      sops-age:
+        type: secret
+        name: sops-age
+        globalMounts:
+          - path: /workspace/home-ops/age.key
+            subPath: age.agekey
+            readOnly: true
     service:
       app:
         controller: *app
