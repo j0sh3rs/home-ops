@@ -53,9 +53,14 @@ spec:
     #   - keeps form-action restricted to same origin (the OIDC flow uses
     #     302 redirects, not form POSTs, so accounts.google.com isn't needed)
     #   - upgrade-insecure-requests rewrites stray http:// in HTML to https://
+    #   - script-src adds blob: (Vite/dynamic-import code-splitting via blob:
+    #     URLs, e.g. HolyClaude's CloudCLI web-terminal plugin) and
+    #     static.cloudflareinsights.com (Cloudflare's RUM/beacon script,
+    #     auto-injected by the proxy on every tunneled route)
     contentSecurityPolicy: >-
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:
+      https://static.cloudflareinsights.com;
       style-src 'self' 'unsafe-inline';
       img-src 'self' data: blob: https:;
       font-src 'self' data:;
