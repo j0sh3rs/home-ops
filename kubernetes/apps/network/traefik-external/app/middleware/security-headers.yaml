@@ -54,14 +54,17 @@ spec:
     #     302 redirects, not form POSTs, so accounts.google.com isn't needed)
     #   - upgrade-insecure-requests rewrites stray http:// in HTML to https://
     #   - script-src adds blob: (Vite/dynamic-import code-splitting via blob:
-    #     URLs, e.g. HolyClaude's CloudCLI web-terminal plugin) and
+    #     URLs, e.g. HolyClaude's CloudCLI web-terminal plugin),
     #     static.cloudflareinsights.com (Cloudflare's RUM/beacon script,
-    #     auto-injected by the proxy on every tunneled route)
+    #     auto-injected by the proxy on every tunneled route), and esm.sh
+    #     (HolyClaude's web-terminal plugin loads xterm.js + addons live
+    #     from the esm.sh CDN at runtime rather than bundling them)
+    #   - style-src adds esm.sh for the same reason (xterm.css)
     contentSecurityPolicy: >-
       default-src 'self';
       script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:
-      https://static.cloudflareinsights.com;
-      style-src 'self' 'unsafe-inline';
+      https://static.cloudflareinsights.com https://esm.sh;
+      style-src 'self' 'unsafe-inline' https://esm.sh;
       img-src 'self' data: blob: https:;
       font-src 'self' data:;
       connect-src 'self' wss: https:;
