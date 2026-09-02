@@ -114,7 +114,8 @@ spec:
                   /home/claude/.claude \
                   /home/claude/.cloudcli \
                   /home/claude/.config/opencode \
-                  /home/claude/.taskmaster
+                  /home/claude/.taskmaster \
+                  /home/claude/.caveman
                 find /workspace \
                   \( -path /workspace/home-ops/age.key -prune \) \
                   -o -exec chown 1000:1000 {} +
@@ -221,10 +222,15 @@ spec:
         # restores missing image content onto an empty PVC. Mount only the
         # specific subtrees that actually need to survive a restart,
         # mirroring upstream's own docker-compose.yaml (~/.claude,
-        # /workspace) plus the two additions this deployment needs
-        # (~/.cloudcli, ~/.config/opencode, ~/.taskmaster). subPath names
-        # match the directory names already sitting at this PVC's root
-        # from the prior whole-home mount, so no data migration is needed.
+        # /workspace) plus the additions this deployment needs
+        # (~/.cloudcli, ~/.config/opencode, ~/.taskmaster, ~/.caveman).
+        # subPath names match the directory names already sitting at this
+        # PVC's root from the prior whole-home mount, so no data migration
+        # is needed. ~/.caveman (github.com/JuliusBrussee/caveman, installed
+        # manually by the operator, not image-baked) was added 2026-09-02
+        # after a pod restart wiped it -- it had been living on the
+        # ephemeral container layer the whole time, invisible until the
+        # first restart since it was installed.
         type: persistentVolumeClaim
         storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
@@ -239,6 +245,8 @@ spec:
             subPath: .config/opencode
           - path: /home/claude/.taskmaster
             subPath: .taskmaster
+          - path: /home/claude/.caveman
+            subPath: .caveman
           - path: /workspace
             subPath: workspace
       shm:
