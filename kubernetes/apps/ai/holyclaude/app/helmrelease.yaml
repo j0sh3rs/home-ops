@@ -115,7 +115,8 @@ spec:
                   /home/claude/.cloudcli \
                   /home/claude/.config/opencode \
                   /home/claude/.taskmaster \
-                  /home/claude/.caveman
+                  /home/claude/.caveman \
+                  /home/claude/.local
                 find /workspace \
                   \( -path /workspace/home-ops/age.key -prune \) \
                   -o -exec chown 1000:1000 {} +
@@ -249,6 +250,8 @@ spec:
             subPath: .caveman
           - path: /workspace
             subPath: workspace
+          - path: /home/claude/.local
+            subpath: .local
       shm:
         type: emptyDir
         medium: Memory
@@ -268,7 +271,6 @@ spec:
         globalMounts:
           - path: /workspace/home-ops/age.key
             subPath: age.agekey
-            readOnly: true
     service:
       app:
         controller: *app
