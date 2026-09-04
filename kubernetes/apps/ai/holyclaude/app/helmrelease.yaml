@@ -101,6 +101,20 @@ spec:
             # the claude user can read it without owning it. Prune that one
             # path out of the recursive chown instead of a blanket `|| true`
             # that would also swallow real chown failures elsewhere.
+            #
+            # `find ... -exec chown {} +` (unlike `chown -R`) dereferences
+            # symlinks by default -- `chown -R` silently lchown's a dangling
+            # symlink it walks into, but a bare `chown` invoked on one
+            # directly (which is what find -exec does per matched path)
+            # tries to stat the target and fails with "cannot dereference:
+            # No such file or directory" if it's dangling, wedging this
+            # initContainer (set -eu). Hit in practice via a Python venv
+            # under /workspace/home-ops/.venv whose bin/python* symlinks
+            # point at an interpreter path (mise/uv-managed) that doesn't
+            # survive a pod restart. `-h` makes chown act on the symlinks
+            # themselves instead of dereferencing, matching `chown -R`'s
+            # traversal behavior and sidestepping the dangling-target case
+            # entirely -- confirmed via local repro before applying.
             image:
               repository: docker.io/coderluii/holyclaude
               # renovate: datasource=docker depName=docker.io/coderluii/holyclaude
@@ -119,7 +133,7 @@ spec:
                   /home/claude/.local
                 find /workspace \
                   \( -path /workspace/home-ops/age.key -prune \) \
-                  -o -exec chown 1000:1000 {} +
+                  -o -exec chown -h 1000:1000 {} +
           gh-auth:
             image:
               repository: docker.io/coderluii/holyclaude
