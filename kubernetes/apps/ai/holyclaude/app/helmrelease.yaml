@@ -372,6 +372,23 @@ spec:
         globalMounts:
           - path: /workspace/home-ops/age.key
             subPath: age.agekey
+      # GitOps-managed .gitconfig (kubernetes/apps/ai/holyclaude/app/
+      # configmap.yaml), same configMap+subPath pattern as openclaw's
+      # openclaw.json / llama-swap's config.yaml. Supersedes the image's
+      # own entrypoint-generated /home/claude/.gitconfig (a symlink into
+      # the persisted .claude subtree, populated from the app container's
+      # GIT_USER_NAME/GIT_USER_EMAIL env vars) -- this mount replaces that
+      # symlink outright with a real, declarative file. ConfigMap subPath
+      # mounts are read-only by nature, unlike a PVC subPath, so there's
+      # no risk of the kubelet-auto-creates-as-root:root issue documented
+      # on the PVC mounts above.
+      gitconfig:
+        type: configMap
+        name: holyclaude-gitconfig
+        defaultMode: 0644
+        globalMounts:
+          - path: /home/claude/.gitconfig
+            subPath: gitconfig
     service:
       app:
         controller: *app

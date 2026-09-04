@@ -1,0 +1,83 @@
+---
+# Operator's standard .gitconfig, mounted read-only over the image's own
+# entrypoint-generated /home/claude/.gitconfig (previously a symlink to
+# /home/claude/.claude/.gitconfig, populated at boot from the
+# GIT_USER_NAME/GIT_USER_EMAIL env vars on the app container -- this
+# ConfigMap now fully supersedes that generation for this file). [safe]
+# directory = /workspace is added on top of what the operator provided --
+# not part of the source .gitconfig, but required for git to treat
+# /workspace as trusted (git's dubious-ownership check) now that nothing
+# regenerates that entry at boot.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: holyclaude-gitconfig
+data:
+  gitconfig: |
+    [alias]
+        br = branch
+        ci = commit
+        co = checkout
+        st = status
+        up = pull --rebase --autostash
+    [branch]
+        sort = -committerdate
+    [column]
+      ui = auto
+    [commit]
+        gpgsign = true
+        verbose = true
+    [core]
+        excludeFiles = .DS_Store
+        pager =
+    [diff]
+        algorithm = histogram
+        colorMoved = plain
+        mnemonicPrefix = true
+        renames = true
+    [fetch]
+        all = true
+        fsckobjects = true
+        prune = true
+        pruneTags = true
+    [filter "lfs"]
+        clean = git-lfs clean -- %f
+        process = git-lfs filter-process
+        required = true
+        smudge = git-lfs smudge -- %f
+    [help]
+        autocorrect = 1
+    [init]
+        defaultBranch = main
+    [protocol]
+        version = 2
+    [pull]
+        all = true
+        autostash = true
+        prune = true
+        rebase = true
+    [push]
+        autoSetupRemote = true
+        default = simple
+        followTags = true
+    [rebase]
+        autosquash = true
+        autostash = true
+        updateRefs = true
+    [receive]
+        fsckobjects = true
+    [rerere]
+        enabled = true
+        autoupdate = true
+    [tag]
+        gpgsign = true
+        sort = version:refname
+    [transfer]
+        fsckobjects = true
+    [user]
+        name = BarryBot
+        email = josh@beholdthehurricane.com
+    [gpg]
+        format = ssh
+    [safe]
+        directory = /workspace
