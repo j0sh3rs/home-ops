@@ -148,7 +148,21 @@ spec:
                 # jina-reranker-v2's addition (small, but VRAM headroom is
                 # now genuinely tight per rocm-smi -- see configmap.yaml's
                 # jina-reranker-v2 comment for the real measurement).
-                memory: 13Gi
+                #
+                # 13Gi was a static weights+overhead estimate, never
+                # measured against real steady-state RSS. Confirmed
+                # insufficient 2026-09-04: `kubectl get pod -o yaml` showed
+                # the prior instance OOMKilled (exitCode 137) after ~21.5h
+                # uptime, with a burst of /v1/chat/completions 500s in the
+                # 25-65s range in the run-up to the kill -- system-RAM
+                # cgroup ceiling, not VRAM (no Vulkan/VRAM-exhaustion errors
+                # anywhere in the logs; node itself never reported
+                # MemoryPressure). Bumped to 18Gi for real headroom over the
+                # observed ceiling; node has ample allocatable memory
+                # (45.75Gi) for this bump even fully packed with its other
+                # colocated workloads. Re-measure via `kubectl top pod` /
+                # rocm-smi if OOMKills recur above this new limit.
+                memory: 18Gi
                 amd.com/gpu: "1"
             probes:
               liveness:
