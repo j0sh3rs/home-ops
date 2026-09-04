@@ -85,6 +85,12 @@ spec:
                 EOF
                 chmod 600 /workspace/home-ops/kubeconfig
           home-perms:
+            # Also lands the GitOps-managed .gitconfig (mounted read-only
+            # at /tmp/gitconfig from the gitconfig-src ConfigMap below) at
+            # its durable path, /home/claude/.claude/.gitconfig, before the
+            # chown pass picks it up -- see that ConfigMap's persistence
+            # entry for why it can't be mounted directly at the live path.
+            #
             # Kubernetes auto-creates a subPath mount's target directory as
             # root:root on first mount (kubelet subPath behavior, unrelated
             # to fsGroup) regardless of the pod's own PUID/PGID remap. Fix
@@ -140,6 +146,7 @@ spec:
               - -c
               - |
                 set -eu
+                cp /tmp/gitconfig /home/claude/.claude/.gitconfig
                 chown -R 1000:1000 \
                   /home/claude/.claude \
                   /home/claude/.cloudcli \
@@ -372,22 +379,25 @@ spec:
         globalMounts:
           - path: /workspace/home-ops/age.key
             subPath: age.agekey
-      # GitOps-managed .gitconfig (kubernetes/apps/ai/holyclaude/app/
-      # configmap.yaml), same configMap+subPath pattern as openclaw's
-      # openclaw.json / llama-swap's config.yaml. Supersedes the image's
-      # own entrypoint-generated /home/claude/.gitconfig (a symlink into
-      # the persisted .claude subtree, populated from the app container's
-      # GIT_USER_NAME/GIT_USER_EMAIL env vars) -- this mount replaces that
-      # symlink outright with a real, declarative file. ConfigMap subPath
-      # mounts are read-only by nature, unlike a PVC subPath, so there's
-      # no risk of the kubelet-auto-creates-as-root:root issue documented
-      # on the PVC mounts above.
-      gitconfig:
+      # GitOps-managed .gitconfig source (kubernetes/apps/ai/holyclaude/
+      # app/configmap.yaml). NOT mounted directly at /home/claude/.gitconfig
+      # -- tried that first and it broke boot: the image's own
+      # prepare-cli-persistence.sh expects /home/claude/.gitconfig to be a
+      # symlink into the durable /home/claude/.claude/.gitconfig, and
+      # refuses to start if both exist as independent real files
+      # ("[cli-persistence] ERROR: both live and durable Git global
+      # configuration state exist"), which is exactly what a direct mount
+      # there created. Mount the ConfigMap to a scratch path instead and
+      # let home-perms copy it into the durable location -- same pattern
+      # already used for gh-auth's GH_CONFIG_DIR above (write the durable
+      # path directly, let the entrypoint's own symlink logic handle
+      # /home/claude/.gitconfig unmolested).
+      gitconfig-src:
         type: configMap
         name: holyclaude-gitconfig
         defaultMode: 0644
         globalMounts:
-          - path: /home/claude/.gitconfig
+          - path: /tmp/gitconfig
             subPath: gitconfig
     service:
       app:

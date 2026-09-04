@@ -1,13 +1,16 @@
 ---
-# Operator's standard .gitconfig, mounted read-only over the image's own
-# entrypoint-generated /home/claude/.gitconfig (previously a symlink to
-# /home/claude/.claude/.gitconfig, populated at boot from the
-# GIT_USER_NAME/GIT_USER_EMAIL env vars on the app container -- this
-# ConfigMap now fully supersedes that generation for this file). [safe]
-# directory = /workspace is added on top of what the operator provided --
-# not part of the source .gitconfig, but required for git to treat
-# /workspace as trusted (git's dubious-ownership check) now that nothing
-# regenerates that entry at boot.
+# Operator's standard .gitconfig. Mounted read-only to a scratch path
+# (/tmp/gitconfig, see the gitconfig-src persistence entry in
+# helmrelease.yaml) and copied by the home-perms initContainer into the
+# durable /home/claude/.claude/.gitconfig -- NOT mounted directly at the
+# live /home/claude/.gitconfig path, which the image's own
+# prepare-cli-persistence.sh expects to be a symlink into that durable
+# location; a direct mount there made it a second independent real file
+# and broke boot ("both live and durable Git global configuration state
+# exist"). [safe] directory = /workspace is added on top of what the
+# operator provided -- not part of the source .gitconfig, but required
+# for git to treat /workspace as trusted (git's dubious-ownership check)
+# now that nothing else regenerates that entry at boot.
 apiVersion: v1
 kind: ConfigMap
 metadata:
