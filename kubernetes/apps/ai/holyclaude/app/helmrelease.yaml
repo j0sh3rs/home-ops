@@ -115,6 +115,17 @@ spec:
             # themselves instead of dereferencing, matching `chown -R`'s
             # traversal behavior and sidestepping the dangling-target case
             # entirely -- confirmed via local repro before applying.
+            #
+            # /home/claude/.local/share/user-bin (see persistence.home
+            # below) holds manually-installed standalone CLI binaries
+            # (mise itself, installed via `curl https://mise.run | sh` --
+            # NOT image-baked) that need to land on PATH every boot without
+            # re-shadowing the real claude/cursor-agent/junie symlinks
+            # already baked into .local/bin (the incident fixed in
+            # 54de6857). .local/bin is already on PATH, so instead of
+            # mounting it directly, relink whatever's in the persisted
+            # user-bin dir into it on every start -- ln -sf only touches
+            # the names it's given, so the baked symlinks are untouched.
             image:
               repository: docker.io/coderluii/holyclaude
               # renovate: datasource=docker depName=docker.io/coderluii/holyclaude
@@ -133,10 +144,15 @@ spec:
                   /home/claude/.local/share/opencode \
                   /home/claude/.local/state/opencode \
                   /home/claude/.local/share/mise \
-                  /home/claude/.local/state/mise
+                  /home/claude/.local/state/mise \
+                  /home/claude/.local/share/user-bin
                 find /workspace \
                   \( -path /workspace/home-ops/age.key -prune \) \
                   -o -exec chown -h 1000:1000 {} +
+                for f in /home/claude/.local/share/user-bin/*; do
+                  [ -e "$f" ] || continue
+                  ln -sf "$f" "/home/claude/.local/bin/$(basename "$f")"
+                done
           gh-auth:
             image:
               repository: docker.io/coderluii/holyclaude
@@ -242,7 +258,7 @@ spec:
         # mirroring upstream's own docker-compose.yaml (~/.claude,
         # /workspace) plus the additions this deployment needs
         # (~/.cloudcli, ~/.config/opencode, ~/.taskmaster, ~/.caveman,
-        # ~/.local/share/{opencode,mise}, ~/.local/state/{opencode,mise}).
+        # ~/.local/share/{opencode,mise,user-bin}, ~/.local/state/{opencode,mise}).
         # subPath names match the directory names already sitting at this
         # PVC's root from the prior whole-home mount, so no data migration
         # is needed. ~/.caveman (github.com/JuliusBrussee/caveman, installed
@@ -283,13 +299,25 @@ spec:
           # the .venv dangling-symlink incident this deployment already
           # hit once) follows the same XDG layout for its own data/state
           # (.local/share/mise, .local/state/mise -- per mise's own docs,
-          # https://mise.jdx.dev/directories.html). Mount exactly these
-          # four subtrees and leave the rest of .local (bin/, and
-          # share/{claude,cursor-agent,junie}) untouched. mise's config
+          # https://mise.jdx.dev/directories.html). mise's config
           # (~/.config/mise) and cache (~/.cache/mise) dirs are NOT
           # persisted here -- cache is disposable by design, and config
           # sits outside .local entirely; add them as their own globalMount
           # if a real need shows up.
+          #
+          # .local/share/user-bin is different from the other .local
+          # entries: not one app's XDG dir, but a generic landing spot for
+          # any standalone CLI binary manually installed inside the
+          # terminal (mise itself, via `MISE_INSTALL_PATH=/home/claude/
+          # .local/share/user-bin/mise curl https://mise.run | sh` --
+          # mise's installer defaults to .local/bin, which would collide
+          # with the baked symlinks; MISE_INSTALL_PATH is the documented
+          # override). The home-perms initContainer above symlinks
+          # everything under here into .local/bin (already on PATH) on
+          # every boot, so this is also the answer for "other things added
+          # to .local/bin": drop the binary in user-bin once, it keeps
+          # reappearing in .local/bin on every restart without shadowing
+          # the image-baked entries there.
           - path: /home/claude/.local/share/opencode
             subPath: .local/share/opencode
           - path: /home/claude/.local/state/opencode
@@ -298,6 +326,8 @@ spec:
             subPath: .local/share/mise
           - path: /home/claude/.local/state/mise
             subPath: .local/state/mise
+          - path: /home/claude/.local/share/user-bin
+            subPath: .local/share/user-bin
       shm:
         type: emptyDir
         medium: Memory
