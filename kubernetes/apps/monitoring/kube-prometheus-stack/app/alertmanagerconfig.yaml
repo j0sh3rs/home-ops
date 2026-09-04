@@ -78,16 +78,25 @@ spec:
       # this block once DISCORD_BOT_TOKEN and the channel-ID placeholders in
       # kubernetes/apps/ai/openclaw/app/configmap.yaml hold real values AND
       # that file's hooks.mappings entries have been uncommented.
+      #
+      # Confirmed actually broken 2026-09-04, not just theoretically disabled:
+      # the `openclaw` Service doesn't exist in the `ai` namespace at all
+      # (never deployed under that name), so every alert was retrying this
+      # webhook to permanent DNS failure ("no such host") and tripping the
+      # AlertmanagerFailedToSendAlerts / AlertmanagerClusterFailedToSendAlerts
+      # meta-alerts continuously. This comment said "disabled" but the block
+      # was live YAML the whole time -- actually commenting it out this time.
+      # webhookConfigs:
+      #   - url: "http://openclaw.ai.svc.cluster.local:18789/hooks/alertmanager"
+      #     # Alertmanager defaults sendResolved to true, which would fire the
+      #     # trigger twice per alert (once firing, once resolved) with a
+      #     # messageTemplate that gives the agent no way to tell them apart.
+      #     sendResolved: false
+      #     httpConfig:
+      #       bearerTokenSecret:
+      #         name: openclaw-hooks-secret
+      #         key: token
       webhookConfigs:
-        - url: "http://openclaw.ai.svc.cluster.local:18789/hooks/alertmanager"
-          # Alertmanager defaults sendResolved to true, which would fire the
-          # trigger twice per alert (once firing, once resolved) with a
-          # messageTemplate that gives the agent no way to tell them apart.
-          sendResolved: false
-          httpConfig:
-            bearerTokenSecret:
-              name: openclaw-hooks-secret
-              key: token
         # argus's forwarder does its own severity filtering
         # (forwarder.investigateSeverities: "critical,warning") and dedupe
         # (forwarder.dedupeTtlSec) -- safe to send every alert this receiver
