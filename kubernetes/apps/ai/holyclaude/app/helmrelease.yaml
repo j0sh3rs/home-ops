@@ -251,7 +251,7 @@ spec:
           - path: /workspace
             subPath: workspace
           - path: /home/claude/.local
-            subpath: .local
+            subPath: .local
       shm:
         type: emptyDir
         medium: Memory
