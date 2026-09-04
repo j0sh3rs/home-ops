@@ -130,7 +130,8 @@ spec:
                   /home/claude/.config/opencode \
                   /home/claude/.taskmaster \
                   /home/claude/.caveman \
-                  /home/claude/.local
+                  /home/claude/.local/share/opencode \
+                  /home/claude/.local/state/opencode
                 find /workspace \
                   \( -path /workspace/home-ops/age.key -prune \) \
                   -o -exec chown -h 1000:1000 {} +
@@ -238,7 +239,8 @@ spec:
         # specific subtrees that actually need to survive a restart,
         # mirroring upstream's own docker-compose.yaml (~/.claude,
         # /workspace) plus the additions this deployment needs
-        # (~/.cloudcli, ~/.config/opencode, ~/.taskmaster, ~/.caveman).
+        # (~/.cloudcli, ~/.config/opencode, ~/.taskmaster, ~/.caveman,
+        # ~/.local/share/opencode, ~/.local/state/opencode).
         # subPath names match the directory names already sitting at this
         # PVC's root from the prior whole-home mount, so no data migration
         # is needed. ~/.caveman (github.com/JuliusBrussee/caveman, installed
@@ -264,8 +266,23 @@ spec:
             subPath: .caveman
           - path: /workspace
             subPath: workspace
-          - path: /home/claude/.local
-            subPath: .local
+          # NOT a mount of the whole /home/claude/.local -- that's exactly
+          # the whole-/home/claude shadowing bug from the top of this
+          # comment block, just narrower. The image bakes real content
+          # directly under .local: .local/bin/claude etc. are symlinks
+          # INTO .local/share/{claude,cursor-agent,junie}/... (confirmed
+          # via an unmounted pod of the same image), so even mounting all
+          # of .local/share (not just .local/bin) would have shadowed the
+          # real binaries and reproduced "claude: command not found".
+          # OpenCode is the only thing actually using this path (writes
+          # its db/state under XDG_DATA_HOME/XDG_STATE_HOME, i.e.
+          # .local/share/opencode and .local/state/opencode -- confirmed
+          # by inspecting the already-populated PVC) -- mount exactly
+          # those two subtrees and leave the rest of .local untouched.
+          - path: /home/claude/.local/share/opencode
+            subPath: .local/share/opencode
+          - path: /home/claude/.local/state/opencode
+            subPath: .local/state/opencode
       shm:
         type: emptyDir
         medium: Memory
