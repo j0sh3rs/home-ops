@@ -6,22 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Home-lab Kubernetes cluster on **Talos Linux** running **Kubernetes**, managed via **FluxCD** GitOps. Source repo: `github.com/j0sh3rs/home-ops`.
 
-## Critical: Kubectl Context
-
-**Do NOT pass `--context home`.** `mise` injects `KUBECONFIG=./kubeconfig`
-automatically via `.mise.toml`, pointing at the single cluster (the real context
-name is `admin@kubernetes`; there is no `home` context). Run bare:
-
-```bash
-kubectl get pods -A
-helm list -A
-flux get ks -A
-```
-
-> History: a PreToolUse hook in `.claude/settings.json` used to refuse commands
-> missing `--context home`. Removed 2026-06-15 once mise took over KUBECONFIG.
-> Any older doc/memory referencing `--context home` is stale.
-
 ## Token-Efficient Commands (RTK)
 
 Prefix all commands with `rtk` per `~/CLAUDE.md` for 60-85% token savings:
@@ -31,17 +15,6 @@ rtk kubectl get pods -A
 rtk flux get ks -A
 rtk helm list -A
 rtk kubectl logs <pod> -n <ns>
-```
-
-## Task Tracking (Beads)
-
-Issue tracker backed by Dolt (`dolt.68cc.io:3306`). Use `bd` CLI:
-
-```bash
-bd list              # List open tasks
-bd show <id>         # Show task details
-bd ready             # Tasks ready to work (no blockers)
-bd create            # Create new issue interactively
 ```
 
 ## Development Environment
@@ -184,7 +157,7 @@ Helm repository definitions live in `kubernetes/flux/meta/repos/`.
 
 ### app-template (bjw-s) for apps without a Helm chart
 
-The `bjw-s/app-template` chart (`oci://ghcr.io/bjw-s-labs/helm/app-template`, v4.6.2) is used for apps that don't have their own Helm chart. It is **not** globally available — each namespace kustomization must opt in:
+The `bjw-s/app-template` chart (`oci://ghcr.io/bjw-s-labs/helm/app-template`, v5.1.0) is used for apps that don't have their own Helm chart. It is **not** globally available — each namespace kustomization must opt in:
 
 ```yaml
 # In kubernetes/apps/{namespace}/kustomization.yaml
@@ -260,10 +233,12 @@ task sops:verify  # Check all *.sops.yaml files are properly encrypted
 
 - **OpenEBS LocalPV** — Default storage class (`openebs-hostpath`)
 - **NFS External Provisioner** — NFS-backed storage provisioner for shared storage
-- **Minio S3** — Object storage at `https://s3.68cc.io` (buckets: `openebs-backups`, `thanos-blocks`, `victoria-logs-chunks`)
+- **RustFS S3** — Object storage at `https://s3.68cc.io` (buckets: `openebs-backups`, `thanos-blocks`, `victoria-logs-chunks`)
 - **Velero** — Cluster-level S3-backed snapshots (daily 02:00 UTC, 30-day retention)
 
 Each component gets isolated S3 credentials as SOPS-encrypted secrets (`{component}-s3-secret`).
+
+Whenever a new persistent volume is created and added to a deployment, ensure it is covered by a compatible Velero configuration set so it gets incremental snapshots.
 
 #### Storage class selection
 
@@ -271,7 +246,7 @@ Pick the storage class based on the workload's latency sensitivity and whether t
 
 | Workload shape | Class | Why |
 |----------------|-------|-----|
-| Database data dirs (Postgres, Dolt, DragonflyDB) | `openebs-hostpath` | Local NVMe; sub-ms IO; backup separately via S3 |
+| Database data dirs (Postgres, DragonflyDB) | `openebs-hostpath` | Local NVMe; sub-ms IO; backup separately via S3 |
 | Model weights, embedding caches (llama-swap) | `openebs-hostpath` | Large cold reads; local disk avoids NFS throughput cap |
 | Log shards, TSDB blocks (vmsingle, victoria-logs) | `openebs-hostpath` | Write-heavy, append-only; NFS metadata ops too costly |
 | Grafana dashboards/plugins on-disk cache | `openebs-hostpath` | Startup-read-heavy; tolerable node-pinning |
@@ -302,7 +277,6 @@ Rules of thumb:
 
 - **CloudNative-PG** — PostgreSQL operator with S3 backups; cluster `postgres17-rw` service on port 5432
 - **DragonflyDB** — Redis-compatible in-memory store; `dragonflydb.databases.svc.cluster.local:6379`
-- **Dolt** — Git-versioned MySQL-compatible database; exposed externally at `dolt.68cc.io:3306` via Traefik TLS termination (mysql-tls listener). Connect: `mysql -h dolt.68cc.io -P 3306 -u root -p`. Used as remote backend for Beads task tracking.
 
 ### Security
 
@@ -361,58 +335,3 @@ flux build kustomization {name} --path kubernetes/apps/{path} --dry-run
 ## Debugging Cheat Sheet
 
 See `.claude/skills/debug-cheatsheet/SKILL.md`.
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
-
-### Rules
-
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
-
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
-
-## Agent Context Profiles
-
-The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
-
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
-
-## Session Completion
-
-This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
-
-1. **File issues for remaining work** - Create beads for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **Handle git/sync by active profile**:
-   ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
-
-   # Team-maintainer opt-in only, unless current instructions forbid it:
-   git pull --rebase
-   git push
-   git status
-   ```
-5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
-
-**Critical rules:**
-- Explicit user or orchestrator instructions override this Beads block.
-- Do not commit or push without clear authority from the active profile or the current user request.
-- If a required sync or push is blocked, stop and report the exact command and error.
-<!-- END BEADS INTEGRATION -->

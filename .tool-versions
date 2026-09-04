@@ -7,3 +7,6 @@ golang     latest
 sops       latest
 pre-commit latest
 talosctl   latest
+uv         latest
+flux-operator latest
+flux-operator-mcp latest

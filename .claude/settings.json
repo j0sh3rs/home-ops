@@ -33,5 +33,22 @@
         "matcher": ""
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(kubectl get *)",
+      "Bash(kubectl kustomize *)",
+      "Bash(kustomize build *)",
+      "Bash(kubectl -n * get *)",
+      "Bash(kubectl logs *)",
+      "Bash(kubectl describe *)",
+      "Bash(helm template *)",
+      "Bash(git merge-base *)",
+      "Bash(task sops:verify*)",
+      "Bash(git fetch origin main*)",
+      "Bash(git check-ignore *)",
+      "Bash(helm pull *)",
+      "Bash(kubectl -n * logs *)"
+    ]
   }
 }
