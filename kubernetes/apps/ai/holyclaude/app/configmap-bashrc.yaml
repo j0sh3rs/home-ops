@@ -1,0 +1,24 @@
+---
+# Shell customizations appended to /home/claude/.bashrc on every boot by
+# the app container's postStart hook (see helmrelease.yaml). .bashrc
+# itself is image-baked, unmounted, and NOT managed by
+# prepare-cli-persistence.sh the way .gitconfig is (confirmed: it's a
+# plain file, not a symlink, timestamped from image build, with no
+# cli-persistence log entry for it) -- so it resets to the pristine
+# default on every fresh pod, which is exactly why a manually-added
+# `eval "$(mise activate bash)"` doesn't survive a restart. .profile
+# already sources .bashrc for interactive bash shells, so this alone
+# covers both login and non-login shell invocations.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: holyclaude-bashrc-extra
+data:
+  bashrc-extra: |
+    # mise activation -- mise itself lands on PATH via the app
+    # container's own postStart symlink step (persistence.home's
+    # .local/share/user-bin); guard on mise actually being installed so
+    # a pod that's never had mise installed into user-bin doesn't error.
+    if command -v mise >/dev/null 2>&1; then
+      eval "$(mise activate bash)"
+    fi

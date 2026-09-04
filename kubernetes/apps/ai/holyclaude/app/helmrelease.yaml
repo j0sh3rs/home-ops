@@ -229,6 +229,20 @@ spec:
             # to its own .local/bin has zero effect on this container's.
             # ln -sf only touches the names it's given, so the baked
             # symlinks are never disturbed.
+            #
+            # Also appends the mise-activation snippet (mise-bashrc-src
+            # ConfigMap below) to .bashrc every boot. .bashrc is
+            # image-baked and unmounted (same one-container-only
+            # filesystem reasoning as .local/bin above, and unlike
+            # .gitconfig it isn't managed by prepare-cli-persistence.sh --
+            # confirmed it's a plain file, not a symlink, still at its
+            # image-build timestamp), so it resets to the pristine default
+            # on every fresh container and a manual edit never survives a
+            # restart. The append is safe to run unconditionally (no
+            # idempotency guard needed): .bashrc is always freshly reset
+            # to the same baked default before postStart ever runs, on
+            # every container start including in-place restarts, so this
+            # can never duplicate the appended block.
             lifecycle:
               postStart:
                 exec:
@@ -241,6 +255,7 @@ spec:
                         [ -e "$f" ] || continue
                         ln -sf "$f" "/home/claude/.local/bin/$(basename "$f")"
                       done
+                      cat /tmp/bashrc-extra >> /home/claude/.bashrc
             probes:
               liveness:
                 enabled: true
@@ -399,6 +414,20 @@ spec:
         globalMounts:
           - path: /tmp/gitconfig
             subPath: gitconfig
+      # GitOps-managed .bashrc additions (kubernetes/apps/ai/holyclaude/
+      # app/configmap-bashrc.yaml), appended to .bashrc by the app
+      # container's postStart hook -- see that hook's comment for why
+      # .bashrc can't just be mounted directly (unlike .gitconfig it
+      # isn't fought over by prepare-cli-persistence.sh, but it's still
+      # an unmounted, per-container ephemeral file, so this still can't
+      # live in an initContainer).
+      mise-bashrc-src:
+        type: configMap
+        name: holyclaude-bashrc-extra
+        defaultMode: 0644
+        globalMounts:
+          - path: /tmp/bashrc-extra
+            subPath: bashrc-extra
     service:
       app:
         controller: *app
