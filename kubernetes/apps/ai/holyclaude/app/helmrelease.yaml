@@ -131,7 +131,9 @@ spec:
                   /home/claude/.taskmaster \
                   /home/claude/.caveman \
                   /home/claude/.local/share/opencode \
-                  /home/claude/.local/state/opencode
+                  /home/claude/.local/state/opencode \
+                  /home/claude/.local/share/mise \
+                  /home/claude/.local/state/mise
                 find /workspace \
                   \( -path /workspace/home-ops/age.key -prune \) \
                   -o -exec chown -h 1000:1000 {} +
@@ -240,7 +242,7 @@ spec:
         # mirroring upstream's own docker-compose.yaml (~/.claude,
         # /workspace) plus the additions this deployment needs
         # (~/.cloudcli, ~/.config/opencode, ~/.taskmaster, ~/.caveman,
-        # ~/.local/share/opencode, ~/.local/state/opencode).
+        # ~/.local/share/{opencode,mise}, ~/.local/state/{opencode,mise}).
         # subPath names match the directory names already sitting at this
         # PVC's root from the prior whole-home mount, so no data migration
         # is needed. ~/.caveman (github.com/JuliusBrussee/caveman, installed
@@ -274,15 +276,28 @@ spec:
           # via an unmounted pod of the same image), so even mounting all
           # of .local/share (not just .local/bin) would have shadowed the
           # real binaries and reproduced "claude: command not found".
-          # OpenCode is the only thing actually using this path (writes
-          # its db/state under XDG_DATA_HOME/XDG_STATE_HOME, i.e.
-          # .local/share/opencode and .local/state/opencode -- confirmed
-          # by inspecting the already-populated PVC) -- mount exactly
-          # those two subtrees and leave the rest of .local untouched.
+          # OpenCode writes its db/state under XDG_DATA_HOME/XDG_STATE_HOME
+          # (.local/share/opencode, .local/state/opencode -- confirmed by
+          # inspecting the already-populated PVC); mise (installed ad hoc
+          # by the operator inside the terminal, not image-baked -- see
+          # the .venv dangling-symlink incident this deployment already
+          # hit once) follows the same XDG layout for its own data/state
+          # (.local/share/mise, .local/state/mise -- per mise's own docs,
+          # https://mise.jdx.dev/directories.html). Mount exactly these
+          # four subtrees and leave the rest of .local (bin/, and
+          # share/{claude,cursor-agent,junie}) untouched. mise's config
+          # (~/.config/mise) and cache (~/.cache/mise) dirs are NOT
+          # persisted here -- cache is disposable by design, and config
+          # sits outside .local entirely; add them as their own globalMount
+          # if a real need shows up.
           - path: /home/claude/.local/share/opencode
             subPath: .local/share/opencode
           - path: /home/claude/.local/state/opencode
             subPath: .local/state/opencode
+          - path: /home/claude/.local/share/mise
+            subPath: .local/share/mise
+          - path: /home/claude/.local/state/mise
+            subPath: .local/state/mise
       shm:
         type: emptyDir
         medium: Memory
