@@ -58,6 +58,20 @@ spec:
             # /ready returns 200 iff cloudflared has an active connection
             # to the Cloudflare edge. liveness kills pods that detached
             # from the edge so the Deployment brings them back.
+            #
+            # failureThreshold was 1 -- confirmed 2026-09-04 this makes
+            # startup itself unrecoverable, not just post-connect health:
+            # cloudflared's own feature-flag fetch on boot ("lookup
+            # cfd-features.argotunnel.com") intermittently takes the full
+            # ~10s DNS timeout, i.e. exactly initialDelaySeconds. With
+            # failureThreshold=1 that single slow start is an instant,
+            # unrecoverable kill (metrics port not bound yet -> connection
+            # refused), and it hit BOTH a forward image upgrade and Flux's
+            # auto-rollback to the prior release in a row -- neither could
+            # ever get a 2nd replica to stay up long enough to stabilize,
+            # deadlocking the Deployment between upgrade-failed and
+            # rollback-failed indefinitely. Raised to 3 (matches the
+            # readiness probe below) so one slow boot doesn't nuke the pod.
             probes:
               liveness:
                 enabled: true
@@ -66,7 +80,7 @@ spec:
                   httpGet:
                     path: /ready
                     port: &metricsPort 2000
-                  failureThreshold: 1
+                  failureThreshold: 3
                   initialDelaySeconds: 10
                   periodSeconds: 10
               readiness:
