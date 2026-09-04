@@ -431,4 +431,4 @@ Expected: a JSON response containing an actual investigation result referencing 
 
 - [x] **Step 4: Record the outcome**
 
-No code change — this step is a decision point, not an implementation step. Report back (to the user, or as a beads update on `home-ops-4rm`) whether Step 3's response was useful, and note it in `home-ops-4rm` either way — that's what determines whether the deferred bifrost/chaski/Discord work in `bifrost-a7g` gets picked back up.
+No code change — this step is a decision point, not an implementation step. Report back to the user whether Step 3's response was useful, and record that decision either way — that's what determines whether the deferred bifrost/chaski/Discord work gets picked back up.

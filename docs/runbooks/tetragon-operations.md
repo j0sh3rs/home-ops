@@ -129,4 +129,4 @@ A `Sigkill` on a policy that fires against kube-apiserver, kubelet, or core syst
 - Upstream docs: https://tetragon.io/docs/
 - TracingPolicy selectors: https://tetragon.io/docs/concepts/tracing-policy/selectors/
 - Metric reference: https://tetragon.io/docs/reference/metrics/
-- Beads epic: `home-ops-y5m` — harden config, expand coverage
+- Tracked follow-up: harden config, expand coverage

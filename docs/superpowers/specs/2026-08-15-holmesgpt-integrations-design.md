@@ -49,19 +49,19 @@ only Kubernetes API state:
 3. `grafana/dashboards` → `https://grafana.68cc.io`
 4. `database` (Postgres) → `postgres17-rw.databases.svc.cluster.local:5432`
 
-## Non-goals (explicitly deferred, tracked as separate beads)
+## Non-goals (explicitly deferred)
 
 - **Discord output bridge.** HolmesGPT's HealthCheck/ScheduledHealthCheck
   CRDs only natively push to Slack or PagerDuty; this cluster's only notify
   channel is Discord. A bridge (Alertmanager webhook → Holmes `/api/chat` →
   Discord webhook) is custom application code, not a manifest change — it
   reopens the `bifrost`/`chaski` scope explicitly cut on 2026-08-04 (separate
-  repo `j0sh3rs/bifrost`, paused beads `bifrost-a7g`/`bifrost-44f`, not
-  reachable from this repo's beads DB). File a tracking bead only; no
-  implementation here.
+  repo `j0sh3rs/bifrost`, tracked in that repo's own history, paused work
+  not reachable from here). File a tracking item only; no implementation
+  here.
 - **Security hardening** (`HOLMES_API_KEY` auth, NetworkPolicy scoping
   ingress). Explicitly deferred — keep the POC's originally-accepted risk
-  posture for now. File a tracking bead so it isn't forgotten now that Holmes
+  posture for now. File a tracking item so it isn't forgotten now that Holmes
   also touches metrics/logs/Grafana/DB credentials, not just K8s+bash+internet.
 - **DragonflyDB/Redis, CrowdSec, Tetragon toolsets.** No native HolmesGPT
   toolset exists for any of the three (confirmed via full-repo code search —
@@ -233,7 +233,7 @@ already covers rotation for both.
   category as the omniroute key in the POC spec. User confirmed they'll
   generate this when implementation reaches that step.
 
-## Follow-up work (tracked as separate beads, not this epic)
+## Follow-up work (not this epic)
 
 - Discord bridge (blocked on resuming `j0sh3rs/bifrost`).
 - Security hardening: `HOLMES_API_KEY` + NetworkPolicy.

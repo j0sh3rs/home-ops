@@ -201,7 +201,7 @@ proven.
 
 ## Recommended prioritization
 
-If the user wants to file beads, recommend tackling in this order:
+If the user wants to file issues, recommend tackling in this order:
 
 1. **Finding 1** (stale PVC) — trivial, 5-min cleanup.
 2. **Finding 4** (missing resource requests) — biggest insurance payoff.

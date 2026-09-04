@@ -36,13 +36,13 @@ evaluated as the Discord bridge — see Corrections.
   still routes direct to llama-swap with a dead model alias (`openai/tool-agent`,
   retired in the 2026-08-17/18 llama-swap restructure) — every investigation
   is currently either failing or silently mis-routing.
-- **c14.7's blocker (`bifrost`) is superseded, not resolved.** The prior spec
+- **The prior blocker (`bifrost`) is superseded, not resolved.** The prior spec
   deferred the Discord bridge pending a separate unbuilt repo
-  (`j0sh3rs/bifrost`, beads `bifrost-a7g`/`bifrost-44f`). This spec replaces
+  (`j0sh3rs/bifrost`). This spec replaces
   that plan with `argus`, an existing open-source Helm chart that already
   implements the Alertmanager→Holmes→Discord bridge plus human-approval
-  buttons — no custom app code to write. `bifrost` beads should be marked
-  superseded when this lands.
+  buttons — no custom app code to write. The related tracking in the
+  `bifrost` repo should be marked superseded when this lands.
 - **`coder-large`'s context window grew.** The prior spec's implicit
   assumption (from `ai/CLAUDE.md`) that `coder-large` tops out at 16k ctx is
   stale — it's 49152 now (2026-08-17 restructure), which is why routing
@@ -60,7 +60,7 @@ evaluated as the Discord bridge — see Corrections.
    actions) + GitHub MCP toolset (durable, git-represented fixes), every
    mutating action gated behind an argus Discord Approve/Reject/Revise.
 
-## Non-goals (explicitly deferred, tracked as separate beads)
+## Non-goals (explicitly deferred)
 
 - **Unattended/unapproved remediation.** Every write action — transient
   kubectl mutation or git commit — requires a human Approve click via argus's
@@ -305,7 +305,7 @@ Sequenced — each phase's validation gates the next, do not skip ahead:
   `HOLMES_API_KEY` lands) — small ConfigMap-script patch if not, since
   there's no image build step to work around.
 
-## Follow-up work (tracked as separate beads, not this epic)
+## Follow-up work (not this epic)
 
 - Unattended remediation (no approval gate) — future work, only after this
   loop has a track record.

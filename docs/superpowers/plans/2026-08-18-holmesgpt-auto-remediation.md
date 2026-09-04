@@ -6,7 +6,7 @@
 
 **Architecture:** `argus`'s umbrella chart bundles the official `holmes` chart as an unconditional subchart dependency (no `condition:` flag exists to disable it) — this **changes the spec's assumption** that HolmesGPT's existing standalone deployment would be reused as-is. Instead, all of HolmesGPT's toolset/model/hardening config gets consolidated into `argus`'s HelmRelease (`holmes:` values override block), and the standalone `kubernetes/apps/ai/holmesgpt/` app is retired once `argus` is live and verified — one Holmes instance, not two. Both the Kubernetes Remediation toolset and the GitHub toolset ship as `mcpAddons` (self-hosted sidecar containers with chart-generated RBAC/NetworkPolicy), not `toolsets:` config keys — confirmed directly against the pinned chart's `values.yaml` (`helm show values robusta/holmes --version 0.39.0`), not assumed from docs prose.
 
-**Tech Stack:** FluxCD (`HelmRelease`, `GitRepository`, `Kustomization`, `AlertmanagerConfig`), SOPS/age secrets, `kustomize`/`flux build`/`task sops:verify` for validation, `bd` for task tracking.
+**Tech Stack:** FluxCD (`HelmRelease`, `GitRepository`, `Kustomization`, `AlertmanagerConfig`), SOPS/age secrets, `kustomize`/`flux build`/`task sops:verify` for validation.
 
 **Spec:** `docs/superpowers/specs/2026-08-18-holmesgpt-auto-remediation-design.md`
 
@@ -15,11 +15,10 @@
 - **`toolsets:` vs `mcpAddons:`** — plain data-source toolsets (`prometheus/metrics`, `victorialogs`, `grafana/dashboards`, `postgres17-stats`, `cilium/core`, `hubble/observability`, `helm/core`) are entries under `values.toolsets`, an open map the chart passes straight through — Holmes accepts any toolset name it itself supports, whether or not the chart's default `values.yaml` lists it. Kubernetes Remediation and GitHub are **not** toolset entries — they're `values.mcpAddons.kubernetesRemediation` and `values.mcpAddons.github`, each a separate sidecar container with its own image, its own auto-created ServiceAccount/ClusterRole, and its own `networkPolicy.enabled` toggle. Do not conflate the two mechanisms.
 - **`mcpAddons.kubernetesRemediation` already defaults to approval-gated**: `approvalRequiredTools: ["run_kubectl_command"]` is the chart default. Do not touch this list — leaving it as-is is the entire point.
 - **`mcpAddons.kubernetesRemediation.serviceAccount.clusterRole: ""`** means the chart generates its own least-privilege ClusterRole — do not author a hand-rolled ClusterRole for this; only override if the generated one is verified insufficient.
-- **`HOLMES_API_KEY`** is a real Holmes server env var (confirmed via holmesgpt.dev docs: enforces auth on every endpoint except `/healthz`/`/readyz`, checked via `X-API-Key` or `Authorization: Bearer` header) but has **no dedicated chart values field** — set it via `holmes.additionalEnvVars` (`valueFrom.secretKeyRef`). `argus`'s forwarder (`forwarder.py`, per its own `values.yaml`) has **no config field for an outbound auth header to Holmes** — enabling `HOLMES_API_KEY` as currently designed would 401 the forwarder's own calls. This plan does NOT enable `HOLMES_API_KEY` — it ships NetworkPolicy-only hardening and files a follow-up bead for the forwarder patch. Do not silently skip this note; it is a deliberate, scoped-down deviation from the spec's Component 4, not an oversight.
+- **`HOLMES_API_KEY`** is a real Holmes server env var (confirmed via holmesgpt.dev docs: enforces auth on every endpoint except `/healthz`/`/readyz`, checked via `X-API-Key` or `Authorization: Bearer` header) but has **no dedicated chart values field** — set it via `holmes.additionalEnvVars` (`valueFrom.secretKeyRef`). `argus`'s forwarder (`forwarder.py`, per its own `values.yaml`) has **no config field for an outbound auth header to Holmes** — enabling `HOLMES_API_KEY` as currently designed would 401 the forwarder's own calls. This plan does NOT enable `HOLMES_API_KEY` — it ships NetworkPolicy-only hardening and files a follow-up tracking item for the forwarder patch. Do not silently skip this note; it is a deliberate, scoped-down deviation from the spec's Component 4, not an oversight.
 - **`argus`'s Chart.yaml has no packaged/OCI release** — chart lives only as source under `charts/argus/` in the git repo. Use `chart.spec.sourceRef: {kind: GitRepository}`, matching this repo's existing `kubernetes/apps/ai/openviking/` pattern exactly (see that app's `gitrepository.yaml`/`helmrelease.yaml`/`ks.yaml`/`kustomization.yaml` for the reference shape).
 - **Cilium default-deny-on-select**: the moment ANY NetworkPolicy selects a pod, Cilium flips that pod's ingress to default-deny — including same-namespace traffic. Every legitimate source must be enumerated, not just cross-namespace ones (same class of bug flagged in `kubernetes/apps/ai/mcpjungle/app/networkpolicy-kelos.yaml`).
 - All secrets SOPS-encrypted before commit — `task sops:verify` must pass after every task touching a `*.sops.yaml` file. When editing (not creating) an existing `*.sops.yaml`, use the `sops-edit-then-encrypt` skill.
-- Use `bd` for all task tracking (epic + child issues) per this repo's CLAUDE.md — no TodoWrite/TaskCreate/markdown TODO lists.
 - Conservative git policy: do not `git push` or run `task flux:reconcile-*` without checking with the user at that point in execution — this plan does not carry standing authorization for either.
 
 ---
@@ -31,93 +30,6 @@
 - **Create:** `kubernetes/apps/ai/argus/ks.yaml`, `kubernetes/apps/ai/argus/app/{kustomization.yaml,gitrepository.yaml,helmrelease.yaml,secret.sops.yaml,secret-github.sops.yaml,networkpolicy-holmes.yaml}` (Tasks 5–9).
 - **Modify:** `kubernetes/apps/ai/kustomization.yaml` — add `./argus/ks.yaml` (Task 5), remove `./holmesgpt/ks.yaml` (Task 10).
 - **Modify:** `kubernetes/apps/monitoring/kube-prometheus-stack/app/alertmanagerconfig.yaml` — add an `argus` webhook receiver route (Task 9).
-
----
-
-### Task 1: Beads epic + child issues
-
-**Files:** none (bd only).
-
-**Interfaces:**
-- Produces: an epic bead, child task beads under it. Every later task looks up its own bead by exact title via `bd list --json --title "<title>" | jq -r '.[0].id'` — do not hardcode IDs.
-
-- [ ] **Step 1: Create the epic**
-
-```bash
-bd create --type=epic \
-  --title="HolmesGPT auto-diagnose + remediation loop (argus Discord HITL bridge)" \
-  --description="Fix broken LLM routing, add Cilium/Hubble+Helm toolsets, harden API, consolidate onto argus (Discord HITL bridge, supersedes bifrost), add gated Remediation MCP + GitHub MCP for git-represented durable fixes. Spec: docs/superpowers/specs/2026-08-18-holmesgpt-auto-remediation-design.md. Plan: docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md." \
-  --priority=2
-```
-
-- [ ] **Step 2: Look up the epic ID**
-
-```bash
-EPIC_ID=$(bd list --json --title "HolmesGPT auto-diagnose + remediation loop (argus Discord HITL bridge)" | jq -r '.[0].id')
-echo "$EPIC_ID"
-```
-
-Expected: a non-empty issue ID.
-
-- [ ] **Step 3: Create child issues, one per implementation task below**
-
-```bash
-bd create --type=task --parent="$EPIC_ID" --priority=2 \
-  --title="HolmesGPT: fix LLM routing to litellm/coder-large" \
-  --description="Replace dead openai/tool-agent alias with litellm/coder-large via LiteLLM. Closes home-ops-d2x's underlying cause. See Task 2 of docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-
-bd create --type=task --parent="$EPIC_ID" --priority=3 \
-  --title="HolmesGPT: enable Cilium/Hubble and Helm toolsets" \
-  --description="Add cilium/core, hubble/observability, helm/core toolsets; verify CLI binaries and RBAC. See Task 3 of docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-
-bd create --type=task --parent="$EPIC_ID" --priority=2 \
-  --title="argus: scaffold GitRepository chart source + Kustomization" \
-  --description="Vendor argus as a GitRepository-sourced chart, following the openviking pattern. See Task 5 of docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-
-bd create --type=task --parent="$EPIC_ID" --priority=2 \
-  --title="argus: HelmRelease consolidating HolmesGPT config + forwarder + Discord HITL" \
-  --description="holmes: override block carries the LiteLLM routing fix, widened toolsets, and NetworkPolicy hardening. forwarder: config wires Discord webhooks + bot HITL buttons. See Tasks 6-7 of docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-
-bd create --type=task --parent="$EPIC_ID" --priority=2 \
-  --title="argus: enable Kubernetes Remediation + GitHub mcpAddons" \
-  --description="mcpAddons.kubernetesRemediation (already approval-gated by chart default) and mcpAddons.github (scoped PAT, repos/issues/pull_requests/context toolsets) for durable git-committed fixes. See Task 8 of docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-
-bd create --type=task --parent="$EPIC_ID" --priority=2 \
-  --title="argus: wire Alertmanager webhook receiver" \
-  --description="AlertmanagerConfig route -> argus-forwarder /webhook. See Task 9 of docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-
-bd create --type=task --parent="$EPIC_ID" --priority=3 \
-  --title="HolmesGPT: retire standalone holmesgpt app in favor of argus-holmes" \
-  --description="Delete kubernetes/apps/ai/holmesgpt/ once argus-holmes is live and verified end to end. See Task 10 of docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-
-bd create --type=task --parent="$EPIC_ID" --priority=2 \
-  --title="argus: live end-to-end remediation loop test" \
-  --description="Synthetic incident -> Discord post -> approve -> action executes / commit lands -> Flux reconciles clean. See Task 11 of docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-
-bd create --type=task --parent="$EPIC_ID" --priority=3 \
-  --title="HolmesGPT: HOLMES_API_KEY auth (needs argus forwarder.py patch)" \
-  --description="Deferred: argus's forwarder.py has no outbound-auth-header config field for calling Holmes. Enabling HOLMES_API_KEY as designed would 401 the forwarder. Needs a small ConfigMap-script patch to forwarder.py (no image build required) before this can ship. See Global Constraints in docs/superpowers/plans/2026-08-18-holmesgpt-auto-remediation.md."
-```
-
-- [ ] **Step 4: Mark bifrost/c14.7 superseded and close old blockers if reachable**
-
-```bash
-bd show home-ops-c14.7
-bd supersede home-ops-c14.7 --with="$EPIC_ID" 2>&1 || bd update home-ops-c14.7 --notes="Superseded by $EPIC_ID (argus adopted instead of bifrost) — see docs/superpowers/specs/2026-08-18-holmesgpt-auto-remediation-design.md."
-```
-
-Expected: `home-ops-c14.7` no longer open/actionable in this repo's tracker. (`bifrost-a7g`/`bifrost-44f` live in a separate repo's beads DB and aren't reachable from here — leave a note only, don't attempt to close them.)
-
-- [ ] **Step 5: Verify the tree**
-
-```bash
-bd show "$EPIC_ID"
-bd list --parent="$EPIC_ID"
-```
-
-Expected: epic shows 9 children, all `open`.
-
-No commit — beads live in Dolt, not the git tree.
 
 ---
 
@@ -227,7 +139,7 @@ kubectl -n ai exec deploy/holmesgpt-holmes -- helm version
 
 Expected: one of two outcomes.
 - **All three succeed** → proceed to Step 2.
-- **Any fails** (`command not found`) → do NOT enable that toolset. Note it in the bead from Task 1's Step 3 ("HolmesGPT: enable Cilium/Hubble and Helm toolsets") as a known limitation (chart image doesn't bundle the CLI), skip that toolset's block below, and stop here for this task — file a follow-up bead rather than shipping a toolset that will fail its own preflight check.
+- **Any fails** (`command not found`) → do NOT enable that toolset. Note it as a known limitation (chart image doesn't bundle the CLI), skip that toolset's block below, and stop here for this task — file a follow-up tracking item rather than shipping a toolset that will fail its own preflight check.
 
 - [ ] **Step 2: Add the toolset blocks**
 
@@ -274,13 +186,13 @@ Expected: each response's `tool_calls[]` shows a call into `hubble/observability
 kubectl get clusterrole -l app.kubernetes.io/name=holmes -o yaml | grep -A5 "secrets\|configmaps\|persistentvolumeclaims"
 ```
 
-Expected: the chart-default ClusterRole includes get/list/watch on secrets, configmaps, PVCs, deployments, statefulsets, daemonsets, jobs, cronjobs, ingresses. If any are missing, note it in the Task 1 bead — do not hand-author a ClusterRole override in this task; that's a separate decision if the gap turns out to matter.
+Expected: the chart-default ClusterRole includes get/list/watch on secrets, configmaps, PVCs, deployments, statefulsets, daemonsets, jobs, cronjobs, ingresses. If any are missing, note it as a tracked follow-up — do not hand-author a ClusterRole override in this task; that's a separate decision if the gap turns out to matter.
 
 ---
 
 ### Task 4: (intentionally skipped — see Global Constraints on HOLMES_API_KEY)
 
-This task number is reserved to keep numbering aligned with the beads created in Task 1. HOLMES_API_KEY is NOT implemented in this plan — see Global Constraints and the "HolmesGPT: HOLMES_API_KEY auth" bead from Task 1, Step 3.
+This task number is reserved to keep numbering aligned with the original task list. HOLMES_API_KEY is NOT implemented in this plan — see Global Constraints; tracked as a deferred follow-up item requiring an argus `forwarder.py` patch.
 
 ---
 
@@ -887,14 +799,9 @@ Expected: no Kustomization in a failed/drifted state as a result of the test.
 kubectl delete namespace argus-test
 ```
 
-- [ ] **Step 5: Close beads**
+- [ ] **Step 5: Confirm final state**
 
-```bash
-bd close "$EPIC_ID" --reason="Full loop verified live: Alertmanager -> argus-holmes investigation -> Discord HITL -> approved remediation -> confirmed cluster state change, Flux reconciled clean."
-bd list --parent="$EPIC_ID"
-```
-
-Expected: all child beads closed except the deferred `HOLMES_API_KEY` one, which stays open as tracked follow-up.
+Full loop verified live: Alertmanager → argus-holmes investigation → Discord HITL → approved remediation → confirmed cluster state change, Flux reconciled clean. All planned work for this epic is complete except the deferred `HOLMES_API_KEY` item, which stays open as tracked follow-up.
 
 ---
 
