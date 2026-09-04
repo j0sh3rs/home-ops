@@ -3,7 +3,27 @@
 #   - Egress to Cloudflare edge on TCP+UDP 7844 (QUIC/HTTP2) — tunnel carrier
 #   - Egress to kube-dns for service-name resolution
 #   - Egress to traefik-external Service on :443 (origin)
-# Ingress is only the metrics port (:2000) for in-cluster Prometheus scrape.
+#
+# Egress-only (no ingress restriction) as of 2026-09-04 -- this used to also
+# restrict Ingress to the metrics port (:2000) from monitoring only. Root-
+# caused a chronic cloudflared CrashLoopBackOff (deadlocked between a failed
+# image upgrade and a failed auto-rollback since 2026-08-31, ~every 15min)
+# to this Ingress restriction: `cilium monitor --type drop` on the affected
+# node showed CoreDNS's own DNS *reply* packets being dropped inbound to
+# cloudflared ("Policy denied ... identity <coredns>-><cloudflared>:
+# 10.43.0.10:53 -> <pod-ip>:<ephemeral> udp") whenever the ClusterIP
+# happened to load-balance to the cross-node CoreDNS replica -- Cilium's
+# conntrack-based "return traffic is always allowed" guarantee did not
+# reliably cover that flow while any Ingress policyType/rules existed on
+# this endpoint, confirmed via a live A/B test (dig loop: ~50% failures
+# with the ingress block present, 25/25 successful with it fully removed,
+# both from the same node). The Egress rules below (including the kube-dns
+# UDP/TCP 53 rule) are unaffected and still fully enforced. Trade-off: the
+# metrics :2000 port is now reachable from any in-cluster pod instead of
+# only `monitoring` -- acceptable, it's Prometheus-format tunnel/connection
+# counters, no secrets. Re-add an Ingress restriction only after confirming
+# on a newer Cilium version that this reply-drop behavior is actually fixed
+# upstream.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -13,16 +33,7 @@ spec:
     matchLabels:
       app.kubernetes.io/name: cloudflared
   policyTypes:
-    - Ingress
     - Egress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: monitoring
-      ports:
-        - protocol: TCP
-          port: 2000
   egress:
     # DNS
     - to:
