@@ -119,13 +119,18 @@ spec:
             # /home/claude/.local/share/user-bin (see persistence.home
             # below) holds manually-installed standalone CLI binaries
             # (mise itself, installed via `curl https://mise.run | sh` --
-            # NOT image-baked) that need to land on PATH every boot without
-            # re-shadowing the real claude/cursor-agent/junie symlinks
-            # already baked into .local/bin (the incident fixed in
-            # 54de6857). .local/bin is already on PATH, so instead of
-            # mounting it directly, relink whatever's in the persisted
-            # user-bin dir into it on every start -- ln -sf only touches
-            # the names it's given, so the baked symlinks are untouched.
+            # NOT image-baked). Relinking those into .local/bin (already
+            # on PATH, but NOT itself mounted -- see the .local/share/
+            # user-bin comment below for why) has to happen in the `app`
+            # container's own postStart hook, not here: initContainers and
+            # the app container each get an independent, unshared
+            # ephemeral root filesystem from the same image -- only
+            # explicitly mounted volumes (like the chown targets below)
+            # are visible across containers in this pod. A symlink
+            # created here in home-perms' own .local/bin never reaches
+            # the app container at all (confirmed the hard way: mise
+            # installed and manually relinked fine mid-session, but
+            # vanished from .local/bin again after the next restart).
             image:
               repository: docker.io/coderluii/holyclaude
               # renovate: datasource=docker depName=docker.io/coderluii/holyclaude
@@ -149,10 +154,6 @@ spec:
                 find /workspace \
                   \( -path /workspace/home-ops/age.key -prune \) \
                   -o -exec chown -h 1000:1000 {} +
-                for f in /home/claude/.local/share/user-bin/*; do
-                  [ -e "$f" ] || continue
-                  ln -sf "$f" "/home/claude/.local/bin/$(basename "$f")"
-                done
           gh-auth:
             image:
               repository: docker.io/coderluii/holyclaude
@@ -209,6 +210,30 @@ spec:
               seccompProfile:
                 type: Unconfined
               readOnlyRootFilesystem: false
+            # Relinks manually-installed CLI binaries (mise, via `curl
+            # https://mise.run | sh` -- see persistence.home's
+            # .local/share/user-bin comment) into .local/bin, which is
+            # already on PATH but deliberately NOT itself a PVC mount (that
+            # would re-shadow the baked claude/cursor-agent/junie symlinks,
+            # the 54de6857 incident). This MUST live here, in the app
+            # container's own postStart hook, not in an initContainer:
+            # .local/bin is unmounted, ephemeral, per-container root
+            # filesystem, not a shared volume -- an initContainer writing
+            # to its own .local/bin has zero effect on this container's.
+            # ln -sf only touches the names it's given, so the baked
+            # symlinks are never disturbed.
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                    - sh
+                    - -c
+                    - |
+                      set -eu
+                      for f in /home/claude/.local/share/user-bin/*; do
+                        [ -e "$f" ] || continue
+                        ln -sf "$f" "/home/claude/.local/bin/$(basename "$f")"
+                      done
             probes:
               liveness:
                 enabled: true
