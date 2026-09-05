@@ -10,7 +10,24 @@
 # exist"). [safe] directory = /workspace is added on top of what the
 # operator provided -- not part of the source .gitconfig, but required
 # for git to treat /workspace as trusted (git's dubious-ownership check)
-# now that nothing else regenerates that entry at boot.
+# now that nothing else regenerates that entry at boot. commit/tag gpgsign
+# was already true with gpg.format=ssh but no signingkey configured --
+# "git pull"/"commit -S" failed with "fatal: either user.signingkey or
+# gpg.ssh.defaultKeyCommand needs to be configured" until an ed25519
+# keypair was generated directly on the pod's persisted .claude PVC subpath
+# (2026-09-05, not GitOps-managed -- private key material, generated
+# in-place the same way Claude Code's own OAuth session is, not via a SOPS
+# secret) at /home/claude/.claude/.ssh/git_signing_key{,.pub} plus an
+# allowed_signers file at the sibling path for local `git log
+# --show-signature` verification. Both paths referenced here must exist on
+# the PVC before commit signing works; if this ConfigMap is ever applied
+# to a fresh PVC, regenerate the keypair there first (ssh-keygen -t
+# ed25519 -f /home/claude/.claude/.ssh/git_signing_key -N '' + an
+# allowed_signers line pairing user.email with the new pubkey), then add
+# the new pubkey to GitHub as an SSH *signing* key (Settings > SSH and GPG
+# keys > New SSH key > Key type: Signing Key) under the account that owns
+# user.email as a verified address, or commits will sign locally but show
+# unverified on GitHub.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -80,7 +97,10 @@ data:
     [user]
         name = BarryBot
         email = josh@beholdthehurricane.com
+        signingkey = /home/claude/.claude/.ssh/git_signing_key
     [gpg]
         format = ssh
+    [gpg "ssh"]
+        allowedSignersFile = /home/claude/.claude/.ssh/allowed_signers
     [safe]
         directory = /workspace
