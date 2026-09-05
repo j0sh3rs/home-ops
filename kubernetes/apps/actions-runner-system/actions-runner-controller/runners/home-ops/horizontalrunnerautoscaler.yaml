@@ -9,7 +9,7 @@ spec:
     kind: RunnerDeployment
     name: home-ops-runner
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 30
   metrics:
     - type: TotalNumberOfQueuedAndInProgressWorkflowRuns
       repositoryNames:
