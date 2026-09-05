@@ -29,7 +29,7 @@
       "Bash(kustomize *)",
       "Bash(task *)",
       "Bash(git *)",
-      "Bash(helm *)",
+      "Bash(helm *)"
     ]
   }
 }
