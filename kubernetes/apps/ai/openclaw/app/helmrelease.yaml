@@ -54,7 +54,7 @@ spec:
           00-install-openviking-plugin:
             image:
               repository: ghcr.io/openclaw/openclaw
-              tag: 2026.8.1
+              tag: 2026.9.1
             env:
               HOME: /home/node
             command:
@@ -108,7 +108,7 @@ spec:
             image:
               repository: ghcr.io/openclaw/openclaw
               # renovate: datasource=docker depName=ghcr.io/openclaw/openclaw
-              tag: 2026.8.1
+              tag: 2026.9.1
             command:
               - /bin/sh
               - -c
