@@ -49,18 +49,31 @@ spec:
           # the idle-worker series and fires a false positive even though
           # forwardAuth is fully functional. Aggregate with max() per outpost
           # so a single connected worker satisfies the check.
+          #
+          # The websocket also hands off between workers periodically: pid A
+          # drops it and pid B doesn't pick it back up for ~5m, so max() dips
+          # to 0 for a real but benign window roughly every 60-70m (confirmed
+          # via metrics.68cc.io history 2026-09-05, six 300s zero-runs, no pod
+          # restarts). ForwardAuth is served over HTTP directly by
+          # authentik-server and doesn't depend on this websocket — it's a
+          # config-sync/health channel, not the auth data path — so a 5m gap
+          # here doesn't break auth. `for: 8m` rides out that known handoff
+          # gap with margin while still catching a genuinely stuck outpost.
           expr: |
             max by (namespace, outpost) (
               authentik_outposts_connected{namespace="security"}
             ) == 0
-          for: 2m
+          for: 8m
           labels:
-            severity: critical
+            severity: warning
           annotations:
             summary: "Authentik embedded outpost disconnected"
             description: >-
-              No outposts connected to Authentik for 2m.
-              ForwardAuth will fail for all protected routes.
+              No outposts connected to Authentik for 8m — longer than the
+              known ~5m websocket handoff between server workers.
+              ForwardAuth itself runs over HTTP and is not affected by this
+              websocket, but a gap this long may indicate the outpost is
+              stuck reconnecting; check `authentik-server` logs.
 
     - name: authentik-auth
       interval: 60s
