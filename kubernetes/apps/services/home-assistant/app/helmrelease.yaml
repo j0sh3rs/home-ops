@@ -95,7 +95,7 @@ spec:
             image:
               repository: homeassistant/home-assistant
               # renovate: datasource=docker depName=homeassistant/home-assistant
-              tag: 2026.8.3
+              tag: 2026.9.1
             env:
               TZ: "America/New_York"
             envFrom:
