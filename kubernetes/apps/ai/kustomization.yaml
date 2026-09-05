@@ -30,7 +30,7 @@ components:
   - ../../components/repos/app-template
   - ../../components/authentik-forwardauth
 resources:
-  - ./argus/ks.yaml
+  # - ./argus/ks.yaml
   - ./atuin-ai-server/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./holyclaude/ks.yaml
