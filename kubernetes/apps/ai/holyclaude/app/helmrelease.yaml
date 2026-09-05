@@ -243,6 +243,26 @@ spec:
             # to the same baked default before postStart ever runs, on
             # every container start including in-place restarts, so this
             # can never duplicate the appended block.
+            #
+            # Finally, launches the caveman plugin's local proxy daemon.
+            # ~/.claude/settings.json points ANTHROPIC_BASE_URL at
+            # http://127.0.0.1:8787/w/claude so Claude Code's own traffic
+            # runs through it, but caveman-proxy is a bare foreground
+            # server with no supervisor of its own -- nothing in the
+            # image's entrypoint/s6 services starts it. Every fresh
+            # container therefore left it dead until someone happened to
+            # start it by hand in a terminal session, which silently broke
+            # again on the next restart (2026-09-05 incident: Claude Code
+            # failed with "API Error: Connection refused", and `curl
+            # 127.0.0.1:8787` reproduced the identical error until the
+            # binary was started manually). `setsid` detaches it from this
+            # postStart process's session and `nohup`+closed stdio stop a
+            # SIGHUP/closed-pipe from taking it down when the hook exits,
+            # so it outlives the hook the same way it survived the manual
+            # exec session used to confirm this fix. No idempotency guard
+            # needed: a container restart tears down its whole PID
+            # namespace, so there's never a prior instance still alive
+            # when this runs.
             lifecycle:
               postStart:
                 exec:
@@ -256,6 +276,8 @@ spec:
                         ln -sf "$f" "/home/claude/.local/bin/$(basename "$f")"
                       done
                       cat /tmp/bashrc-extra >> /home/claude/.bashrc
+                      setsid nohup /home/claude/.caveman/bin/caveman-proxy \
+                        >>/home/claude/.caveman/proxy.log 2>&1 </dev/null &
             probes:
               liveness:
                 enabled: true
