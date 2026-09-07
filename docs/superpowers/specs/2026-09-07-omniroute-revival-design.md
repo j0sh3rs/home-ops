@@ -140,6 +140,30 @@ deployment, updated for v3.8.51:
     `router-for-me/CLIProxyAPI`'s actual `Dockerfile` (`WORKDIR /CLIProxyAPI`,
     default `CMD ["./CLIProxyAPI"]`) and `cmd/server/main.go`'s config
     resolution logic directly, not assumed.
+- **Config as code / backup** (see requirement above, made concrete):
+  - Static config (ports, secret refs, JWT/API-key-secret/init password,
+    `REDIS_URL`, cliproxyapi `config.yaml` contents) → SOPS-encrypted
+    `omniroute-secrets` Secret, git-tracked, mounted read-only. Matches the
+    old pattern exactly (`envFrom.secretRef`, plus a `secret`-type
+    persistence entry mounting `cliproxy-config.yaml` into the sidecar).
+  - Interactive-login-only state (CLIProxyAPI's OAuth session tokens for
+    Claude Code/Codex/Copilot, Omniroute's own SQLite DB holding
+    dashboard-configured combos/endpoints/provider entries) → PVCs
+    (`omniroute-data` for `/app/data`, `cliproxyapi-data` for
+    `/root/.cli-proxy-api`), both `openebs-hostpath` (matches upstream's
+    own no-NFS-with-SQLite stance), both `retain: true`, neither carrying a
+    Velero exclusion label — so the default wildcard daily backup covers
+    them without any extra Velero config needed.
+- **DragonflyDB db1** — freed 2026-08-14 per the allocation runbook,
+  reassigned to Omniroute's distributed rate limiter. Runbook table updated
+  in the same change.
+- **HTTPRoute** `omniroute.68cc.io` on `traefik-external-gateway` +
+  `authentik-forwardauth` Middleware, VIP `192.168.35.15` — needed for the
+  dashboard and for the CLI OAuth login flows themselves (device-flow
+  callbacks typically need a reachable redirect).
+- **Reloader**: `reloader.stakater.com/auto: "true"` on both
+  `global.annotations` and the controller, matching every other app-template
+  deployment in this repo.
 
 ### Corrections found during Task 6 (live deploy) validation — 2026-09-07
 
@@ -166,30 +190,31 @@ binary path (`/cli-proxy-api`) — the real binary is
 it correctly from the right working directory. Fix: don't override
 `command`/`args` on this container at all — matches how the `app` container
 in the same pod already works (no override there either).
-- **Config as code / backup** (see requirement above, made concrete):
-  - Static config (ports, secret refs, JWT/API-key-secret/init password,
-    `REDIS_URL`, cliproxyapi `config.yaml` contents) → SOPS-encrypted
-    `omniroute-secrets` Secret, git-tracked, mounted read-only. Matches the
-    old pattern exactly (`envFrom.secretRef`, plus a `secret`-type
-    persistence entry mounting `cliproxy-config.yaml` into the sidecar).
-  - Interactive-login-only state (CLIProxyAPI's OAuth session tokens for
-    Claude Code/Codex/Copilot, Omniroute's own SQLite DB holding
-    dashboard-configured combos/endpoints/provider entries) → PVCs
-    (`omniroute-data` for `/app/data`, `cliproxyapi-data` for
-    `/root/.cli-proxy-api`), both `openebs-hostpath` (matches upstream's
-    own no-NFS-with-SQLite stance), both `retain: true`, neither carrying a
-    Velero exclusion label — so the default wildcard daily backup covers
-    them without any extra Velero config needed.
-- **DragonflyDB db1** — freed 2026-08-14 per the allocation runbook,
-  reassigned to Omniroute's distributed rate limiter. Runbook table updated
-  in the same change.
-- **HTTPRoute** `omniroute.68cc.io` on `traefik-external-gateway` +
-  `authentik-forwardauth` Middleware, VIP `192.168.35.15` — needed for the
-  dashboard and for the CLI OAuth login flows themselves (device-flow
-  callbacks typically need a reachable redirect).
-- **Reloader**: `reloader.stakater.com/auto: "true"` on both
-  `global.annotations` and the controller, matching every other app-template
-  deployment in this repo.
+
+A third bug surfaced on the *next* deploy attempt (after both fixes above
+landed): `cliproxyapi`'s liveness/readiness probes hit `/v1/models`
+unauthenticated, but that route requires an API key once real `api-keys`
+are configured in `cliproxy-config.yaml` (which this deployment always
+does, correctly — `cliproxyapi` is reachable cluster-wide via its own
+Service, not just pod-local, so requiring auth is real defense-in-depth,
+not something to relax). Confirmed via direct inspection of
+`router-for-me/CLIProxyAPI`'s route registration
+(`internal/api/server_routes.go`): `/v1` carries `AuthMiddleware`, a bare
+`GET /healthz` exists unauthenticated on current `main` — but checking the
+actual pinned `v6.9.7` tag specifically shows `/healthz` doesn't exist at
+that version at all (different route file layout entirely). What does exist
+unauthenticated at `v6.9.7` is a bare `GET /` (returns a small static JSON
+body, registered outside any auth group). **Fix: point both probes at `/`
+instead of `/v1/models`**, staying on the `v6.9.7` pin rather than
+upgrading just to get `/healthz`.
+
+All three corrections share one pattern worth flagging for future
+Phase 0/plan work on this project: each came from copying a detail out of
+OmniRoute's or CLIProxyAPI's own reference config/compose/docs without
+verifying it against *this deployment's specific configuration choices*
+(no web-scraping providers, real API-key auth enabled, a specific older
+version pin). Reference configs assume their own defaults; ours differ on
+purpose in each case, and that's exactly where the assumptions broke.
 
 ## Phase 1 validation checklist
 
