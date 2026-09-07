@@ -18,7 +18,7 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 | DB | Consumer | Namespace / app | Purpose | Reference |
 |----|----------|------------------|---------|-----------|
 | 0 | _(do not assign)_ | — | Default selection on connect; some clients touch it before `SELECT N`. Treat as transient — do NOT store data here. No consumer should target it. | — |
-| 1 | _free_ | — | Formerly OmniRoute rate limiter — freed 2026-08-14 (OmniRoute removed, cloud-gateway layer dropped in favor of llama-swap direct). | — |
+| 1 | Omniroute | `ai/omniroute` | Distributed rate limiter (Redis backend, per Omniroute's own compose reference). Reassigned 2026-09-07 (Omniroute revival, Phase 1 — see `docs/superpowers/specs/2026-09-07-omniroute-revival-design.md`). Redis URL: `redis://...:6379/1`. | `kubernetes/apps/ai/omniroute/app/helmrelease.yaml` |
 | 2 | Paperless-ngx | `services/paperless` | Celery task broker + result backend (document processing, OCR jobs). Redis URL: `redis://...:6379/2`. | `kubernetes/apps/services/paperless/app/helmrelease.yaml` |
 | 3 | _free_ | — | — | — |
 | 4 | litellm | `ai/litellm` | Router coordination + response cache. Reintroduced 2026-08-17 as a cluster-internal-only mirror in front of llama-swap/llama-swap-apu (no cloud provider routing, unlike the instance removed 2026-08-14). Redis URL: `redis://...:6379/4`. | `kubernetes/apps/ai/litellm/app/litellmproxy.yaml` |
