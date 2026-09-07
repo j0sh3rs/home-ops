@@ -9,6 +9,12 @@ spec:
     kind: OCIRepository
     name: tuppr
   interval: 1h
+  # Helm skips pre-existing CRDs on upgrade by default, so a chart bump
+  # silently leaves an old phase enum in place and stalls every upgrade CR.
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
   values:
     replicaCount: 2
     monitoring:

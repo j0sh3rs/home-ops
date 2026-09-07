@@ -1,0 +1,6 @@
+---
+# Standalone document (Talos 1.14+), not nested under machine: — enables
+# weekly fstrim across STATE/EPHEMERAL and all UserVolumes (NVMe-backed).
+apiVersion: v1alpha1
+kind: FilesystemTrimConfig
+interval: 168h

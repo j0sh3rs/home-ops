@@ -1,0 +1,8 @@
+---
+# Standalone document (Talos 1.14+) — moved out of cluster.apiServer, which
+# now conflicts with Talos's auto-generated KubeAPIServerConfig default.
+# https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
+apiVersion: v1alpha1
+kind: KubeAPIServerConfig
+extraArgs:
+  enable-aggregator-routing: "true"

@@ -1,0 +1,8 @@
+---
+# Standalone document (Talos 1.14+) — moved out of cluster.proxy.disabled,
+# which now conflicts with Talos's auto-generated KubeProxyConfig default.
+# Cilium replaces kube-proxy; note the inverted field name (enabled vs the
+# old disabled).
+apiVersion: v1alpha1
+kind: KubeProxyConfig
+enabled: false

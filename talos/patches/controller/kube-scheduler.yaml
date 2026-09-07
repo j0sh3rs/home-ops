@@ -1,0 +1,7 @@
+---
+# Standalone document (Talos 1.14+) — moved out of cluster.scheduler, which
+# now conflicts with Talos's auto-generated KubeSchedulerConfig default.
+apiVersion: v1alpha1
+kind: KubeSchedulerConfig
+extraArgs:
+  bind-address: "0.0.0.0"

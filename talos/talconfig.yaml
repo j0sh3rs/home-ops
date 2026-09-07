@@ -156,10 +156,11 @@ patches:
   - "@./patches/global/machine-files.yaml"
   - "@./patches/global/machine-kernel.yaml"
   - "@./patches/global/machine-kubelet.yaml"
-  - "@./patches/global/machine-network.yaml"
   - "@./patches/global/machine-nvme-power.yaml"
   - "@./patches/global/machine-sysctls.yaml"
   - "@./patches/global/machine-time.yaml"
+  - "@./patches/global/machine-trim.yaml"
+  - "@./patches/global/machine-resolver.yaml"
   - "@./patches/global/machine-features.yaml"
   - "@./patches/global/machine-registries.yaml"
 
@@ -167,4 +168,8 @@ patches:
 controlPlane:
   patches:
     - "@./patches/controller/cluster.yaml"
+    - "@./patches/controller/kube-apiserver.yaml"
+    - "@./patches/controller/kube-controller-manager.yaml"
+    - "@./patches/controller/kube-scheduler.yaml"
+    - "@./patches/controller/kube-proxy.yaml"
     - "@./patches/controller/machine-features.yaml"

@@ -1,0 +1,8 @@
+---
+# Standalone document (Talos 1.14+) — moved out of cluster.controllerManager,
+# which now conflicts with Talos's auto-generated KubeControllerManagerConfig
+# default.
+apiVersion: v1alpha1
+kind: KubeControllerManagerConfig
+extraArgs:
+  bind-address: "0.0.0.0"
