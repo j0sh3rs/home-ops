@@ -98,7 +98,7 @@ spec:
             image:
               repository: docker.io/eceasy/cli-proxy-api
               # renovate: datasource=docker depName=eceasy/cli-proxy-api versioning=semver
-              tag: v6.9.7
+              tag: v7.2.153
               pullPolicy: IfNotPresent
             command: ["/cli-proxy-api"]
             args: ["--config", "/CLIProxyAPI/config.yaml"]
