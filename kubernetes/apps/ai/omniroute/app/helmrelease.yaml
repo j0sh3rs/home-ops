@@ -115,12 +115,20 @@ spec:
                 cpu: "1"
                 memory: 1Gi
             probes:
+              # GET / — NOT /v1/models. /v1 requires an API key once real
+              # api-keys are configured (always, by design, since
+              # cliproxyapi's Service is cluster-reachable, not just
+              # pod-local). GET / is registered outside any auth group at
+              # our pinned v6.9.7 (confirmed via source read of
+              # internal/api/server.go — /healthz doesn't exist at this
+              # version, only on newer releases; don't "fix" this by
+              # switching to /healthz without also bumping the pin).
               liveness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
-                    path: /v1/models
+                    path: /
                     port: 8317
                   initialDelaySeconds: 20
                   periodSeconds: 15
@@ -130,7 +138,7 @@ spec:
                 custom: true
                 spec:
                   httpGet:
-                    path: /v1/models
+                    path: /
                     port: 8317
                   initialDelaySeconds: 10
                   periodSeconds: 10
