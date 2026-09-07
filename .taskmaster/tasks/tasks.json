@@ -224,11 +224,127 @@
         ],
         "priority": "low",
         "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Music Assistant: scaffold kubernetes/apps/services/music-assistant/",
+        "description": "New ks.yaml + app/{helmrelease.yaml,kustomization.yaml}, bjw-s app-template wrapping ghcr.io/music-assistant/server (renovate-tracked tag), per design spec Architecture section.",
+        "details": "pod.hostNetwork: true + dnsPolicy: ClusterFirstWithHostNet (mirrors home-assistant's discovery pattern -- required for Sonos/Chromecast/AirPlay mDNS/SSDP and HA zeroconf auto-discovery). Container port 8095. Default securityContext, no extra capabilities (SYS_ADMIN/DAC_READ_SEARCH/apparmor:unconfined from upstream docs are for in-container network-share mounts, not needed since the library is a k8s-managed PVC). global.annotations reloader.stakater.com/auto: \"true\".",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Music Assistant: provision /data and /music PVCs",
+        "description": "/data (config/db/artwork cache) on openebs-hostpath, RWO, retain:true, ~10Gi. /music (library) on nfs-client (Synology-backed), sized 1Ti as a nominal PVC-API value only -- nfs-subdir-external-provisioner doesn't enforce quota so this isn't a real ceiling.",
+        "details": "See docs/superpowers/specs/2026-09-07-music-assistant-design.md Storage section.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          18
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Music Assistant: confirm PVCs covered by Velero (no exclusion label)",
+        "description": "Verify neither the /data nor /music PVC is added to kubernetes/apps/velero/exclusions/app/pvc-exclusions.yaml -- daily wildcard backup should cover both by default.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          19
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 21,
+        "title": "Music Assistant: HTTPRoute music.68cc.io",
+        "description": "traefik-internal-gateway (VIP 192.168.35.17) + authentik-forwardauth Middleware on the UI route, no Cloudflare public record -- internal-only, matching home-assistant's posture.",
+        "details": "No bypass paths anticipated (HA<->MA talks over host network via zeroconf, not through this route). Revisit if MA's frontend breaks behind the forwardAuth cookie flow during testing.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          18
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 22,
+        "title": "Music Assistant: deploy standalone, validate web UI + player discovery",
+        "description": "Confirm web UI reachable on :8095 and via music.68cc.io. Confirm Sonos/Chromecast/AirPlay speakers on the LAN are discovered automatically.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          19,
+          21
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 23,
+        "title": "Music Assistant: configure Tidal provider",
+        "description": "Complete the PKCE browser auth flow from MA's web UI. Confirm the resulting session token persists in /data and survives a pod restart (PVC-backed, not lost). No SOPS secret involved -- see design spec Secrets section.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          22
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 24,
+        "title": "Music Assistant: install/verify Home Assistant integration",
+        "description": "Add the native \"Music Assistant\" integration in HA's UI. Expect auto-discovery via zeroconf since both pods run with hostNetwork on the same LAN; fall back to manual host-IP:8095 entry if discovery doesn't fire. No changes to home-assistant's own manifests -- this is a runtime HA config step, not GitOps state.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          22
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 25,
+        "title": "Music Assistant backlog: populate /music PVC with library files",
+        "description": "Out-of-band step -- copy files onto the Synology NFS export backing the /music PVC once the export path is known. Not a blocker for standing up the app itself.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          19
+        ],
+        "priority": "low",
+        "subtasks": []
+      },
+      {
+        "id": 26,
+        "title": "Music Assistant backlog: evaluate additional streaming providers",
+        "description": "Spotify or others, if desired later. Tidal is the only provider in scope for the initial deployment.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          23
+        ],
+        "priority": "low",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2026-09-07T00:00:00.000Z",
-      "updated": "2026-09-07T16:58:20.553Z",
+      "updated": "2026-09-07T17:15:00.000Z",
       "description": "Tasks for master context"
     }
   }
