@@ -1,0 +1,236 @@
+---
+# yamllint disable rule:line-length
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app omniroute
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    global:
+      annotations:
+        reloader.stakater.com/auto: "true"
+
+    controllers:
+      omniroute:
+        annotations:
+          reloader.stakater.com/auto: "true"
+
+        pod:
+          securityContext:
+            fsGroup: 1000
+
+        containers:
+          app:
+            image:
+              repository: docker.io/diegosouzapw/omniroute
+              # renovate: datasource=docker depName=diegosouzapw/omniroute versioning=semver
+              tag: 3.8.50
+              pullPolicy: IfNotPresent
+            env:
+              DATA_DIR: /app/data
+              PORT: &dashboardPort "20128"
+              DASHBOARD_PORT: *dashboardPort
+              API_PORT: &apiPort "20129"
+              API_HOST: "0.0.0.0"
+              LIVE_WS_PORT: &liveWsPort "20132"
+              LIVE_WS_HOST: "0.0.0.0"
+              LIVE_WS_ALLOWED_ORIGINS: "https://omniroute.68cc.io"
+              NODE_ENV: production
+              NODE_OPTIONS: "--max-old-space-size=2048"
+              OMNIROUTE_CODEX_APPSERVER_WS: "ws://127.0.0.1:1456"
+              OMNIROUTE_CODEX_APPSERVER_WS_TOKEN_FILE: /run/codex-appserver/token
+              CLIPROXYAPI_HOST: "127.0.0.1"
+              CLIPROXYAPI_PORT: "8317"
+            envFrom:
+              - secretRef:
+                  name: omniroute-secrets
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: "2"
+                memory: 2Gi
+            probes:
+              # Upstream's own compose healthcheck is `node healthcheck.mjs`
+              # (an exec script, not an HTTP path) — confirmed by reading
+              # both docker-compose.yml and docker-compose.prod.yml.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["node", "healthcheck.mjs"]
+                  initialDelaySeconds: 30
+                  periodSeconds: 15
+                  failureThreshold: 4
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["node", "healthcheck.mjs"]
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  successThreshold: 2
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["node", "healthcheck.mjs"]
+                  failureThreshold: 30
+                  periodSeconds: 10
+
+          cliproxyapi:
+            image:
+              repository: docker.io/eceasy/cli-proxy-api
+              # renovate: datasource=docker depName=eceasy/cli-proxy-api versioning=semver
+              tag: v6.9.7
+              pullPolicy: IfNotPresent
+            command: ["/cli-proxy-api"]
+            args: ["--config", "/CLIProxyAPI/config.yaml"]
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: "1"
+                memory: 1Gi
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /v1/models
+                    port: 8317
+                  initialDelaySeconds: 20
+                  periodSeconds: 15
+                  failureThreshold: 4
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /v1/models
+                    port: 8317
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+
+          codex-app-server:
+            image:
+              repository: docker.io/diegosouzapw/omniroute
+              tag: 3.8.50
+              pullPolicy: IfNotPresent
+            # Overrides the base image's default Next.js entrypoint. Mirrors
+            # upstream's own docker-compose.yml codex-app-server service
+            # exactly (token bootstrap + `codex app-server` launch).
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                set -e
+                TOKEN_FILE=/run/codex-appserver/token
+                mkdir -p /run/codex-appserver
+                if [ ! -s "$TOKEN_FILE" ]; then
+                  head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$TOKEN_FILE"
+                  chmod 600 "$TOKEN_FILE"
+                fi
+                exec codex app-server \
+                  --listen ws://127.0.0.1:1456 \
+                  --ws-auth capability-token \
+                  --ws-token-file "$TOKEN_FILE"
+            env:
+              CODEX_HOME: /home/node/.codex
+              RUST_LOG: warn
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: "1"
+                memory: 1Gi
+
+    service:
+      app:
+        forceRename: *app
+        controller: *app
+        ports:
+          http:
+            port: 20128
+          api:
+            port: 20129
+          livews:
+            port: 20132
+      cliproxyapi:
+        controller: *app
+        ports:
+          http:
+            port: 8317
+
+    persistence:
+      data:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        retain: true
+        advancedMounts:
+          omniroute:
+            app:
+              - path: /app/data
+      cliproxyapi-data:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        retain: true
+        advancedMounts:
+          omniroute:
+            cliproxyapi:
+              - path: /root/.cli-proxy-api
+      cliproxy-config:
+        type: secret
+        name: omniroute-secrets
+        advancedMounts:
+          omniroute:
+            cliproxyapi:
+              - path: /CLIProxyAPI/config.yaml
+                subPath: cliproxy-config.yaml
+                readOnly: true
+      codex-appserver-token:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 128Mi
+        retain: true
+        advancedMounts:
+          omniroute:
+            app:
+              - path: /run/codex-appserver
+            codex-app-server:
+              - path: /run/codex-appserver
+      codex-appserver-home:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 512Mi
+        retain: true
+        advancedMounts:
+          omniroute:
+            app:
+              - path: /home/node/.codex
+            codex-app-server:
+              - path: /home/node/.codex
