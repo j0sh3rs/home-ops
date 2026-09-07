@@ -6,12 +6,26 @@
 existing LiteLLM gateway, and prove it's controllable as code (git) and via
 its own MCP server — without touching LiteLLM or any consumer.
 
-**Architecture:** bjw-s app-template, one Deployment / three containers in
-one pod (`app`, `cliproxyapi`, `codex-app-server`), two PVCs
-(`omniroute-data`, `cliproxyapi-data`), DragonflyDB db1 for the rate
-limiter, HTTPRoute on `traefik-external-gateway`. All static config lives in
-a SOPS-encrypted Secret; all interactive-login state lives on PVCs covered
-by Velero's default backup.
+**Architecture:** bjw-s app-template, one Deployment / two containers in one
+pod (`app`, `cliproxyapi`), two PVCs (`omniroute-data`, `cliproxyapi-data`),
+DragonflyDB db1 for the rate limiter, HTTPRoute on
+`traefik-external-gateway`. All static config lives in a SOPS-encrypted
+Secret; all interactive-login state lives on PVCs covered by Velero's
+default backup.
+
+> **Correction (2026-09-07, post Task 6 live-deploy validation):** this plan
+> originally specified a third `codex-app-server` container. Task 6's
+> deploy found it crash-looping (`codex: not found`) — root-caused to the
+> `codex` CLI only existing in Omniroute's unpublished `runner-cli` build
+> target, not the published bare image this plan uses. Reverted to the
+> design spec's original architecture: CLIProxyAPI handles both Claude Code
+> and Codex via its own native OAuth flows. Task 6's `cliproxyapi`
+> crash-loop was a second, unrelated bug (wrong hardcoded binary path) — also
+> fixed. See the design spec's "Corrections found during Task 6 validation"
+> section and this plan's SDD ledger for full root-cause detail. Task 3 and
+> Task 10 below are updated in place to reflect the corrected 2-container
+> design — treat this document as authoritative over the original Task 3
+> commit's now-superseded 3-container HelmRelease.
 
 **Tech Stack:** Flux (HelmRelease/Kustomization), bjw-s app-template v5.1.0,
 SOPS+age, DragonflyDB (Redis-compatible), Omniroute 3.8.50, CLIProxyAPI
@@ -28,10 +42,11 @@ v6.9.7.
   Docker Hub "latest", which may be ahead of what's tested against this
   Omniroute release).
 - CLIProxyAPI covers **Claude Code and Codex only** — Copilot is dropped
-  (upstream doesn't support it; see spec "Correction" section). Codex
-  specifically uses the newer `codex-app-server` mechanism (drives the
-  Codex CLI's own JSON-RPC app-server), not CLIProxyAPI's session-replay —
-  CLIProxyAPI in this deployment handles Claude Code only.
+  (upstream doesn't support it; see spec "Correction" section). Both Claude
+  Code and Codex use CLIProxyAPI's own native OAuth flows
+  (`--claude-login`, `--codex-login`/`--codex-device-login`) in the same
+  sidecar — no separate `codex-app-server` mechanism (reverted, see
+  Correction note above).
 - Nothing may exist only as unbacked, dashboard-only state: static config →
   SOPS Secret (git), interactive-login state → PVC (Velero-covered, no
   exclusion label).
@@ -178,10 +193,19 @@ git commit -m "feat(ai): add omniroute-secrets (Phase 1 scaffold)"
 
 ---
 
-### Task 3: HelmRelease — app-template with app + cliproxyapi + codex-app-server
+### Task 3: HelmRelease — app-template with app + cliproxyapi (CORRECTED 2026-09-07)
+
+> This task was originally executed with a third `codex-app-server`
+> container (commit `f4ec1b2b`). Task 6's live deploy found it and the
+> `cliproxyapi` container both crash-looping — root-caused in the SDD
+> ledger and the design spec's "Corrections found during Task 6
+> validation" section. The content below is the corrected version; it's
+> what actually gets applied as a fix to the already-committed
+> `helmrelease.yaml`, not a from-scratch file.
 
 **Files:**
-- Create: `kubernetes/apps/ai/omniroute/app/helmrelease.yaml`
+- Modify: `kubernetes/apps/ai/omniroute/app/helmrelease.yaml` (already
+  exists from the original Task 3 commit — apply the corrections below to it)
 
 **Interfaces:**
 - Consumes: Secret `omniroute-secrets` (Task 2), OCIRepository `app-template`
@@ -190,12 +214,53 @@ git commit -m "feat(ai): add omniroute-secrets (Phase 1 scaffold)"
 - Produces: Service `omniroute` (ports 20128 dashboard, 20129 API, 20132
   live-ws), internal-only Service reachable at
   `omniroute.ai.svc.cluster.local` for Task 6's connectivity check; PVCs
-  `omniroute-data`, `cliproxyapi-data`, `codex-appserver-token`,
-  `codex-appserver-home` (the last two shared between `app` and
-  `codex-app-server` containers, safe as `openebs-hostpath` since all
-  containers are in the same pod on the same node).
+  `omniroute-data`, `cliproxyapi-data` only (the `codex-appserver-token`/
+  `codex-appserver-home` PVCs and their mounts are removed entirely).
 
-- [ ] **Step 1: Write the HelmRelease**
+- [ ] **Step 1: Apply these corrections to the existing HelmRelease**
+
+Three changes to `kubernetes/apps/ai/omniroute/app/helmrelease.yaml`:
+
+1. Remove these two env vars from the `app` container (no `codex-app-server`
+   to talk to anymore):
+   ```yaml
+   OMNIROUTE_CODEX_APPSERVER_WS: "ws://127.0.0.1:1456"
+   OMNIROUTE_CODEX_APPSERVER_WS_TOKEN_FILE: /run/codex-appserver/token
+   ```
+
+2. On the `cliproxyapi` container: remove the `command`/`args` override
+   entirely — delete these two lines:
+   ```yaml
+   command: ["/cli-proxy-api"]
+   args: ["--config", "/CLIProxyAPI/config.yaml"]
+   ```
+   The image's own default `CMD ["./CLIProxyAPI"]` (run from `WORKDIR
+   /CLIProxyAPI`) already finds `config.yaml` in its working directory with
+   no flag needed — confirmed by reading `router-for-me/CLIProxyAPI`'s
+   actual `Dockerfile` and `cmd/server/main.go`'s config-path fallback
+   logic. Also update the image tag comment/pin: it should already read
+   `tag: v6.9.7` (Renovate may have auto-bumped it since the original
+   commit — check the live value and re-pin to `v6.9.7` if it drifted,
+   since the crash was path-related, not version-related, but this plan's
+   Global Constraints still call for the specific tested version).
+
+3. Remove the entire `codex-app-server` container block (the whole
+   `codex-app-server:` entry under `containers:`, everything from its
+   `image:` through its `resources:` block).
+
+4. Remove the `codex-appserver-token` and `codex-appserver-home` entries
+   entirely from `persistence:` (both the top-level entries and their
+   `advancedMounts` references under `app:`).
+
+The resulting file's `containers:` section should contain exactly `app` and
+`cliproxyapi` (no `codex-app-server`), and `persistence:` should contain
+exactly `data`, `cliproxyapi-data`, and `cliproxy-config` (no
+`codex-appserver-*` entries). Everything else (ports, probes, resources,
+service block) stays as originally written.
+
+For reference, here is the corrected `containers:` and `persistence:`
+content in full (use this as the source of truth over the step-by-step
+diff instructions above if there's ever ambiguity):
 
 ```yaml
 ---
@@ -249,8 +314,6 @@ spec:
               LIVE_WS_ALLOWED_ORIGINS: "https://omniroute.68cc.io"
               NODE_ENV: production
               NODE_OPTIONS: "--max-old-space-size=2048"
-              OMNIROUTE_CODEX_APPSERVER_WS: "ws://127.0.0.1:1456"
-              OMNIROUTE_CODEX_APPSERVER_WS_TOKEN_FILE: /run/codex-appserver/token
               CLIPROXYAPI_HOST: "127.0.0.1"
               CLIPROXYAPI_PORT: "8317"
             envFrom:
@@ -300,8 +363,15 @@ spec:
               # renovate: datasource=docker depName=eceasy/cli-proxy-api versioning=semver
               tag: v6.9.7
               pullPolicy: IfNotPresent
-            command: ["/cli-proxy-api"]
-            args: ["--config", "/CLIProxyAPI/config.yaml"]
+            # No command/args override — the image's own default
+            # CMD ["./CLIProxyAPI"] (run from WORKDIR /CLIProxyAPI) already
+            # finds config.yaml in its working directory with no flag
+            # needed. An earlier version of this file hardcoded
+            # command: ["/cli-proxy-api"], a fabricated path that doesn't
+            # exist in the image (real binary: /CLIProxyAPI/CLIProxyAPI) —
+            # confirmed by reading router-for-me/CLIProxyAPI's Dockerfile
+            # and cmd/server/main.go's config-path fallback directly. Don't
+            # reintroduce a command override here.
             resources:
               requests:
                 cpu: 100m
@@ -329,39 +399,6 @@ spec:
                     port: 8317
                   initialDelaySeconds: 10
                   periodSeconds: 10
-
-          codex-app-server:
-            image:
-              repository: docker.io/diegosouzapw/omniroute
-              tag: 3.8.50
-              pullPolicy: IfNotPresent
-            # Overrides the base image's default Next.js entrypoint. Mirrors
-            # upstream's own docker-compose.yml codex-app-server service
-            # exactly (token bootstrap + `codex app-server` launch).
-            command: ["/bin/sh", "-c"]
-            args:
-              - |
-                set -e
-                TOKEN_FILE=/run/codex-appserver/token
-                mkdir -p /run/codex-appserver
-                if [ ! -s "$TOKEN_FILE" ]; then
-                  head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$TOKEN_FILE"
-                  chmod 600 "$TOKEN_FILE"
-                fi
-                exec codex app-server \
-                  --listen ws://127.0.0.1:1456 \
-                  --ws-auth capability-token \
-                  --ws-token-file "$TOKEN_FILE"
-            env:
-              CODEX_HOME: /home/node/.codex
-              RUST_LOG: warn
-            resources:
-              requests:
-                cpu: 100m
-                memory: 256Mi
-              limits:
-                cpu: "1"
-                memory: 1Gi
 
     service:
       app:
@@ -410,44 +447,36 @@ spec:
               - path: /CLIProxyAPI/config.yaml
                 subPath: cliproxy-config.yaml
                 readOnly: true
-      codex-appserver-token:
-        type: persistentVolumeClaim
-        storageClass: openebs-hostpath
-        accessMode: ReadWriteOnce
-        size: 128Mi
-        retain: true
-        advancedMounts:
-          omniroute:
-            app:
-              - path: /run/codex-appserver
-            codex-app-server:
-              - path: /run/codex-appserver
-      codex-appserver-home:
-        type: persistentVolumeClaim
-        storageClass: openebs-hostpath
-        accessMode: ReadWriteOnce
-        size: 512Mi
-        retain: true
-        advancedMounts:
-          omniroute:
-            app:
-              - path: /home/node/.codex
-            codex-app-server:
-              - path: /home/node/.codex
 ```
 
-- [ ] **Step 2: Validate with kustomize + kubeconform before committing**
+- [ ] **Step 2: Validate**
 
-(This requires Task 4's `kustomization.yaml`/`ks.yaml` and Task 5's
-`ai/kustomization.yaml` wiring to exist first — run this validation after
-Task 5's Step 2 instead if working strictly task-by-task. If running ahead,
-skip to Task 5 first, then return here.)
+Tasks 4/5 already exist and are deployed (this is a post-deploy fix, not the
+original from-scratch sequencing) — run the full validation immediately:
+
+```bash
+kustomize build kubernetes/apps/ai/omniroute/app | kubectl apply --dry-run=client -f -
+flux build kustomization omniroute -n ai --kustomization-file kubernetes/apps/ai/omniroute/ks.yaml --path kubernetes/apps/ai/omniroute/app --dry-run
+```
+(Note the corrected `flux build` invocation — the plan's original Task 5
+text used a flag combination that didn't match the installed flux2 CLI
+version; this is the working form, recorded in the SDD ledger.)
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add kubernetes/apps/ai/omniroute/app/helmrelease.yaml
-git commit -m "feat(ai): add omniroute HelmRelease (Phase 1 scaffold)"
+git commit -m "fix(ai): drop unbuildable codex-app-server, fix cliproxyapi command
+
+codex-app-server required the unpublished runner-cli Omniroute image
+build target (codex CLI only exists there, not in the published bare
+image) -- reverts to the design spec's original 2-container
+architecture, CLIProxyAPI handles both Claude Code and Codex via its
+own native OAuth flows. Also fixes cliproxyapi's command override,
+which hardcoded a fabricated binary path (/cli-proxy-api) instead of
+the real one (/CLIProxyAPI/CLIProxyAPI) -- removed the override
+entirely since the image's own default CMD already resolves config.yaml
+correctly from its working directory."
 ```
 
 ---
@@ -658,7 +687,7 @@ task flux:reconcile-ks name=omniroute ns=ai
 ```bash
 rtk kubectl get pods -n ai -l app.kubernetes.io/name=omniroute -w
 ```
-Expected: pod reaches `3/3 Running` (app, cliproxyapi, codex-app-server).
+Expected: pod reaches `2/2 Running` (app, cliproxyapi).
 If it doesn't, check `rtk kubectl describe pod -n ai <pod>` and
 `rtk kubectl logs -n ai <pod> -c <container>` before proceeding — do not
 move to Step 3 with a crashing pod.
@@ -859,7 +888,15 @@ items" section once confirmed.
 
 ---
 
-### Task 10: OAuth login flows — Claude Code (CLIProxyAPI) and Codex (app-server)
+### Task 10: OAuth login flows — Claude Code and Codex (both via CLIProxyAPI)
+
+> Corrected 2026-09-07: Codex now goes through CLIProxyAPI's own
+> `--codex-login`/`--codex-device-login` flags, same sidecar as Claude
+> Code — the `codex-app-server` container this step originally referenced
+> was dropped (see Task 3's correction note). Also: the binary path is
+> `/CLIProxyAPI/CLIProxyAPI` (or `./CLIProxyAPI` from its own working
+> directory), not `/cli-proxy-api` — the earlier draft of this task had the
+> same fabricated-path bug Task 3's HelmRelease did.
 
 **Files:** none (interactive login, PVC-backed session state)
 
@@ -870,7 +907,7 @@ rtk kubectl port-forward -n ai deploy/omniroute 51234:8317 &
 # CLIProxyAPI's --claude-login needs a reachable OAuth callback; --no-browser
 # prints the URL instead of trying to open one (there's no browser in the pod).
 rtk kubectl exec -n ai deploy/omniroute -c cliproxyapi -- \
-  /cli-proxy-api --config /CLIProxyAPI/config.yaml --claude-login --no-browser
+  /CLIProxyAPI/CLIProxyAPI --config /CLIProxyAPI/config.yaml --claude-login --no-browser
 ```
 Follow the printed URL in a real browser, complete the OAuth flow. Confirm
 the session landed on the PVC:
@@ -879,17 +916,23 @@ rtk kubectl exec -n ai deploy/omniroute -c cliproxyapi -- ls -la /root/.cli-prox
 ```
 Expected: a Claude auth file present.
 
-- [ ] **Step 2: Codex login via the app-server's own OAuth (not CLIProxyAPI)**
+- [ ] **Step 2: Codex login, also via CLIProxyAPI**
 
-The `codex-app-server` container's Codex CLI self-manages OAuth against the
-shared `~/.codex` volume — this needs the dashboard's "Apply auth" flow for
-`codex-app-server` (device-OAuth), not a CLIProxyAPI flag. Trigger it via
-the dashboard (Providers → codex-app-server → Apply auth) or, if exposed,
-its MCP-equivalent tool call. Confirm:
+Prefer the device-code flow (`--codex-device-login`) over `--codex-login`
+here — it prints a short code to enter at a URL instead of needing a
+reachable OAuth callback port, simpler for a pod with no ports port-forwarded
+for this specific purpose:
 ```bash
-rtk kubectl exec -n ai deploy/omniroute -c codex-app-server -- ls -la /home/node/.codex/
+rtk kubectl exec -n ai deploy/omniroute -c cliproxyapi -- \
+  /CLIProxyAPI/CLIProxyAPI --config /CLIProxyAPI/config.yaml --codex-device-login
 ```
-Expected: `auth.json` present.
+Follow the printed code/URL to complete the OAuth flow. Confirm:
+```bash
+rtk kubectl exec -n ai deploy/omniroute -c cliproxyapi -- ls -la /root/.cli-proxy-api/
+```
+Expected: both a Claude auth file and a Codex/OpenAI auth file present in
+the same directory (CLIProxyAPI stores all provider sessions under one
+`auth-dir`).
 
 - [ ] **Step 3: Confirm both survive a pod restart**
 
@@ -897,10 +940,10 @@ Expected: `auth.json` present.
 rtk kubectl delete pod -n ai -l app.kubernetes.io/name=omniroute
 rtk kubectl wait -n ai --for=condition=ready pod -l app.kubernetes.io/name=omniroute --timeout=120s
 rtk kubectl exec -n ai deploy/omniroute -c cliproxyapi -- ls -la /root/.cli-proxy-api/
-rtk kubectl exec -n ai deploy/omniroute -c codex-app-server -- ls -la /home/node/.codex/
 ```
-Expected: both still present — confirms PVC-backed persistence, satisfying
-the config-as-code/backup requirement for interactive-login-only state.
+Expected: both auth files still present — confirms PVC-backed persistence,
+satisfying the config-as-code/backup requirement for interactive-login-only
+state.
 
 - [ ] **Step 4: Update TaskMaster and memory**
 
