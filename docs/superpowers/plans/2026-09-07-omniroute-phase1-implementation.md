@@ -199,9 +199,12 @@ git commit -m "feat(ai): add omniroute-secrets (Phase 1 scaffold)"
 > container (commit `f4ec1b2b`). Task 6's live deploy found it and the
 > `cliproxyapi` container both crash-looping — root-caused in the SDD
 > ledger and the design spec's "Corrections found during Task 6
-> validation" section. The content below is the corrected version; it's
-> what actually gets applied as a fix to the already-committed
-> `helmrelease.yaml`, not a from-scratch file.
+> validation" section (fix round 1, commit `89dd0ab0`). A second Task 6
+> retry then found a THIRD bug — `cliproxyapi`'s probes hit an
+> auth-gated path — fixed in fix round 2 (probes below already reflect
+> the corrected `path: /` target). The content below is the fully
+> corrected version; it's what actually gets applied as a fix to the
+> already-committed `helmrelease.yaml`, not a from-scratch file.
 
 **Files:**
 - Modify: `kubernetes/apps/ai/omniroute/app/helmrelease.yaml` (already
@@ -380,12 +383,20 @@ spec:
                 cpu: "1"
                 memory: 1Gi
             probes:
+              # GET / — NOT /v1/models. /v1 requires an API key once real
+              # api-keys are configured (always, by design, since
+              # cliproxyapi's Service is cluster-reachable, not just
+              # pod-local). GET / is registered outside any auth group at
+              # our pinned v6.9.7 (confirmed via source read of
+              # internal/api/server.go — /healthz doesn't exist at this
+              # version, only on newer releases; don't "fix" this by
+              # switching to /healthz without also bumping the pin).
               liveness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
-                    path: /v1/models
+                    path: /
                     port: 8317
                   initialDelaySeconds: 20
                   periodSeconds: 15
@@ -395,7 +406,7 @@ spec:
                 custom: true
                 spec:
                   httpGet:
-                    path: /v1/models
+                    path: /
                     port: 8317
                   initialDelaySeconds: 10
                   periodSeconds: 10
