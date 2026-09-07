@@ -53,15 +53,27 @@ others), a built-in MCP server (SSE/streamable-HTTP/stdio transports), and
 an OpenAI-compatible `/v1` endpoint.
 
 **Decision (explicit, user-approved):** revive Omniroute with the
-CLIProxyAPI sidecar included, wired to Claude Code, Codex, and Copilot
-subscriptions. This is a knowing acceptance of the same ToS-boundary risk
-that got the old deployment pulled — real risk of a provider flagging or
-banning the account tied to those sessions. Not a neutral technical choice;
-recorded here so it isn't silently re-litigated or silently forgotten later.
+CLIProxyAPI sidecar included, wired to Claude Code and Codex subscriptions.
+This is a knowing acceptance of the same ToS-boundary risk that got the old
+deployment pulled — real risk of a provider flagging or banning the account
+tied to those sessions. Not a neutral technical choice; recorded here so it
+isn't silently re-litigated or silently forgotten later.
+
+**Correction found during Phase 1 planning (2026-09-07):** Copilot was
+originally in scope alongside Claude Code and Codex, but CLIProxyAPI does
+not actually support it — its upstream README's own provider table lists
+Kimi, OpenAI/Codex, Anthropic/Claude Code, Google/Gemini CLI, and xAI/Grok
+only. Omniroute's own `CLI-INTEGRATIONS.md` doesn't cover Copilot either;
+the only Copilot-adjacent thing it mentions is an unrelated VS Code
+extension ("OmniCopilot"), not a headless gateway backend. **User decision:
+drop Copilot from Phase 1, leave a TaskMaster backlog item to revisit if
+upstream ever adds support.** Not a silent scope cut — recorded here and in
+memory.
 
 ## Scope decisions (from brainstorming Q&A)
 
-- **CLIProxyAPI subscriptions**: Claude Code + Codex + Copilot, all three.
+- **CLIProxyAPI subscriptions**: Claude Code + Codex only (Copilot dropped —
+  see correction above; upstream doesn't support it).
 - **BYOK cloud providers**: none configured yet — provider slots get wired
   in Omniroute but left without real credentials until the user has actual
   keys. Does not block Phase 1 or Phase 2.
@@ -96,14 +108,29 @@ recorded here so it isn't silently re-litigated or silently forgotten later.
 New `kubernetes/apps/ai/omniroute/` app, same skeleton as the deleted
 deployment, updated for v3.8.51:
 
-- **bjw-s app-template** (still no upstream Helm chart — to be re-verified,
-  see Open Items), two containers:
-  - `app` — gateway, dashboard, MCP server. Ports 20128 (dashboard/HTTP)
-    and 20129 (API), per the old convention; MCP transports (SSE,
-    streamable-HTTP, stdio) exposed off the same container.
-  - `cliproxyapi` — sidecar reusing CLI subscription OAuth sessions.
-    Config is file-only (`-config` flag, no env var support, confirmed by
-    the old deployment's source read of `cmd/server/main.go`).
+- **bjw-s app-template** (confirmed still no upstream Helm chart — GitHub
+  tree listing at `release/v3.8.51` has no `charts/`/`helm/` dir), two
+  containers:
+  - `app` — image `docker.io/diegosouzapw/omniroute:3.8.50` (confirmed
+    published on Docker Hub 2026-08-27; no `3.8.51` image exists yet even
+    though the docs branch is ahead of the image release — pin to `3.8.50`,
+    not `3.8.51`). The `-web` variant (bundles Playwright/Chromium for
+    `gemini-web`/`claude-web`/`claude-turnstile` scraping) is deliberately
+    NOT used — those providers were never in the accepted scope, only
+    CLIProxyAPI's CLI-session reuse was. A `runner-cli` Dockerfile target
+    also exists upstream (bakes Codex/Claude Code/Droid/OpenClaw CLI support
+    directly into the main image, no sidecar needed) but Docker Hub does not
+    publish a `-cli` tag — only buildable from source — so it's out of scope
+    for Phase 1 (would require standing up our own build/publish pipeline).
+    Gateway, dashboard, MCP server. Ports 20128 (dashboard/HTTP) and 20129
+    (API); MCP transports (SSE, streamable-HTTP, stdio) exposed off the same
+    container.
+  - `cliproxyapi` — image `docker.io/eceasy/cli-proxy-api:v7.2.153`
+    (confirmed actively published, same repo as the old deployment).
+    Sidecar reusing CLI subscription OAuth sessions — Claude Code and Codex
+    only (see Copilot correction above). Config is file-only (`-config`
+    flag, no env var support, confirmed by the old deployment's source read
+    of `cmd/server/main.go`).
 - **Config as code / backup** (see requirement above, made concrete):
   - Static config (ports, secret refs, JWT/API-key-secret/init password,
     `REDIS_URL`, cliproxyapi `config.yaml` contents) → SOPS-encrypted
@@ -142,7 +169,7 @@ deployment, updated for v3.8.51:
    llama-swap aliases (`coder-large`, `frontier-chat`, `reasoner`, `router`,
    `embedding`, `chat`, `vlm`, `rerank`) against both llama-swap endpoints —
    recreates LiteLLM's local-routing role inside Omniroute.
-5. Run the OAuth login flows for Claude Code, Codex, and Copilot against the
+5. Run the OAuth login flows for Claude Code and Codex against the
    `cliproxyapi` sidecar; confirm sessions survive a pod restart (PVC-backed).
 6. Leave BYOK cloud provider slots wired but empty — backlog item, not a
    Phase 1 blocker.
@@ -164,23 +191,32 @@ assumed here). Captured now as scope, not as a detailed plan:
 - Update `CLAUDE.md`, `kubernetes/apps/ai/CLAUDE.md`,
   `docs/runbooks/dragonflydb-db-allocation.md` to match new architecture.
 
-## Open items for Phase 0/Phase 1 implementation (not resolved by this design)
+## Resolved during Phase 1 planning (2026-09-07)
 
-- **Exact current image/tag**: v3.8.51 docs favor `npm install -g omniroute`
-  / Electron / headless-server-mode over a monolithic Docker image; the old
-  `docker.io/diegosouzapw/omniroute:X.Y.Z-web` tag family needs
-  re-verification, not reuse-by-assumption.
-- **CLIProxyAPI image**: old deployment used `docker.io/eceasy/cli-proxy-api`
-  (the old HelmRelease comment documents that OmniRoute's own
-  docker-compose.yml pointed at a nonexistent `ghcr.io/router-for-me/*`
-  image) — re-verify this is still the correct publish target at the
-  version paired with Omniroute v3.8.51.
+- **Image tags**: `docker.io/diegosouzapw/omniroute:3.8.50` (app) +
+  `docker.io/eceasy/cli-proxy-api:v7.2.153` (cliproxyapi) — both confirmed
+  live on Docker Hub. See Architecture section above for the `-web`/
+  `runner-cli` rationale.
+- **MCP/management auth model**: Omniroute has four credential families —
+  dashboard JWT cookie (from `INITIAL_PASSWORD` login), a local CLI
+  machine-ID token, a **scoped access token** (`oma_live_...`, generated via
+  Dashboard Settings → Access Tokens or `omniroute connect`, with
+  `read`/`write`/`admin` scopes), and inference API keys (`sk-...` for
+  `/v1/*`). The MCP server and management API calls use the scoped access
+  token (`Authorization: Bearer oma_live_...`) — this is what gets minted
+  for Claude Code's MCP registration, at `admin` scope for config control.
+  Per the config-as-code requirement, this token goes in the same
+  SOPS-encrypted `omniroute-secrets` Secret, not left unbacked.
+
+## Open items remaining for Phase 1 implementation
+
 - **Model-id / combo addressing scheme** for the Phase 2 consumer repoint —
-  determine against the real running Phase 1 instance.
-- **MCP endpoint auth** — confirm whether the MCP server needs a management
-  token (per the OpenCode-plugin doc's mention of "management tokens...
-  required separately for enrichment features") and how that token is
-  supplied without living outside git/PVC per the config-as-code requirement.
+  determine against the real running Phase 1 instance (Omniroute uses
+  `<provider>/<model>`-style addressing per the OpenCode plugin doc, not
+  LiteLLM's bare aliases — confirm exact form once local-provider combos are
+  configured in Phase 1 step 4).
+- **Copilot**: dropped from Phase 1 scope (see correction above) — backlog
+  item in TaskMaster to revisit if upstream ever adds support.
 
 ## Out of scope
 

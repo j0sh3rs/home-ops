@@ -4,10 +4,10 @@
       {
         "id": 1,
         "title": "Phase 0: Pin real Omniroute/CLIProxyAPI image+tag",
-        "description": "Re-verify current Omniroute image/tag at v3.8.51 (docs favor npm/Electron/headless over the old monolithic Docker image) and the paired CLIProxyAPI image/tag. Do not reuse the Aug-2026 diegosouzapw/omniroute:*-web / eceasy/cli-proxy-api values by assumption.",
-        "details": "See docs/superpowers/specs/2026-09-07-omniroute-revival-design.md Open Items section.",
+        "description": "RESOLVED 2026-09-07: docker.io/diegosouzapw/omniroute:3.8.50 (plain, no -web -- Playwright web-scraping providers never in scope) + docker.io/eceasy/cli-proxy-api:v7.2.153. No 3.8.51 image published yet; no -cli image published (Dockerfile target exists but unbuilt/unpublished, out of scope for Phase 1).",
+        "details": "See docs/superpowers/specs/2026-09-07-omniroute-revival-design.md 'Resolved during Phase 1 planning' section.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
         "subtasks": []
@@ -118,8 +118,8 @@
       },
       {
         "id": 10,
-        "title": "Phase 1: Run OAuth login flows for Claude Code, Codex, Copilot",
-        "description": "Against the cliproxyapi sidecar. Confirm sessions survive a pod restart (PVC-backed, per config-as-code requirement).",
+        "title": "Phase 1: Run OAuth login flows for Claude Code, Codex",
+        "description": "Against the cliproxyapi sidecar. Confirm sessions survive a pod restart (PVC-backed, per config-as-code requirement). Copilot dropped from scope 2026-09-07 -- CLIProxyAPI upstream doesn't support it (provider table: Kimi/Codex/Claude Code/Gemini CLI/Grok only). See task 17 for the backlog item.",
         "details": "Knowing ToS-boundary risk accepted by user -- see memory ai-omniroute-revival-plan. Do not silently drop this or flag as an oversight.",
         "testStrategy": "",
         "status": "pending",
@@ -211,11 +211,24 @@
         ],
         "priority": "low",
         "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "Backlog: revisit Copilot support in CLIProxyAPI",
+        "description": "CLIProxyAPI upstream (router-for-me/CLIProxyAPI) has no Copilot in its provider table as of 2026-09-07 (Kimi/Codex/Claude Code/Gemini CLI/Grok only). Omniroute's own docs only mention an unrelated VS Code 'OmniCopilot' extension. Re-check upstream README before attempting again -- don't assume it's been added.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          10
+        ],
+        "priority": "low",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2026-09-07T00:00:00.000Z",
-      "updated": "2026-09-07T16:01:30.078Z",
+      "updated": "2026-09-07T16:58:20.553Z",
       "description": "Tasks for master context"
     }
   }
