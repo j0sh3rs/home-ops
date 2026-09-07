@@ -6,8 +6,10 @@
 # (code agent, no memory plugin active) talks to it directly, routed via
 # litellm. litellm (via litellm-operator) was reintroduced as a
 # cluster-internal-only mirror in front of llama-swap/llama-swap-apu — no
-# cloud provider routing, unlike the 2026-08-14-removed instance. omniroute,
-# n8n, opencode, agent-canvas, cognee, and kelos-system remain removed
+# cloud provider routing, unlike the 2026-08-14-removed instance. omniroute
+# was revived (Phase 1, 2026-09-07) as an AI gateway alongside litellm --
+# see docs/superpowers/specs/2026-09-07-omniroute-revival-design.md. n8n,
+# opencode, agent-canvas, cognee, and kelos-system remain removed
 # 2026-08-14 (opencode returns only inside holyclaude, a scoped exception --
 # see CLAUDE.md); memini (memory plugin -- its own extension threw a
 # command-registration error on every openclaw boot) was removed
@@ -38,6 +40,7 @@ resources:
   - ./litellm-operator/ks.yaml
   - ./llama-swap/ks.yaml
   - ./llama-swap-apu/ks.yaml
+  - ./omniroute/ks.yaml
   # - ./openclaw/ks.yaml
   - ./openviking/ks.yaml
   - ./piper/ks.yaml
