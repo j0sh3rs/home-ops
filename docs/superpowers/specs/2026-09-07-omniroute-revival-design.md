@@ -125,12 +125,47 @@ deployment, updated for v3.8.51:
     Gateway, dashboard, MCP server. Ports 20128 (dashboard/HTTP) and 20129
     (API); MCP transports (SSE, streamable-HTTP, stdio) exposed off the same
     container.
-  - `cliproxyapi` — image `docker.io/eceasy/cli-proxy-api:v7.2.153`
-    (confirmed actively published, same repo as the old deployment).
-    Sidecar reusing CLI subscription OAuth sessions — Claude Code and Codex
-    only (see Copilot correction above). Config is file-only (`-config`
-    flag, no env var support, confirmed by the old deployment's source read
-    of `cmd/server/main.go`).
+  - `cliproxyapi` — image `docker.io/eceasy/cli-proxy-api:v6.9.7` (the
+    version OmniRoute's own reference `docker-compose.yml` explicitly pins
+    its sidecar integration to — not Docker Hub's "latest" tag, which may be
+    ahead of what's actually tested against this Omniroute release; see
+    "Corrections found during Task 6 validation" below for why version
+    tracking wasn't the issue that mattered here). Sidecar reusing CLI
+    subscription OAuth sessions — Claude Code **and Codex, both via
+    CLIProxyAPI's own native `--claude-login`/`--codex-login` OAuth flows**
+    (see Copilot correction above; no separate mechanism for Codex — see
+    correction below for why an initial attempt at one was reverted). Config
+    is file-only, resolved from the working directory (`/CLIProxyAPI/`) when
+    no `--config` flag is passed — confirmed by reading
+    `router-for-me/CLIProxyAPI`'s actual `Dockerfile` (`WORKDIR /CLIProxyAPI`,
+    default `CMD ["./CLIProxyAPI"]`) and `cmd/server/main.go`'s config
+    resolution logic directly, not assumed.
+
+### Corrections found during Task 6 (live deploy) validation — 2026-09-07
+
+The Phase 1 implementation plan (written after this spec, in a separate
+pass) introduced a third container, `codex-app-server`, using the main
+Omniroute image to drive the Codex CLI's own JSON-RPC app-server as a
+lower-ToS-risk alternative to CLIProxyAPI's session-replay for Codex
+specifically. **This was never reconciled back into this spec, and turned
+out to be unbuildable**: direct inspection of OmniRoute's actual Dockerfile
+shows `@openai/codex` is installed only in the `runner-cli` build stage,
+which is not published to Docker Hub (confirmed: only bare `X.Y.Z` and
+`X.Y.Z-web` tags exist) — upstream's own `docker-compose.yml` comment
+claiming "Codex CLI baked into omniroute:base" is inaccurate relative to
+the actual current Dockerfile. Building `runner-cli` ourselves would mean
+standing up a custom image build/publish pipeline, well outside Phase 1's
+scope. **Reverted to this spec's original design**: CLIProxyAPI handles
+both Claude Code and Codex via its own native OAuth flows, exactly as
+originally specified above — no third container.
+
+Separately, the same validation pass found the `cliproxyapi` container's
+initially-planned `command` override pointed at a fabricated, never-verified
+binary path (`/cli-proxy-api`) — the real binary is
+`/CLIProxyAPI/CLIProxyAPI`, and the image's own default `CMD` already runs
+it correctly from the right working directory. Fix: don't override
+`command`/`args` on this container at all — matches how the `app` container
+in the same pod already works (no override there either).
 - **Config as code / backup** (see requirement above, made concrete):
   - Static config (ports, secret refs, JWT/API-key-secret/init password,
     `REDIS_URL`, cliproxyapi `config.yaml` contents) → SOPS-encrypted
@@ -194,9 +229,11 @@ assumed here). Captured now as scope, not as a detailed plan:
 ## Resolved during Phase 1 planning (2026-09-07)
 
 - **Image tags**: `docker.io/diegosouzapw/omniroute:3.8.50` (app) +
-  `docker.io/eceasy/cli-proxy-api:v7.2.153` (cliproxyapi) — both confirmed
-  live on Docker Hub. See Architecture section above for the `-web`/
-  `runner-cli` rationale.
+  `docker.io/eceasy/cli-proxy-api:v6.9.7` (cliproxyapi, corrected from an
+  earlier `v7.2.153` guess — see "Corrections found during Task 6
+  validation" above for why the specific version pin, not "latest",
+  matters here) — both confirmed live on Docker Hub. See Architecture
+  section above for the `-web`/`runner-cli` rationale.
 - **MCP/management auth model**: Omniroute has four credential families —
   dashboard JWT cookie (from `INITIAL_PASSWORD` login), a local CLI
   machine-ID token, a **scoped access token** (`oma_live_...`, generated via
