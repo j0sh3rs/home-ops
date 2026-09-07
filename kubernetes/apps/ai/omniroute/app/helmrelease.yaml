@@ -49,8 +49,6 @@ spec:
               LIVE_WS_ALLOWED_ORIGINS: "https://omniroute.68cc.io"
               NODE_ENV: production
               NODE_OPTIONS: "--max-old-space-size=2048"
-              OMNIROUTE_CODEX_APPSERVER_WS: "ws://127.0.0.1:1456"
-              OMNIROUTE_CODEX_APPSERVER_WS_TOKEN_FILE: /run/codex-appserver/token
               CLIPROXYAPI_HOST: "127.0.0.1"
               CLIPROXYAPI_PORT: "8317"
             envFrom:
@@ -98,10 +96,17 @@ spec:
             image:
               repository: docker.io/eceasy/cli-proxy-api
               # renovate: datasource=docker depName=eceasy/cli-proxy-api versioning=semver
-              tag: v7.2.154
+              tag: v6.9.7
               pullPolicy: IfNotPresent
-            command: ["/cli-proxy-api"]
-            args: ["--config", "/CLIProxyAPI/config.yaml"]
+            # No command/args override — the image's own default
+            # CMD ["./CLIProxyAPI"] (run from WORKDIR /CLIProxyAPI) already
+            # finds config.yaml in its working directory with no flag
+            # needed. An earlier version of this file hardcoded
+            # command: ["/cli-proxy-api"], a fabricated path that doesn't
+            # exist in the image (real binary: /CLIProxyAPI/CLIProxyAPI) —
+            # confirmed by reading router-for-me/CLIProxyAPI's Dockerfile
+            # and cmd/server/main.go's config-path fallback directly. Don't
+            # reintroduce a command override here.
             resources:
               requests:
                 cpu: 100m
@@ -129,39 +134,6 @@ spec:
                     port: 8317
                   initialDelaySeconds: 10
                   periodSeconds: 10
-
-          codex-app-server:
-            image:
-              repository: docker.io/diegosouzapw/omniroute
-              tag: 3.8.50
-              pullPolicy: IfNotPresent
-            # Overrides the base image's default Next.js entrypoint. Mirrors
-            # upstream's own docker-compose.yml codex-app-server service
-            # exactly (token bootstrap + `codex app-server` launch).
-            command: ["/bin/sh", "-c"]
-            args:
-              - |
-                set -e
-                TOKEN_FILE=/run/codex-appserver/token
-                mkdir -p /run/codex-appserver
-                if [ ! -s "$TOKEN_FILE" ]; then
-                  head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$TOKEN_FILE"
-                  chmod 600 "$TOKEN_FILE"
-                fi
-                exec codex app-server \
-                  --listen ws://127.0.0.1:1456 \
-                  --ws-auth capability-token \
-                  --ws-token-file "$TOKEN_FILE"
-            env:
-              CODEX_HOME: /home/node/.codex
-              RUST_LOG: warn
-            resources:
-              requests:
-                cpu: 100m
-                memory: 256Mi
-              limits:
-                cpu: "1"
-                memory: 1Gi
 
     service:
       app:
@@ -210,27 +182,3 @@ spec:
               - path: /CLIProxyAPI/config.yaml
                 subPath: cliproxy-config.yaml
                 readOnly: true
-      codex-appserver-token:
-        type: persistentVolumeClaim
-        storageClass: openebs-hostpath
-        accessMode: ReadWriteOnce
-        size: 128Mi
-        retain: true
-        advancedMounts:
-          omniroute:
-            app:
-              - path: /run/codex-appserver
-            codex-app-server:
-              - path: /run/codex-appserver
-      codex-appserver-home:
-        type: persistentVolumeClaim
-        storageClass: openebs-hostpath
-        accessMode: ReadWriteOnce
-        size: 512Mi
-        retain: true
-        advancedMounts:
-          omniroute:
-            app:
-              - path: /home/node/.codex
-            codex-app-server:
-              - path: /home/node/.codex
