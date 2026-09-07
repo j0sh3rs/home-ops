@@ -351,6 +351,62 @@ spec:
             subPath: .taskmaster
           - path: /home/claude/.caveman
             subPath: .caveman
+          # Added 2026-09-06 after the openviking Claude Code plugin
+          # (docs.openviking.ai/en/agent-integrations/02-claude-code)
+          # turned out to be entirely invisible to this PVC. Unlike
+          # every other plugin marketplace (github-source, materialized
+          # under the already-persisted ~/.claude/plugins/marketplaces/),
+          # openviking's installer registers itself as a `source:
+          # directory` marketplace pointing at a local clone under
+          # ~/.openviking/marketplaces/openviking-claude, and also drops
+          # its connection config (~/.openviking/ovcli.conf -- JSON,
+          # url/api_key/root_api_key; no env var covers these, only
+          # OPENVIKING_CLI_CONFIG_FILE to relocate the file) and the
+          # statusline script settings.json's statusLine command shells
+          # out to (~/.openviking/openviking-repo/examples/
+          # claude-code-memory-plugin/scripts/statusline.mjs) under the
+          # same unmounted tree. The marketplace *registration* itself
+          # survives restarts fine (it's in known_marketplaces.json,
+          # under the already-persisted ~/.claude), but every restart
+          # wiped the directory that registration points into, leaving a
+          # dangling marketplace, a broken statusline command, and an
+          # openviking-memory plugin cache with no actual hook manifest
+          # ever landing in it. Not image-baked (created entirely by the
+          # installer under $HOME), so -- like .caveman -- a whole-subtree
+          # mount carries no shadowing risk. After this deploys, re-run
+          # the installer once (bash <(curl -fsSL
+          # https://raw.githubusercontent.com/volcengine/OpenViking/main/examples/memory-plugin-shared/install.sh))
+          # from the web terminal so its output lands on the PVC instead
+          # of the ephemeral container layer; it should then survive every
+          # subsequent restart without repeating that step.
+          - path: /home/claude/.openviking
+            subPath: .openviking
+          # Added 2026-09-06: CloudCLI's own UI plugins (GitHub Issues
+          # Board, Task Queue, etc.) install and reinstall themselves
+          # every restart because CloudCLI's plugin registry lives at
+          # ~/.claude-code-ui, not ~/.cloudcli -- a completely separate
+          # directory from the one already mounted above.
+          # Confirmed by reading CloudCLI's own server source
+          # (@cloudcli-ai/cloudcli/dist-server/server/modules/plugins/
+          # plugin-registry.service.js): getPluginsDir() ->
+          # ~/.claude-code-ui/plugins (git clone per plugin, `npm install`
+          # run in place), getPluginsConfig() ->
+          # ~/.claude-code-ui/plugins.json (the enabled/disabled registry
+          # scanPlugins() reads on every server start). Each plugin's own
+          # backend process (plugin-process.service.js) also runs with
+          # cwd set to its own plugin directory under here, so any
+          # state a plugin persists to disk by default lands in this same
+          # subtree too. Confirmed via `df`/`mount` that
+          # ~/.claude-code-ui was sitting entirely on the ephemeral
+          # container overlay (not /dev/sda1, the PVC) before this fix --
+          # not image-baked (created on first plugin install), so a
+          # whole-subtree mount is safe, same reasoning as .caveman/
+          # .openviking above. After this deploys, reinstall
+          # claude-github-issue ("GitHub Issues Board") and any other
+          # previously-lost plugins once more from CloudCLI's Plugins
+          # panel; they should then survive every subsequent restart.
+          - path: /home/claude/.claude-code-ui
+            subPath: .claude-code-ui
           - path: /workspace
             subPath: workspace
           # NOT a mount of the whole /home/claude/.local -- that's exactly
