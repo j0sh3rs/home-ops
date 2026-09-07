@@ -1,0 +1,222 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Phase 0: Pin real Omniroute/CLIProxyAPI image+tag",
+        "description": "Re-verify current Omniroute image/tag at v3.8.51 (docs favor npm/Electron/headless over the old monolithic Docker image) and the paired CLIProxyAPI image/tag. Do not reuse the Aug-2026 diegosouzapw/omniroute:*-web / eceasy/cli-proxy-api values by assumption.",
+        "details": "See docs/superpowers/specs/2026-09-07-omniroute-revival-design.md Open Items section.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Phase 1: Scaffold kubernetes/apps/ai/omniroute/ (app-template)",
+        "description": "New ks.yaml + app/{helmrelease.yaml,kustomization.yaml,secret.sops.yaml}, bjw-s app-template, app + cliproxyapi containers, per design spec Architecture section.",
+        "details": "Two PVCs (omniroute-data /app/data, cliproxyapi-data /root/.cli-proxy-api), both openebs-hostpath, retain:true, no velero.io/exclude-from-backup label. SOPS secret carries JWT_SECRET/API_KEY_SECRET/INITIAL_PASSWORD/OMNIROUTE_WS_BRIDGE_SECRET/REDIS_URL + cliproxy config.yaml. Reloader annotations on global + controller.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Phase 1: Wire DragonflyDB db1 for Omniroute rate limiter",
+        "description": "Reassign freed db1 (see docs/runbooks/dragonflydb-db-allocation.md) to Omniroute; update the allocation table in the same change.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Phase 1: HTTPRoute omniroute.68cc.io",
+        "description": "traefik-external-gateway + authentik-forwardauth Middleware, VIP 192.168.35.15, matches old pattern. Needed for dashboard + CLI OAuth login redirect flows.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Phase 1: Confirm Omniroute PVCs covered by Velero (no exclusion label)",
+        "description": "Verify omniroute-data and cliproxyapi-data PVCs are NOT added to kubernetes/apps/velero/exclusions/app/pvc-exclusions.yaml -- daily wildcard backup should cover them by default. This is the explicit config-as-code/backup requirement from the design spec.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Phase 1: Deploy standalone, validate dashboard/v1/health",
+        "description": "Deploy without touching litellm or any consumer. Confirm dashboard, /v1 OpenAI-compatible endpoint, and /health all reachable.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Phase 1: Confirm MCP endpoint reachable, register MCP client config",
+        "description": "Confirm SSE/streamable-HTTP MCP endpoint reachable from this HolyClaude container. Register both locally (~/.claude/settings.json or .mcp.json) and as a repo-committed project MCP config.",
+        "details": "Check whether a management token is required for catalog enrichment (per OPENCODE-V2-PLUGIN.md) and supply it via the SOPS secret/PVC, not unbacked state.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          6
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Phase 1: Prove MCP-driven config control",
+        "description": "Add and remove a test provider/combo via MCP tool calls; confirm it persists in the dashboard and survives a pod restart (i.e. actually lands on the PVC, not just in memory).",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          7
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Phase 1: Configure local-provider slots mirroring llama-swap aliases",
+        "description": "Recreate LiteLLM's local-routing role inside Omniroute: coder-large, frontier-chat, reasoner, router, embedding, chat, vlm, rerank -- against both llama-swap and llama-swap-apu endpoints.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          6
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Phase 1: Run OAuth login flows for Claude Code, Codex, Copilot",
+        "description": "Against the cliproxyapi sidecar. Confirm sessions survive a pod restart (PVC-backed, per config-as-code requirement).",
+        "details": "Knowing ToS-boundary risk accepted by user -- see memory ai-omniroute-revival-plan. Do not silently drop this or flag as an oversight.",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          6
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Phase 1 backlog: wire BYOK cloud provider slots (no keys yet)",
+        "description": "Wire provider slots for Groq/DeepSeek/Together/Mistral/Cerebras/Fireworks/xAI/Perplexity/Cohere etc. Leave credentials empty until the user has real keys -- not a Phase 1/2 blocker.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          8
+        ],
+        "priority": "low",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Phase 2 (follow-up spec): repoint openclaw to Omniroute",
+        "description": "kubernetes/apps/ai/openclaw/app/configmap.yaml providers.litellm.baseUrl -> Omniroute. Model-id/combo addressing scheme TBD against real Phase 1 instance.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          8,
+          9
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Phase 2 (follow-up spec): repoint openviking to Omniroute",
+        "description": "Mechanical URL repoint only (embedding/vlm/rerank api_base). openviking itself is NOT being replaced or evaluated -- see memory ai-omniroute-revival-plan scope boundary. openviking-vs-headroom comparison is a separate, later, out-of-scope initiative.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          8,
+          9
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Phase 2 (follow-up spec): repoint argus/holmesgpt to Omniroute",
+        "description": "modelList.litellm entry -> Omniroute.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          8,
+          9
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Phase 2 (follow-up spec): full LiteLLM teardown",
+        "description": "Remove litellm HelmRelease, litellm-operator, Postgres litellm DB/role, free DragonflyDB db4, HTTPRoute, Grafana dashboard/alert refs. Full removal, not cold standby -- per user decision.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          11,
+          12,
+          13
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Phase 2 (follow-up spec): update CLAUDE.md/AGENTS.md/dragonflydb runbook",
+        "description": "Reflect new architecture: ai/CLAUDE.md, top-level CLAUDE.md, dragonflydb-db-allocation.md table.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          14
+        ],
+        "priority": "low",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2026-09-07T00:00:00.000Z",
+      "updated": "2026-09-07T16:01:30.078Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
