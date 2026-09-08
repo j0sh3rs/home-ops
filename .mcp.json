@@ -74,9 +74,7 @@
       "omniroute": {
          "type": "http",
          "url": "http://omniroute.ai.svc.cluster.local:20128/api/mcp/stream",
-         "headers": {
-            "Authorization": "Bearer ${OMNIROUTE_MCP_TOKEN}"
-         }
+         "headersHelper": "/workspace/home-ops/scripts/omniroute-mcp-headers.sh"
       },
       "unifi": {
          "args": [
