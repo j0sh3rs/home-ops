@@ -116,24 +116,27 @@ spec:
         # literal `auto: null` line, which Holmes still chokes on trying to
         # parse a model entry). Instead, overwrite every field the chart's
         # own default "auto" entry sets (api_base/api_key/model) with the
-        # same working litellm values below, so the merged "auto" key is
+        # same working Omniroute values below, so the merged "auto" key is
         # harmless (points at the same backend) instead of referencing
         # OPENAI_API_BASE/OPENAI_API_KEY, which don't exist in this cluster.
         # See the comment above config.model for the full crash story.
         auto:
-          model: litellm_proxy/coder-large
-          api_base: http://litellm.ai.svc.cluster.local:4000/v1
-          api_key: "{{ env.LITELLM_API_KEY }}"
+          model: llamaswap/coder-large
+          api_base: http://omniroute.ai.svc.cluster.local:20128/v1
+          api_key: "{{ env.OMNIROUTE_API_KEY }}"
         litellm:
-          # litellm_proxy/ (not litellm/) is the LiteLLM SDK's required
-          # prefix for calling another LiteLLM proxy server as the backend.
-          # Confirmed live 2026-08-18 against the standalone holmesgpt
-          # deployment: "litellm/coder-large" 500s with "LLM Provider NOT
-          # provided"; litellm_proxy/coder-large returns 200 with real
-          # tool_calls[].
-          model: litellm_proxy/coder-large
-          api_base: http://litellm.ai.svc.cluster.local:4000/v1
-          api_key: "{{ env.LITELLM_API_KEY }}"
+          # Omniroute's own <prefix>/<model> addressing replaces LiteLLM
+          # SDK's litellm_proxy/ chaining prefix directly -- that prefix
+          # was specifically a LiteLLM-calling-LiteLLM convention, not
+          # something Omniroute needs or supports. Confirmed live
+          # 2026-09-08 (Phase 1 Task 9): llamaswap/coder-large returns 200
+          # with real tool_calls[] against Omniroute's /v1/chat/completions.
+          # Map key stays "litellm" (matches config.model below) -- only
+          # the values changed, not the key name, to keep this diff
+          # mechanical.
+          model: llamaswap/coder-large
+          api_base: http://omniroute.ai.svc.cluster.local:20128/v1
+          api_key: "{{ env.OMNIROUTE_API_KEY }}"
       toolsets:
         robusta:
           enabled: false
