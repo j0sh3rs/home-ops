@@ -46,10 +46,31 @@ spec:
               resources:
                 requests:
                   storage: 1Gi
+    # prometheus.enabled: false means the chart never creates the Secret these
+    # control-plane ServiceMonitors default to authenticating with
+    # (prometheus.serviceAccount.createTokenSecret) - scrape unauthenticated
+    # instead of pointing at a Secret that will never exist.
+    kubeApiServer:
+      serviceMonitor:
+        authorization: null
+    kubelet:
+      serviceMonitor:
+        authorization: null
+    kubeControllerManager:
+      serviceMonitor:
+        authorization: null
+    kubeScheduler:
+      serviceMonitor:
+        authorization: null
+    coreDns:
+      serviceMonitor:
+        authorization: null
     kubeEtcd:
       service:
         selector:
           component: etcd
+      serviceMonitor:
+        authorization: null
     kubeProxy:
       enabled: false
     # Prometheus server disabled (home-ops-8bb stage 2). vmagent + VMsingle
