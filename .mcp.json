@@ -71,6 +71,13 @@
          ],
          "command": "/volume1/git/j0sh3rs/home-ops/.venv/bin/python3"
       },
+      "omniroute": {
+         "type": "http",
+         "url": "http://omniroute.ai.svc.cluster.local:20128/api/mcp/stream",
+         "headers": {
+            "Authorization": "Bearer ${OMNIROUTE_MCP_TOKEN}"
+         }
+      },
       "unifi": {
          "args": [
             "unifi-network-mcp"
