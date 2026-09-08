@@ -21,7 +21,7 @@ This file is the source of truth for DB allocation. Update it when adding or rem
 | 1 | Omniroute | `ai/omniroute` | Distributed rate limiter (Redis backend, per Omniroute's own compose reference). Reassigned 2026-09-07 (Omniroute revival, Phase 1 — see `docs/superpowers/specs/2026-09-07-omniroute-revival-design.md`). Redis URL: `redis://...:6379/1`. | `kubernetes/apps/ai/omniroute/app/helmrelease.yaml` |
 | 2 | Paperless-ngx | `services/paperless` | Celery task broker + result backend (document processing, OCR jobs). Redis URL: `redis://...:6379/2`. | `kubernetes/apps/services/paperless/app/helmrelease.yaml` |
 | 3 | _free_ | — | — | — |
-| 4 | litellm | `ai/litellm` | Router coordination + response cache. Reintroduced 2026-08-17 as a cluster-internal-only mirror in front of llama-swap/llama-swap-apu (no cloud provider routing, unlike the instance removed 2026-08-14). Redis URL: `redis://...:6379/4`. | `kubernetes/apps/ai/litellm/app/litellmproxy.yaml` |
+| 4 | _free_ | — | Formerly LiteLLM router coordination + cache -- freed 2026-09-08 (Phase 2 switchover, LiteLLM fully removed in favor of Omniroute -- see `docs/superpowers/specs/2026-09-08-omniroute-phase2-switchover-design.md`). | — |
 | 5 | _free_ | — | Formerly LangFuse job queue — freed 2026-07-01 (LangFuse removed, see `docs/runbooks/anythingllm-role-and-overlap.md` for the broader AI-stack cleanup). | — |
 | 6 | Authentik | `security/authentik` | Celery broker, Django cache, django-channels WebSocket layer. Key prefix default (Authentik-managed). | `kubernetes/apps/security/authentik/app/helmrelease.yaml` |
 | 7 | _free_ | — | — | — |

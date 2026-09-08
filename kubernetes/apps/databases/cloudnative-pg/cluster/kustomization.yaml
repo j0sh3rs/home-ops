@@ -14,4 +14,3 @@ resources:
   - ./dnsendpoint.yaml
   - ./holmesgpt-role-secret.sops.yaml
   - ./litellm-role-secret.sops.yaml
-  - ./litellm-database.yaml
