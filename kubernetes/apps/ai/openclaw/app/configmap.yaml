@@ -23,7 +23,7 @@ data:
         // live pod, or a newer pinned image's changelog, before retrying).
         defaults: {
           model: {
-            // Local inference direct via llama-swap (litellm+omniroute
+            // Local inference direct via llama-swap (omniroute
             // removed, no cloud providers). Switched 2026-08-16 from
             // coder-large (agentic-coder / Qwen3-Coder-30B-A3B, 16384 ctx)
             // as part of the context-overflow incident fix -- coder-large's
@@ -67,7 +67,7 @@ data:
             // the full VRAM data table.
             //
             // 2026-08-18: routing switched from direct-to-llama-swap to
-            // the litellm provider below (litellm.ai.svc.cluster.local:4000)
+            // the omniroute provider below (omniroute.ai.svc.cluster.local:20128)
             // -- reverses the 2026-08-14 "no gateway" decision, done on
             // explicit request so all fleet models are reachable/testable
             // through one endpoint. Same underlying llama-swap backends,
@@ -77,7 +77,7 @@ data:
             // reasoner (gpt-oss-20b) and a light apu chat model were added
             // to cover the Reasoning and Chat categories. See
             // llama-swap/app/configmap.yaml and llama-swap-apu/app/configmap.yaml.
-            primary: "litellm/coder-large",
+            primary: "omniroute/llamaswap/coder-large",
           },
           contextInjection: "always",
           bootstrapMaxChars: 50000,
@@ -151,15 +151,15 @@ data:
       },
       models: {
         providers: {
-          // LiteLLM proxy in front of both llama-swap instances —
-          // cluster-internal, dedicated virtual key (key_alias "openclaw",
-          // unrestricted, stored in openclaw-secret as LITELLM_API_KEY —
-          // no consumer shares litellm-secret's master key anymore). See
-          // litellm/app/litellmproxy.yaml. Switched from direct llama-swap
-          // access 2026-08-18 (see model.primary comment above).
-          litellm: {
-            baseUrl: "http://litellm.ai.svc.cluster.local:4000/v1",
-            apiKey: "$${LITELLM_API_KEY}",
+          // Omniroute gateway in front of both llama-swap instances --
+          // cluster-internal, dedicated inference key (name "openclaw",
+          // minted via POST /api/keys), stored in openclaw-secret as
+          // OMNIROUTE_API_KEY. See docs/superpowers/specs/
+          // 2026-09-08-omniroute-phase2-switchover-design.md. Switched
+          // from LiteLLM 2026-09-08 (Phase 2 switchover).
+          omniroute: {
+            baseUrl: "http://omniroute.ai.svc.cluster.local:20128/v1",
+            apiKey: "$${OMNIROUTE_API_KEY}",
             api: "openai-completions",
             timeoutSeconds: 180,
             // Custom (non-bundled) providers must declare their model
@@ -174,14 +174,14 @@ data:
             // remain live in litellm for non-openclaw callers.
             models: [
               {
-                id: "coder-large",
+                id: "llamaswap/coder-large",
                 name: "Qwen3-Coder-30B-A3B (agentic/coding, dGPU)",
                 reasoning: false,
                 contextWindow: 49152,
                 maxTokens: 4096,
               },
               {
-                id: "frontier-chat",
+                id: "llamaswap/frontier-chat",
                 name: "Qwen3.5-35B-A3B (chat, dGPU)",
                 reasoning: false,
                 contextWindow: 49152,
