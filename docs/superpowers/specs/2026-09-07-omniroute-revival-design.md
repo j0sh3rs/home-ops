@@ -270,13 +270,43 @@ assumed here). Captured now as scope, not as a detailed plan:
   Per the config-as-code requirement, this token goes in the same
   SOPS-encrypted `omniroute-secrets` Secret, not left unbacked.
 
+## Resolved during Task 9 (2026-09-08)
+
+- **Local provider architecture**: llama-swap/llama-swap-apu are wired in as
+  two `/api/provider-nodes` entries (`type: openai-compatible`), not
+  `/api/providers` connections directly — that endpoint only supports one
+  connection per built-in catalog `provider` id (a second POST with
+  `provider: "openai"` silently overwrote the first instead of creating a
+  second entry, confirmed empirically). Provider-nodes support arbitrary
+  named custom OpenAI-compatible backends via a `prefix`. Each node then
+  still needs a companion `/api/providers` credential POSTed with
+  `provider: "<node-id>"` (even for a no-auth backend — `apiKey:
+  "not-needed"` accepted) before routing actually works; skipping this step
+  produces `No active credentials for provider: <node-id>` on every request.
+  Both `/api/providers`'s and `/api/provider-nodes`'s request-body docs in
+  `docs/openapi.yaml` are stale relative to the real Zod validators
+  (`createProviderSchema`/`createProviderNodeSchema` in
+  `src/shared/validation/schemas/provider.ts`) — read the source, not the
+  spec, for exact required fields going forward.
+- **Model-id addressing scheme, confirmed**: `<prefix>/<model>`, e.g.
+  `llamaswap/coder-large` — a bare alias (`coder-large`) 400s with `Unable
+  to determine provider for model 'coder-large'. Use a provider/model
+  prefix... or ensure the model is added as a combo entry.` All 8 aliases
+  (`coder-large`, `frontier-chat`, `reasoner` → `llamaswap/*`; `router`,
+  `embedding`, `chat`, `vlm`, `rerank` → `llamaswapapu/*`) verified live
+  against `/v1/chat/completions` with real completions, except `rerank`,
+  which correctly routes but 500s on that endpoint shape — rerank models
+  need a dedicated request shape (mirrors LiteLLM's own `infinity/rerank`
+  special-casing for the exact same model); resolving that exact shape is a
+  Phase 2 concern when openviking is actually repointed, not a Phase 1
+  blocker.
+- **Inference auth is a separate layer from management auth**: `/v1/*`
+  endpoints need an `sk-...` key from `POST /api/keys`, not the `oma_live_...`
+  management token from Task 7 — the two are enforced by different code
+  paths (`isValidApiKey`/`getApiKeyMetadata` vs `evaluateAccessTokenAuth`).
+
 ## Open items remaining for Phase 1 implementation
 
-- **Model-id / combo addressing scheme** for the Phase 2 consumer repoint —
-  determine against the real running Phase 1 instance (Omniroute uses
-  `<provider>/<model>`-style addressing per the OpenCode plugin doc, not
-  LiteLLM's bare aliases — confirm exact form once local-provider combos are
-  configured in Phase 1 step 4).
 - **Copilot**: dropped from Phase 1 scope (see correction above) — backlog
   item in TaskMaster to revisit if upstream ever adds support.
 
