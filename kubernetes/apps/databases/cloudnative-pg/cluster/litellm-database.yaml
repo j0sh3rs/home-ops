@@ -12,5 +12,6 @@ metadata:
 spec:
   name: litellm
   owner: litellm
+  ensure: absent
   cluster:
     name: postgres17

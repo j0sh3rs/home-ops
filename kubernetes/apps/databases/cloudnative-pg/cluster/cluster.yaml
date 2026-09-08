@@ -76,7 +76,7 @@ spec:
         passwordSecret:
           name: holmesgpt-db-creds
       - name: litellm
-        ensure: present
+        ensure: absent
         login: true
         connectionLimit: 20
         passwordSecret:
