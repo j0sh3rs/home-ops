@@ -168,6 +168,7 @@ patches:
 controlPlane:
   patches:
     - "@./patches/controller/cluster.yaml"
+    - "@./patches/controller/machine-etcd-encryption.sops.yaml"
     - "@./patches/controller/kube-apiserver.yaml"
     - "@./patches/controller/kube-controller-manager.yaml"
     - "@./patches/controller/kube-scheduler.yaml"
