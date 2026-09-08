@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Phase 0: Pin real Omniroute/CLIProxyAPI image+tag",
         "description": "RESOLVED 2026-09-07: docker.io/diegosouzapw/omniroute:3.8.50 (plain, no -web -- Playwright web-scraping providers never in scope) + docker.io/eceasy/cli-proxy-api:v7.2.153. No 3.8.51 image published yet; no -cli image published (Dockerfile target exists but unbuilt/unpublished, out of scope for Phase 1).",
         "details": "See docs/superpowers/specs/2026-09-07-omniroute-revival-design.md 'Resolved during Phase 1 planning' section.",
@@ -13,220 +13,229 @@
         "subtasks": []
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Phase 1: Scaffold kubernetes/apps/ai/omniroute/ (app-template)",
         "description": "New ks.yaml + app/{helmrelease.yaml,kustomization.yaml,secret.sops.yaml}, bjw-s app-template, app + cliproxyapi containers, per design spec Architecture section.",
         "details": "Two PVCs (omniroute-data /app/data, cliproxyapi-data /root/.cli-proxy-api), both openebs-hostpath, retain:true, no velero.io/exclude-from-backup label. SOPS secret carries JWT_SECRET/API_KEY_SECRET/INITIAL_PASSWORD/OMNIROUTE_WS_BRIDGE_SECRET/REDIS_URL + cliproxy config.yaml. Reloader annotations on global + controller.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:14.641Z"
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Phase 1: Wire DragonflyDB db1 for Omniroute rate limiter",
         "description": "Reassign freed db1 (see docs/runbooks/dragonflydb-db-allocation.md) to Omniroute; update the allocation table in the same change.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          2
+          "2"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:17.493Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Phase 1: HTTPRoute omniroute.68cc.io",
         "description": "traefik-external-gateway + authentik-forwardauth Middleware, VIP 192.168.35.15, matches old pattern. Needed for dashboard + CLI OAuth login redirect flows.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          2
+          "2"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:20.324Z"
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Phase 1: Confirm Omniroute PVCs covered by Velero (no exclusion label)",
         "description": "Verify omniroute-data and cliproxyapi-data PVCs are NOT added to kubernetes/apps/velero/exclusions/app/pvc-exclusions.yaml -- daily wildcard backup should cover them by default. This is the explicit config-as-code/backup requirement from the design spec.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          2
+          "2"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:23.139Z"
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Phase 1: Deploy standalone, validate dashboard/v1/health",
         "description": "Deploy without touching litellm or any consumer. Confirm dashboard, /v1 OpenAI-compatible endpoint, and /health all reachable.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          2
+          "2"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:25.976Z"
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Phase 1: Confirm MCP endpoint reachable, register MCP client config",
         "description": "Confirm SSE/streamable-HTTP MCP endpoint reachable from this HolyClaude container. Register both locally (~/.claude/settings.json or .mcp.json) and as a repo-committed project MCP config.",
         "details": "Check whether a management token is required for catalog enrichment (per OPENCODE-V2-PLUGIN.md) and supply it via the SOPS secret/PVC, not unbacked state.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          6
+          "6"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:28.810Z"
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Phase 1: Prove MCP-driven config control",
         "description": "Add and remove a test provider/combo via MCP tool calls; confirm it persists in the dashboard and survives a pod restart (i.e. actually lands on the PVC, not just in memory).",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          7
+          "7"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:31.639Z"
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Phase 1: Configure local-provider slots mirroring llama-swap aliases",
         "description": "Recreate LiteLLM's local-routing role inside Omniroute: coder-large, frontier-chat, reasoner, router, embedding, chat, vlm, rerank -- against both llama-swap and llama-swap-apu endpoints.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          6
+          "6"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:34.469Z"
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Phase 1: Run OAuth login flows for Claude Code, Codex",
         "description": "Against the cliproxyapi sidecar. Confirm sessions survive a pod restart (PVC-backed, per config-as-code requirement). Copilot dropped from scope 2026-09-07 -- CLIProxyAPI upstream doesn't support it (provider table: Kimi/Codex/Claude Code/Gemini CLI/Grok only). See task 17 for the backlog item.",
         "details": "Knowing ToS-boundary risk accepted by user -- see memory ai-omniroute-revival-plan. Do not silently drop this or flag as an oversight.",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          6
+          "6"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-08T15:14:06.704Z"
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "Phase 1 backlog: wire BYOK cloud provider slots (no keys yet)",
         "description": "Wire provider slots for Groq/DeepSeek/Together/Mistral/Cerebras/Fireworks/xAI/Perplexity/Cohere etc. Leave credentials empty until the user has real keys -- not a Phase 1/2 blocker.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          8
+          "8"
         ],
         "priority": "low",
         "subtasks": []
       },
       {
-        "id": 12,
+        "id": "12",
         "title": "Phase 2 (follow-up spec): repoint openclaw to Omniroute",
         "description": "kubernetes/apps/ai/openclaw/app/configmap.yaml providers.litellm.baseUrl -> Omniroute. Model-id/combo addressing scheme TBD against real Phase 1 instance.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          8,
-          9
+          "8",
+          "9"
         ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 13,
+        "id": "13",
         "title": "Phase 2 (follow-up spec): repoint openviking to Omniroute",
         "description": "Mechanical URL repoint only (embedding/vlm/rerank api_base). openviking itself is NOT being replaced or evaluated -- see memory ai-omniroute-revival-plan scope boundary. openviking-vs-headroom comparison is a separate, later, out-of-scope initiative.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          8,
-          9
+          "8",
+          "9"
         ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 14,
+        "id": "14",
         "title": "Phase 2 (follow-up spec): repoint argus/holmesgpt to Omniroute",
         "description": "modelList.litellm entry -> Omniroute.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          8,
-          9
+          "8",
+          "9"
         ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 15,
+        "id": "15",
         "title": "Phase 2 (follow-up spec): full LiteLLM teardown",
         "description": "Remove litellm HelmRelease, litellm-operator, Postgres litellm DB/role, free DragonflyDB db4, HTTPRoute, Grafana dashboard/alert refs. Full removal, not cold standby -- per user decision.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          11,
-          12,
-          13
+          "11",
+          "12",
+          "13"
         ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 16,
+        "id": "16",
         "title": "Phase 2 (follow-up spec): update CLAUDE.md/AGENTS.md/dragonflydb runbook",
         "description": "Reflect new architecture: ai/CLAUDE.md, top-level CLAUDE.md, dragonflydb-db-allocation.md table.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          14
+          "14"
         ],
         "priority": "low",
         "subtasks": []
       },
       {
-        "id": 17,
+        "id": "17",
         "title": "Backlog: revisit Copilot support in CLIProxyAPI",
         "description": "CLIProxyAPI upstream (router-for-me/CLIProxyAPI) has no Copilot in its provider table as of 2026-09-07 (Kimi/Codex/Claude Code/Gemini CLI/Grok only). Omniroute's own docs only mention an unrelated VS Code 'OmniCopilot' extension. Re-check upstream README before attempting again -- don't assume it's been added.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          10
+          "10"
         ],
         "priority": "low",
         "subtasks": []
       },
       {
-        "id": 18,
+        "id": "18",
         "title": "Music Assistant: scaffold kubernetes/apps/services/music-assistant/",
         "description": "New ks.yaml + app/{helmrelease.yaml,kustomization.yaml}, bjw-s app-template wrapping ghcr.io/music-assistant/server (renovate-tracked tag), per design spec Architecture section.",
         "details": "pod.hostNetwork: true + dnsPolicy: ClusterFirstWithHostNet (mirrors home-assistant's discovery pattern -- required for Sonos/Chromecast/AirPlay mDNS/SSDP and HA zeroconf auto-discovery). Container port 8095. Default securityContext, no extra capabilities (SYS_ADMIN/DAC_READ_SEARCH/apparmor:unconfined from upstream docs are for in-container network-share mounts, not needed since the library is a k8s-managed PVC). global.annotations reloader.stakater.com/auto: \"true\".",
@@ -237,115 +246,119 @@
         "subtasks": []
       },
       {
-        "id": 19,
+        "id": "19",
         "title": "Music Assistant: provision /data and /music PVCs",
         "description": "/data (config/db/artwork cache) on openebs-hostpath, RWO, retain:true, ~10Gi. /music (library) on nfs-client (Synology-backed), sized 1Ti as a nominal PVC-API value only -- nfs-subdir-external-provisioner doesn't enforce quota so this isn't a real ceiling.",
         "details": "See docs/superpowers/specs/2026-09-07-music-assistant-design.md Storage section.",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          18
+          "18"
         ],
         "priority": "high",
         "subtasks": []
       },
       {
-        "id": 20,
+        "id": "20",
         "title": "Music Assistant: confirm PVCs covered by Velero (no exclusion label)",
         "description": "Verify neither the /data nor /music PVC is added to kubernetes/apps/velero/exclusions/app/pvc-exclusions.yaml -- daily wildcard backup should cover both by default.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          19
+          "19"
         ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 21,
+        "id": "21",
         "title": "Music Assistant: HTTPRoute music.68cc.io",
         "description": "traefik-internal-gateway (VIP 192.168.35.17) + authentik-forwardauth Middleware on the UI route, no Cloudflare public record -- internal-only, matching home-assistant's posture.",
         "details": "No bypass paths anticipated (HA<->MA talks over host network via zeroconf, not through this route). Revisit if MA's frontend breaks behind the forwardAuth cookie flow during testing.",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          18
+          "18"
         ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 22,
+        "id": "22",
         "title": "Music Assistant: deploy standalone, validate web UI + player discovery",
         "description": "Confirm web UI reachable on :8095 and via music.68cc.io. Confirm Sonos/Chromecast/AirPlay speakers on the LAN are discovered automatically.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          19,
-          21
+          "19",
+          "21"
         ],
         "priority": "high",
         "subtasks": []
       },
       {
-        "id": 23,
+        "id": "23",
         "title": "Music Assistant: configure Tidal provider",
         "description": "Complete the PKCE browser auth flow from MA's web UI. Confirm the resulting session token persists in /data and survives a pod restart (PVC-backed, not lost). No SOPS secret involved -- see design spec Secrets section.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          22
+          "22"
         ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 24,
+        "id": "24",
         "title": "Music Assistant: install/verify Home Assistant integration",
         "description": "Add the native \"Music Assistant\" integration in HA's UI. Expect auto-discovery via zeroconf since both pods run with hostNetwork on the same LAN; fall back to manual host-IP:8095 entry if discovery doesn't fire. No changes to home-assistant's own manifests -- this is a runtime HA config step, not GitOps state.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          22
+          "22"
         ],
         "priority": "medium",
         "subtasks": []
       },
       {
-        "id": 25,
+        "id": "25",
         "title": "Music Assistant backlog: populate /music PVC with library files",
         "description": "Out-of-band step -- copy files onto the Synology NFS export backing the /music PVC once the export path is known. Not a blocker for standing up the app itself.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          19
+          "19"
         ],
         "priority": "low",
         "subtasks": []
       },
       {
-        "id": 26,
+        "id": "26",
         "title": "Music Assistant backlog: evaluate additional streaming providers",
         "description": "Spotify or others, if desired later. Tidal is the only provider in scope for the initial deployment.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          23
+          "23"
         ],
         "priority": "low",
         "subtasks": []
       }
     ],
     "metadata": {
-      "created": "2026-09-07T00:00:00.000Z",
-      "updated": "2026-09-07T17:15:00.000Z",
-      "description": "Tasks for master context"
+      "version": "1.0.0",
+      "lastModified": "2026-09-08T15:14:34.469Z",
+      "taskCount": 26,
+      "completedCount": 10,
+      "tags": [
+        "master"
+      ]
     }
   }
 }
