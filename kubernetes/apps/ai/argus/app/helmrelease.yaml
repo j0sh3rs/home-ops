@@ -101,8 +101,8 @@ spec:
       # This was one of the reasons the standalone holmesgpt app was
       # retired shortly after (Task 10) -- argus-holmes is now the only
       # Holmes instance in this namespace, so the collision is moot.
-      # holmesgpt-secrets carries LITELLM_API_KEY (dedicated litellm virtual
-      # key for holmesgpt), GRAFANA_API_KEY, and POSTGRES_CONNECTION_URL --
+      # holmesgpt-secrets carries GRAFANA_API_KEY, POSTGRES_CONNECTION_URL,
+      # and OMNIROUTE_API_KEY --
       # all referenced below via Holmes's runtime {{ env.VAR }} templating.
       # Relocated from the (now-deleted) standalone holmesgpt app to
       # kubernetes/apps/ai/argus/app/secret-holmesgpt.sops.yaml -- see

@@ -175,12 +175,10 @@
       },
     },
     {
-      description: "AI Stack - LiteLLM gateway + local inference + UI + workflow automation",
+      description: "AI Stack - local inference + UI + workflow automation",
       groupName: "AI Stack",
       matchDatasources: ["docker", "helm", "github-releases"],
       matchPackageNames: [
-        "/berriai\\/litellm/",
-        "/berriai\\/litellm-helm/",
         "/open-webui\\/open-webui/",
         "/mostlygeek\\/llama-swap/",
         "n8nio/n8n",

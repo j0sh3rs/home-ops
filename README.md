@@ -21,7 +21,7 @@ _Talos · Flux · Renovate · GitHub Actions_
 
 Monorepo for a bare-metal home-lab Kubernetes cluster. Infrastructure as Code throughout: cluster nodes are defined in `talos/talconfig.yaml`, every application lives under `kubernetes/apps/`, and FluxCD reconciles Git state to the cluster continuously. No imperative kubectl, no SSH into nodes.
 
-The cluster doubles as a self-hosted AI lab — local inference runs on an AMD RDNA4 discrete GPU, fronted by a LiteLLM gateway that exposes a unified OpenAI-compatible API to all clients.
+The cluster doubles as a self-hosted AI lab — local inference runs on an AMD RDNA4 discrete GPU, fronted by an Omniroute gateway that exposes a unified OpenAI-compatible API to all clients.
 
 ---
 
@@ -74,7 +74,7 @@ All applications follow the **OCIRepository + chartRef** pattern — Helm charts
 ```
 kubernetes/
 ├── apps/                        # Application deployments, organized by namespace
-│   ├── ai/                      # AI inference stack (LiteLLM, llama-swap, Open WebUI, …)
+│   ├── ai/                      # AI inference stack (Omniroute, llama-swap, Open WebUI, …)
 │   ├── cert-manager/
 │   ├── databases/               # CNPG, DragonflyDB, ClickHouse
 │   ├── flux-system/             # Flux Operator + FluxInstance + webhook receiver
@@ -165,7 +165,7 @@ Grafana dashboards are CRDs — adding a dashboard means committing a `GrafanaDa
 
 ### AI (`ai`)
 
-The cluster runs a fully self-hosted AI stack. All clients speak to **LiteLLM** via a single OpenAI-compatible endpoint; LiteLLM routes to local inference or cloud providers transparently.
+The cluster runs a fully self-hosted AI stack. All clients speak to **Omniroute** via a single OpenAI-compatible endpoint; Omniroute routes to local inference or cloud providers transparently.
 
 **Inference**
 
@@ -179,7 +179,7 @@ The cluster runs a fully self-hosted AI stack. All clients speak to **LiteLLM** 
 
 | Component | Purpose |
 |---|---|
-| [LiteLLM](https://github.com/BerriAI/litellm) | OpenAI-compatible API gateway routing to local and cloud models. Named model aliases: `local-fast`, `local-balanced`, `local-coder`, `local-coder-small`, `local-large`, `local-embed`, `local-rerank` |
+| [Omniroute](https://github.com/diegosouzapw/OmniRoute) | OpenAI-compatible API gateway routing to local and cloud models. Models are addressed as `<provider-node-prefix>/<model>` (e.g. `llamaswap/coder-large`, `llamaswapapu/embedding`) |
 
 **Clients & Tools**
 
@@ -271,7 +271,7 @@ The CI `validate-secrets` workflow blocks any PR containing an unencrypted `*.so
 
 ### AI Model ID Convention
 
-The `model:` field in LiteLLM's `model_list` must be a **llama-swap model key or alias**, not a GGUF filename. Source of truth: `kubernetes/apps/ai/llama-swap/app/configmap.yaml`. Getting this wrong causes silent routing failures — LiteLLM accepts the request but llama-swap returns 404.
+Omniroute addresses models as `<provider-node-prefix>/<model>` (e.g. `llamaswap/coder-large`, `llamaswapapu/embedding`), where the model segment must be a **llama-swap model key or alias**, not a GGUF filename. Source of truth: `kubernetes/apps/ai/llama-swap/app/configmap.yaml`. Getting this wrong causes silent routing failures — Omniroute accepts the request but llama-swap returns 404.
 
 ---
 

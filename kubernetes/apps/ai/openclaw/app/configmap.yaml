@@ -23,8 +23,8 @@ data:
         // live pod, or a newer pinned image's changelog, before retrying).
         defaults: {
           model: {
-            // Local inference direct via llama-swap (omniroute
-            // removed, no cloud providers). Switched 2026-08-16 from
+            // Local inference via llama-swap, fronted by Omniroute
+            // (no cloud providers). Switched 2026-08-16 from
             // coder-large (agentic-coder / Qwen3-Coder-30B-A3B, 16384 ctx)
             // as part of the context-overflow incident fix -- coder-large's
             // 16k window left only ~8000 usable prompt tokens after
@@ -164,14 +164,14 @@ data:
             timeoutSeconds: 180,
             // Custom (non-bundled) providers must declare their model
             // catalog explicitly. ctx/maxTokens mirror each model's own
-            // slot in llama-swap/app/configmap.yaml (litellm proxies
+            // slot in llama-swap/app/configmap.yaml (Omniroute proxies
             // through unchanged, so the real backend's ctx-size is the
             // true ceiling). Only 2 of the 4 fleet models are actually
             // usable through openclaw's heavy agent harness -- reasoner
             // (gpt-oss-20b) and chat (qwen3.5-4b, APU) both failed real
             // 2026-08-18 tests (grammar rejection and prefill timeout,
             // respectively; see their exclusion comments below). Both
-            // remain live in litellm for non-openclaw callers.
+            // remain live via Omniroute for non-openclaw callers.
             models: [
               {
                 id: "llamaswap/coder-large",
@@ -199,8 +199,8 @@ data:
               // openclaw's tool schema, full stop, on two separate
               // llama-swap slot configs now. Do not re-add without a
               // llama.cpp/quant change that actually fixes grammar
-              // support for this architecture. gpt-oss-20b stays live in
-              // litellm for non-agentic reasoning callers (no tool
+              // support for this architecture. gpt-oss-20b stays live via
+              // Omniroute for non-agentic reasoning callers (no tool
               // schema in the request).
               // qwen3.5-4b ("chat", bee-jms-03/APU) deliberately NOT
               // listed here either. Tested 2026-08-18 via `openclaw agent
@@ -212,7 +212,7 @@ data:
               // itself decodes fine standalone (~11.5 tok/s measured
               // directly against llama-swap-apu with a tiny prompt). This
               // model's real role is lightweight standalone chat (HA
-              // Assist tier, small prompts) -- it stays live in litellm
+              // Assist tier, small prompts) -- it stays live via Omniroute
               // for those callers, just not through openclaw's heavy
               // agent harness.
             ],
