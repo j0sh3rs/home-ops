@@ -10,9 +10,6 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   interval: 1h
-  dependsOn:
-    - name: litellm
-      namespace: *namespace
   path: ./kubernetes/apps/ai/argus/app
   prune: true
   retryInterval: 2m

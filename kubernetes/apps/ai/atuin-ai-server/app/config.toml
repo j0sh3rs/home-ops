@@ -1,8 +1,13 @@
 port = 8080
 
-# LiteLLM proxy, cluster-internal (kubernetes/apps/ai/litellm/). Mirrors
-# llama-swap's coder-large model — see litellm/app/models/llama-swap.yaml.
-endpoint = "http://litellm.ai.svc.cluster.local:4000/v1"
+# Omniroute gateway, cluster-internal (kubernetes/apps/ai/omniroute/).
+# Mirrors llama-swap's coder-large model via Omniroute's llamaswap
+# provider-node prefix -- see docs/superpowers/specs/
+# 2026-09-08-omniroute-phase2-switchover-design.md. Switched from LiteLLM
+# 2026-09-09 (Phase 2 switchover follow-up -- this consumer was missed in
+# the original repoint pass and discovered live-broken while validating
+# Task 5's teardown).
+endpoint = "http://omniroute.ai.svc.cluster.local:20128/v1"
 
 default_model = "coder-large"
 
@@ -12,5 +17,5 @@ env = "CHAT_API_KEY"
 [[models]]
 alias = "coder-large"
 name = "Coder Large"
-description = "Qwen3-Coder-30B-A3B (MoE) via llama-swap, mirrored through litellm"
-model = "coder-large"
+description = "Qwen3-Coder-30B-A3B (MoE) via llama-swap, mirrored through Omniroute"
+model = "llamaswap/coder-large"

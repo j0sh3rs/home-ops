@@ -13,4 +13,3 @@ resources:
   - ./tcproute.yaml
   - ./dnsendpoint.yaml
   - ./holmesgpt-role-secret.sops.yaml
-  - ./litellm-role-secret.sops.yaml
