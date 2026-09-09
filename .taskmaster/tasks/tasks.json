@@ -157,13 +157,14 @@
         "description": "kubernetes/apps/ai/openclaw/app/configmap.yaml providers.litellm.baseUrl -> Omniroute. Model-id/combo addressing scheme TBD against real Phase 1 instance.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "8",
           "9"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-09T12:06:10.565Z"
       },
       {
         "id": "13",
@@ -171,13 +172,14 @@
         "description": "Mechanical URL repoint only (embedding/vlm/rerank api_base). openviking itself is NOT being replaced or evaluated -- see memory ai-omniroute-revival-plan scope boundary. openviking-vs-headroom comparison is a separate, later, out-of-scope initiative.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "8",
           "9"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-09T12:06:13.406Z"
       },
       {
         "id": "14",
@@ -185,13 +187,14 @@
         "description": "modelList.litellm entry -> Omniroute.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "8",
           "9"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-09T12:06:16.315Z"
       },
       {
         "id": "15",
@@ -199,14 +202,15 @@
         "description": "Remove litellm HelmRelease, litellm-operator, Postgres litellm DB/role, free DragonflyDB db4, HTTPRoute, Grafana dashboard/alert refs. Full removal, not cold standby -- per user decision.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "11",
           "12",
           "13"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-09T12:06:19.156Z"
       },
       {
         "id": "16",
@@ -214,12 +218,13 @@
         "description": "Reflect new architecture: ai/CLAUDE.md, top-level CLAUDE.md, dragonflydb-db-allocation.md table.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "14"
         ],
         "priority": "low",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-09-09T12:06:21.973Z"
       },
       {
         "id": "17",
@@ -353,9 +358,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-08T15:14:34.469Z",
+      "lastModified": "2026-09-09T12:06:21.973Z",
       "taskCount": 26,
-      "completedCount": 10,
+      "completedCount": 15,
       "tags": [
         "master"
       ]
