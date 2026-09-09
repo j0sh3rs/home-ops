@@ -185,7 +185,6 @@ The cluster runs a fully self-hosted AI stack. All clients speak to **Omniroute*
 
 | Component | Purpose |
 |---|---|
-| [n8n](https://n8n.io/) | Workflow automation; LLM nodes wired to LiteLLM |
 | [OpenCode](https://github.com/anomalyco/opencode) | Web-based AI coding assistant |
 | [Kelos](https://kelos.ai/) | Agent framework for loop orchestration |
 | [MCPJungle](https://github.com/mcpjungle/mcpjungle) | MCP server registry and proxy |
