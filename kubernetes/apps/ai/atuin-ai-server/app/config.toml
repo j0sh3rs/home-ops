@@ -1,12 +1,9 @@
 port = 8080
 
 # Omniroute gateway, cluster-internal (kubernetes/apps/ai/omniroute/).
-# Mirrors llama-swap's coder-large model via Omniroute's llamaswap
-# provider-node prefix -- see docs/superpowers/specs/
-# 2026-09-08-omniroute-phase2-switchover-design.md. Switched from LiteLLM
-# 2026-09-09 (Phase 2 switchover follow-up -- this consumer was missed in
-# the original repoint pass and discovered live-broken while validating
-# Task 5's teardown).
+# Switched from LiteLLM 2026-09-09 (Phase 2 switchover follow-up -- this
+# consumer was missed in the original repoint pass and discovered
+# live-broken while validating Task 5's teardown).
 endpoint = "http://omniroute.ai.svc.cluster.local:20128/v1"
 
 default_model = "coder-large"
@@ -14,8 +11,14 @@ default_model = "coder-large"
 [api_key]
 env = "CHAT_API_KEY"
 
+# model repointed 2026-09-10 from the bare llamaswap/coder-large alias to
+# Omniroute's "coding-fast" routing combo (currently just
+# llamaswap/coder-large, single-tier -- routine edits/quick Q&A, no
+# subscription quota spent). A combo is addressed as a bare name with no
+# prefix, same as any other model id. `alias`/`name`/`description` below
+# are this app's own internal labels, never sent to Omniroute.
 [[models]]
 alias = "coder-large"
 name = "Coder Large"
-description = "Qwen3-Coder-30B-A3B (MoE) via llama-swap, mirrored through Omniroute"
-model = "llamaswap/coder-large"
+description = "Qwen3-Coder-30B-A3B (MoE) via llama-swap, routed through Omniroute's coding-fast combo"
+model = "coding-fast"

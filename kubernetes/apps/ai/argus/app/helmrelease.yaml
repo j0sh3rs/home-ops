@@ -134,7 +134,14 @@ spec:
           # Map key stays "litellm" (matches config.model below) -- only
           # the values changed, not the key name, to keep this diff
           # mechanical.
-          model: llamaswap/coder-large
+          # model repointed 2026-09-10 to Omniroute's "debugging" routing
+          # combo (cliproxyapi/claude-sonnet-5 -> llamaswap/coder-large) --
+          # a combo is addressed as a bare name with no prefix, same as any
+          # other model id. Root-cause investigation benefits from a
+          # stronger model first; coder-large remains the fallback. argus
+          # itself is still commented out of kubernetes/apps/ai/kustomization.yaml
+          # (not deployed) -- this wiring is ready for when it goes live.
+          model: debugging
           api_base: http://omniroute.ai.svc.cluster.local:20128/v1
           api_key: "{{ env.OMNIROUTE_API_KEY }}"
       toolsets:
