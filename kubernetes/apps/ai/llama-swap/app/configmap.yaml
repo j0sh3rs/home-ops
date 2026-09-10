@@ -11,9 +11,13 @@ data:
     # Docs: https://github.com/mostlygeek/llama-swap
     #
     # Navi 48 dGPU on bigboi-jms-01 (Radeon RX 9070 XT, 16 GiB GDDR6, ~640 GB/s).
-    # Chat models hot-swap through the 'chat' group (exclusive). This
-    # instance is chat-only — embed/rerank/router moved to llama-swap-apu
-    # (bee-jms-03) 2026-08-17, freeing the full 16 GiB for the swap group.
+    # Chat models hot-swap through the 'chat' group (exclusive). Embed/vlm
+    # stay on llama-swap-apu (bee-jms-03, moved 2026-08-17). Rerank moved
+    # BACK here 2026-09-10 (jina-reranker-v2, ~305 MiB) as a concurrent
+    # "always-on" model alongside whichever chat model is loaded — the APU
+    # was a real memory-bandwidth-constrained node for VLM/embedding, and
+    # rerank benefits from dGPU throughput too. See agentic-coder's ctx-size
+    # comment below for the real VRAM math this required.
     healthCheckTimeout: 180
     logLevel: info
     startPort: 5800
@@ -29,6 +33,23 @@ data:
         --flash-attn on
         --jinja
         --cache-type-k q8_0 --cache-type-v q8_0
+
+      # Rerank-only. --reranking + --pooling rank restricts to /rerank
+      # (+/v1/rerank, /v1/reranking) endpoints. No --jinja/--flash-attn/KV
+      # quant here (deliberately) -- those are chat-generation-specific
+      # optimizations, pooling-based reranking doesn't autoregress or grow
+      # a KV cache across turns the same way, and this flag combo is
+      # unverified for that workload. Mirrors llama-swap-apu's apu-rerank
+      # macro exactly (same reasoning: llama.cpp issue #21256 -- combining
+      # --reranking with --embedding on one process forces
+      # pooling_type=RANK cluster-wide; not a concern here since this node
+      # has no embedding model, but keeping the macro single-purpose
+      # anyway for consistency with the APU tier).
+      "llama-vulkan-rerank": >-
+        /usr/local/bin/llama-server
+        --host 0.0.0.0 --port ${PORT}
+        -ngl 99
+        --reranking --pooling rank
 
     models:
       # ==================== CHAT GROUP (exclusive swap) ====================
@@ -48,16 +69,26 @@ data:
       # qwen3.6-27b's real-world decode (17.83 tok/s at 20K prompt depth,
       # user-reported) against this MoE model's ~149.5 tok/s estimate —
       # ~7x faster for an 8-point quality-score gap (79.2 vs 87.3).
-      # ctx-size 49152 chosen from real rocm-smi VRAM measurements: 32768
-      # -> 1939 MiB free (11.9%); 49152 -> 1105 MiB (6.8%, chosen — solid
-      # margin, 3x the original 16384 window that caused the 2026-08-16
-      # context-overflow incident); 65536 -> only 273 MiB (1.7%, too
-      # tight, same near-ceiling instability pattern as qwen3.6-27b).
+      # ctx-size 49152 -> 32768 2026-09-10: real rocm-smi measurement with
+      # jina-reranker-v2 (~305 MiB) added as a concurrent "always-on" model
+      # showed only 709.9 MiB free at 49152 -- tighter than the 1105 MiB
+      # this comment originally documented (real margins drift; re-measure,
+      # don't trust old comments blindly), and not enough to safely share
+      # with the reranker's weights + pooling overhead without risking the
+      # same near-ceiling instability pattern already rejected at 65536
+      # (273 MiB free, see below). 32768 restores real margin: 1939 MiB
+      # free measured with ONLY agentic-coder loaded (pre-rerank-addition
+      # baseline) -- re-measure with the reranker concurrently loaded
+      # before trusting this number long-term. Trade-off: primary coding
+      # model's context window shrinks from 49152 to 32768 tokens in
+      # exchange for concurrent rerank capacity with no swap latency.
+      # 65536 -> only 273 MiB (1.7%, too tight, same near-ceiling
+      # instability pattern as qwen3.6-27b) -- never a real option.
       "agentic-coder":
         cmd: |
           ${llama-vulkan}
           --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf
-          --ctx-size 49152
+          --ctx-size 32768
           -ub 2048 -b 16384
           --temp 0.6 --top-p 0.95
         aliases:
@@ -137,6 +168,33 @@ data:
       #     - "code-7b"
       #   ttl: 600
 
+      # ==================== ALWAYS-ON (concurrent) ====================
+
+      # Reranker for OpenViking's `rerank` config, moved here 2026-09-10
+      # from llama-swap-apu (bee-jms-03) for better throughput -- the APU
+      # tier is a real memory-bandwidth-constrained node (documented
+      # elsewhere for VLM/embedding timeouts), rerank benefits from dGPU
+      # speed too. Only jina-reranker-v2 is confirmed to produce sane
+      # scores through llama-server's rerank pooling -- an open,
+      # unresolved llama.cpp issue (#16407) reports bge-reranker-v2-m3 and
+      # Qwen3-Reranker (all sizes) returning garbage (e.g. 1e-28) scores
+      # via this same code path. Do not substitute either without
+      # re-verifying score sanity first. ctx-size 8192 matches the proven
+      # APU-tier config (real rerank query+document batches never
+      # approached that ceiling there). Not part of the "chat" exclusive
+      # group -- runs concurrently alongside whichever chat model is
+      # loaded, so rerank calls never wait on a swap. See agentic-coder's
+      # ctx-size comment above for the VRAM trade-off this required.
+      "jina-reranker-v2":
+        cmd: |
+          ${llama-vulkan-rerank}
+          --model /models/jina-reranker-v2-base-multilingual-Q8_0.gguf
+          --ctx-size 8192
+        aliases:
+          - "rerank"
+          - "reranker"
+        ttl: 0
+
     groups:
       # Chat models swap exclusively. Only one can hold VRAM at a time.
       "chat":
@@ -146,3 +204,15 @@ data:
           - "agentic-coder"
           - "gpt-oss-20b"
           - "qwen3.5-35b-a3b"
+
+      # Runs concurrently with whichever "chat" member is loaded --
+      # deliberately NOT part of that exclusive group. persistent: true
+      # keeps it resident (ttl: 0 on the model itself does the same; both
+      # set for clarity, matching llama-swap-apu's "always-on" group
+      # convention).
+      "always-on":
+        swap: false
+        exclusive: false
+        persistent: true
+        members:
+          - "jina-reranker-v2"

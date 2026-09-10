@@ -101,14 +101,10 @@ spec:
                   "https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/mmproj-Qwen2-VL-2B-Instruct-f16.gguf?download=true" \
                   "mmproj-Qwen2-VL-2B-Instruct-f16.gguf" \
                   1320000000
-                # jina-reranker-v2-base-multilingual Q8_0 (~305 MiB) —
-                # openviking's real rerank, added 2026-08-19. See
-                # configmap.yaml's jina-reranker-v2 comment for why this
-                # specific model (not bge/Qwen3-Reranker).
-                fetch \
-                  "https://huggingface.co/gpustack/jina-reranker-v2-base-multilingual-GGUF/resolve/main/jina-reranker-v2-base-multilingual-Q8_0.gguf?download=true" \
-                  "jina-reranker-v2-base-multilingual-Q8_0.gguf" \
-                  300000000
+                # jina-reranker-v2 moved to llama-swap (dGPU) 2026-09-10 --
+                # no longer fetched here. The old file (~305 MiB) is left
+                # on this PVC as harmless orphaned disk space rather than
+                # adding delete logic for a one-time move.
                 echo "[finished] model staging complete"
                 ls -lh /models
             env:

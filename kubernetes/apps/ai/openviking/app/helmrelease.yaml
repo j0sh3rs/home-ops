@@ -201,8 +201,15 @@ spec:
       # placeholder, not a secret, matching the same convention used when
       # registering llama-swap as an Omniroute provider-node in Phase 1.
       rerank:
+        # Moved from llama-swap-apu to llama-swap (dGPU) 2026-09-10 for
+        # better throughput -- the APU tier is memory-bandwidth
+        # constrained; the reranker now runs concurrently alongside
+        # whichever dGPU chat model is loaded (its own "always-on" group,
+        # not the exclusive "chat" swap group -- see llama-swap's
+        # configmap.yaml). Required trimming agentic-coder's ctx-size
+        # 49152 -> 32768 to keep real VRAM margin safe with both loaded.
         provider: "openai"
-        api_base: "http://llama-swap-apu.ai.svc.cluster.local:8080/v1/rerank"
+        api_base: "http://llama-swap.ai.svc.cluster.local:8080/v1/rerank"
         api_key: "not-needed"
         model: "jina-reranker-v2"
       retrieval:

@@ -114,6 +114,15 @@ spec:
                   "https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf?download=true" \
                   "gpt-oss-20b-Q4_K_M.gguf" \
                   11600000000
+                # ── Always-on (concurrent) ──
+                # jina-reranker-v2-base-multilingual Q8_0 (~305 MiB) --
+                # moved here from llama-swap-apu 2026-09-10 for better
+                # rerank throughput. See configmap.yaml's jina-reranker-v2
+                # comment for why this specific model (not bge/Qwen3-Reranker).
+                fetch \
+                  "https://huggingface.co/gpustack/jina-reranker-v2-base-multilingual-GGUF/resolve/main/jina-reranker-v2-base-multilingual-Q8_0.gguf?download=true" \
+                  "jina-reranker-v2-base-multilingual-Q8_0.gguf" \
+                  300000000
                 echo "[finished] model staging complete"
                 ls -lh /models
             env:
