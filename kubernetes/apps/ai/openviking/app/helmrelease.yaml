@@ -119,8 +119,16 @@ spec:
       # llama-swap-apu's real qwen3-embed model) -- required for the
       # embedding readiness check, which depends on a live embedding call
       # succeeding.
-      # vlm.model is Omniroute's llamaswapapu/vlm alias -- llama-swap-apu's
-      # real Qwen2-VL-2B-Instruct model.
+      # vlm.model is an Omniroute compression combo ("openviking-vlm"),
+      # not a bare provider-node alias -- combos are addressed directly as
+      # the model field's whole value (no prefix). Priority chain: Claude
+      # Haiku 4.5 via CLIProxyAPI (subscription, vision-capable) first,
+      # llama-swap-apu's real Qwen2-VL-2B-Instruct model
+      # (llamaswapapu/vlm) as fallback. Reordered 2026-09-09: llama-swap-apu
+      # has been the weaker link here (60% success rate / ~5.3s avg latency
+      # per Omniroute's own provider metrics, a genuine APU memory-bandwidth
+      # constraint, not a config bug) -- subscription-first while local VLM
+      # serving is investigated for a possible move off the APU node.
       embedding:
         # allow_metadata_override: OpenViking stamps the embedding
         # provider/model identity into stored vector collection metadata
@@ -163,23 +171,40 @@ spec:
         api_base: "http://omniroute.ai.svc.cluster.local:20128/v1"
         api_key: "${OPENVIKING_VLM_API_KEY}"
         provider: "openai"
-        model: "llamaswapapu/vlm"
+        model: "openviking-vlm"
         temperature: 0.0
         timeout: 90
         max_retries: 1
         thinking: false
         max_concurrent: 20
-      # Rerank: dropped 2026-09-08 (Phase 2 switchover) -- Omniroute's
-      # /api/v1/rerank endpoint has a hardcoded SSRF filter that only
-      # accepts local provider-node backends on localhost/127.0.0.1/
-      # 172.16.0.0-172.31.255.255; this cluster's Service CIDR
-      # (10.43.0.0/16) never matches, so llama-swap-apu's rerank model is
-      # silently filtered out of rerank routing (chat completions are a
-      # separate code path, unaffected). Not part of the /ready check, so
-      # omitting this block doesn't break the app -- retrieval degrades to
-      # pure vector relevance (no rerank pass). Backlog item to revisit if
-      # Omniroute upstream relaxes this filter. See
-      # docs/superpowers/specs/2026-09-08-omniroute-phase2-switchover-design.md.
+      # Rerank: restored 2026-09-09, DIRECT to llama-swap-apu (bypassing
+      # Omniroute entirely for this one call type). Root-caused: Omniroute's
+      # /v1/rerank route (src/app/api/v1/rerank/route.ts upstream) filters
+      # its own registered provider-nodes to ones whose baseUrl *hostname*
+      # is literally "localhost", "127.0.0.1", or matches a 172.16-31.x.x
+      # dotted-decimal regex -- a hardcoded string/regex match, NOT a CIDR/
+      # DNS-resolution check, and with no env/DB override (unlike the
+      # general provider-outbound guard, which has
+      # OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS). Kubernetes Service DNS
+      # names (llama-swap-apu.ai.svc.cluster.local) can never match that
+      # regex regardless of the IP they resolve to, so this is permanently
+      # unfixable through Omniroute configuration -- confirmed by reading
+      # the actual upstream source, not just observed behavior. OpenViking
+      # itself has no SSRF logic of its own; the block is 100% Omniroute-
+      # side. Going direct is the correct fix, not a workaround: OpenViking
+      # v0.4.19's rerank_config.py (openviking/models/rerank/openai_rerank.py)
+      # supports a generic OpenAI-compatible provider requiring only
+      # api_key + api_base + model -- api_base must be the FULL endpoint
+      # URL (the client POSTs to it directly, no path is appended).
+      # api_key is a required non-empty field but llama-swap-apu (like
+      # llama-swap) has no real auth -- "not-needed" is a literal
+      # placeholder, not a secret, matching the same convention used when
+      # registering llama-swap as an Omniroute provider-node in Phase 1.
+      rerank:
+        provider: "openai"
+        api_base: "http://llama-swap-apu.ai.svc.cluster.local:8080/v1/rerank"
+        api_key: "not-needed"
+        model: "jina-reranker-v2"
       retrieval:
         # hotness_alpha: 0 (chart default) disables recency entirely --
         # pure relevance ranking. 0.2 gives a modest recency nudge (relevance
