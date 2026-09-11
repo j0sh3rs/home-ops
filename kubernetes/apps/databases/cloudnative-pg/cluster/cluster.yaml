@@ -139,11 +139,16 @@ spec:
   # Backups are managed by the cnpg-barman-cloud plugin. The plugin owns
   # backup config via an ObjectStore CR (sibling objectstore.yaml). The
   # in-tree spec.backup.barmanObjectStore block was removed in favour of
-  # spec.plugins[]. Plugin reads/writes the same s3://cloudnative-pg/
-  # path with the same serverName=postgres17-v4 — full backup continuity.
+  # spec.plugins[]. Plugin reads/writes s3://cloudnative-pg/postgres18-v1/.
   #
   # See docs/runbooks/cnpg-major-upgrade.md PR 3 for the migration plan
   # and docs/runbooks/cnpg-barman-plugin-migration.md for full reference.
+  #
+  # spec.bootstrap/externalClusters (recovery from the pre-PG18
+  # postgres17-v3 incarnation) were removed once the cluster fully cut
+  # over: bootstrap is a create-time-only field the operator ignores once
+  # a cluster is running, and the postgres17-v3 ObjectStore backing it is
+  # gone (see objectstore.yaml).
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -154,25 +159,5 @@ spec:
         # `serverName` — the plugin's webhook rejects serverName on the
         # ObjectStore itself, so it has to live on the Cluster's plugin
         # parameters instead.
-        #
-        # Rotated postgres17-v4 -> postgres18-v1 at the PG18 cutover. New
-        # backups land at s3://cloudnative-pg/postgres18-v1/ — clean
-        # separation from the PG17 archives. PITR is invalid across major
-        # boundaries so a fresh path avoids ambiguity. postgres17-v4
-        # ObjectStore stays around as a forensic reference; its archive
-        # ages out under the existing 30d retention.
         barmanObjectName: postgres18-v1
         serverName: postgres18-v1
-  # Recovery source for new instances bootstrapping from S3.
-  # `externalClusters[].plugin` replaces the legacy `barmanObjectStore`
-  # block — points at the postgres17-v3 ObjectStore CR + its own serverName.
-  bootstrap:
-    recovery:
-      source: &previousCluster postgres17-v3
-  externalClusters:
-    - name: *previousCluster
-      plugin:
-        name: barman-cloud.cloudnative-pg.io
-        parameters:
-          barmanObjectName: postgres17-v3
-          serverName: postgres17-v3
