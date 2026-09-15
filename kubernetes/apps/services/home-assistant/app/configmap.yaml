@@ -46,17 +46,24 @@ data:
       commit_interval: 10
 
   prometheus.yaml: |
-    # Cluster health surfaces from VMsingle (PromQL-compatible endpoint).
+    # Cluster health surfaces from the externally-hosted VictoriaMetrics
+    # (PromQL-compatible). Originally pointed at in-cluster vmsingle, which
+    # home-ops-8bb decommissioned (stage 2 removed VMSingle/Thanos entirely
+    # in favor of https://metrics.68cc.io) — repointed here, same as
+    # Grafana's datasource and vmagent's remote_write already do
+    # (kubernetes/apps/monitoring/victoria-metrics/app/grafanadatasource.yaml).
+    # No auth required; unauthenticated per that same pattern.
+    #
     # scan_interval raised to 120s (was 30-60s): three sensors hammering
-    # vmsingle every 30s queued past its 10s window and got 429-flooded,
-    # which then spammed "value_json is undefined" template errors. Slower
-    # cadence + value_json guard stops both. Each rest sensor fires one
-    # HTTP call per scan_interval.
+    # the endpoint every 30s queued past its 10s window and got
+    # 429-flooded, which then spammed "value_json is undefined" template
+    # errors. Slower cadence + value_json guard stops both. Each rest
+    # sensor fires one HTTP call per scan_interval.
     sensor:
       - platform: rest
         name: cluster_cpu_usage_percent
         unique_id: cluster_cpu_usage_percent
-        resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
+        resource: https://metrics.68cc.io/api/v1/query
         params:
           query: "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)"
         value_template: >-
@@ -72,7 +79,7 @@ data:
       - platform: rest
         name: cluster_memory_used_gb
         unique_id: cluster_memory_used_gb
-        resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
+        resource: https://metrics.68cc.io/api/v1/query
         params:
           query: "sum(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 1024 / 1024 / 1024"
         value_template: >-
@@ -88,7 +95,7 @@ data:
       - platform: rest
         name: cluster_nodes_up
         unique_id: cluster_nodes_up
-        resource: http://vmsingle-vmsingle.monitoring.svc.cluster.local:8429/api/v1/query
+        resource: https://metrics.68cc.io/api/v1/query
         params:
           query: "count(up{job=\"node-exporter\"} == 1)"
         value_template: >-

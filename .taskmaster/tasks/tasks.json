@@ -354,12 +354,23 @@
         ],
         "priority": "low",
         "subtasks": []
+      },
+      {
+        "id": "27",
+        "title": "Investigate and fix broken GitHub auth (gh CLI + GitHub MCP server)",
+        "description": "Both gh CLI and the GitHub MCP server fail to authenticate in this HolyClaude container, blocking issue/PR creation from within Claude Code sessions.",
+        "details": "gh auth status reports \"invalid GITHUB_TOKEN\"; the GitHub MCP server fails with \"400: Authorization header is badly formatted\". No github-personal.env is present in the repo despite .mise.toml referencing it as an optional override, so GITHUB_TOKEN is coming from some other (currently broken) source. Separately, the git remote URL itself embeds a working PAT used for push/pull -- worth checking whether that one is still valid and whether consolidating on it (or a fresh token) is simpler than chasing the current GITHUB_TOKEN source. Concrete trigger: couldn't file a GitHub issue for the extended_openai_conversation bash-tool hardening follow-up (docs/runbooks/home-assistant-mcp.md) and had to track it here instead.",
+        "testStrategy": "gh auth status succeeds; gh issue create works; GitHub MCP server connects cleanly on next session start.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-09-09T12:06:21.973Z",
-      "taskCount": 26,
+      "lastModified": "2026-09-14T16:20:00.000Z",
+      "taskCount": 27,
       "completedCount": 15,
       "tags": [
         "master"

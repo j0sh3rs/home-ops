@@ -194,7 +194,6 @@
       groupName: "OpenCode Extensions",
       matchDatasources: ["github-releases", "npm"],
       matchPackageNames: [
-        "JuliusBrussee/caveman",
         "affaan-m/ECC",
         "@franlol/opencode-md-table-formatter",
       ],
