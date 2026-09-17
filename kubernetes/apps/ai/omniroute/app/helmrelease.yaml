@@ -71,11 +71,23 @@ spec:
               # node's real, checked headroom (bigboi-jms-01: 33% memory
               # used cluster-wide per `kubectl top node`, ~20 GiB free --
               # raising this tier's ceiling costs nothing else running here).
-              # Re-measure real usage under load (grep for "resourcePressure"
-              # in this pod's logs) before raising further; if pressure
-              # trips persist at 3Gi, the actual fix is probably capping how
-              # much OpenViking buffers per vlm call, not another bump here.
-              NODE_OPTIONS: "--max-old-space-size=2560"
+              #
+              # Raised again same day, 3Gi->6Gi container limit / 2560->5120
+              # heap ceiling -- explicit operator ask for headroom to grow
+              # into, not a response to a new observed pressure event. Same
+              # ~83%/17% heap-to-limit ratio preserved. Deliberately left
+              # unpinned to any node: this pod does no GPU/model inference
+              # (pure gateway + the cliproxyapi sidecar, which just proxies
+              # HTTP to CLI OAuth sessions), so it has no technical reason
+              # to be pinned anywhere -- whichever node the scheduler picks
+              # has ample room regardless (checked cluster-wide via
+              # `kubectl top node` the same day: every node sits at 20-43%
+              # memory used). Re-measure real usage under load (grep for
+              # "resourcePressure" in this pod's logs) before raising
+              # further; if pressure trips persist even at 6Gi, the actual
+              # fix is probably capping how much OpenViking buffers per
+              # vlm call, not another bump here.
+              NODE_OPTIONS: "--max-old-space-size=5120"
               CLIPROXYAPI_HOST: "127.0.0.1"
               CLIPROXYAPI_PORT: "8317"
             envFrom:
@@ -87,7 +99,7 @@ spec:
                 memory: 1Gi
               limits:
                 cpu: "2"
-                memory: 3Gi
+                memory: 6Gi
             probes:
               # Upstream's own compose healthcheck is `node healthcheck.mjs`
               # (an exec script, not an HTTP path) — confirmed by reading
