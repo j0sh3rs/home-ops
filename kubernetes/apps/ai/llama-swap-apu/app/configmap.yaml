@@ -144,9 +144,17 @@ data:
       # in its total footprint, but 3x of an unknown-but-nontrivial base
       # against <2 GiB free was judged too tight to risk on this shared
       # tier). Per the brief's own fallback rule, dropped the target to
-      # 32768 instead -- still clears the observed 45309-token failure
-      # with real margin (2x, not 3x), while leaving more of the ~1.98 GiB
-      # headroom unclaimed. Post-deploy re-measurement with all four
+      # 32768 instead -- this does NOT fully cover the observed 45309-
+      # token prompt (32768 < 45309): it reduces the deficit from 16384's
+      # ~2.77x undersized to ~1.38x undersized, it does not eliminate it.
+      # A 45309+-token memory-extraction request can still fail at 32768;
+      # if that recurs, this is the first place to look, and the fix is
+      # either a further ctx-size increase (re-measure headroom first,
+      # see below) or trimming the prompt upstream in OpenViking. Chose
+      # this over the brief's full-coverage 49152 target only because
+      # measured headroom made 49152 unsafe on this tier (see above),
+      # leaving more of the ~1.98 GiB headroom unclaimed. Post-deploy
+      # re-measurement with all four
       # always-on models warmed again: 15535501312 B used of 17179869184 B
       # (16 GiB), ~1.53 GiB free (9.6%) -- pod healthy, no OOM/restart, vlm
       # answered a real completion post-deploy. If memory extraction fails
