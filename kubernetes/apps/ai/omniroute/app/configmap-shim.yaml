@@ -7,23 +7,192 @@ data:
   server.js: |
     'use strict';
     const http = require('http');
+    const fs = require('fs');
 
     const PORT = 8318;
+    const CLIPROXY_HOST = '127.0.0.1';
+    const CLIPROXY_PORT = 8317;
+    const CONFIG_PATH = '/shim-config/cliproxy-config.yaml';
 
-    // Stub for Task 1 -- proves the container starts, listens, and is
-    // reachable from the `app` container over localhost. Task 2 replaces
-    // this with real Chat-Completions <-> Responses-API translation logic
-    // once CLIProxyAPI's real API-key format and Responses API shapes are
-    // confirmed live. See
-    // docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md.
-    const server = http.createServer((req, res) => {
+    // Parses CLIProxyAPI's own api-keys list out of its mounted config file.
+    // Shape confirmed live (Task 2 Step 1): a plain YAML list of quoted
+    // strings under `api-keys:`, e.g.:
+    //   api-keys:
+    //     - "sk-..."
+    function loadApiKey() {
+      const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
+      const lines = raw.split('\n');
+      let inApiKeys = false;
+      for (const line of lines) {
+        if (/^api-keys:/.test(line)) { inApiKeys = true; continue; }
+        if (inApiKeys) {
+          if (/^\S/.test(line)) break;
+          const m = line.match(/-\s*"?([^"\s]+)"?\s*$/);
+          if (m) return m[1];
+        }
+      }
+      throw new Error('no api key found in ' + CONFIG_PATH);
+    }
+
+    const CLIPROXY_KEY = loadApiKey();
+
+    class ShimError extends Error {
+      constructor(status, message) {
+        super(message);
+        this.status = status;
+      }
+    }
+
+    function readBody(req) {
+      return new Promise((resolve, reject) => {
+        let data = '';
+        req.on('data', (c) => { data += c; });
+        req.on('end', () => resolve(data));
+        req.on('error', reject);
+      });
+    }
+
+    // Text-only v1 -- any non-text content part throws a ShimError(400),
+    // never silently dropped. See Global Constraints.
+    function chatToResponsesInput(messages) {
+      const input = [];
+      for (const m of messages) {
+        if (typeof m.content === 'string') {
+          input.push({ role: m.role, content: [{ type: 'input_text', text: m.content }] });
+          continue;
+        }
+        if (Array.isArray(m.content)) {
+          const parts = [];
+          for (const part of m.content) {
+            if (part.type === 'text') {
+              parts.push({ type: 'input_text', text: part.text });
+            } else {
+              throw new ShimError(
+                400,
+                `Unsupported content type "${part.type}" -- this shim is text-only (v1); image/multimodal content is not translated. See docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md.`
+              );
+            }
+          }
+          input.push({ role: m.role, content: parts });
+          continue;
+        }
+        throw new ShimError(400, `Unsupported message content shape for role "${m.role}"`);
+      }
+      return input;
+    }
+
+    function callCliProxy(path, body) {
+      return new Promise((resolve, reject) => {
+        const payload = JSON.stringify(body);
+        const req = http.request(
+          {
+            host: CLIPROXY_HOST,
+            port: CLIPROXY_PORT,
+            path,
+            method: 'POST',
+            headers: {
+              Authorization: 'Bearer ' + CLIPROXY_KEY,
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(payload),
+            },
+          },
+          (res) => {
+            let data = '';
+            res.on('data', (c) => { data += c; });
+            res.on('end', () => resolve({ status: res.statusCode, body: data }));
+          }
+        );
+        req.on('error', reject);
+        req.end(payload);
+      });
+    }
+
+    // Field extraction below CONFIRMED against a real CLIProxyAPI
+    // /v1/responses response in Task 2 Step 2. Real shape observed:
+    //   output: [{ type: "message", role: "assistant", content: [
+    //     { type: "output_text", text: "..." }
+    //   ]}]
+    //   usage: { input_tokens, output_tokens, total_tokens, ... }
+    // No top-level `output_text` convenience string was present in the
+    // real response, but that branch is kept as a defensive fallback since
+    // it's part of the public Responses API spec.
+    function responsesToChatCompletion(model, responsesBody) {
+      const parsed = JSON.parse(responsesBody);
+      let text = '';
+      if (typeof parsed.output_text === 'string') {
+        text = parsed.output_text;
+      } else if (Array.isArray(parsed.output)) {
+        for (const item of parsed.output) {
+          if (item.type === 'message' && Array.isArray(item.content)) {
+            for (const c of item.content) {
+              if (typeof c.text === 'string') text += c.text;
+            }
+          }
+        }
+      }
+      const usage = parsed.usage || {};
+      return {
+        id: parsed.id || 'shim-' + Date.now(),
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model,
+        choices: [
+          {
+            index: 0,
+            finish_reason: 'stop',
+            message: { role: 'assistant', content: text },
+          },
+        ],
+        usage: {
+          prompt_tokens: usage.input_tokens || 0,
+          completion_tokens: usage.output_tokens || 0,
+          total_tokens: usage.total_tokens || (usage.input_tokens || 0) + (usage.output_tokens || 0),
+        },
+      };
+    }
+
+    function sendError(res, status, message, upstream) {
+      const body = { error: { message, type: 'server_error', code: 'shim_error' } };
+      if (upstream !== undefined) body.upstream_details = upstream;
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(body));
+    }
+
+    const server = http.createServer(async (req, res) => {
       if (req.method === 'GET' && req.url === '/healthz') {
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok' }));
         return;
       }
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ status: 'stub', message: 'shim not yet implemented' }));
+      if (req.method !== 'POST' || req.url !== '/v1/chat/completions') {
+        sendError(res, 404, 'not found');
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw);
+        const input = chatToResponsesInput(parsed.messages || []);
+        const responsesBody = { model: parsed.model, input };
+        if (parsed.max_tokens) responsesBody.max_output_tokens = parsed.max_tokens;
+        if (parsed.temperature !== undefined) responsesBody.temperature = parsed.temperature;
+
+        const upstream = await callCliProxy('/v1/responses', responsesBody);
+        if (upstream.status < 200 || upstream.status >= 300) {
+          let parsedUpstream;
+          try { parsedUpstream = JSON.parse(upstream.body); } catch (e) { parsedUpstream = upstream.body; }
+          sendError(res, upstream.status, 'CLIProxyAPI request failed', parsedUpstream);
+          return;
+        }
+        const chatBody = responsesToChatCompletion(parsed.model, upstream.body);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(chatBody));
+      } catch (err) {
+        if (err instanceof ShimError) {
+          sendError(res, err.status, err.message);
+        } else {
+          sendError(res, 500, 'shim internal error: ' + err.message);
+        }
+      }
     });
 
-    server.listen(PORT, '0.0.0.0', () => console.log('shim stub listening on', PORT));
+    server.listen(PORT, '0.0.0.0', () => console.log('shim listening on', PORT));
