@@ -206,6 +206,24 @@ spec:
               GIT_USER_NAME: BarryBot
               GIT_USER_EMAIL: github+barrybot@beholdthehurricane.com
               HOLYCLAUDE_DESLOPPIFY_SETUP: "claude,opencode"
+              # Omniroute-backed Claude Code auth (2026-09-16) -- replaces
+              # the native `claude login` OAuth device-flow session this
+              # deployment used previously. OMNIROUTE_ANTHROPIC_BASE_URL is
+              # a plain value (no secret needed, same cluster-internal
+              # pattern every other Omniroute consumer uses);
+              # OMNIROUTE_ANTHROPIC_MODEL is the pre-existing "coding-deep"
+              # combo (claude-sonnet-5 -> gpt-5.5 -> local llamaswap/
+              # coder-large fallback), not a bare model -- gives graceful
+              # degradation if the Claude Pro session itself is briefly
+              # unavailable, unlike a bare cliproxyapi/claude-sonnet-5
+              # reference. The postStart hook below reads both of these
+              # plus OMNIROUTE_API_KEY (from envFrom) and patches them into
+              # settings.json's own env block on every boot -- Claude Code
+              # reads its own settings.json env over real container env
+              # vars, so setting these as plain container env here alone
+              # would NOT take effect without that patch step.
+              OMNIROUTE_ANTHROPIC_BASE_URL: "http://omniroute.ai.svc.cluster.local:20128"
+              OMNIROUTE_ANTHROPIC_MODEL: "coding-deep"
             envFrom:
               - secretRef:
                   name: holyclaude-secret
@@ -244,25 +262,22 @@ spec:
             # every container start including in-place restarts, so this
             # can never duplicate the appended block.
             #
-            # Finally, launches the caveman plugin's local proxy daemon.
-            # ~/.claude/settings.json points ANTHROPIC_BASE_URL at
-            # http://127.0.0.1:8787/w/claude so Claude Code's own traffic
-            # runs through it, but caveman-proxy is a bare foreground
-            # server with no supervisor of its own -- nothing in the
-            # image's entrypoint/s6 services starts it. Every fresh
-            # container therefore left it dead until someone happened to
-            # start it by hand in a terminal session, which silently broke
-            # again on the next restart (2026-09-05 incident: Claude Code
-            # failed with "API Error: Connection refused", and `curl
-            # 127.0.0.1:8787` reproduced the identical error until the
-            # binary was started manually). `setsid` detaches it from this
-            # postStart process's session and `nohup`+closed stdio stop a
-            # SIGHUP/closed-pipe from taking it down when the hook exits,
-            # so it outlives the hook the same way it survived the manual
-            # exec session used to confirm this fix. No idempotency guard
-            # needed: a container restart tears down its whole PID
-            # namespace, so there's never a prior instance still alive
-            # when this runs.
+            # Finally, launches the caveman plugin's local proxy daemon --
+            # kept running (still image/PVC-baked) but NO LONGER in Claude
+            # Code's own request path as of 2026-09-16: settings.json's
+            # ANTHROPIC_BASE_URL now points directly at Omniroute (see the
+            # settings.json patch above this hook), not at caveman-proxy's
+            # 127.0.0.1:8787. caveman-proxy's own disposition (remove vs.
+            # re-point at Omniroute as ITS upstream) is an open item --
+            # left alone here since it's confirmed harmless (dormant, no
+            # incoming traffic) rather than guessed at. `setsid` detaches
+            # it from this postStart process's session and `nohup`+closed
+            # stdio stop a SIGHUP/closed-pipe from taking it down when the
+            # hook exits, so it outlives the hook the same way it survived
+            # the manual exec session used to confirm the original
+            # 2026-09-05 fix. No idempotency guard needed: a container
+            # restart tears down its whole PID namespace, so there's never
+            # a prior instance still alive when this runs.
             lifecycle:
               postStart:
                 exec:
@@ -275,6 +290,19 @@ spec:
                         [ -e "$f" ] || continue
                         ln -sf "$f" "/home/claude/.local/bin/$(basename "$f")"
                       done
+                      if [ -f /home/claude/.claude/settings.json ]; then
+                        node -e '
+                          const fs = require("fs");
+                          const p = "/home/claude/.claude/settings.json";
+                          const s = JSON.parse(fs.readFileSync(p, "utf8"));
+                          s.env = s.env || {};
+                          s.env.ANTHROPIC_BASE_URL = process.env.OMNIROUTE_ANTHROPIC_BASE_URL;
+                          s.env.ANTHROPIC_MODEL = process.env.OMNIROUTE_ANTHROPIC_MODEL;
+                          s.env.ANTHROPIC_AUTH_TOKEN = process.env.OMNIROUTE_API_KEY;
+                          s.model = process.env.OMNIROUTE_ANTHROPIC_MODEL;
+                          fs.writeFileSync(p, JSON.stringify(s, null, 2));
+                        '
+                      fi
                       cat /tmp/bashrc-extra >> /home/claude/.bashrc
                       setsid nohup /home/claude/.caveman/bin/caveman-proxy \
                         >>/home/claude/.caveman/proxy.log 2>&1 </dev/null &
