@@ -21,10 +21,28 @@ data:
     startPort: 5800
 
     macros:
-      # No --flash-attn / KV quant: older Vega/gfx90c silicon, not tuned
-      # or verified for those flags, and VRAM headroom doesn't require
-      # the trade-off here. Re-check before enabling if profiling shows
-      # a need.
+      # No --flash-attn: profiled 2026-09-17, confirmed WORSE on this
+      # hardware, not just "unverified" -- do not re-enable without new
+      # profiling data superseding this. Root cause of real OpenViking
+      # 504s (llamaswapapu/vlm exceeding Omniroute's execution deadline on
+      # large prompts) traced to this tier's genuine prefill throughput,
+      # not a config bug -- see openviking's helmrelease.yaml vlm timeout
+      # comment for the full incident. Tested `-fa on` explicitly via a
+      # temporary side-by-side llama-server instance on an unused port
+      # (same model files, same 25028-token prompt, production traffic
+      # untouched throughout): 109.7 tok/s prefill vs. this macro's default
+      # `-fa auto` baseline of ~154 tok/s measured the same day -- a ~29%
+      # SLOWDOWN, not an improvement. Consistent with `auto` already
+      # correctly detecting that this Renoir/Vega7 (gfx90c) iGPU's Vulkan
+      # backend lacks cooperative-matrix support, so an explicit `on`
+      # forces a less-efficient fallback FA kernel instead of the faster
+      # standard attention path `auto` already picks. ~154 tok/s prefill
+      # appears to be close to this hardware's real ceiling for this
+      # attention mechanism -- further latency improvements on this tier
+      # likely need a different lever (smaller prompts upstream, or moving
+      # latency-sensitive models to the dGPU tier) rather than more
+      # llama-server flags. KV quant untested; VRAM headroom doesn't
+      # require that trade-off here regardless.
       "apu-vulkan": >-
         /usr/local/bin/llama-server
         --host 0.0.0.0 --port ${PORT}
