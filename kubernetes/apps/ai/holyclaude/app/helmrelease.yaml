@@ -23,8 +23,13 @@ spec:
       # etcd-quorum-sensitive bee-* control-plane nodes, colocated with the
       # other heavy AI/browser-capable workloads already there. Rebinding
       # this PVC to a different node later means deleting and recreating
-      # it, which destroys the Claude Code OAuth session and /workspace --
-      # get this right before first deploy, not after.
+      # it, which destroys /workspace and every other persisted subtree
+      # (~/.claude, ~/.cloudcli, etc.) -- get this right before first
+      # deploy, not after. NOTE (2026-09-17): this no longer includes the
+      # Claude Code OAuth session specifically -- as of 2026-09-16, Claude
+      # Code auth is a Secret-delivered Omniroute API key re-patched into
+      # settings.json on every boot (see the app container's env/postStart
+      # below), not credential state living on this PVC.
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -212,16 +217,43 @@ spec:
               # a plain value (no secret needed, same cluster-internal
               # pattern every other Omniroute consumer uses);
               # OMNIROUTE_ANTHROPIC_MODEL is the pre-existing "coding-deep"
-              # combo (claude-sonnet-5 -> gpt-5.5 -> local llamaswap/
-              # coder-large fallback), not a bare model -- gives graceful
-              # degradation if the Claude Pro session itself is briefly
-              # unavailable, unlike a bare cliproxyapi/claude-sonnet-5
-              # reference. The postStart hook below reads both of these
-              # plus OMNIROUTE_API_KEY (from envFrom) and patches them into
-              # settings.json's own env block on every boot -- Claude Code
-              # reads its own settings.json env over real container env
-              # vars, so setting these as plain container env here alone
-              # would NOT take effect without that patch step.
+              # combo -- three legs: claude-sonnet-5 -> gpt-5.5 -> local
+              # llamaswap/coder-large -- not a bare model.
+              #
+              # CORRECTED 2026-09-17 (this plan's own Task 3/6 findings):
+              # this is NOT real graceful degradation, despite the
+              # multi-leg shape. The middle leg, gpt-5.5, is one of the
+              # four cliproxyapi/gpt-* candidates confirmed (real
+              # /v1/chat/completions calls, two different auth keys) to
+              # reject every request with the same Responses-API-shape
+              # mismatch error as gpt-5.6-luna -- see
+              # kubernetes/apps/ai/CLAUDE.md's "Known Omniroute
+              # limitations" -- so it can never actually serve a request.
+              # The terminal leg, llamaswap/coder-large, resolves to the
+              # agentic-coder model at --ctx-size 32768
+              # (kubernetes/apps/ai/llama-swap/app/configmap.yaml), far
+              # below the 76,386-input-token size a real interactive
+              # request from this pod measured during Task 6's
+              # verification. Net effect on a Claude Pro outage: this
+              # combo fails closed, not gracefully -- the middle leg
+              # rejects on shape, the terminal leg overflows on context.
+              # It's kept for Omniroute-side attribution/logging and
+              # lane-scoping (ties usage to the holyclaude-interactive key,
+              # keeps this traffic on the allowed-combo list), not because
+              # it provides real resilience.
+              #
+              # The postStart hook below reads both of these plus
+              # OMNIROUTE_API_KEY (from envFrom) and patches four values
+              # into settings.json on every boot: three keys in its env
+              # block (ANTHROPIC_BASE_URL/ANTHROPIC_MODEL/
+              # ANTHROPIC_AUTH_TOKEN) plus the top-level `model` field --
+              # Claude Code reads its own settings.json env/model over
+              # real container env vars, so setting these as plain
+              # container env here alone would NOT take effect without
+              # that patch step. One consequence: the top-level `model`
+              # field is unconditionally overwritten every boot, so any
+              # in-session `/model` choice a user makes is silently
+              # reverted back to "coding-deep" on the next restart.
               OMNIROUTE_ANTHROPIC_BASE_URL: "http://omniroute.ai.svc.cluster.local:20128"
               OMNIROUTE_ANTHROPIC_MODEL: "coding-deep"
             envFrom:
@@ -293,14 +325,62 @@ spec:
                       if [ -f /home/claude/.claude/settings.json ]; then
                         node -e '
                           const fs = require("fs");
+                          const path = require("path");
                           const p = "/home/claude/.claude/settings.json";
-                          const s = JSON.parse(fs.readFileSync(p, "utf8"));
+                          const baseUrl = process.env.OMNIROUTE_ANTHROPIC_BASE_URL;
+                          const model = process.env.OMNIROUTE_ANTHROPIC_MODEL;
+                          const authToken = process.env.OMNIROUTE_API_KEY;
+                          // 2026-09-17: fail loudly instead of silently -- an
+                          // unset var used to become `undefined` via
+                          // JSON.stringify, which just drops that key from
+                          // the written env block (a broken/missing auth
+                          // token with no error). Skip the whole patch and
+                          // warn instead of writing a half-configured file.
+                          if (!baseUrl || !model || !authToken) {
+                            console.error("WARN: postStart settings.json patch skipped -- OMNIROUTE_ANTHROPIC_BASE_URL/OMNIROUTE_ANTHROPIC_MODEL/OMNIROUTE_API_KEY not all set; leaving settings.json as-is.");
+                            process.exit(0);
+                          }
+                          let s;
+                          try {
+                            // 2026-09-17: settings.json lives on the
+                            // retained PVC -- a prior SIGKILL mid-write or a
+                            // bad hand-edit via the web terminal leaves
+                            // truncated/invalid JSON here permanently. Under
+                            // `set -eu`, an uncaught JSON.parse throw used
+                            // to fail this whole postStart hook, which
+                            // kubelet answers by killing and restarting the
+                            // container -- every restart, forever, since
+                            // the bad file never goes away on its own.
+                            // Catch it, warn, and boot with whatever
+                            // settings.json state already exists instead.
+                            s = JSON.parse(fs.readFileSync(p, "utf8"));
+                          } catch (e) {
+                            console.error("WARN: postStart settings.json patch skipped -- could not read/parse " + p + ": " + e.message);
+                            process.exit(0);
+                          }
                           s.env = s.env || {};
-                          s.env.ANTHROPIC_BASE_URL = process.env.OMNIROUTE_ANTHROPIC_BASE_URL;
-                          s.env.ANTHROPIC_MODEL = process.env.OMNIROUTE_ANTHROPIC_MODEL;
-                          s.env.ANTHROPIC_AUTH_TOKEN = process.env.OMNIROUTE_API_KEY;
-                          s.model = process.env.OMNIROUTE_ANTHROPIC_MODEL;
-                          fs.writeFileSync(p, JSON.stringify(s, null, 2));
+                          s.env.ANTHROPIC_BASE_URL = baseUrl;
+                          s.env.ANTHROPIC_MODEL = model;
+                          s.env.ANTHROPIC_AUTH_TOKEN = authToken;
+                          // Also reverts any in-session `/model` choice back
+                          // to the combo default on every restart -- see the
+                          // OMNIROUTE_ANTHROPIC_MODEL comment above.
+                          s.model = model;
+                          // 2026-09-17: atomic write -- the old
+                          // writeFileSync(p, ...) truncates p in place
+                          // before writing the new content, so a kill
+                          // mid-write leaves a half-written (invalid) file,
+                          // which is itself a plausible cause of the
+                          // corruption the try/catch above now guards
+                          // against. Write to a sibling temp file and
+                          // rename over the real path instead --
+                          // fs.renameSync is atomic within the same
+                          // filesystem/directory, so readers only ever see
+                          // the fully-old or fully-new file, never a
+                          // partial one.
+                          const tmp = path.join(path.dirname(p), ".settings.json.tmp." + process.pid);
+                          fs.writeFileSync(tmp, JSON.stringify(s, null, 2));
+                          fs.renameSync(tmp, p);
                         '
                       fi
                       cat /tmp/bashrc-extra >> /home/claude/.bashrc
