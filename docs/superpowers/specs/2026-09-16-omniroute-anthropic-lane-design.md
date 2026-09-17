@@ -263,3 +263,86 @@ manifest edit.
 - Changing OpenViking's rerank routing (stays direct-to-llama-swap; separate
   backlog item per the Phase 2 spec, unrelated to the Anthropic/OpenAI lane
   split).
+
+## Outcomes / findings (added 2026-09-17, post-implementation)
+
+This section records findings from executing this spec that weren't known at
+approval time. It exists because the per-task working notes that originally
+captured them (`.superpowers/sdd/2026-09-16-omniroute-anthropic-lane/`) are
+gitignored (`.superpowers/sdd/.gitignore` is a single `*`) and get deleted
+once this plan's execution is confirmed done — this is the tracked record
+going forward. `kubernetes/apps/ai/CLAUDE.md`'s "Known Omniroute limitations"
+section cites this section by name for the two findings below.
+
+- **`/v1/messages` has no authentication at all.** Reproduction: `POST
+  http://127.0.0.1:20129/v1/messages` (via `kubectl exec` into the running
+  `omniroute` pod) with a garbage `Authorization: Bearer` value, and
+  separately with no `Authorization` header at all — both returned `200`
+  with a genuine Claude inference response body (real `id`, model name,
+  generated content, real token usage; not an error payload wearing a 200).
+  Reproduced independently twice, including once while investigating a
+  leaked key: hard-deleting that key's ID via `DELETE /api/keys/<id>` and a
+  full `omniroute` pod restart (fresh process, new pod name) neither one
+  closed the gap, ruling out a caching explanation — the `/v1/messages`
+  route simply does not check the credential on this Omniroute build. Net
+  effect: any pod that can reach `omniroute.ai.svc.cluster.local:20128` can
+  get free, unrestricted Claude inference today regardless of any key-based
+  control, which partially undermines the Anthropic-lane "interactive only"
+  policy this spec establishes. Explicitly risk-accepted by the operator
+  2026-09-17 (single-user home-lab, no untrusted in-cluster workloads).
+- **Per-key `blockedModels` is unreachable via the management API.** Root
+  cause, confirmed by reading the running container's own source: `PATCH
+  /api/keys/[id]` validates its body against `updateKeyPermissionsSchema`
+  (`/app/src/shared/validation/schemas/keys.ts`), and that Zod object schema
+  never declares `blockedModels` as a field — despite the DB layer fully
+  supporting it (a real `blocked_models` column), `GET /api/keys/[id]`
+  returning it, the enforcement logic correctly implementing it
+  (`apiKeys.ts`), and the dashboard UI itself sending it on save. Zod's
+  default unknown-key stripping means any `blockedModels` value in a PATCH
+  is silently dropped before the route logic ever sees it: a request body
+  containing *only* `blockedModels` 400s ("No valid fields to update"),
+  while padding it with a real, schema-recognized field (e.g. `noLog`)
+  returns a misleading `200` that still drops `blockedModels` — confirmed
+  via a GET-after-PATCH round trip showing the field unchanged at `[]`. All
+  8 automated Omniroute keys currently have `modelAccessMode: "all"` with
+  empty `allowedModels`/`blockedModels` — no per-key restriction of any
+  kind — so the only real enforcement of "automated consumers can't reach
+  Claude" is the combo-level fix in this spec (Claude leg removed from
+  `openviking-vlm`, no other automated combo references Claude), not a
+  second, independent key-level deny-list as originally intended.
+  Explicitly accepted by the operator 2026-09-17; converting all 8 keys to
+  `modelAccessMode: "restricted"` + an allow-list was considered and
+  declined as a bigger, riskier change than this finding's scope.
+- **`coding-deep`'s real leg composition and behavior.** The combo actually
+  registered is 3 legs, not 2:
+  `["cliproxyapi/claude-sonnet-5","cliproxyapi/gpt-5.5","llamaswap/coder-large"]`.
+  Testing all four `cliproxyapi/gpt-*` candidates considered as the
+  `openviking-vlm` combo's OpenAI-leg replacement (`gpt-5.5`, `gpt-5.6-terra`,
+  `gpt-5.6-sol`, `gpt-6-astra`) found all four reject identically with a
+  Responses-API-shape-mismatch error (`upstream_details`: a Responses-API
+  request shape is required, Chat-Completions shape is rejected), confirmed
+  via real `/v1/chat/completions` calls with two different auth keys — this
+  is the same broken shape `gpt-5.6-luna` had. `coding-deep`'s middle leg,
+  `gpt-5.5`, is one of those four candidates, so it inherits the identical
+  failure and can never actually serve a request. The terminal leg,
+  `llamaswap/coder-large`, resolves to the `agentic-coder` model at
+  `--ctx-size 32768`; a real HolyClaude interactive Claude Code call,
+  measured during end-to-end verification, sent 76,386 input tokens in a
+  single request — more than double that model's entire context window.
+  Net effect: on a Claude Pro outage, `coding-deep` fails closed rather than
+  gracefully degrading (middle leg rejects on shape, terminal leg overflows
+  on context) — an acceptable outcome under this spec's own "HolyClaude
+  fails closed" tradeoff (see "Error handling / degraded-mode behavior"
+  above), but the combo does not provide the fallback resilience its
+  structure implies.
+- **OAuth-vs-API-key auth precedence — open item, now answered
+  empirically.** This spec's "Open items" section asked whether Claude Code
+  CLI's API-key auth path takes precedence over an existing persisted OAuth
+  session automatically, or whether the old OAuth state needs to be
+  explicitly cleared from the PVC first. End-to-end verification answered
+  this without any explicit clearing step: a real interactive Claude Code
+  call from inside the `holyclaude` pod round-tripped through Omniroute via
+  the `coding-deep` combo, correctly attributed to the
+  `holyclaude-interactive` key, with HolyClaude's pre-existing OAuth state
+  still resident on the PVC throughout. API-key precedence was verified by
+  direct observation, not left as an assumption.
