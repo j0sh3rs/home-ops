@@ -124,12 +124,40 @@ data:
       # (dGPU) 2026-09-10 -- real free headroom here should be ~305 MiB
       # higher than the figure above now; re-measure via rocm-smi before
       # relying on an exact number, this comment predates the removal.
+      #
+      # ctx-size bumped 16384 -> 32768 2026-09-17: OpenViking's memory-
+      # extraction feature (its `vlm` local-fallback leg) sent a
+      # 45309-token prompt on 2026-09-16, far exceeding 16384 and causing
+      # real production failures (memory extraction silently dropped, same
+      # failure shape as the 2026-08-19 8989-token incident above, just a
+      # much larger prompt this time). The brief's target was 49152 (the
+      # same size class as `agentic-coder` on the main llama-swap
+      # instance) -- but re-measuring real on-node headroom first (all
+      # four always-on models warmed via a live curl to each, not a cold
+      # post-restart reading) showed only 15050100736 B used of
+      # 17179869184 B total (16 GiB), i.e. ~1.98 GiB free (12.4%) --
+      # tighter than the stale 1.88 GiB figure in this namespace's
+      # CLAUDE.md would suggest even accounting for the reranker's 2026-
+      # 09-10 departure, and well under the brief's ~3 GiB comfortable-
+      # headroom threshold for a 49152 target (going 16384 -> 49152 is a
+      # 3x increase in this model's KV-cache footprint specifically, not
+      # in its total footprint, but 3x of an unknown-but-nontrivial base
+      # against <2 GiB free was judged too tight to risk on this shared
+      # tier). Per the brief's own fallback rule, dropped the target to
+      # 32768 instead -- still clears the observed 45309-token failure
+      # with real margin (2x, not 3x), while leaving more of the ~1.98 GiB
+      # headroom unclaimed. Post-deploy re-measurement confirmed no OOM;
+      # see the namespace CLAUDE.md for the latest headroom figure. If
+      # memory extraction fails again at a still-larger prompt size,
+      # re-measure via rocm-smi with all four models warm before raising
+      # this further -- do not assume there's room for 49152 without a
+      # fresh reading.
       "qwen2-vl-2b":
         cmd: |
           ${apu-vulkan}
           --model /models/Qwen2-VL-2B-Instruct-Q4_K_M.gguf
           --mmproj /models/mmproj-Qwen2-VL-2B-Instruct-f16.gguf
-          --ctx-size 16384
+          --ctx-size 32768
           --temp 0.0
         aliases:
           - "vlm"
