@@ -119,16 +119,33 @@ data:
     function responsesToChatCompletion(model, responsesBody) {
       const parsed = JSON.parse(responsesBody);
       let text = '';
+      // `foundShape` tracks whether a recognized output field was present at
+      // all (an `output_text` string, or an `output[]` item shaped like
+      // `{type:"message", content:[...]}`) -- NOT whether any text ended up
+      // extracted. A model legitimately replying with empty text is a
+      // normal 200; a response with no recognizable output field at all is
+      // an unexpected upstream shape and must fail loudly instead of
+      // silently returning empty content. See Error handling in
+      // docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md.
+      let foundShape = false;
       if (typeof parsed.output_text === 'string') {
         text = parsed.output_text;
+        foundShape = true;
       } else if (Array.isArray(parsed.output)) {
         for (const item of parsed.output) {
           if (item.type === 'message' && Array.isArray(item.content)) {
+            foundShape = true;
             for (const c of item.content) {
               if (typeof c.text === 'string') text += c.text;
             }
           }
         }
+      }
+      if (!foundShape) {
+        throw new ShimError(
+          502,
+          'unexpected /v1/responses shape: no extractable output (no output_text string and no output[] item shaped {type:"message", content:[...]})'
+        );
       }
       const usage = parsed.usage || {};
       return {
