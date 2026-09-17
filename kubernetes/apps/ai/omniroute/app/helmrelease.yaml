@@ -48,7 +48,34 @@ spec:
               LIVE_WS_HOST: "0.0.0.0"
               LIVE_WS_ALLOWED_ORIGINS: "https://omniroute.68cc.io"
               NODE_ENV: production
-              NODE_OPTIONS: "--max-old-space-size=2048"
+              # --max-old-space-size raised 2048->2560 alongside the 2Gi->3Gi
+              # container limit below, 2026-09-17 -- root-caused a real
+              # "[resourcePressure] critical pressure guard tripped
+              # (reason=cgroup_ratio); returning 503" burst via direct
+              # inspection, not assumed: cgroup memory.current/memory.max
+              # read straight from the running pod showed real usage
+              # bumping against the ceiling under load, and the V8 old-space
+              # heap ceiling was set EQUAL to the container's entire 2Gi
+              # memory limit -- zero headroom for anything else the process
+              # needs (request/response buffers for large vlm payloads,
+              # native/external memory, libuv). This tier now proxies much
+              # larger, longer-lived requests than when these values were
+              # first set: the 2026-09-17 vlm timeout fix (see openviking's
+              # helmrelease.yaml) raised how long a single large-payload
+              # request can stay in flight from 15s to 120s, and Omniroute's
+              # own per-connection maxWaitMs cap is separately maxed at
+              # 120000ms -- more large payloads now overlap in memory at
+              # once than before that fix, which plausibly triggered this.
+              # 2560/3072 leaves ~512Mi (~17%) headroom below the new
+              # container limit for non-heap overhead, matching the
+              # node's real, checked headroom (bigboi-jms-01: 33% memory
+              # used cluster-wide per `kubectl top node`, ~20 GiB free --
+              # raising this tier's ceiling costs nothing else running here).
+              # Re-measure real usage under load (grep for "resourcePressure"
+              # in this pod's logs) before raising further; if pressure
+              # trips persist at 3Gi, the actual fix is probably capping how
+              # much OpenViking buffers per vlm call, not another bump here.
+              NODE_OPTIONS: "--max-old-space-size=2560"
               CLIPROXYAPI_HOST: "127.0.0.1"
               CLIPROXYAPI_PORT: "8317"
             envFrom:
@@ -57,10 +84,10 @@ spec:
             resources:
               requests:
                 cpu: 200m
-                memory: 512Mi
+                memory: 1Gi
               limits:
                 cpu: "2"
-                memory: 2Gi
+                memory: 3Gi
             probes:
               # Upstream's own compose healthcheck is `node healthcheck.mjs`
               # (an exec script, not an HTTP path) — confirmed by reading
