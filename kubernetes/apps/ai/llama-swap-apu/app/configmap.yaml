@@ -146,12 +146,13 @@ data:
       # tier). Per the brief's own fallback rule, dropped the target to
       # 32768 instead -- still clears the observed 45309-token failure
       # with real margin (2x, not 3x), while leaving more of the ~1.98 GiB
-      # headroom unclaimed. Post-deploy re-measurement confirmed no OOM;
-      # see the namespace CLAUDE.md for the latest headroom figure. If
-      # memory extraction fails again at a still-larger prompt size,
-      # re-measure via rocm-smi with all four models warm before raising
-      # this further -- do not assume there's room for 49152 without a
-      # fresh reading.
+      # headroom unclaimed. Post-deploy re-measurement with all four
+      # always-on models warmed again: 15535501312 B used of 17179869184 B
+      # (16 GiB), ~1.53 GiB free (9.6%) -- pod healthy, no OOM/restart, vlm
+      # answered a real completion post-deploy. If memory extraction fails
+      # again at a still-larger prompt size, re-measure via rocm-smi with
+      # all four models warm before raising this further -- do not assume
+      # there's room for 49152 without a fresh reading.
       "qwen2-vl-2b":
         cmd: |
           ${apu-vulkan}
