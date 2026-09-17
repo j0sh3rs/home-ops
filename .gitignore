@@ -30,6 +30,7 @@ Thumbs.db
 scripts/.claude/
 kubernetes/apps/**/*.sh
 kubernetes/apps/**/*.md
+!kubernetes/apps/**/CLAUDE.md
 kubernetes/apps/**/*.txt
 .playwright-mcp/
 
