@@ -155,26 +155,60 @@ spec:
       # loop (hardcoded _MEMORY_EXTRACTION_MAX_RETRIES=3 -> 4 attempts) on
       # top of the vlm-client layer's own max_retries (2 -> 3 attempts) --
       # worst case was 4*3=12 raw attempts * 600s = up to 2 hours with no
-      # real ceiling. timeout: 90 + max_retries: 1 (2 attempts at this
-      # layer) bounds the compounded worst case to 4*2*90s = 720s (~12
-      # min), matching the operator's 10-15 min ceiling for "slow is fine,
-      # hung is not". max_concurrent dropped 100 -> 20: 100 let requests
+      # real ceiling. max_concurrent dropped 100 -> 20: 100 let requests
       # pile up against one small model process on a 5-model, VRAM-tight
       # node (llama-swap-apu, 1.88 GiB free), stretching real per-request
-      # latency and making the retries above pile onto an already-congested
-      # backend instead of a merely slow one. Revert toward the prior
-      # values (600/2/100) if legitimate slow-but-healthy VLM calls start
-      # getting killed early -- watch for a rise in ERROR-level "Phase 2
-      # step long_term failed" logs with APITimeoutError specifically at
-      # ~90s elapsed (vs. genuine backend unavailability, which fails fast).
+      # latency and making retries pile onto an already-congested backend
+      # instead of a merely slow one.
+      #
+      # timeout/max_retries revised again 2026-09-17 after OpenViking's
+      # session-commit tasks started hitting a hard 504 on every real
+      # extraction: `llamaswapapu/vlm` was reduced to this combo's only
+      # leg (see this file's openviking-vlm capacity-gap comment above),
+      # and Omniroute's own per-connection execution deadline for that
+      # backend (`resilienceSettings.requestQueue.maxWaitMs`, previously
+      # its 15s global default) was killing every real-sized prompt long
+      # before generation finished. Root-caused with a real measurement,
+      # not assumed: a direct 25,028-token request to llama-swap-apu's
+      # `vlm` model took 162.4s end-to-end, 161.9s of it in prompt prefill
+      # alone (`timings.prompt_ms`) -- roughly 154 tok/s prefill throughput
+      # on this memory-bandwidth-constrained APU (no flash-attn tuned/
+      # verified on this Vega/gfx90c silicon yet, see llama-swap-apu's
+      # macro comment -- a 2026-09-17 follow-up investigates enabling it,
+      # which would raise this rate directly rather than just widening the
+      # timeout around it). Raised Omniroute's per-connection override to
+      # `rateLimitOverrides.maxWaitMs: 120000` (120s) via its management
+      # API -- confirmed via the API's own validation error that 120000 is
+      # the hard maximum this Omniroute build accepts; a 300000 (300s,
+      # sized off 32768 tokens / 154 tok/s + generation time + 20% buffer,
+      # matching this ctx-size's real worst case) request was rejected
+      # outright. `timeout: 120` here matches that ceiling exactly --
+      # setting it any higher would just mean OpenViking waits past the
+      # point Omniroute has already killed the request. At 154 tok/s, 120s
+      # covers roughly 18,480 tokens of prefill -- real extraction prompts
+      # between that and the 32768 ctx-size ceiling will still fail at
+      # Omniroute's layer even though the model itself could eventually
+      # finish them; this is a hard API-imposed ceiling, not adjustable
+      # further without an upstream Omniroute change or a faster backend.
+      # `max_retries` dropped 1 -> 0: the old value assumed transient
+      # failures worth an immediate same-layer retry, but this failure
+      # mode is genuine backend slowness, not flakiness -- retrying
+      # immediately after a 120s timeout can't make the hardware faster,
+      # it only doubles the wait before session.py's own outer retry loop
+      # (which spaces attempts with real backoff, e.g. the "retrying in
+      # 4.67s" pattern seen in production logs) gets a chance to run.
+      # New compounded worst case: 4 (session.py's own hardcoded outer
+      # retries) * 1 (max_retries: 0 -> a single attempt at this layer)
+      # * 120s = 480s (~8 min), safely inside the "slow is fine, hung is
+      # not" 10-15 min ceiling from the original 2026-08-19 tuning.
       vlm:
         api_base: "http://omniroute.ai.svc.cluster.local:20128/v1"
         api_key: "${OPENVIKING_VLM_API_KEY}"
         provider: "openai"
         model: "openviking-vlm"
         temperature: 0.0
-        timeout: 90
-        max_retries: 1
+        timeout: 120
+        max_retries: 0
         thinking: false
         max_concurrent: 20
       # Rerank: restored 2026-09-09, DIRECT to llama-swap-apu (bypassing
