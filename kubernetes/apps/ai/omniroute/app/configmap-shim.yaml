@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: omniroute-shim-script
+data:
+  server.js: |
+    'use strict';
+    const http = require('http');
+
+    const PORT = 8318;
+
+    // Stub for Task 1 -- proves the container starts, listens, and is
+    // reachable from the `app` container over localhost. Task 2 replaces
+    // this with real Chat-Completions <-> Responses-API translation logic
+    // once CLIProxyAPI's real API-key format and Responses API shapes are
+    // confirmed live. See
+    // docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md.
+    const server = http.createServer((req, res) => {
+      if (req.method === 'GET' && req.url === '/healthz') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok' }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ status: 'stub', message: 'shim not yet implemented' }));
+    });
+
+    server.listen(PORT, '0.0.0.0', () => console.log('shim stub listening on', PORT));

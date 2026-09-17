@@ -182,6 +182,67 @@ spec:
                   initialDelaySeconds: 10
                   periodSeconds: 10
 
+          shim:
+            # Chat-Completions -> Responses API translation shim for
+            # CLIProxyAPI, added 2026-09-17 (see
+            # docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md).
+            # CLIProxyAPI (the cliproxyapi container above) never
+            # implemented a Chat Completions endpoint -- confirmed via
+            # direct request, GET /v1/chat/completions there returns 404;
+            # only /v1/responses exists (confirmed via GET returning 401,
+            # not 404 -- the route exists, it just needs CLIProxyAPI's own
+            # API-key auth). Omniroute's own handleChat always builds
+            # Chat-Completions-shaped requests regardless of which of its
+            # own routes is hit -- confirmed by POSTing a real
+            # Responses-API-shaped body straight to Omniroute's own
+            # /v1/responses and getting the identical "missing input"
+            # error, proving that route is not a real implementation, just
+            # an alias to the same internal handler. This container
+            # translates the shape so every cliproxyapi/gpt-* model works
+            # again. Omniroute itself is repointed (via its own management
+            # API, a DB-only change -- see Task 3) to treat this container
+            # as if it WERE CLIProxyAPI, so no combo/key config changes
+            # anywhere else are needed. Reaches CLIProxyAPI at
+            # 127.0.0.1:8317 -- only possible because this runs in the
+            # SAME pod (shared network namespace); that port has never
+            # been exposed as its own Service, a deliberate boundary from
+            # the original Omniroute revival design
+            # (docs/superpowers/specs/2026-09-07-omniroute-revival-design.md)
+            # that this change does not alter -- do not add a Service port
+            # for 8318 either.
+            image:
+              repository: docker.io/library/node
+              # renovate: datasource=docker depName=node versioning=node
+              tag: 22-alpine
+              pullPolicy: IfNotPresent
+            command: ["node", "/shim/server.js"]
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: "1"
+                memory: 256Mi
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8318
+                  initialDelaySeconds: 5
+                  periodSeconds: 15
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8318
+                  initialDelaySeconds: 3
+                  periodSeconds: 10
+
     service:
       app:
         forceRename: *app
@@ -228,4 +289,17 @@ spec:
             cliproxyapi:
               - path: /CLIProxyAPI/config.yaml
                 subPath: cliproxy-config.yaml
+                readOnly: true
+            shim:
+              - path: /shim-config/cliproxy-config.yaml
+                subPath: cliproxy-config.yaml
+                readOnly: true
+      shim-script:
+        type: configMap
+        name: omniroute-shim-script
+        advancedMounts:
+          omniroute:
+            shim:
+              - path: /shim/server.js
+                subPath: server.js
                 readOnly: true
