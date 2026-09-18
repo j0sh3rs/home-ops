@@ -189,33 +189,43 @@ spec:
             # CLIProxyAPI (the cliproxyapi container above) never
             # implemented a Chat Completions endpoint -- confirmed via
             # direct request, GET /v1/chat/completions there returns 404;
-            # only /v1/responses exists (confirmed via GET returning 401,
-            # not 404 -- the route exists, it just needs CLIProxyAPI's own
-            # API-key auth). Omniroute's own handleChat always builds
-            # Chat-Completions-shaped requests regardless of which of its
-            # own routes is hit -- confirmed by POSTing a real
-            # Responses-API-shaped body straight to Omniroute's own
-            # /v1/responses and getting the identical "missing input"
-            # error, proving that route is not a real implementation, just
-            # an alias to the same internal handler. This container
-            # translates the shape so every cliproxyapi/gpt-* model works
-            # again. Omniroute itself is repointed (via its own management
-            # API, a DB-only change -- see Task 3) to treat this container
-            # as if it WERE CLIProxyAPI, so no combo/key config changes
-            # anywhere else are needed. Reaches CLIProxyAPI at
-            # 127.0.0.1:8317 -- only possible because this runs in the
-            # SAME pod (shared network namespace); that port has never
-            # been exposed as its own Service, a deliberate boundary from
-            # the original Omniroute revival design
-            # (docs/superpowers/specs/2026-09-07-omniroute-revival-design.md)
-            # that this change does not alter -- do not add a Service port
-            # for 8318 either.
+            # only /v1/responses exists. This container translates the
+            # shape so CLIProxyAPI's gpt-* models work over plain
+            # Chat-Completions.
+            #
+            # As of 2026-09-18 (see
+            # docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md),
+            # this container is reached DIRECTLY by OpenViking via the new
+            # `shim` Service below (not through Omniroute's own routing --
+            # Omniroute's cliproxyapi provider-node baseUrl was reverted
+            # back to CLIProxyAPI directly after a bug was found in
+            # Omniroute's own request-construction pipeline that silently
+            # dropped the `messages` field once its baseUrl pointed
+            # anywhere but CLIProxyAPI itself; root cause lives in
+            # Omniroute's closed bundled source, not fixable from this
+            # repo). CLIProxyAPI's own port (8317) still binds to
+            # 127.0.0.1 only and is NOT exposed by the new Service --
+            # only this container's own translated+auth-gated endpoint is.
+            # SHIM_SHARED_SECRET gates every route except /healthz (see
+            # configmap-shim.yaml) since this is now reachable
+            # cluster-wide, not just pod-locally. FALLBACK_BASE_URL/
+            # FALLBACK_MODEL point at llama-swap-apu's real vlm model,
+            # used when CLIProxyAPI fails or the request contains
+            # non-text content this shim doesn't translate for CLIProxyAPI.
             image:
               repository: docker.io/library/node
               # renovate: datasource=docker depName=node versioning=node
               tag: 24-alpine
               pullPolicy: IfNotPresent
             command: ["node", "/shim/server.js"]
+            env:
+              FALLBACK_BASE_URL: "http://llama-swap-apu.ai.svc.cluster.local:8080/v1"
+              FALLBACK_MODEL: "vlm"
+              SHIM_SHARED_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: omniroute-secrets
+                    key: SHIM_SHARED_SECRET
             resources:
               requests:
                 cpu: 50m
@@ -259,6 +269,11 @@ spec:
         ports:
           http:
             port: 8317
+      shim:
+        controller: *app
+        ports:
+          http:
+            port: 8318
 
     persistence:
       data:
