@@ -173,7 +173,10 @@ spec:
       # timeout/max_retries revised again 2026-09-17 after OpenViking's
       # session-commit tasks started hitting a hard 504 on every real
       # extraction: `llamaswapapu/vlm` was reduced to this combo's only
-      # leg (see this file's openviking-vlm capacity-gap comment above),
+      # leg (see this file's openviking-vlm capacity-gap comment above --
+      # historical; the comment above now describes the shim's direct
+      # routing instead, not a capacity gap, as of the 2026-09-18
+      # direct-to-shim change below),
       # and Omniroute's own per-connection execution deadline for that
       # backend (`resilienceSettings.requestQueue.maxWaitMs`, previously
       # its 15s global default) was killing every real-sized prompt long
