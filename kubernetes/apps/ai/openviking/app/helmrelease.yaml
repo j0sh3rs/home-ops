@@ -96,6 +96,42 @@ spec:
         # consumer to justify any origin here. Revisit only if a browser-
         # based client is ever added.
         cors_origins: []
+        # metrics.enabled: exposes /metrics (Prometheus exposition format)
+        # on this same port (1933) -- confirmed via source read of the
+        # pinned v0.4.20 image (openviking/server/routers/metrics.py): no
+        # separate metrics port exists. exporters.prometheus.enabled
+        # defaults to true once this parent flag is on, no second field
+        # needed. Added 2026-09-18 alongside the ServiceMonitor/
+        # GrafanaDashboard in this same app directory -- this cluster's
+        # vmagent scrapes any ServiceMonitor cluster-wide
+        # (selectAllByDefault: true), so enabling this is the only
+        # OpenViking-side change needed to get real metrics flowing.
+        observability:
+          metrics:
+            enabled: true
+      # encryption: transparent AES-GCM at-rest encryption for OpenViking's
+      # own stored data (RocksDB state on the openviking-data PVC), added
+      # 2026-09-18. Confirmed via source read of the pinned v0.4.20 image
+      # (openviking_cli/utils/config/encryption_config.py,
+      # open_viking_config.py:208) -- `encryption:` is a real top-level
+      # config key, `provider: "local"` needs no sub-fields beyond its own
+      # default (`local.key_file`, default `~/.openviking/master.key`) --
+      # confirmed live that $HOME (/app) and the PVC mount
+      # (/app/.openviking) already coincide (`kubectl exec -n ai
+      # deploy/openviking -- sh -c 'echo $HOME; mount | grep openviking'`),
+      # so the generated key file lands on persisted storage with no path
+      # override needed and survives pod restarts. Backward-compatible by
+      # design, verified at the crypto layer itself
+      # (openviking/crypto/encryptor.py: decrypt() returns plaintext
+      # as-is when it doesn't start with the encryption envelope's magic
+      # bytes) -- no migration step for the PVC's existing unencrypted
+      # data; only new writes get encrypted going forward. This PVC is
+      # already covered by this cluster's daily Velero snapshot schedule,
+      # so both the live data and its backups get real encryption at rest
+      # from this point on.
+      encryption:
+        enabled: true
+        provider: "local"
       # Embedding/VLM provider: routed through Omniroute (ai/omniroute),
       # not straight at llama-swap-apu -- Omniroute sits in front of both
       # llama-swap instances for every consumer as of the 2026-09-08 Phase 2
@@ -213,16 +249,38 @@ spec:
       # retries) * 1 (max_retries: 0 -> a single attempt at this layer)
       # * 120s = 480s (~8 min), safely inside the "slow is fine, hung is
       # not" 10-15 min ceiling from the original 2026-08-19 tuning.
+      #
+      # timeout 120 -> 170, max_concurrent 20 -> 40, 2026-09-18, following
+      # the direct-to-shim change immediately above. The 120s figure was
+      # sized against Omniroute's own 120000ms rateLimitOverrides.maxWaitMs
+      # ceiling, which no longer applies to this leg at all -- the shim now
+      # owns its own two-stage timeout budget instead
+      # (PRIMARY_TIMEOUT_MS=45000 against CLIProxyAPI, then
+      # FALLBACK_TIMEOUT_MS=110000 against llamaswapapu/vlm on failure --
+      # see kubernetes/apps/ai/omniroute/app/helmrelease.yaml's shim
+      # container env), worst case 155s before the shim itself responds.
+      # 120s was shorter than that worst case, so OpenViking could give up
+      # and mark a request failed while the shim's own fallback attempt
+      # was still in flight -- 170s gives 15s of margin past 155s instead.
+      # max_concurrent: NOT reverted to its pre-2026-08-19 value of 100 --
+      # the fallback leg still lands on the same single, VRAM-tight APU
+      # model (qwen2-vl-2b) that caused the original pile-up incident this
+      # value was dropped for, and a CLIProxyAPI outage under high
+      # concurrency would recreate exactly that failure mode on the
+      # fallback path. 40 is a deliberate, moderate bump (2x) reflecting
+      # that most real traffic now succeeds on the remote leg (no APU
+      # contention at all), not a return to treating the local model as
+      # able to absorb high concurrency.
       vlm:
         api_base: "http://omniroute-shim.ai.svc.cluster.local:8318/v1"
         api_key: "${OPENVIKING_VLM_API_KEY}"
         provider: "openai"
         model: "gpt-5.6-luna"
         temperature: 0.0
-        timeout: 120
+        timeout: 170
         max_retries: 0
         thinking: false
-        max_concurrent: 20
+        max_concurrent: 40
       # Rerank: restored 2026-09-09, DIRECT to llama-swap-apu (bypassing
       # Omniroute entirely for this one call type). Root-caused: Omniroute's
       # /v1/rerank route (src/app/api/v1/rerank/route.ts upstream) filters

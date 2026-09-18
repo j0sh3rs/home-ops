@@ -7,3 +7,6 @@ resources:
   - ./secret.sops.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
+  - ./configmap-dashboard.yaml
+  - ./grafanadashboard.yaml
+  - ./servicemonitor.yaml
