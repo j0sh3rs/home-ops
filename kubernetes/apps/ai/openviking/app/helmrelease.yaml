@@ -113,22 +113,31 @@ spec:
       # actually serves).
       # api_key: Omniroute requires an inference key on every request (unlike
       # llama-swap, which has no auth) -- ${OPENVIKING_EMBEDDING_API_KEY}
-      # and ${OPENVIKING_VLM_API_KEY} hold dedicated Omniroute inference
-      # keys (see secret.sops.yaml), not a llama-swap placeholder.
+      # holds a dedicated Omniroute inference key (see secret.sops.yaml),
+      # not a llama-swap placeholder. ${OPENVIKING_VLM_API_KEY} is a
+      # different kind of secret as of 2026-09-18 -- see this file's vlm
+      # comment below, it no longer routes through Omniroute at all.
       # dense.model is Omniroute's llamaswapapu/embedding alias (mirrors
       # llama-swap-apu's real qwen3-embed model) -- required for the
       # embedding readiness check, which depends on a live embedding call
       # succeeding.
-      # vlm.model is an Omniroute compression combo ("openviking-vlm"),
-      # not a bare provider-node alias -- combos are addressed directly as
-      # the model field's whole value (no prefix). Priority chain: Claude
-      # Haiku 4.5 via CLIProxyAPI (subscription, vision-capable) first,
-      # llama-swap-apu's real Qwen2-VL-2B-Instruct model
-      # (llamaswapapu/vlm) as fallback. Reordered 2026-09-09: llama-swap-apu
-      # has been the weaker link here (60% success rate / ~5.3s avg latency
-      # per Omniroute's own provider metrics, a genuine APU memory-bandwidth
-      # constraint, not a config bug) -- subscription-first while local VLM
-      # serving is investigated for a possible move off the APU node.
+      # vlm: bypasses Omniroute entirely as of 2026-09-18 (see
+      # docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md)
+      # -- talks directly to the omniroute pod's `shim` sidecar via its own
+      # Service, which translates to CLIProxyAPI's Responses API shape and
+      # falls back to llama-swap-apu's real vlm model (qwen2-vl-2b) on
+      # CLIProxyAPI failure or non-text content. api_key is the shared
+      # secret the shim itself checks (SHIM_SHARED_SECRET in
+      # kubernetes/apps/ai/omniroute/app/secret.sops.yaml -- both files
+      # must hold the identical value), not an Omniroute inference key.
+      # model is a bare CLIProxyAPI model id (no cliproxyapi/ prefix or
+      # combo indirection -- that was Omniroute-specific addressing that
+      # no longer applies once the shim is reached directly). This
+      # replaces the prior Omniroute-combo-based routing after Omniroute's
+      # own request-construction pipeline was found to silently drop the
+      # messages field once its cliproxyapi provider-node baseUrl pointed
+      # anywhere but CLIProxyAPI directly -- root cause lives in
+      # Omniroute's own closed bundled source, not fixable from this repo.
       embedding:
         # allow_metadata_override: OpenViking stamps the embedding
         # provider/model identity into stored vector collection metadata
@@ -202,10 +211,10 @@ spec:
       # * 120s = 480s (~8 min), safely inside the "slow is fine, hung is
       # not" 10-15 min ceiling from the original 2026-08-19 tuning.
       vlm:
-        api_base: "http://omniroute.ai.svc.cluster.local:20128/v1"
+        api_base: "http://omniroute-shim.ai.svc.cluster.local:8318/v1"
         api_key: "${OPENVIKING_VLM_API_KEY}"
         provider: "openai"
-        model: "openviking-vlm"
+        model: "gpt-5.6-luna"
         temperature: 0.0
         timeout: 120
         max_retries: 0
