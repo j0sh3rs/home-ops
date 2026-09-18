@@ -213,7 +213,7 @@ spec:
             image:
               repository: docker.io/library/node
               # renovate: datasource=docker depName=node versioning=node
-              tag: 22-alpine
+              tag: 24-alpine
               pullPolicy: IfNotPresent
             command: ["node", "/shim/server.js"]
             resources:
