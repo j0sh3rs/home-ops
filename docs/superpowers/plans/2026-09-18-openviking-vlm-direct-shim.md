@@ -923,16 +923,32 @@ prior status quo for these legs rather than introducing anything worse.
 
 - [ ] **Step 1: Update the top-of-file overview**
 
-In `kubernetes/apps/ai/CLAUDE.md`, the overview paragraph currently reads
-(in part):
+In `kubernetes/apps/ai/CLAUDE.md`, the overview paragraph (the file's first
+paragraph, starting "Fully self-hosted AI stack...") currently contains
+this exact sentence, with markdown bold markers around each app name —
+match it verbatim, including the `**...**` markers, or the exact-string
+edit will not find a match:
 ```
-argus (observability/triage, bundles HolmesGPT), openviking (context/memory server, embedding + vlm), and atuin-ai-server all route through Omniroute (http://omniroute.ai.svc.cluster.local:20128/v1) instead, each with its own dedicated Omniroute inference key (sk-...), addressing models either by a named routing combo (multi-leg with fallback, e.g. coding-fast, coding-deep, debugging) or a bare <provider>/<model> reference (llamaswap/coder-large, llamaswapapu/vlm).
+**argus** (observability/triage, bundles HolmesGPT), **openviking** (context/memory server, embedding + vlm), and **atuin-ai-server** all route through Omniroute (`http://omniroute.ai.svc.cluster.local:20128/v1`) instead, each with its own dedicated Omniroute inference key (`sk-...`), addressing models either by a named routing **combo** (multi-leg with fallback, e.g. `coding-fast`, `coding-deep`, `debugging`) or a bare `<provider>/<model>` reference (`llamaswap/coder-large`, `llamaswapapu/vlm`).
 ```
-Read the current file first (structure may have shifted) and replace that
-sentence with:
+Read the current file first (structure may have shifted since this plan
+was written) and replace that sentence with:
 ```
-argus (observability/triage, bundles HolmesGPT) and atuin-ai-server route through Omniroute (http://omniroute.ai.svc.cluster.local:20128/v1), each with its own dedicated Omniroute inference key (sk-...), addressing models either by a named routing combo (multi-leg with fallback, e.g. coding-fast, coding-deep, debugging) or a bare <provider>/<model> reference (llamaswap/coder-large, llamaswapapu/vlm). openviking routes only its embedding leg through Omniroute the same way (llamaswapapu/embedding) — its vlm leg bypasses Omniroute entirely as of 2026-09-18, talking directly to a Service on the omniroute pod's own shim sidecar (see the openviking bullet below and docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md).
+**argus** (observability/triage, bundles HolmesGPT) and **atuin-ai-server** route through Omniroute (`http://omniroute.ai.svc.cluster.local:20128/v1`), each with its own dedicated Omniroute inference key (`sk-...`), addressing models either by a named routing **combo** (multi-leg with fallback, e.g. `coding-fast`, `coding-deep`, `debugging`) or a bare `<provider>/<model>` reference (`llamaswap/coder-large`, `llamaswapapu/vlm`). **openviking** routes only its embedding leg through Omniroute the same way (`llamaswapapu/embedding`) — its vlm leg bypasses Omniroute entirely as of 2026-09-18, talking directly to a Service on the omniroute pod's own shim sidecar (see the openviking bullet below and `docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md`).
 ```
+
+Separately, the `llama-swap-apu` bullet (further down, in its `coder-fim`
+removal sentence) also currently says: `argus, openviking, and
+atuin-ai-server all route through Omniroute instead, using its
+\`<provider>/<model>\` addressing scheme (\`llamaswap/<model>\`,
+\`llamaswapapu/<model>\`) rather than a mirrored alias list`. This remains
+technically true for `argus`/`atuin-ai-server` and for openviking's
+embedding leg, so it is not strictly wrong — but for precision, change
+`argus, openviking, and atuin-ai-server all route through Omniroute
+instead` to `argus, openviking's embedding leg, and atuin-ai-server all
+route through Omniroute instead` in that same sentence (verify the exact
+surrounding text via `grep -n "coder-fim.*FIM autocomplete" kubernetes/apps/ai/CLAUDE.md`
+first, since this plan does not reproduce that whole sentence verbatim).
 
 - [ ] **Step 2: Replace the `openviking-vlm` capacity-gap paragraph**
 
