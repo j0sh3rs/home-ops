@@ -221,6 +221,21 @@ spec:
             env:
               FALLBACK_BASE_URL: "http://llama-swap-apu.ai.svc.cluster.local:8080/v1"
               FALLBACK_MODEL: "vlm"
+              # Two separately-tunable timeouts (fixed 2026-09-18 review --
+              # a single shared 60s constant undercut the fallback leg's
+              # usable capacity and structurally couldn't return a timely
+              # double-failure error). PRIMARY_TIMEOUT_MS: 45s -- CLIProxyAPI
+              # is a remote API; if it hasn't answered in 45s it isn't going
+              # to. FALLBACK_TIMEOUT_MS: 110s -- leaves 10s headroom under
+              # OpenViking's own 120s client-side timeout (vlm.timeout in
+              # openviking/app/helmrelease.yaml) while at llama-swap-apu's
+              # measured ~154 tok/s prefill this covers ~16,940 tokens,
+              # restoring most of the ~18,480-token ceiling the local leg
+              # had before this shim existed (via Omniroute's old 120s
+              # maxWaitMs). See CLAUDE.md's openviking bullet for the full
+              # capacity math.
+              PRIMARY_TIMEOUT_MS: "45000"
+              FALLBACK_TIMEOUT_MS: "110000"
               SHIM_SHARED_SECRET:
                 valueFrom:
                   secretKeyRef:

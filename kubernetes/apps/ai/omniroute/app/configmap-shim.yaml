@@ -8,12 +8,12 @@ data:
     'use strict';
     const http = require('http');
     const fs = require('fs');
+    const crypto = require('crypto');
 
     const PORT = 8318;
     const CLIPROXY_HOST = '127.0.0.1';
     const CLIPROXY_PORT = 8317;
     const CONFIG_PATH = '/shim-config/cliproxy-config.yaml';
-    const REQUEST_TIMEOUT_MS = 60000;
 
     function requireEnv(name) {
       const v = process.env[name];
@@ -24,6 +24,11 @@ data:
     const SHIM_SHARED_SECRET = requireEnv('SHIM_SHARED_SECRET');
     const FALLBACK_BASE_URL = requireEnv('FALLBACK_BASE_URL');
     const FALLBACK_MODEL = requireEnv('FALLBACK_MODEL');
+    // Two independently-tunable timeouts, not one shared constant -- see
+    // helmrelease.yaml's shim env comments and CLAUDE.md's openviking bullet
+    // for the capacity math behind these specific values.
+    const PRIMARY_TIMEOUT_MS = parseInt(requireEnv('PRIMARY_TIMEOUT_MS'), 10);
+    const FALLBACK_TIMEOUT_MS = parseInt(requireEnv('FALLBACK_TIMEOUT_MS'), 10);
 
     // Parses CLIProxyAPI's own api-keys list out of its mounted config file.
     // Shape confirmed live (2026-09-17 plan, Task 2 Step 1): a plain YAML
@@ -63,9 +68,18 @@ data:
       });
     }
 
+    // Constant-time comparison -- not a real practical risk here (64-hex-char
+    // secret, no length oracle, and a much cheaper unauthenticated path
+    // already exists elsewhere in this cluster, see CLAUDE.md's "Known
+    // Omniroute limitations" /v1/messages bullet) but cheap to do right while
+    // this function is already being touched.
     function checkAuth(req) {
       const header = req.headers['authorization'] || '';
-      return header === 'Bearer ' + SHIM_SHARED_SECRET;
+      const expected = 'Bearer ' + SHIM_SHARED_SECRET;
+      const headerBuf = Buffer.from(header);
+      const expectedBuf = Buffer.from(expected);
+      if (headerBuf.length !== expectedBuf.length) return false;
+      return crypto.timingSafeEqual(headerBuf, expectedBuf);
     }
 
     // True if any message has a non-text content part (e.g. image_url). These
@@ -120,7 +134,7 @@ data:
             port: CLIPROXY_PORT,
             path,
             method: 'POST',
-            timeout: REQUEST_TIMEOUT_MS,
+            timeout: PRIMARY_TIMEOUT_MS,
             headers: {
               Authorization: 'Bearer ' + CLIPROXY_KEY,
               'Content-Type': 'application/json',
@@ -133,7 +147,7 @@ data:
             res.on('end', () => resolve({ status: res.statusCode, body: data }));
           }
         );
-        req.on('timeout', () => req.destroy(new Error('CLIProxyAPI request timed out after ' + REQUEST_TIMEOUT_MS + 'ms')));
+        req.on('timeout', () => req.destroy(new Error('CLIProxyAPI request timed out after ' + PRIMARY_TIMEOUT_MS + 'ms')));
         req.on('error', reject);
         req.end(payload);
       });
@@ -153,7 +167,7 @@ data:
             port: url.port || 80,
             path: url.pathname,
             method: 'POST',
-            timeout: REQUEST_TIMEOUT_MS,
+            timeout: FALLBACK_TIMEOUT_MS,
             headers: {
               'Content-Type': 'application/json',
               'Content-Length': Buffer.byteLength(payload),
@@ -165,7 +179,7 @@ data:
             res.on('end', () => resolve({ status: res.statusCode, body: data }));
           }
         );
-        req.on('timeout', () => req.destroy(new Error('fallback request timed out after ' + REQUEST_TIMEOUT_MS + 'ms')));
+        req.on('timeout', () => req.destroy(new Error('fallback request timed out after ' + FALLBACK_TIMEOUT_MS + 'ms')));
         req.on('error', reject);
         req.end(payload);
       });
@@ -236,6 +250,50 @@ data:
       res.end(JSON.stringify(body));
     }
 
+    // Strips characters that would be invalid/dangerous in a raw HTTP header
+    // value (CRLF header-injection, mainly) -- used only for the diagnostic
+    // X-Shim-Primary-Error header below, never for the JSON response body.
+    function headerSafe(s) {
+      return String(s).replace(/[\r\n]+/g, ' ');
+    }
+
+    // Shared by both fallback-triggering paths (non-text content, and a
+    // failed CLIProxyAPI leg) so logging/response-shaping only needs to live
+    // in one place. Always resolves by sending exactly one response -- never
+    // throws past itself.
+    //   - reason: short human-readable string for why we're here (logged).
+    //   - primaryErrMessage: null when triggered by non-text content; the
+    //     primary leg's error message when triggered by a CLIProxyAPI
+    //     failure. Never mixed into the fallback's own response body (the
+    //     body is always a faithful passthrough of the fallback's real
+    //     response) -- surfaced only via logs and, on a non-2xx fallback
+    //     response, a response header.
+    async function respondViaFallback(res, parsed, reason, primaryErrMessage) {
+      console.warn(
+        '[shim] routing to local fallback:',
+        reason + (primaryErrMessage ? (' -- primary error: ' + primaryErrMessage) : '')
+      );
+      try {
+        const fb = await callFallback(parsed);
+        const headers = { 'content-type': 'application/json' };
+        if ((fb.status < 200 || fb.status >= 300) && primaryErrMessage) {
+          console.warn(
+            '[shim] fallback also returned non-2xx status', fb.status,
+            'after primary failure:', primaryErrMessage
+          );
+          headers['X-Shim-Primary-Error'] = headerSafe(primaryErrMessage);
+        }
+        res.writeHead(fb.status, headers);
+        res.end(fb.body);
+      } catch (fallbackErr) {
+        if (primaryErrMessage) {
+          sendError(res, 502, 'both CLIProxyAPI and local fallback failed: ' + primaryErrMessage + ' / ' + fallbackErr.message);
+        } else {
+          sendError(res, 502, 'local fallback request failed: ' + fallbackErr.message);
+        }
+      }
+    }
+
     const server = http.createServer(async (req, res) => {
       if (req.method === 'GET' && req.url === '/healthz') {
         res.writeHead(200, { 'content-type': 'application/json' });
@@ -253,57 +311,60 @@ data:
         return;
       }
 
-      let parsed;
+      // Everything below can throw on malformed/unexpected input (null body,
+      // non-array `messages`, a `messages` entry that isn't an object, etc).
+      // A synchronous throw in an async function becomes a rejected promise;
+      // since http.createServer's callback return value is discarded, an
+      // uncaught rejection here would otherwise crash the whole process
+      // (node:24-alpine defaults to --unhandled-rejections=throw). This
+      // top-level try/catch is the backstop -- the two inner try/catch blocks
+      // below (CLIProxyAPI leg, fallback leg) are fine to leave nested inside
+      // it since they already send their own responses and return
+      // immediately after.
       try {
-        const raw = await readBody(req);
-        parsed = JSON.parse(raw);
-      } catch (err) {
-        sendError(res, 400, 'invalid request body: ' + err.message);
-        return;
-      }
-
-      const messages = parsed.messages || [];
-
-      if (hasNonTextContent(messages)) {
+        let parsed;
         try {
-          const fb = await callFallback(parsed);
-          res.writeHead(fb.status, { 'content-type': 'application/json' });
-          res.end(fb.body);
+          const raw = await readBody(req);
+          parsed = JSON.parse(raw);
         } catch (err) {
-          sendError(res, 502, 'local fallback request failed: ' + err.message);
+          sendError(res, 400, 'invalid request body: ' + err.message);
+          return;
         }
-        return;
-      }
 
-      let primaryErrMessage = null;
-      try {
-        const input = chatToResponsesInput(messages);
-        const responsesBody = { model: parsed.model, input };
-        if (parsed.max_tokens) responsesBody.max_output_tokens = parsed.max_tokens;
-        if (parsed.temperature !== undefined) responsesBody.temperature = parsed.temperature;
+        const messages = (parsed && parsed.messages) || [];
 
-        const upstream = await callCliProxy('/v1/responses', responsesBody);
-        if (upstream.status < 200 || upstream.status >= 300) {
-          throw new ShimError(upstream.status, 'CLIProxyAPI request failed');
+        if (hasNonTextContent(messages)) {
+          await respondViaFallback(res, parsed, 'request contains non-text content (e.g. image_url)', null);
+          return;
         }
-        const chatBody = responsesToChatCompletion(parsed.model, upstream.body);
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify(chatBody));
-        return;
+
+        let primaryErrMessage = null;
+        try {
+          const input = chatToResponsesInput(messages);
+          const responsesBody = { model: parsed.model, input };
+          if (parsed.max_tokens) responsesBody.max_output_tokens = parsed.max_tokens;
+          if (parsed.temperature !== undefined) responsesBody.temperature = parsed.temperature;
+
+          const upstream = await callCliProxy('/v1/responses', responsesBody);
+          if (upstream.status < 200 || upstream.status >= 300) {
+            throw new ShimError(upstream.status, 'CLIProxyAPI request failed with status ' + upstream.status);
+          }
+          const chatBody = responsesToChatCompletion(parsed.model, upstream.body);
+          console.log('[shim] served via primary (CLIProxyAPI) leg, model=' + parsed.model);
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify(chatBody));
+          return;
+        } catch (err) {
+          primaryErrMessage = err.message;
+        }
+
+        // CLIProxyAPI leg failed (non-2xx, network error, timeout, or
+        // unexpected response shape) -- fall back to the local model,
+        // mirroring the old openviking-vlm combo's two-leg behavior. See
+        // docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md.
+        await respondViaFallback(res, parsed, 'CLIProxyAPI (primary) leg failed', primaryErrMessage);
       } catch (err) {
-        primaryErrMessage = err.message;
-      }
-
-      // CLIProxyAPI leg failed (non-2xx, network error, timeout, or unexpected
-      // response shape) -- fall back to the local model, mirroring the old
-      // openviking-vlm combo's two-leg behavior. See
-      // docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md.
-      try {
-        const fb = await callFallback(parsed);
-        res.writeHead(fb.status, { 'content-type': 'application/json' });
-        res.end(fb.body);
-      } catch (fallbackErr) {
-        sendError(res, 502, 'both CLIProxyAPI and local fallback failed: ' + primaryErrMessage + ' / ' + fallbackErr.message);
+        sendError(res, 500, 'shim internal error: ' + err.message);
       }
     });
 
