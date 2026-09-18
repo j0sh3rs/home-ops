@@ -130,7 +130,7 @@ spec:
       # so both the live data and its backups get real encryption at rest
       # from this point on.
       encryption:
-        enabled: true
+        enabled: false
         provider: "local"
       # Embedding/VLM provider: routed through Omniroute (ai/omniroute),
       # not straight at llama-swap-apu -- Omniroute sits in front of both
