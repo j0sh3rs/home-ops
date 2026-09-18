@@ -13,10 +13,21 @@ data:
     const CLIPROXY_HOST = '127.0.0.1';
     const CLIPROXY_PORT = 8317;
     const CONFIG_PATH = '/shim-config/cliproxy-config.yaml';
+    const REQUEST_TIMEOUT_MS = 60000;
+
+    function requireEnv(name) {
+      const v = process.env[name];
+      if (!v) throw new Error('missing required env var ' + name);
+      return v;
+    }
+
+    const SHIM_SHARED_SECRET = requireEnv('SHIM_SHARED_SECRET');
+    const FALLBACK_BASE_URL = requireEnv('FALLBACK_BASE_URL');
+    const FALLBACK_MODEL = requireEnv('FALLBACK_MODEL');
 
     // Parses CLIProxyAPI's own api-keys list out of its mounted config file.
-    // Shape confirmed live (Task 2 Step 1): a plain YAML list of quoted
-    // strings under `api-keys:`, e.g.:
+    // Shape confirmed live (2026-09-17 plan, Task 2 Step 1): a plain YAML
+    // list of quoted strings under `api-keys:`, e.g.:
     //   api-keys:
     //     - "sk-..."
     function loadApiKey() {
@@ -52,8 +63,30 @@ data:
       });
     }
 
-    // Text-only v1 -- any non-text content part throws a ShimError(400),
-    // never silently dropped. See Global Constraints.
+    function checkAuth(req) {
+      const header = req.headers['authorization'] || '';
+      return header === 'Bearer ' + SHIM_SHARED_SECRET;
+    }
+
+    // True if any message has a non-text content part (e.g. image_url). These
+    // route straight to the local fallback (already vision-capable) instead of
+    // being translated for CLIProxyAPI -- see
+    // docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md.
+    function hasNonTextContent(messages) {
+      for (const m of messages) {
+        if (Array.isArray(m.content)) {
+          for (const part of m.content) {
+            if (part.type !== 'text') return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // Text-only -- callers must route non-text content to the fallback via
+    // hasNonTextContent() BEFORE calling this. The throw below is
+    // defense-in-depth only (should be unreachable in normal operation); if it
+    // ever fires, the caller's catch block routes to the fallback anyway.
     function chatToResponsesInput(messages) {
       const input = [];
       for (const m of messages) {
@@ -67,10 +100,7 @@ data:
             if (part.type === 'text') {
               parts.push({ type: 'input_text', text: part.text });
             } else {
-              throw new ShimError(
-                400,
-                `Unsupported content type "${part.type}" -- this shim is text-only (v1); image/multimodal content is not translated. See docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md.`
-              );
+              throw new ShimError(400, `Unsupported content type "${part.type}" reached chatToResponsesInput -- this should have been routed to the fallback by hasNonTextContent() first.`);
             }
           }
           input.push({ role: m.role, content: parts });
@@ -90,6 +120,7 @@ data:
             port: CLIPROXY_PORT,
             path,
             method: 'POST',
+            timeout: REQUEST_TIMEOUT_MS,
             headers: {
               Authorization: 'Bearer ' + CLIPROXY_KEY,
               'Content-Type': 'application/json',
@@ -102,31 +133,61 @@ data:
             res.on('end', () => resolve({ status: res.statusCode, body: data }));
           }
         );
+        req.on('timeout', () => req.destroy(new Error('CLIProxyAPI request timed out after ' + REQUEST_TIMEOUT_MS + 'ms')));
         req.on('error', reject);
         req.end(payload);
       });
     }
 
-    // Field extraction below CONFIRMED against a real CLIProxyAPI
-    // /v1/responses response in Task 2 Step 2. Real shape observed:
+    // Forwards the ORIGINAL (untranslated) Chat-Completions body to
+    // llama-swap-apu's real vlm model, only overriding `model`. No translation
+    // needed either direction -- llama-swap already speaks Chat-Completions
+    // natively, images included.
+    function callFallback(originalBody) {
+      return new Promise((resolve, reject) => {
+        const payload = JSON.stringify(Object.assign({}, originalBody, { model: FALLBACK_MODEL }));
+        const url = new URL(FALLBACK_BASE_URL + '/chat/completions');
+        const req = http.request(
+          {
+            host: url.hostname,
+            port: url.port || 80,
+            path: url.pathname,
+            method: 'POST',
+            timeout: REQUEST_TIMEOUT_MS,
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(payload),
+            },
+          },
+          (res) => {
+            let data = '';
+            res.on('data', (c) => { data += c; });
+            res.on('end', () => resolve({ status: res.statusCode, body: data }));
+          }
+        );
+        req.on('timeout', () => req.destroy(new Error('fallback request timed out after ' + REQUEST_TIMEOUT_MS + 'ms')));
+        req.on('error', reject);
+        req.end(payload);
+      });
+    }
+
+    // Field extraction CONFIRMED against a real CLIProxyAPI /v1/responses
+    // response (2026-09-17 plan, Task 2 Step 2). Real shape observed:
     //   output: [{ type: "message", role: "assistant", content: [
     //     { type: "output_text", text: "..." }
     //   ]}]
     //   usage: { input_tokens, output_tokens, total_tokens, ... }
-    // No top-level `output_text` convenience string was present in the
-    // real response, but that branch is kept as a defensive fallback since
-    // it's part of the public Responses API spec.
     function responsesToChatCompletion(model, responsesBody) {
       const parsed = JSON.parse(responsesBody);
       let text = '';
-      // `foundShape` tracks whether a recognized output field was present at
-      // all (an `output_text` string, or an `output[]` item shaped like
-      // `{type:"message", content:[...]}`) -- NOT whether any text ended up
-      // extracted. A model legitimately replying with empty text is a
-      // normal 200; a response with no recognizable output field at all is
-      // an unexpected upstream shape and must fail loudly instead of
-      // silently returning empty content. See Error handling in
-      // docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md.
+      // foundShape tracks whether a recognized output field was present at all
+      // (an output_text string, or an output[] item shaped like
+      // {type:"message", content:[...]}) -- NOT whether any text ended up
+      // extracted. A model legitimately replying with empty text is a normal
+      // 200; a response with no recognizable output field at all is an
+      // unexpected upstream shape and must fail loudly (caught by the caller,
+      // which routes to the fallback) instead of silently returning empty
+      // content.
       let foundShape = false;
       if (typeof parsed.output_text === 'string') {
         text = parsed.output_text;
@@ -181,34 +242,68 @@ data:
         res.end(JSON.stringify({ status: 'ok' }));
         return;
       }
+
+      if (!checkAuth(req)) {
+        sendError(res, 401, 'unauthorized');
+        return;
+      }
+
       if (req.method !== 'POST' || req.url !== '/v1/chat/completions') {
         sendError(res, 404, 'not found');
         return;
       }
+
+      let parsed;
       try {
         const raw = await readBody(req);
-        const parsed = JSON.parse(raw);
-        const input = chatToResponsesInput(parsed.messages || []);
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        sendError(res, 400, 'invalid request body: ' + err.message);
+        return;
+      }
+
+      const messages = parsed.messages || [];
+
+      if (hasNonTextContent(messages)) {
+        try {
+          const fb = await callFallback(parsed);
+          res.writeHead(fb.status, { 'content-type': 'application/json' });
+          res.end(fb.body);
+        } catch (err) {
+          sendError(res, 502, 'local fallback request failed: ' + err.message);
+        }
+        return;
+      }
+
+      let primaryErrMessage = null;
+      try {
+        const input = chatToResponsesInput(messages);
         const responsesBody = { model: parsed.model, input };
         if (parsed.max_tokens) responsesBody.max_output_tokens = parsed.max_tokens;
         if (parsed.temperature !== undefined) responsesBody.temperature = parsed.temperature;
 
         const upstream = await callCliProxy('/v1/responses', responsesBody);
         if (upstream.status < 200 || upstream.status >= 300) {
-          let parsedUpstream;
-          try { parsedUpstream = JSON.parse(upstream.body); } catch (e) { parsedUpstream = upstream.body; }
-          sendError(res, upstream.status, 'CLIProxyAPI request failed', parsedUpstream);
-          return;
+          throw new ShimError(upstream.status, 'CLIProxyAPI request failed');
         }
         const chatBody = responsesToChatCompletion(parsed.model, upstream.body);
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify(chatBody));
+        return;
       } catch (err) {
-        if (err instanceof ShimError) {
-          sendError(res, err.status, err.message);
-        } else {
-          sendError(res, 500, 'shim internal error: ' + err.message);
-        }
+        primaryErrMessage = err.message;
+      }
+
+      // CLIProxyAPI leg failed (non-2xx, network error, timeout, or unexpected
+      // response shape) -- fall back to the local model, mirroring the old
+      // openviking-vlm combo's two-leg behavior. See
+      // docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md.
+      try {
+        const fb = await callFallback(parsed);
+        res.writeHead(fb.status, { 'content-type': 'application/json' });
+        res.end(fb.body);
+      } catch (fallbackErr) {
+        sendError(res, 502, 'both CLIProxyAPI and local fallback failed: ' + primaryErrMessage + ' / ' + fallbackErr.message);
       }
     });
 
