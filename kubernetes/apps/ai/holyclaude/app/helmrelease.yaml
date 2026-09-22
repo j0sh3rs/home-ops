@@ -362,6 +362,31 @@ spec:
                           s.env.ANTHROPIC_BASE_URL = baseUrl;
                           s.env.ANTHROPIC_MODEL = model;
                           s.env.ANTHROPIC_AUTH_TOKEN = authToken;
+                          // Forced off every boot, 2026-09-22 -- not a
+                          // GitOps-managed value before this fix; some prior
+                          // holyclaude image bump bundled a Claude Code CLI
+                          // version that silently writes this key into
+                          // settings.json itself (confirmed absent from this
+                          // repo's entire git history). When "1", Claude Code
+                          // queries Omniroute's own /v1/models catalog and
+                          // sends whatever bare model it discovers there
+                          // (observed: "claude-sonnet-5") straight to
+                          // /v1/messages, bypassing the `model`/
+                          // ANTHROPIC_MODEL "coding-deep" combo alias set
+                          // below entirely. Omniroute's key-policy engine
+                          // then rejects it outright: the
+                          // holyclaude-interactive key's
+                          // modelAccessMode="restricted" only allows the
+                          // combo names in allowedCombos
+                          // (secret.sops.yaml), never a bare model name --
+                          // confirmed live via omniroute's own pod logs,
+                          // tag=POLICY, "API key policy rejected:
+                          // claude-sonnet-5". Forcing this to "0" makes
+                          // Claude Code respect the pinned combo alias
+                          // instead, restoring the fail-closed-but-at-least-
+                          // routes behavior documented on
+                          // OMNIROUTE_ANTHROPIC_MODEL above.
+                          s.env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "0";
                           // Also reverts any in-session `/model` choice back
                           // to the combo default on every restart -- see the
                           // OMNIROUTE_ANTHROPIC_MODEL comment above.
