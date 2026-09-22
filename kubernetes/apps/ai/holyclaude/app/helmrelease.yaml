@@ -318,6 +318,9 @@ spec:
                     - -c
                     - |
                       set -eu
+                      exec >>/workspace/poststart-debug.log 2>&1
+                      echo "=== postStart run $(date -Iseconds) pid=$$ ==="
+                      set -x
                       for f in /home/claude/.local/share/user-bin/*; do
                         [ -e "$f" ] || continue
                         ln -sf "$f" "/home/claude/.local/bin/$(basename "$f")"
