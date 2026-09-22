@@ -12,5 +12,5 @@ spec:
     operation: copy
   ref:
     # renovate: datasource=docker depName=quay.io/jetstack/charts/cert-manager
-    tag: v1.21.1
+    tag: v1.21.2
   url: oci://quay.io/jetstack/charts/cert-manager
