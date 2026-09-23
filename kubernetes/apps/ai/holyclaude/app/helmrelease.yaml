@@ -256,6 +256,35 @@ spec:
               # reverted back to "coding-deep" on the next restart.
               OMNIROUTE_ANTHROPIC_BASE_URL: "http://omniroute.ai.svc.cluster.local:20128"
               OMNIROUTE_ANTHROPIC_MODEL: "coding-deep"
+              # OpenTelemetry export for Claude Code itself (issue #707).
+              # metrics.68cc.io/logs.68cc.io both already expose native OTLP
+              # ingest endpoints -- confirmed via a direct HTTP probe
+              # (POST /opentelemetry/v1/metrics and
+              # POST /insert/opentelemetry/v1/logs both return 200 on an
+              # empty body) -- so this points straight at them with no
+              # in-cluster OTel Collector as a translation hop. Unlike
+              # OMNIROUTE_ANTHROPIC_*/ANTHROPIC_* above, Claude Code reads
+              # OTEL_* purely from real process env -- settings.json has no
+              # OTEL_* keys and nothing here writes any -- so plain
+              # container env is sufficient; no postStart patch needed.
+              CLAUDE_CODE_ENABLE_TELEMETRY: "1"
+              OTEL_METRICS_EXPORTER: otlp
+              OTEL_LOGS_EXPORTER: otlp
+              OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+              # Per-signal endpoints, not OTEL_EXPORTER_OTLP_ENDPOINT --
+              # VictoriaMetrics/VictoriaLogs' OTLP ingest paths
+              # (/opentelemetry/v1/metrics, /insert/opentelemetry/v1/logs)
+              # don't match the OTel spec's default bare-endpoint
+              # /v1/metrics /v1/logs suffixing.
+              OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://metrics.68cc.io/opentelemetry/v1/metrics"
+              OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "https://logs.68cc.io/insert/opentelemetry/v1/logs"
+              OTEL_METRIC_EXPORT_INTERVAL: "60000"
+              OTEL_LOGS_EXPORT_INTERVAL: "10000"
+              # Distinguishes this pod's telemetry from the operator's
+              # laptop Claude Code session in Grafana/VictoriaLogs queries --
+              # see docs/runbooks/agent-telemetry.md for the laptop-side
+              # (and Codex) config this repo can't apply directly.
+              OTEL_RESOURCE_ATTRIBUTES: "deployment.environment=holyclaude"
             envFrom:
               - secretRef:
                   name: holyclaude-secret

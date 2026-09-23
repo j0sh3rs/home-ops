@@ -7,3 +7,5 @@ resources:
   - ./secret.sops.yaml
   - ./rbac.yaml
   - ./helmrelease.yaml
+  - ./prometheusrule.yaml
+  - ./grafanadashboard.yaml

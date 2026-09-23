@@ -1,0 +1,74 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Added for issue #707 (Claude Code/Codex OTel export). Only covers what
+# Claude Code's own OTLP metrics (helmrelease.yaml's OTEL_* env on the
+# `app` container) actually make possible today:
+#   - a dead-export/pipeline-health alert (the motivating case from the
+#     issue -- this would have surfaced OpenViking's silent empty recalls)
+#   - a per-session spend guard on claude_code.cost.usage
+# The issue's other two asks are deliberately NOT here:
+#   - Hindsight retain-queue-depth: blocked on vectorize-io/hindsight#4560
+#     per the issue's own sequencing note -- nothing to alert on yet.
+#   - Hook failures (recall/retain): would need a LogsQL rule against
+#     OpenViking's actual hook-failure log signature, which hasn't been
+#     characterized yet -- see docs/runbooks/agent-telemetry.md's Follow-ups
+#     section. Not fabricated here without a confirmed log pattern to match.
+#
+# Metric names below (claude_code_session_count_total,
+# claude_code_cost_usage_total) follow VictoriaMetrics' documented OTel->
+# Prometheus naming (dots -> underscores, monotonic sum gets a _total
+# suffix) applied to Claude Code's claude_code.session.count /
+# claude_code.cost.usage counters -- NOT yet confirmed against real
+# ingested data (no telemetry has flowed yet as of this change). Once
+# HolyClaude's pod restarts and a session runs, verify the actual series
+# name via a `count by (__name__) ({__name__=~"claude_code.*"})` query
+# against https://metrics.68cc.io and fix these two `expr:` fields if the
+# real name differs -- see docs/runbooks/agent-telemetry.md.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: holyclaude-telemetry-rules
+  namespace: ai
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: holyclaude-telemetry.rules
+      rules:
+        - alert: ClaudeCodeTelemetryStale
+          annotations:
+            summary: "HolyClaude's Claude Code has stopped exporting OTel telemetry"
+            description: >-
+              No claude_code.session.count samples from holyclaude in 2h+.
+              Either no one has used HolyClaude in that window (benign) or
+              the OTLP export broke silently -- check
+              `kubectl -n ai logs -l app.kubernetes.io/name=holyclaude -c app`
+              for OTLP exporter errors and confirm
+              https://metrics.68cc.io/opentelemetry/v1/metrics is still
+              reachable from the pod.
+            runbook: docs/runbooks/agent-telemetry.md
+          expr: |-
+            absent_over_time(claude_code_session_count_total{deployment_environment="holyclaude"}[2h])
+          for: 15m
+          labels:
+            severity: warning
+            component: ai
+
+        - alert: ClaudeCodeSessionSpendHigh
+          annotations:
+            summary: "A single Claude Code session on {{ $labels.deployment_environment }} spent ${{ $value | printf \"%.2f\" }} in 24h"
+            description: >-
+              claude_code.cost.usage summed by session.id exceeded $10 over
+              24h. This is Claude Code's own internal cost estimate (model
+              pricing table), not necessarily a real bill through Omniroute
+              -- treat as a runaway-usage signal, not a billing alert.
+              Tune the 10 threshold once a few weeks of real data exist.
+            runbook: docs/runbooks/agent-telemetry.md
+          expr: |-
+            sum by (session_id, deployment_environment) (increase(claude_code_cost_usage_total[24h])) > 10
+          for: 0m
+          labels:
+            severity: warning
+            component: ai

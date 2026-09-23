@@ -1,0 +1,164 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+#
+# Metric names (claude_code_*) follow VictoriaMetrics' OTel->Prometheus
+# naming applied to Claude Code's native OTel metrics -- see
+# prometheusrule.yaml's header comment and docs/runbooks/agent-telemetry.md
+# for the same not-yet-confirmed-against-real-data caveat. Panel exprs may
+# need a name fixup once real telemetry has flowed at least once.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: holyclaude-agent-sessions
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: AI
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  json: |
+    {
+      "title": "Claude Code Agent Sessions",
+      "uid": "claude-code-agent-sessions",
+      "tags": ["ai", "claude-code", "holyclaude"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "editable": true,
+      "refresh": "1m",
+      "time": {"from": "now-24h", "to": "now"},
+      "templating": {
+        "list": [
+          {
+            "name": "DS_PROMETHEUS",
+            "type": "datasource",
+            "query": "prometheus",
+            "current": {"text": "vmsingle", "value": "vmsingle"},
+            "hide": 0
+          },
+          {
+            "name": "environment",
+            "type": "query",
+            "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+            "query": "label_values(claude_code_session_count_total, deployment_environment)",
+            "includeAll": true,
+            "multi": true,
+            "refresh": 2
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Sessions Started (24h)",
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "sum(increase(claude_code_session_count_total{deployment_environment=~\"$environment\"}[24h]))",
+            "refId": "A"
+          }]
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Estimated Spend (24h)",
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "sum(increase(claude_code_cost_usage_total{deployment_environment=~\"$environment\"}[24h]))",
+            "refId": "A"
+          }],
+          "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 2}}
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Active Time (24h)",
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "sum(increase(claude_code_active_time_total_total{deployment_environment=~\"$environment\"}[24h]))",
+            "refId": "A"
+          }],
+          "fieldConfig": {"defaults": {"unit": "s"}}
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Telemetry Pipeline",
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "sum(absent_over_time(claude_code_session_count_total{deployment_environment=~\"$environment\"}[2h])) OR on() vector(0)",
+            "refId": "A"
+          }],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                {"type": "value", "options": {"0": {"text": "FLOWING", "color": "green"}}},
+                {"type": "value", "options": {"1": {"text": "STALE", "color": "red"}}}
+              ],
+              "color": {"mode": "thresholds"},
+              "thresholds": {"mode": "absolute", "steps": [
+                {"color": "green", "value": null},
+                {"color": "red", "value": 1}
+              ]}
+            }
+          },
+          "options": {"colorMode": "background", "graphMode": "none"}
+        },
+        {
+          "id": 10,
+          "type": "timeseries",
+          "title": "Sessions Over Time",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "sum by (deployment_environment, start_type) (increase(claude_code_session_count_total{deployment_environment=~\"$environment\"}[1h]))",
+            "legendFormat": "{{deployment_environment}} ({{start_type}})",
+            "refId": "A"
+          }]
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Token Usage by Type",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "sum by (type) (increase(claude_code_token_usage_total{deployment_environment=~\"$environment\"}[1h]))",
+            "legendFormat": "{{type}}",
+            "refId": "A"
+          }]
+        },
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "Spend by Model",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "sum by (model) (increase(claude_code_cost_usage_total{deployment_environment=~\"$environment\"}[1h]))",
+            "legendFormat": "{{model}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {"defaults": {"unit": "currencyUSD"}}
+        },
+        {
+          "id": 13,
+          "type": "piechart",
+          "title": "Code Edit Tool Decisions",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+          "targets": [{
+            "expr": "sum by (decision) (increase(claude_code_code_edit_tool_decision_total{deployment_environment=~\"$environment\"}[24h]))",
+            "legendFormat": "{{decision}}",
+            "refId": "A"
+          }]
+        }
+      ]
+    }
