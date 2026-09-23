@@ -1,11 +1,21 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
 #
-# Metric names (claude_code_*) follow VictoriaMetrics' OTel->Prometheus
-# naming applied to Claude Code's native OTel metrics -- see
-# prometheusrule.yaml's header comment and docs/runbooks/agent-telemetry.md
-# for the same not-yet-confirmed-against-real-data caveat. Panel exprs may
-# need a name fixup once real telemetry has flowed at least once.
+# Metric/label names -- CONFIRMED against real ingested data 2026-09-23 (a
+# one-shot `claude -p` run inside the holyclaude pod, then queried live
+# against https://metrics.68cc.io). VictoriaMetrics' OTLP ingestion
+# preserves OTel names verbatim, dots included -- `claude_code.session.count`
+# and `deployment.environment`, not `claude_code_session_count_total`/
+# `deployment_environment` as originally guessed. Every query below uses
+# MetricsQL's quoted-name selector (`{"claude_code.session.count", ...}`),
+# confirmed working against this endpoint. Grafana's `{{label}}` legend
+# templating handles dotted label keys fine (plain string lookup, not a Go
+# struct field), so legends below use dotted names directly.
+#
+# `claude_code.code_edit_tool.decision` (panel 13) follows the same
+# now-confirmed dotted-name pattern but was not itself exercised by the
+# one-shot verification session (no edit-tool calls made) -- double-check
+# it once a real session performs an edit.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
@@ -43,7 +53,7 @@ spec:
             "name": "environment",
             "type": "query",
             "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
-            "query": "label_values(claude_code_session_count_total, deployment_environment)",
+            "query": "label_values({\"claude_code.session.count\"}, \"deployment.environment\")",
             "includeAll": true,
             "multi": true,
             "refresh": 2
@@ -58,7 +68,7 @@ spec:
           "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{
-            "expr": "sum(increase(claude_code_session_count_total{deployment_environment=~\"$environment\"}[24h]))",
+            "expr": "sum(increase({\"claude_code.session.count\", \"deployment.environment\"=~\"$environment\"}[24h]))",
             "refId": "A"
           }]
         },
@@ -69,7 +79,7 @@ spec:
           "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{
-            "expr": "sum(increase(claude_code_cost_usage_total{deployment_environment=~\"$environment\"}[24h]))",
+            "expr": "sum(increase({\"claude_code.cost.usage\", \"deployment.environment\"=~\"$environment\"}[24h]))",
             "refId": "A"
           }],
           "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 2}}
@@ -81,7 +91,7 @@ spec:
           "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{
-            "expr": "sum(increase(claude_code_active_time_total_total{deployment_environment=~\"$environment\"}[24h]))",
+            "expr": "sum(increase({\"claude_code.active_time.total\", \"deployment.environment\"=~\"$environment\"}[24h]))",
             "refId": "A"
           }],
           "fieldConfig": {"defaults": {"unit": "s"}}
@@ -93,7 +103,7 @@ spec:
           "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{
-            "expr": "sum(absent_over_time(claude_code_session_count_total{deployment_environment=~\"$environment\"}[2h])) OR on() vector(0)",
+            "expr": "sum(absent_over_time({\"claude_code.session.count\", \"deployment.environment\"=~\"$environment\"}[2h])) OR on() vector(0)",
             "refId": "A"
           }],
           "fieldConfig": {
@@ -118,8 +128,8 @@ spec:
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{
-            "expr": "sum by (deployment_environment, start_type) (increase(claude_code_session_count_total{deployment_environment=~\"$environment\"}[1h]))",
-            "legendFormat": "{{deployment_environment}} ({{start_type}})",
+            "expr": "sum by (\"deployment.environment\", \"start_type\") (increase({\"claude_code.session.count\", \"deployment.environment\"=~\"$environment\"}[1h]))",
+            "legendFormat": "{{deployment.environment}} ({{start_type}})",
             "refId": "A"
           }]
         },
@@ -130,7 +140,7 @@ spec:
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{
-            "expr": "sum by (type) (increase(claude_code_token_usage_total{deployment_environment=~\"$environment\"}[1h]))",
+            "expr": "sum by (type) (increase({\"claude_code.token.usage\", \"deployment.environment\"=~\"$environment\"}[1h]))",
             "legendFormat": "{{type}}",
             "refId": "A"
           }]
@@ -142,7 +152,7 @@ spec:
           "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{
-            "expr": "sum by (model) (increase(claude_code_cost_usage_total{deployment_environment=~\"$environment\"}[1h]))",
+            "expr": "sum by (model) (increase({\"claude_code.cost.usage\", \"deployment.environment\"=~\"$environment\"}[1h]))",
             "legendFormat": "{{model}}",
             "refId": "A"
           }],
@@ -155,7 +165,7 @@ spec:
           "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
           "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
           "targets": [{
-            "expr": "sum by (decision) (increase(claude_code_code_edit_tool_decision_total{deployment_environment=~\"$environment\"}[24h]))",
+            "expr": "sum by (decision) (increase({\"claude_code.code_edit_tool.decision\", \"deployment.environment\"=~\"$environment\"}[24h]))",
             "legendFormat": "{{decision}}",
             "refId": "A"
           }]

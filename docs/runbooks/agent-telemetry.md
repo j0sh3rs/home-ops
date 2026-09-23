@@ -43,29 +43,90 @@ telemetry is distinguishable from the laptop's. Unlike the
 `kubernetes/apps/ai/holyclaude/app/prometheusrule.yaml` adds two alerts
 (`ClaudeCodeTelemetryStale`, `ClaudeCodeSessionSpendHigh`) and
 `grafanadashboard.yaml` adds a "Claude Code Agent Sessions" dashboard
-(folder `AI`) — see both files' header comments for the metric-naming
-caveat below.
+(folder `AI`).
 
-**Not yet confirmed**: the exact Prometheus series names VictoriaMetrics'
-OTLP ingestion produces for Claude Code's metrics
-(`claude_code.session.count` → assumed `claude_code_session_count_total`,
-etc. — dots to underscores, `_total` suffix on monotonic sums, matching the
-OTel-collector-compatible convention VictoriaMetrics documents). No real
-telemetry has flowed yet as of this change. **After the next HolyClaude pod
-restart and one real session**, verify with:
+**Confirmed end-to-end 2026-09-23** via a one-shot `claude -p` run inside
+the holyclaude pod (`kubectl -n ai exec ... -- claude -p "..."`), then
+querying both backends live:
+
+- `claude_code.session.count`, `claude_code.cost.usage`,
+  `claude_code.token.usage`, `claude_code.active_time.total` all landed in
+  VictoriaMetrics within one 60s export interval.
+- `claude_code.user_prompt` (and other events, e.g.
+  `claude_code.mcp_server_connection`) landed in VictoriaLogs within one
+  10s export interval.
+
+**Important finding — VictoriaMetrics does NOT sanitize OTel names.**
+Contrary to the original assumption in this file/the manifests (Prometheus-
+style dots→underscores + `_total` suffix), VictoriaMetrics' native OTLP
+ingestion preserves OTel metric **and label** names verbatim, dots
+included: the real series is `claude_code.session.count` with a
+`deployment.environment` label, `session.id`, etc. — not
+`claude_code_session_count_total{deployment_environment=...}`.
+
+Bare-identifier PromQL can't reference a dotted name. Use MetricsQL's
+quoted-name selector instead, confirmed working against both the query API
+and vmalert's engine:
 
 ```promql
-count by (__name__) ({__name__=~"claude_code.*"})
+# metric name only
+{"claude_code.session.count"}
+
+# metric + dotted label filter
+{"claude_code.session.count", "deployment.environment"="holyclaude"}
+
+# aggregating by a dotted label
+sum by ("session.id", "deployment.environment") (increase({"claude_code.cost.usage"}[24h]))
 ```
 
-against `https://metrics.68cc.io`, and fix the `expr:` fields in
-`prometheusrule.yaml`/`grafanadashboard.yaml` if the real names differ.
+In Alertmanager/Grafana annotation templates, `$labels.deployment_environment`
+silently renders empty against a real `deployment.environment` label — use
+`{{ index $labels "deployment.environment" }}` instead. Grafana panel
+`legendFormat` (e.g. `{{deployment.environment}}`) works fine as-is — it's
+a plain string lookup, not Go struct-field access.
 
-## Apply by hand: Claude Code on the laptop
+**This applies to any future OTel-sourced metric in this cluster**, not
+just Claude Code's — Codex's metrics (once wired, see below) will need the
+same quoted-selector treatment.
 
-This repo cannot set environment variables on the operator's own machine.
-Add this to the laptop's shell profile (or Claude Code's own
-`~/.claude/settings.json` `env` block, same as HolyClaude's PVC copy):
+## Applied: this NAS host's global Claude Code config
+
+This repo is normally checked out and worked on interactively via Claude
+Code running directly on the operator's Synology NAS host (not a separate
+laptop) — the same session that authored this runbook. Since that's a
+real, reachable machine (unlike a genuinely separate laptop), its global
+`~/.claude/settings.json` (`/root/.claude/settings.json` on this host) now
+carries the same `env` block HolyClaude's HelmRelease sets, tagged
+`deployment.environment=synology-nas`:
+
+```json
+"env": {
+  "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+  "OTEL_METRICS_EXPORTER": "otlp",
+  "OTEL_LOGS_EXPORTER": "otlp",
+  "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+  "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": "https://metrics.68cc.io/opentelemetry/v1/metrics",
+  "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": "https://logs.68cc.io/insert/opentelemetry/v1/logs",
+  "OTEL_METRIC_EXPORT_INTERVAL": "60000",
+  "OTEL_LOGS_EXPORT_INTERVAL": "10000",
+  "OTEL_RESOURCE_ATTRIBUTES": "deployment.environment=synology-nas"
+}
+```
+
+This file is outside the git repo (`/root/.claude/`, not
+`/volume1/git/j0sh3rs/home-ops/`) so it isn't GitOps-managed or reviewable
+via this repo's history — it's genuinely host-local machine config, same
+category as `age.key`/`kubeconfig` at the repo root. **Env vars are read
+once at process startup**, so this takes effect on the *next* Claude Code
+launch on this host, not retroactively for whatever session is already
+running when the file is edited.
+
+## Apply by hand: any other machine (e.g. a separate physical laptop)
+
+For any Claude Code install this repo/session genuinely cannot reach, add
+the same block to that machine's shell profile or its own
+`~/.claude/settings.json` `env` block, with a distinguishing
+`deployment.environment` tag (`laptop`, or whatever names the machine):
 
 ```bash
 export CLAUDE_CODE_ENABLE_TELEMETRY=1
@@ -80,9 +141,8 @@ export OTEL_RESOURCE_ATTRIBUTES=deployment.environment=laptop
 ```
 
 Verify: run a Claude Code session, then query
-`claude_code_session_count_total{deployment_environment="laptop"}` (or
-whatever the real series name turns out to be, per the caveat above)
-against `https://metrics.68cc.io`.
+`{"claude_code.session.count", "deployment.environment"="laptop"}` against
+`https://metrics.68cc.io` (see the quoted-selector note above).
 
 ## Apply by hand: Codex CLI
 
@@ -141,11 +201,14 @@ specifically — logs/traces should still work.
 
 ## Acceptance criteria status (from issue #707)
 
-- [ ] `claude_code.session.count` and `claude_code.user_prompt` visible in
-      Victoria\* — pipeline is wired (HolyClaude side); needs a real session
-      to confirm end-to-end, and the metric-naming caveat above resolved.
+- [x] `claude_code.session.count` and `claude_code.user_prompt` visible in
+      Victoria\* — confirmed end-to-end 2026-09-23 (HolyClaude side; laptop
+      side still needs the by-hand config above applied).
 - [x] Grafana dashboard for agent sessions — `holyclaude-agent-sessions`,
-      folder `AI`.
+      folder `AI`, all panel queries confirmed against live data.
 - [ ] Alerts for hook failures and queue depth — explicitly deferred, see
       above. Spend + pipeline-health alerts added instead as what's
-      actionable today.
+      actionable today, both confirmed evaluating correctly against live
+      data (`ClaudeCodeSessionSpendHigh` correctly not firing at $0.33 <
+      $10; `ClaudeCodeTelemetryStale` correctly not firing while data is
+      flowing).

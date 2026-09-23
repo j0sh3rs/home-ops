@@ -15,16 +15,20 @@
 #     characterized yet -- see docs/runbooks/agent-telemetry.md's Follow-ups
 #     section. Not fabricated here without a confirmed log pattern to match.
 #
-# Metric names below (claude_code_session_count_total,
-# claude_code_cost_usage_total) follow VictoriaMetrics' documented OTel->
-# Prometheus naming (dots -> underscores, monotonic sum gets a _total
-# suffix) applied to Claude Code's claude_code.session.count /
-# claude_code.cost.usage counters -- NOT yet confirmed against real
-# ingested data (no telemetry has flowed yet as of this change). Once
-# HolyClaude's pod restarts and a session runs, verify the actual series
-# name via a `count by (__name__) ({__name__=~"claude_code.*"})` query
-# against https://metrics.68cc.io and fix these two `expr:` fields if the
-# real name differs -- see docs/runbooks/agent-telemetry.md.
+# Metric/label names -- CONFIRMED against real ingested data 2026-09-23 (a
+# one-shot `claude -p` run inside the holyclaude pod, then queried live
+# against https://metrics.68cc.io). VictoriaMetrics' OTLP ingestion does
+# NOT sanitize OTel names into Prometheus convention -- it preserves them
+# verbatim, dots included, for both the metric name and resource/attribute
+# labels (`claude_code.session.count`, `deployment.environment`,
+# `session.id`, etc.), not `claude_code_session_count_total`/
+# `deployment_environment` as originally guessed here. Bare-identifier
+# PromQL syntax can't reference a dotted name, so every selector below uses
+# MetricsQL's quoted-name extension (`{"claude_code.session.count", ...}`),
+# confirmed working against this same endpoint/vmalert's engine. Annotation
+# templates use `index $labels "some.dotted.label"` for the same reason --
+# `$labels.deployment_environment` would silently render empty against a
+# real `deployment.environment` label.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -50,7 +54,7 @@ spec:
               reachable from the pod.
             runbook: docs/runbooks/agent-telemetry.md
           expr: |-
-            absent_over_time(claude_code_session_count_total{deployment_environment="holyclaude"}[2h])
+            absent_over_time({"claude_code.session.count", "deployment.environment"="holyclaude"}[2h])
           for: 15m
           labels:
             severity: warning
@@ -58,7 +62,7 @@ spec:
 
         - alert: ClaudeCodeSessionSpendHigh
           annotations:
-            summary: "A single Claude Code session on {{ $labels.deployment_environment }} spent ${{ $value | printf \"%.2f\" }} in 24h"
+            summary: "A single Claude Code session on {{ index $labels \"deployment.environment\" }} spent ${{ $value | printf \"%.2f\" }} in 24h"
             description: >-
               claude_code.cost.usage summed by session.id exceeded $10 over
               24h. This is Claude Code's own internal cost estimate (model
@@ -67,7 +71,7 @@ spec:
               Tune the 10 threshold once a few weeks of real data exist.
             runbook: docs/runbooks/agent-telemetry.md
           expr: |-
-            sum by (session_id, deployment_environment) (increase(claude_code_cost_usage_total[24h])) > 10
+            sum by ("session.id", "deployment.environment") (increase({"claude_code.cost.usage"}[24h])) > 10
           for: 0m
           labels:
             severity: warning
