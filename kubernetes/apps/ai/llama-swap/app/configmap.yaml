@@ -11,8 +11,13 @@ data:
     # Docs: https://github.com/mostlygeek/llama-swap
     #
     # Navi 48 dGPU on bigboi-jms-01 (Radeon RX 9070 XT, 16 GiB GDDR6, ~640 GB/s).
-    # Chat models hot-swap through the 'chat' group (exclusive). Embed/vlm
-    # stay on llama-swap-apu (bee-jms-03, moved 2026-08-17). Rerank moved
+    # Since 2026-09-24 (issue #701, Hindsight) gpt-oss-20b is the ONLY chat
+    # model on this card, always resident with 4x32k slots, so Hindsight's
+    # retain/reflect never wait on a model swap. agentic-coder and
+    # qwen3.5-35b-a3b are commented out below (each needs ~13-14 GiB, and
+    # neither fits beside gpt-oss-20b's ~11.5 GiB); their aliases moved onto
+    # gpt-oss-20b so no consumer config changed.
+    # Embed/vlm stay on llama-swap-apu (bee-jms-03, moved 2026-08-17). Rerank moved
     # BACK here 2026-09-10 (jina-reranker-v2, ~305 MiB) as a concurrent
     # "always-on" model alongside whichever chat model is loaded — the APU
     # was a real memory-bandwidth-constrained node for VLM/embedding, and
@@ -54,6 +59,7 @@ data:
     models:
       # ==================== CHAT GROUP (exclusive swap) ====================
 
+      # DISABLED 2026-09-24 (#701): cannot co-reside with always-on gpt-oss-20b. Aliases moved to gpt-oss-20b.
       # Agentic coder flagship. Pure-attention qwen3_moe — no GatedDeltaNet/SSM
       # (standard full attention every layer, unlike qwen3.6-27b below —
       # KV cost grows faster with ctx-size as a result). Q3_K_S (not
@@ -84,19 +90,20 @@ data:
       # exchange for concurrent rerank capacity with no swap latency.
       # 65536 -> only 273 MiB (1.7%, too tight, same near-ceiling
       # instability pattern as qwen3.6-27b) -- never a real option.
-      "agentic-coder":
-        cmd: |
-          ${llama-vulkan}
-          --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf
-          --ctx-size 32768
-          -ub 2048 -b 16384
-          --temp 0.6 --top-p 0.95
-        aliases:
-          - "coder"
-          - "code-large"
-          - "coder-large"
-        ttl: 120
+      # "agentic-coder":
+      #   cmd: |
+      #     ${llama-vulkan}
+      #     --model /models/Qwen3-Coder-30B-A3B-Instruct-Q3_K_S.gguf
+      #     --ctx-size 32768
+      #     -ub 2048 -b 16384
+      #     --temp 0.6 --top-p 0.95
+      #   aliases:
+      #     - "coder"
+      #     - "code-large"
+      #     - "coder-large"
+      #   ttl: 120
 
+      # DISABLED 2026-09-24 (#701): cannot co-reside with always-on gpt-oss-20b. Aliases moved to gpt-oss-20b.
       # MoE frontier chat — replaces qwen3.6-27b (dense, removed 2026-08-18).
       # Dense qwen3.6-27b was openclaw's primary for less than a day
       # (2026-08-17), reverted for ~17.83 tok/s decode at 20K prompt depth
@@ -116,44 +123,43 @@ data:
       # free (17.2%, chosen — solid margin, better than qwen3.6-27b ever
       # achieved even at its lowest ctx). Re-measure via rocm-smi before
       # raising further.
-      "qwen3.5-35b-a3b":
-        cmd: |
-          ${llama-vulkan}
-          --model /models/Qwen3.5-35B-A3B-UD-IQ3_S.gguf
-          --ctx-size 49152
-          -ub 2048 -b 16384
-          --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
-          --presence-penalty 1.0
-        aliases:
-          - "frontier"
-          - "frontier-chat"
-        ttl: 120
+      # "qwen3.5-35b-a3b":
+      #   cmd: |
+      #     ${llama-vulkan}
+      #     --model /models/Qwen3.5-35B-A3B-UD-IQ3_S.gguf
+      #     --ctx-size 49152
+      #     -ub 2048 -b 16384
+      #     --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0.0
+      #     --presence-penalty 1.0
+      #   aliases:
+      #     - "frontier"
+      #     - "frontier-chat"
+      #   ttl: 120
 
-      # Reasoning — fills the gap left when `reasoner` (Qwen3-30B-Thinking)
-      # was dropped 2026-08-17 for zero consumers. MoE, 3.6B active params,
-      # dominant on reasoning/math benchmarks: aime 98.7, mmlu_pro 85.3,
-      # livecodebench 65.2, humaneval 81.7. Q4_K_M (~11.6 GiB weights per
-      # unsloth listing, smaller than fitmyllm's 13.3 GiB estimate) — real
-      # decode ~66 tok/s measured via live curl test, confirms MoE speed.
-      # ctx-size 65536 chosen from real on-node rocm-smi VRAM measurements
-      # (15.924 GiB usable total on this card): 32768 -> 4.87 GiB free
-      # (30.6%); 49152 -> 4.65 GiB free (29.2%); 65536 -> 4.44 GiB free
-      # (27.9%, chosen — comfortable margin, well clear of the near-ceiling
-      # instability zone seen with qwen3.6-27b's picks). Smaller weights
-      # than agentic-coder/qwen3.5-35b-a3b give this model much more
-      # headroom per ctx-size step; could go higher but 65536 already
-      # matches production sizes used elsewhere in the fleet.
+      # Sole chat model since 2026-09-24 (#701). --parallel 4 splits
+      # --ctx-size 131072 into 4 slots of 32768: Hindsight caps retain,
+      # consolidation and mental-model refresh at 1 LLM call each, so one
+      # slot is always free for reflect (the plugin's first-prompt
+      # synthesis). Same total KV as the old single 65536 slot plus one
+      # more 65536 -- re-measure VRAM (mem_info_vram_used) after any
+      # change here; >=2 GiB free with jina-reranker-v2 loaded is the bar.
       "gpt-oss-20b":
         cmd: |
           ${llama-vulkan}
           --model /models/gpt-oss-20b-Q4_K_M.gguf
-          --ctx-size 65536
+          --ctx-size 131072
+          --parallel 4
           -ub 2048 -b 16384
           --temp 1.0 --top-p 1.0 --top-k 0
         aliases:
           - "reasoner"
           - "reasoning"
-        ttl: 120
+          - "coder"
+          - "code-large"
+          - "coder-large"
+          - "frontier"
+          - "frontier-chat"
+        ttl: 0
 
       # Qwen2.5-Coder-7B — superseded by agentic-coder for multi-step work.
       # Kept commented for dense single-turn fallback if agentic-coder slot
@@ -196,23 +202,25 @@ data:
         ttl: 0
 
     groups:
-      # Chat models swap exclusively. Only one can hold VRAM at a time.
-      "chat":
-        swap: true
-        exclusive: true
-        members:
-          - "agentic-coder"
-          - "gpt-oss-20b"
-          - "qwen3.5-35b-a3b"
-
-      # Runs concurrently with whichever "chat" member is loaded --
-      # deliberately NOT part of that exclusive group. persistent: true
-      # keeps it resident (ttl: 0 on the model itself does the same; both
-      # set for clarity, matching llama-swap-apu's "always-on" group
-      # convention).
+      # No "chat" group since 2026-09-24 (#701): gpt-oss-20b is the only
+      # chat model on this card and lives in "always-on" below instead --
+      # there is nothing left to swap between.
+      #
+      # Both gpt-oss-20b (chat, 4x32k slots) and jina-reranker-v2 (rerank)
+      # run concurrently, always resident -- deliberately NOT an exclusive
+      # swap group. persistent: true keeps them resident (ttl: 0 on each
+      # model itself does the same; both set for clarity, matching
+      # llama-swap-apu's "always-on" group convention).
       "always-on":
         swap: false
         exclusive: false
         persistent: true
         members:
+          - "gpt-oss-20b"
+          - "jina-reranker-v2"
+
+    hooks:
+      on_startup:
+        preload:
+          - "gpt-oss-20b"
           - "jina-reranker-v2"
