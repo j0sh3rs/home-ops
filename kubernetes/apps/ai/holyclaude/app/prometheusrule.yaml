@@ -7,13 +7,22 @@
 #   - a dead-export/pipeline-health alert (the motivating case from the
 #     issue -- this would have surfaced OpenViking's silent empty recalls)
 #   - a per-session spend guard on claude_code.cost.usage
-# The issue's other two asks are deliberately NOT here:
-#   - Hindsight retain-queue-depth: blocked on vectorize-io/hindsight#4560
-#     per the issue's own sequencing note -- nothing to alert on yet.
-#   - Hook failures (recall/retain): would need a LogsQL rule against
-#     OpenViking's actual hook-failure log signature, which hasn't been
-#     characterized yet -- see docs/runbooks/agent-telemetry.md's Follow-ups
-#     section. Not fabricated here without a confirmed log pattern to match.
+# The issue's other two asks are deliberately NOT here -- both investigated
+# 2026-09-23, see docs/runbooks/agent-telemetry.md's "Explicitly deferred"
+# section for the full writeup:
+#   - Hindsight retain-queue-depth: structurally impossible today, not just
+#     blocked on a bugfix -- Hindsight itself isn't deployed anywhere in
+#     this cluster (separate not-yet-started migration, issue #701, itself
+#     blocked on #704). No queue exists to measure.
+#   - Hook failures (recall/retain): investigated against real VictoriaLogs
+#     data. OpenViking's server logs have zero ERROR-level entries in 30
+#     days; the only related signal (embedder "slow call" WARNING) is
+#     already-known-accepted baseline latency at ~1076 occurrences/week --
+#     too high-baseline and not actually a failure signal. The real silent-
+#     failure case (a hook stalling then proceeding with no recall) logs
+#     nothing at all by design. Operator decision: don't ship a rule on an
+#     unclean signal; revisit on a real incident or once #701 replaces this
+#     recall/retain path entirely.
 #
 # Metric/label names -- CONFIRMED against real ingested data 2026-09-23 (a
 # one-shot `claude -p` run inside the holyclaude pod, then queried live

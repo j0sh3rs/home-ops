@@ -184,20 +184,48 @@ specifically — logs/traces should still work.
 
 ## Explicitly deferred (per issue #707)
 
-- **Hindsight retain-queue-depth alert** — blocked on
-  [vectorize-io/hindsight#4560](https://github.com/vectorize-io/hindsight/issues/4560)
-  per the issue's own sequencing note. Nothing to alert on until that
-  metric/queue exists.
-- **Hook-failure alerts (recall/retain)** — would need a LogsQL rule
-  against OpenViking's actual hook-failure log signature. HolyClaude's pod
-  logs already ship to VictoriaLogs today (vector's cluster-wide
-  `kubernetes_logs` source, no change needed for that part), but the exact
-  failure log pattern to match hasn't been characterized. Follow-up: grep a
-  real recall/retain failure from `https://logs.68cc.io` (or trigger one
-  deliberately) before writing this rule, and check whether vmalert in this
-  cluster can run a LogsQL-datasource rule group at all (today's
-  `vmalert.yaml` only configures a Prometheus datasource against
-  `metrics.68cc.io`).
+- **Hindsight retain-queue-depth alert** — structurally not possible yet,
+  not just blocked on a bugfix. Hindsight itself isn't deployed anywhere in
+  this cluster: it's the subject of a separate, not-yet-started migration
+  (issue #701, "replace OpenViking with Hindsight"), itself blocked on
+  #704. There is no queue, no service, no metric to alert on until #701
+  ships Hindsight. [vectorize-io/hindsight#4560](https://github.com/vectorize-io/hindsight/issues/4560)
+  (referenced in #701's watch-outs) is a *different*, now-closed bug about
+  runaway retain cost/extraction-mode, not a queue-depth metric — closing
+  it doesn't unblock this alert. Revisit once #701 actually deploys
+  Hindsight.
+
+- **Hook-failure alerts (recall/retain)** — investigated 2026-09-23,
+  deliberately not shipped. Findings:
+  - OpenViking's server logs (`app_name:openviking` in VictoriaLogs) have
+    **zero** ERROR/exception/traceback-level entries in the last 30 days.
+  - The only related signal is a `WARNING ... slow call ... duration_ms=`
+    line from `openviking.models.embedder.openai_embedders` — confirmed
+    real via `https://logs.68cc.io`:
+    `app_name:openviking AND _msg:" - WARNING - " AND _msg:"slow call"`
+    returns **1076 hits over the last 7 days** (~one every 9 minutes on
+    average, bursty around active sessions). This is the already-known,
+    already-accepted embedding-path latency documented elsewhere in this
+    repo (issue #701's own motivation) — not a failure, and far too
+    high-baseline to threshold naively without causing alert fatigue.
+  - The actual silent-failure case issue #701 describes (a
+    `UserPromptSubmit` hook stalling up to 60s and "proceeding with no
+    recall and no visible error") **logs nothing at all, by design** — the
+    failure is the absence of a log line, not the presence of one. There is
+    currently no clean signal to match a LogsQL rule against.
+  - Shipping anything here would also mean new cluster alerting
+    infrastructure (this cluster's single `vmalert` only has a Prometheus
+    datasource against `metrics.68cc.io`; a LogsQL-based rule needs either
+    a second `VMAlert` instance pointed at VictoriaLogs — carefully
+    excluded from the existing vmalert's `selectAllByDefault` so it doesn't
+    disturb the 45+ existing rules — or extending Vector's cluster-wide
+    log-shipping DaemonSet with a `log_to_metric` transform, which risks
+    breaking log ingestion cluster-wide on a config mistake). Real
+    production risk for a signal that isn't clean yet.
+  - **Decision (operator, 2026-09-23): don't ship an alert on this signal.**
+    Revisit when either a real hook-failure incident produces something
+    concrete to match against, or when #701 replaces this recall/retain
+    path with Hindsight's entirely and the question becomes moot.
 
 ## Acceptance criteria status (from issue #707)
 
@@ -206,9 +234,13 @@ specifically — logs/traces should still work.
       side still needs the by-hand config above applied).
 - [x] Grafana dashboard for agent sessions — `holyclaude-agent-sessions`,
       folder `AI`, all panel queries confirmed against live data.
-- [ ] Alerts for hook failures and queue depth — explicitly deferred, see
-      above. Spend + pipeline-health alerts added instead as what's
-      actionable today, both confirmed evaluating correctly against live
-      data (`ClaudeCodeSessionSpendHigh` correctly not firing at $0.33 <
-      $10; `ClaudeCodeTelemetryStale` correctly not firing while data is
+- [ ] Alerts for hook failures and queue depth — investigated and
+      deliberately deferred, see above (queue-depth is structurally
+      blocked on the not-yet-started #701 Hindsight migration;
+      hook-failure has no clean signal to alert on today, and the operator
+      chose not to ship a noisy/low-confidence proxy). Spend +
+      pipeline-health alerts added instead as what's actionable today, both
+      confirmed evaluating correctly against live data
+      (`ClaudeCodeSessionSpendHigh` correctly not firing at $0.33 < $10;
+      `ClaudeCodeTelemetryStale` correctly not firing while data is
       flowing).
