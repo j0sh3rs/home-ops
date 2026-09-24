@@ -1,0 +1,94 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# Hindsight memory server (#701), running in parallel with OpenViking until
+# the #704 eval gates cutover. Design:
+# docs/superpowers/specs/2026-09-24-hindsight-deployment-design.md
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: hindsight
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: hindsight
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    # Image tag for api + control plane. Keep equal to the chart tag.
+    version: "0.10.1"
+    # envFrom on both pods: postgres-password, HINDSIGHT_API_LLM_API_KEY,
+    # HINDSIGHT_API_TENANT_USERS, HINDSIGHT_CP_DATAPLANE_API_KEY.
+    existingSecret: hindsight-secret
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
+
+    api:
+      replicaCount: 1
+      # Default image bakes in bge-small-en-v1.5 + ms-marco-MiniLM-L-6-v2, so
+      # recall has no inference dependency and no model PVC. The in-process
+      # torch models put this pod above the repo's <2Gi guideline (accepted
+      # in the spec); right-size after the retain trial.
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+      env:
+        HINDSIGHT_API_LLM_PROVIDER: openai
+        HINDSIGHT_API_LLM_BASE_URL: http://omniroute.ai.svc.cluster.local:20128/v1
+        # gpt-oss-20b via the scoped hindsight-retain key (restricted to this
+        # one model -- cannot reach the Claude lane).
+        HINDSIGHT_API_LLM_MODEL: llamaswap/reasoner
+        # llama-swap runs gpt-oss-20b with 4 slots. Background operations
+        # are capped at 1 each so one slot always stays free for reflect
+        # (the per-op caps nest inside the global cap).
+        HINDSIGHT_API_LLM_MAX_CONCURRENT: "4"
+        HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "1"
+        HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "1"
+        HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "1"
+        # Upstream default 64000 cannot fit a 32k slot; reasoning tokens
+        # count against this budget, hence low effort.
+        HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS: "16000"
+        HINDSIGHT_API_RETAIN_LLM_REASONING_EFFORT: low
+        # Per-client keys, all mapped to user josh -> one shared schema
+        # (user_josh). Extension source: configmap-extension.yaml.
+        HINDSIGHT_API_TENANT_EXTENSION: hindsight_ext_static_keys_tenant:StaticKeysTenantExtension
+        PYTHONPATH: /app/extensions
+        # Applied to every new bank: Memory Defense (#702) redacts secrets
+        # and PII before storage; concise extraction (upstream #4560).
+        HINDSIGHT_API_DEFAULT_BANK_TEMPLATE: '{"version":"1","bank":{"memory_defense":{"enabled":true,"rules":[{"on":"sensitive_data","action":"redact"}]},"retain_extraction_mode":"concise"}}'
+      extraVolumes:
+        - name: tenant-ext
+          configMap:
+            name: hindsight-static-keys-ext
+      extraVolumeMounts:
+        - name: tenant-ext
+          mountPath: /app/extensions/hindsight_ext_static_keys_tenant
+          readOnly: true
+
+    worker:
+      # The API runs the queue worker in-process (single replica rule).
+      enabled: false
+
+    controlPlane:
+      replicaCount: 1
+
+    postgresql:
+      enabled: false
+      external:
+        host: postgres17-rw.databases.svc.cluster.local
+        port: 5432
+        database: hindsight
+        username: hindsight
+
+    metrics:
+      serviceMonitor:
+        enabled: true

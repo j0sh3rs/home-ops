@@ -17,6 +17,8 @@
 # argus's Discord-bridging forwarder for triage summaries. openclaw and
 # argus remain commented out below (not currently deployed) but their
 # config already points at Omniroute for whenever either is re-enabled.
+# Hindsight runs in parallel with OpenViking (#701) until the #704 eval
+# gates cutover.
 #
 # Components:
 #   - common                 — namespace + cluster-secrets + sops-age
@@ -36,6 +38,7 @@ resources:
   - ./atuin-ai-server/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./holyclaude/ks.yaml
+  - ./hindsight/ks.yaml
   - ./llama-swap/ks.yaml
   - ./llama-swap-apu/ks.yaml
   - ./omniroute/ks.yaml
