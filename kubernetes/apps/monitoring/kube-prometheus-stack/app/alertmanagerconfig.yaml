@@ -66,36 +66,8 @@ spec:
         - apiURL:
             name: alertmanager-secret
             key: DISCORD_WEBHOOK_URL
-      # Every alert that already reaches Discord (severity=critical, per the
-      # route above) also triggers an openclaw automation-identity triage
-      # session -- pure in-cluster traffic, no new exposure. See
-      # docs/superpowers/specs/2026-08-15-openclaw-automation-integrations-design.md.
-      #
-      # DISABLED pending the Discord bot actually existing (Task 5's manual
-      # follow-up): openclaw's hooks.mappings entries deliver their result to
-      # a placeholder Discord channel ID, so a firing alert today would spawn
-      # an unattended agent session with zero operator visibility. Uncomment
-      # this block once DISCORD_BOT_TOKEN and the channel-ID placeholders in
-      # kubernetes/apps/ai/openclaw/app/configmap.yaml hold real values AND
-      # that file's hooks.mappings entries have been uncommented.
-      #
-      # Confirmed actually broken 2026-09-04, not just theoretically disabled:
-      # the `openclaw` Service doesn't exist in the `ai` namespace at all
-      # (never deployed under that name), so every alert was retrying this
-      # webhook to permanent DNS failure ("no such host") and tripping the
-      # AlertmanagerFailedToSendAlerts / AlertmanagerClusterFailedToSendAlerts
-      # meta-alerts continuously. This comment said "disabled" but the block
-      # was live YAML the whole time -- actually commenting it out this time.
-      # webhookConfigs:
-      #   - url: "http://openclaw.ai.svc.cluster.local:18789/hooks/alertmanager"
-      #     # Alertmanager defaults sendResolved to true, which would fire the
-      #     # trigger twice per alert (once firing, once resolved) with a
-      #     # messageTemplate that gives the agent no way to tell them apart.
-      #     sendResolved: false
-      #     httpConfig:
-      #       bearerTokenSecret:
-      #         name: openclaw-hooks-secret
-      #         key: token
+      # The former openclaw /hooks/alertmanager webhook was removed when
+      # openclaw was archived 2026-09-24 (#711) -- see archive/openclaw/.
       webhookConfigs:
         # argus's forwarder does its own severity filtering
         # (forwarder.investigateSeverities: "critical,warning") and dedupe
