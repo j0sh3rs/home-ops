@@ -59,7 +59,8 @@ spec:
         transport:
           respondingTimeouts:
             readTimeout: 60
-            writeTimeout: 120
+            # 120 -> 150 2026-09-24 (#701): Hindsight's synchronous large-payload calls (dry-run extract, agent-invoked reflect) were cut at ~123s.
+            writeTimeout: 150
             idleTimeout: 180
       metrics:
         port: 9100
