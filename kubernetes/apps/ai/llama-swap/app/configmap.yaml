@@ -57,7 +57,7 @@ data:
         --reranking --pooling rank
 
     models:
-      # ==================== CHAT GROUP (exclusive swap) ====================
+      # ==================== CHAT (gpt-oss-20b only, always-on; others disabled #701) ====================
 
       # DISABLED 2026-09-24 (#701): cannot co-reside with always-on gpt-oss-20b. Aliases moved to gpt-oss-20b.
       # Agentic coder flagship. Pure-attention qwen3_moe — no GatedDeltaNet/SSM
@@ -163,7 +163,9 @@ data:
 
       # Qwen2.5-Coder-7B — superseded by agentic-coder for multi-step work.
       # Kept commented for dense single-turn fallback if agentic-coder slot
-      # proves unstable. Re-add to chat group members list to re-enable.
+      # proves unstable. Re-enabling needs either a free VRAM budget
+      # alongside the always-on gpt-oss-20b (~11.5 GiB), or a restored
+      # exclusive swap group like the old "chat" group -- see #701.
       # "qwen-coder-7b":
       #   cmd: |
       #     ${llama-vulkan}
@@ -187,10 +189,11 @@ data:
       # via this same code path. Do not substitute either without
       # re-verifying score sanity first. ctx-size 8192 matches the proven
       # APU-tier config (real rerank query+document batches never
-      # approached that ceiling there). Not part of the "chat" exclusive
-      # group -- runs concurrently alongside whichever chat model is
-      # loaded, so rerank calls never wait on a swap. See agentic-coder's
-      # ctx-size comment above for the VRAM trade-off this required.
+      # approached that ceiling there). Runs concurrently alongside the
+      # always-on gpt-oss-20b -- no swapping happens on this card since
+      # 2026-09-24 (#701), so rerank calls never wait on anything. See
+      # agentic-coder's ctx-size comment above for the VRAM trade-off this
+      # originally required.
       "jina-reranker-v2":
         cmd: |
           ${llama-vulkan-rerank}
