@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/postgresql.cnpg.io/database_v1.json
+# Hindsight's database (#701). extensions: vector is the reason this is a
+# CNPG Database and not a postgres-init initContainer: Hindsight's
+# migrations check for pgvector but never create it, and postgres-init
+# can't create extensions. databaseReclaimPolicy: retain keeps the data if
+# this manifest is ever removed.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: hindsight
+spec:
+  cluster:
+    name: postgres17
+  name: hindsight
+  owner: hindsight
+  ensure: present
+  databaseReclaimPolicy: retain
+  extensions:
+    - name: vector
+      ensure: present

@@ -69,6 +69,16 @@ spec:
           - pg_monitor
         passwordSecret:
           name: holmesgpt-db-creds
+      # Hindsight memory server (kubernetes/apps/ai/hindsight/, #701).
+      # Owns the `hindsight` Database (database-hindsight.yaml), which is
+      # what installs pgvector -- Hindsight's migrations require it but
+      # never CREATE EXTENSION themselves. Password must match
+      # `postgres-password` in kubernetes/apps/ai/hindsight/app/secret.sops.yaml.
+      - name: hindsight
+        ensure: present
+        login: true
+        passwordSecret:
+          name: hindsight-db-creds
   postgresql:
     # Parameter tuning rationale (2026-05-21 audit, see
     # docs/runbooks/database-tuning-recommendations.md):

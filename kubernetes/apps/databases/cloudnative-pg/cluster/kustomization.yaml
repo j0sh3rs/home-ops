@@ -13,3 +13,5 @@ resources:
   - ./tcproute.yaml
   - ./dnsendpoint.yaml
   - ./holmesgpt-role-secret.sops.yaml
+  - ./hindsight-role-secret.sops.yaml
+  - ./database-hindsight.yaml
