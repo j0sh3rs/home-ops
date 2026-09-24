@@ -58,9 +58,9 @@ Out of scope (each is its own later work):
 | D4 | Auth via `StaticKeysTenantExtension`, one user `josh` with one key per client | Per-client revocable keys that all share one schema (`user_josh`), i.e. shared memory. The built-in extension supports only one shared key |
 | D5 | Extension source shipped in a ConfigMap and put on the API's `PYTHONPATH`; custom image only if that fails to import | The extension is ~17 KB of pure Python with no dependencies; avoids an image build pipeline |
 | D6 | Default in-process models (`BAAI/bge-small-en-v1.5` embedder, `cross-encoder/ms-marco-MiniLM-L-6-v2` reranker), baked into the upstream image | No PVC, no startup download, no inference dependency on recall. See Accepted trade-offs for quality |
-| D7 | Retain/reflect LLM: `provider=openai`, base URL `http://omniroute.ai.svc.cluster.local:20128/v1`, model `llamaswap/reasoner` (`gpt-oss-20b`) | Local model, no Claude lane. Largest context available (65k), strong structured output |
+| D7 | Retain/reflect LLM: `provider=openai`, base URL `http://omniroute.ai.svc.cluster.local:20128/v1`, model `llamaswap/reasoner` (`gpt-oss-20b`) | Local model, no Claude lane. Strong structured output and MoE speed (~66 tok/s decode) |
 | D8 | New Omniroute key `hindsight-retain` with `modelAccessMode: "restricted"` + `allowedModels: ["llamaswap/reasoner"]` | Unlike the 8 existing automated keys (`"all"`), this one cannot reach the Claude lane even by misconfiguration |
-| D9 | `gpt-oss-20b` becomes the dGPU's **only** chat model, in the `always-on` group, `--parallel 2` with 2×65k slots. `agentic-coder` and `qwen3.5-35b-a3b` are commented out (not deleted) with the reason. Their aliases (`coder`, `code-large`, `coder-large`, `frontier`, `frontier-chat`) move onto `gpt-oss-20b` | Operator requirement: retain/reflect must never wait on a model swap. At 65k ctx `gpt-oss-20b` holds ~11.5 GiB of 15.9 GiB usable, so no other chat model can co-reside. Two slots keep reflect from queuing behind a long retain. Alias move means no consumer changes |
+| D9 | `gpt-oss-20b` becomes the dGPU's **only** chat model, in the `always-on` group, `--parallel 4 --ctx-size 131072` (4 slots × 32k). Hindsight caps retain, consolidation and mental-model refresh at 1 concurrent LLM call each (`HINDSIGHT_API_{RETAIN,CONSOLIDATION,MENTAL_MODEL_REFRESH}_LLM_MAX_CONCURRENT=1`) under a global cap of 4. `agentic-coder` and `qwen3.5-35b-a3b` are commented out (not deleted) with the reason. Their aliases (`coder`, `code-large`, `coder-large`, `frontier`, `frontier-chat`) move onto `gpt-oss-20b` | Operator requirement: retain/reflect must never wait on a model swap. At 65k ctx `gpt-oss-20b` holds ~11.5 GiB of 15.9 GiB usable, so no other chat model can co-reside. Hindsight's per-operation caps are separate semaphores nested in the global one, so with only 2 slots retain + consolidation could fill both and reflect would still queue; 3 capped background operations + 1 free slot guarantees reflect a slot. Same total KV (131072 tokens) as 2×65k, so the same VRAM. Every operation fits 32k: retain chunks are ~3,000 chars with a 16k completion cap, and reflect's per-call recall is 2,048 tokens. Alias move means no consumer changes |
 | D10 | Plugin keeps `autoInject: "reflect"` (the default) | Operator choice: keep the LLM synthesis on the first prompt to maximize memory efficacy, now that D9 removes the swap stall |
 | D11 | Plugin pinned to `@vectorize-io/hindsight-coding-agents@0.7.0`, `autoUpdate: false`, `retainExtractionMode: "concise"` | Issue asks to pin. 0.7.0 (2026-09-24) postdates the fix for upstream #4560 (verbose extraction / full re-send); the plan must confirm the fix is in 0.7.0 |
 | D12 | Routes on `traefik-internal` (VIP `192.168.35.17`, LAN DNS only): `hindsight.68cc.io` → API `:8888` (bearer-token auth), `hindsight-ui.68cc.io` → control plane `:3000` behind Authentik forwardAuth | All clients are on the LAN or in-cluster. The UI has no login of its own and holds an API key, so it needs forwardAuth. Moving to external later is a one-line change |
@@ -102,7 +102,7 @@ Wire `./hindsight/ks.yaml` into `kubernetes/apps/ai/kustomization.yaml`.
   - `HINDSIGHT_API_TENANT_EXTENSION=hindsight_ext_static_keys_tenant:StaticKeysTenantExtension` and `PYTHONPATH` including the ConfigMap mount (D4, D5)
   - `HINDSIGHT_API_DEFAULT_BANK_TEMPLATE` (D13)
   - retain sizing (below)
-- Control plane: the env var carrying its API key (exact name taken from the chart/control-plane source during planning)
+- Control plane: `HINDSIGHT_CP_DATAPLANE_API_KEY` (its key into the API), delivered through the same `existingSecret`
 
 **Resources**: start from the chart defaults (API request 1Gi, limit 4Gi) and right-size from observed usage after the retain trial. The in-process torch models make the API pod exceed the repo's <2Gi guideline; that is expected and recorded here.
 
@@ -110,17 +110,18 @@ Wire `./hindsight/ks.yaml` into `kubernetes/apps/ai/kustomization.yaml`.
 
 ### Retain sizing
 
-`gpt-oss-20b` has 65k context per slot, and its reasoning tokens count against the completion budget. `HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS` and retain batch/chunk sizes (`HINDSIGHT_API_RETAIN_BATCH_TOKENS` and related) must be set so that prompt + reasoning + output fits one 65k slot. Exact values come from reading `hindsight_api/config.py` defaults during planning, and are validated in the retain trial (step 6). Upstream's "≥65k output tokens" guidance cannot be met by any local model; the trial is the check that concise extraction works within the budget.
+`gpt-oss-20b` has 32k context per slot (D9), and its reasoning tokens count against the completion budget. `HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS` and retain batch/chunk sizes (`HINDSIGHT_API_RETAIN_BATCH_TOKENS` and related) must be set so that prompt + reasoning + output fits one 32k slot: `HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS=16000` (upstream default 64000 cannot fit), `HINDSIGHT_API_RETAIN_LLM_REASONING_EFFORT=low`, and the default 3,000-char `RETAIN_CHUNK_SIZE`. Validated in the retain trial (step 6). Upstream's "≥65k output tokens" guidance cannot be met by any local model; the trial is the check that concise extraction works within the budget.
 
 ### Default bank template (D13)
 
 ```json
 {"version": "1",
- "bank": {"memory_defense": {<sensitive_data rule, action "redact">},
+ "bank": {"memory_defense": {"enabled": true,
+                             "rules": [{"on": "sensitive_data", "action": "redact"}]},
           "retain_extraction_mode": "concise"}}
 ```
 
-The exact `memory_defense` shape comes from the `DefensePolicy` schema in the pinned image. Planning must confirm that the template's `bank` section accepts `memory_defense`; if it doesn't, the fallback is a post-install `PATCH /v1/{tenant}/banks/{bank_id}/config` for each bank.
+Confirmed against v0.10.1: `BankTemplateConfig` declares `memory_defense: dict` (`hindsight_api/api/http.py`), and the policy shape matches `DefensePolicy` (`enabled` + `rules`).
 
 ## Data flow
 
@@ -144,11 +145,11 @@ Later prompts in the session get the knowledge-page roster, and the agent calls 
 
 Each step must pass before the next.
 
-1. **llama-swap (D9)**: pin `gpt-oss-20b` (`always-on`, `--parallel 2`, 2×65k), comment out the other two chat models, move the aliases.
+1. **llama-swap (D9)**: pin `gpt-oss-20b` (`always-on`, `--parallel 4`, 4×32k), comment out the other two chat models, move the aliases.
    - ✔ rocm-smi on `bigboi-jms-01` shows ≥2 GiB free with `jina-reranker-v2` loaded.
-   - ✔ Two concurrent requests are served in parallel, not queued.
+   - ✔ Four concurrent requests are served in parallel, not queued.
    - ✔ atuin-ai-server's `coding-fast` combo still answers.
-   - If ≥2 GiB free is not reached, drop to 2×49k and re-measure.
+   - If ≥2 GiB free is not reached, drop to `--ctx-size 98304` and re-measure.
 2. **Database (D3)**: managed role, role secret, `Database` resource.
    - ✔ `\dx` in `hindsight` lists `vector`.
    - ✔ The `hindsight` role can connect and owns the database.
@@ -199,7 +200,7 @@ Each step must pass before the next.
 ## Risks
 
 - **Extension import via `PYTHONPATH`** may fail (packaging or entry-point assumptions). Mitigation: build a small image from upstream's `hindsight-extensions/static-keys-tenant/Dockerfile`, which needs an image build/push workflow.
-- **`--parallel 2` VRAM** measured below the margin. Mitigation: 2×49k (step 1).
+- **`--parallel 4` VRAM** measured below the margin. Mitigation: `--ctx-size 98304` (4×24k), re-checking the largest real retain prompt fits (step 1).
 - **Plugin 0.7.0 behavior differs from its README** (e.g. the #4560 fix not included). Mitigation: plan verifies against the 0.7.0 tarball's source before install.
 - **HolyClaude's postStart patch** may overwrite the plugin's hooks in `settings.json`. Mitigation: step 8 checks across a restart; patch the postStart merge if needed.
 
