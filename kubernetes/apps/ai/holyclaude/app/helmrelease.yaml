@@ -256,6 +256,10 @@ spec:
               # reverted back to "coding-deep" on the next restart.
               OMNIROUTE_ANTHROPIC_BASE_URL: "http://omniroute.ai.svc.cluster.local:20128"
               OMNIROUTE_ANTHROPIC_MODEL: "coding-deep"
+              # Hindsight plugin (#701), running in parallel with OpenViking.
+              # In-cluster Service, not the LAN route. The token comes from
+              # holyclaude-secret (envFrom).
+              HINDSIGHT_API_URL: "http://hindsight-api.ai.svc.cluster.local:8888"
               # OpenTelemetry export for Claude Code itself (issue #707).
               # metrics.68cc.io/logs.68cc.io both already expose native OTLP
               # ingest endpoints -- confirmed via a direct HTTP probe
@@ -557,6 +561,13 @@ spec:
           # subsequent restart without repeating that step.
           - path: /home/claude/.openviking
             subPath: .openviking
+          # Added 2026-09-24 (#701): Hindsight's coding-agents plugin keeps
+          # its runtime copy, config (coding-agent.json), caches and logs in
+          # ~/.hindsight. Same reason as .openviking above: installed once
+          # from the web terminal, must survive restarts. Connection config
+          # (HINDSIGHT_API_URL/HINDSIGHT_API_TOKEN) comes from env, not this file.
+          - path: /home/claude/.hindsight
+            subPath: .hindsight
           # Added 2026-09-06: CloudCLI's own UI plugins (GitHub Issues
           # Board, Task Queue, etc.) install and reinstall themselves
           # every restart because CloudCLI's plugin registry lives at
