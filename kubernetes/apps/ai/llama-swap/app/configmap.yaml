@@ -12,7 +12,7 @@ data:
     #
     # Navi 48 dGPU on bigboi-jms-01 (Radeon RX 9070 XT, 16 GiB GDDR6, ~640 GB/s).
     # Since 2026-09-24 (issue #701, Hindsight) gpt-oss-20b is the ONLY chat
-    # model on this card, always resident with 4x32k slots, so Hindsight's
+    # model on this card, always resident with 5x32k slots, so Hindsight's
     # retain/reflect never wait on a model swap. agentic-coder and
     # qwen3.5-35b-a3b are commented out below (each needs ~13-14 GiB, and
     # neither fits beside gpt-oss-20b's ~11.5 GiB); their aliases moved onto
@@ -136,19 +136,24 @@ data:
       #     - "frontier-chat"
       #   ttl: 120
 
-      # Sole chat model since 2026-09-24 (#701). --parallel 4 splits
-      # --ctx-size 131072 into 4 slots of 32768: Hindsight caps retain,
-      # consolidation and mental-model refresh at 1 LLM call each, so one
-      # slot is always free for reflect (the plugin's first-prompt
-      # synthesis). Same total KV as the old single 65536 slot plus one
-      # more 65536 -- re-measure VRAM (mem_info_vram_used) after any
-      # change here; >=2 GiB free with jina-reranker-v2 loaded is the bar.
+      # Sole chat model since 2026-09-24 (#701). --parallel 5 splits
+      # --ctx-size 163840 into 5 slots of 32768. Raised 4 -> 5 slots
+      # 2026-09-24 (#701, task 8b): Hindsight's retain queue was
+      # backlogged at retain=1 (one batch_retain took 13 min). With 5
+      # slots, background caps are retain 2 + consolidation 1 +
+      # mental-model refresh 1 = 4 slots max, nested inside the global
+      # cap, so one slot is always free for reflect (the plugin's
+      # first-prompt synthesis) -- same invariant as before, just with
+      # more background throughput. Re-measure VRAM (mem_info_vram_used)
+      # after any change here; >=2 GiB free with jina-reranker-v2 loaded
+      # is the bar -- if a future raise breaks that bar, revert to 4
+      # slots / --ctx-size 131072.
       "gpt-oss-20b":
         cmd: |
           ${llama-vulkan}
           --model /models/gpt-oss-20b-Q4_K_M.gguf
-          --ctx-size 131072
-          --parallel 4
+          --ctx-size 163840
+          --parallel 5
           -ub 2048 -b 16384
           --temp 1.0 --top-p 1.0 --top-k 0
         aliases:
@@ -209,7 +214,7 @@ data:
       # chat model on this card and lives in "always-on" below instead --
       # there is nothing left to swap between.
       #
-      # Both gpt-oss-20b (chat, 4x32k slots) and jina-reranker-v2 (rerank)
+      # Both gpt-oss-20b (chat, 5x32k slots) and jina-reranker-v2 (rerank)
       # run concurrently, always resident -- deliberately NOT an exclusive
       # swap group. persistent: true keeps them resident (ttl: 0 on each
       # model itself does the same; both set for clarity, matching

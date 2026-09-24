@@ -47,11 +47,14 @@ spec:
         # gpt-oss-20b via the scoped hindsight-retain key (restricted to this
         # one model -- cannot reach the Claude lane).
         HINDSIGHT_API_LLM_MODEL: llamaswap/reasoner
-        # llama-swap runs gpt-oss-20b with 4 slots. Background operations
-        # are capped at 1 each so one slot always stays free for reflect
-        # (the per-op caps nest inside the global cap).
-        HINDSIGHT_API_LLM_MAX_CONCURRENT: "4"
-        HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "1"
+        # llama-swap runs gpt-oss-20b with 5 slots (raised 4 -> 5
+        # 2026-09-24, #701 task 8b: retain queue was backlogged at
+        # retain=1, one batch_retain took 13 min). Background operations
+        # are capped at retain 2 + consolidation 1 + mental-model refresh
+        # 1 = 4 slots max (the per-op caps nest inside the global cap),
+        # so one slot always stays free for reflect.
+        HINDSIGHT_API_LLM_MAX_CONCURRENT: "5"
+        HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
         HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "1"
         HINDSIGHT_API_MENTAL_MODEL_REFRESH_LLM_MAX_CONCURRENT: "1"
         # Upstream default 64000 cannot fit a 32k slot; reasoning tokens
