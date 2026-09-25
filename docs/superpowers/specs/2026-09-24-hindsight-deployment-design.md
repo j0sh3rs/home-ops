@@ -1,7 +1,15 @@
 # Hindsight Deployment (Parallel Run with OpenViking) — Design
 
 Date: 2026-09-24
-Status: Approved design, pending implementation plan
+Status: Implemented (#701), running in parallel with OpenViking pending
+the #704 cutover gate. **Superseded since deployment**: D9 is refined to
+5 slots (`--parallel 5`), retain concurrency 2, global cap 5 (was 4/1/4);
+D10 (`autoInject: "reflect"`) is superseded by `autoInject: "recall"`
+(operator decision, 2026-09-25 — reflect's 20s first-prompt synthesis
+timed out on every session even against a healthy backend). See
+`kubernetes/apps/ai/CLAUDE.md`'s hindsight bullet and the execution
+ledger (`docs/superpowers/plans/2026-09-24-hindsight-deployment.md`) for
+the current, authoritative state.
 Issue: #701 (P1-06). Folds in #702 (P1-07, Memory Defense).
 Related: #704 (P0-05, recall eval — gates cutover, not this work),
 #703 (P1-08, backfill), #705 (P0-01, Omniroute CNP — disabled, on branch

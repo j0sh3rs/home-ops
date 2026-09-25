@@ -184,16 +184,23 @@ specifically — logs/traces should still work.
 
 ## Explicitly deferred (per issue #707)
 
-- **Hindsight retain-queue-depth alert** — structurally not possible yet,
-  not just blocked on a bugfix. Hindsight itself isn't deployed anywhere in
-  this cluster: it's the subject of a separate, not-yet-started migration
-  (issue #701, "replace OpenViking with Hindsight"), itself blocked on
-  #704. There is no queue, no service, no metric to alert on until #701
-  ships Hindsight. [vectorize-io/hindsight#4560](https://github.com/vectorize-io/hindsight/issues/4560)
-  (referenced in #701's watch-outs) is a *different*, now-closed bug about
-  runaway retain cost/extraction-mode, not a queue-depth metric — closing
-  it doesn't unblock this alert. Revisit once #701 actually deploys
-  Hindsight.
+- **Hindsight retain-queue-depth alert** — Hindsight **is** deployed
+  (#701, running in parallel with OpenViking pending the #704 cutover
+  gate) and there is still no alert on this. A 16-hour silent queue wedge
+  actually happened 2026-09-24/25: hostname-based worker ids left 6
+  retains stuck `processing` under a replaced pod, blocking 10 pending
+  retains behind them with no alert firing (see the "2026-09-24/25
+  backlog incident" writeup in `kubernetes/apps/ai/CLAUDE.md`'s hindsight
+  bullet, and I1's rollout-strategy fix in the same file). This is an
+  open follow-up, not built in this wave. Candidates:
+  - A VMRule on the scraped Hindsight `/metrics` endpoint (pending/
+    processing counts, or oldest-pending age, if exposed there).
+  - A SQL-based check against `user_josh.async_operations` directly —
+    e.g. oldest `processing` row older than 30 min, or a rising pending
+    count. [vectorize-io/hindsight#4560](https://github.com/vectorize-io/hindsight/issues/4560)
+    (referenced in #701's watch-outs) is a *different*, now-closed bug
+    about runaway retain cost/extraction-mode, not a queue-depth metric —
+    it doesn't cover this gap either way.
 
 - **Hook-failure alerts (recall/retain)** — investigated 2026-09-23,
   deliberately not shipped. Findings:
