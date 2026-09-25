@@ -52,6 +52,25 @@ spec:
                 value: "Authentik"
               - name: NEXT_PUBLIC_DISABLE_REGISTRATION
                 value: "true"
+              # AI auto-tagging (#714), local-only: gpt-oss-20b via
+              # llama-swap's `reasoner` alias, called directly (no Omniroute,
+              # no key -- same pattern as Hindsight since 2026-09-25).
+              # Linkwarden's worker uses the OpenAI-compatible provider when
+              # OPENAI_API_KEY+OPENAI_MODEL are set; CUSTOM_OPENAI_BASE_URL
+              # points it at llama-swap. Chosen over llama-swap-apu's
+              # qwen3.5-4b after a live test with Linkwarden's own prompt:
+              # both gave good tags, but qwen3.5-4b is a thinking model on a
+              # ~11 tok/s APU (213s/link, 2396 tokens) vs gpt-oss-20b (4s,
+              # 664 tokens). Tagging is per-user opt-in: Settings ->
+              # Preferences -> AI tagging.
+              - name: OPENAI_API_KEY
+                value: "not-needed"
+              - name: OPENAI_MODEL
+                value: "reasoner"
+              - name: CUSTOM_OPENAI_BASE_URL
+                value: "http://llama-swap.ai.svc.cluster.local:8080/v1"
+              - name: CUSTOM_OPENAI_NAME
+                value: "llama-swap"
               - name: NEXT_PUBLIC_CREDENTIALS_ENABLED
                 value: "false"
               - name: DISABLE_NEW_SSO_USERS
