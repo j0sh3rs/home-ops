@@ -121,7 +121,8 @@ spec:
         # OPENAI_API_BASE/OPENAI_API_KEY, which don't exist in this cluster.
         # See the comment above config.model for the full crash story.
         auto:
-          model: llamaswap/coder-large
+          # `openai/` prefix required by the LiteLLM SDK -- see modelList.litellm (#718).
+          model: openai/llamaswap/coder-large
           api_base: http://omniroute.ai.svc.cluster.local:20128/v1
           api_key: "{{ env.OMNIROUTE_API_KEY }}"
         litellm:
@@ -143,7 +144,17 @@ spec:
           # gpt-oss-20b, 32k slot (#701); the toolset budget below was
           # validated against the older 49152-token slot, so watch for
           # /api/chat 500s on context overflow after this goes live.
-          model: llamaswap/coder-large
+          #
+          # `openai/` prefix added 2026-09-25 (#718): Holmes calls models
+          # through the LiteLLM SDK, which reads the first path segment as
+          # the *provider* -- bare `llamaswap/coder-large` failed every
+          # /api/chat with "LLM Provider NOT provided" (the 2026-09-08
+          # "returns 200" check above hit Omniroute directly, not via the
+          # SDK). `openai/` selects LiteLLM's OpenAI-compatible provider,
+          # which strips the prefix and sends `llamaswap/coder-large` to
+          # api_base unchanged. Reproduced + verified with the pod's own
+          # /venv LiteLLM before this change. Same fix on `auto` above.
+          model: openai/llamaswap/coder-large
           api_base: http://omniroute.ai.svc.cluster.local:20128/v1
           api_key: "{{ env.OMNIROUTE_API_KEY }}"
       toolsets:
