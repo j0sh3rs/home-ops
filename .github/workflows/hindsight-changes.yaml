@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Hindsight Changes
+
+# Retains the "why" behind every human change to main into Hindsight's
+# `home-ops-changes` bank so agents can recall it (#713). Most changes here
+# are direct pushes, not PRs, so this triggers on push to main: a commit
+# that belongs to a merged PR is stored once as the PR (pr-<n>), anything
+# else as the commit (commit-<sha>). Bot authors (renovate[bot]) are skipped.
+# Script: .github/scripts/hindsight-retain-changes.py.
+#
+# Runs only on the in-cluster runner: Hindsight is cluster-internal, and
+# HINDSIGHT_API_KEY is injected into the runner pod from a SOPS secret
+# (kubernetes/apps/actions-runner-system/actions-runner-controller/runners/
+# home-ops/), never stored as a GitHub secret.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      prs:
+        description: "Backfill: last N merged human PRs (0 = none)"
+        default: "20"
+      commits_since:
+        description: "Backfill: human direct commits on main since YYYY-MM-DD (empty = none)"
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  retain:
+    name: Retain to Hindsight
+    # Skip Renovate/bot pushes without spending a runner (the script filters
+    # bot-authored commits too, for mixed pushes).
+    if: github.event_name == 'workflow_dispatch' || !endsWith(github.actor, '[bot]')
+    runs-on: home-ops-runner
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      HINDSIGHT_URL: http://hindsight-api.ai.svc.cluster.local:8888
+      HINDSIGHT_BANK: home-ops-changes
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Retain push
+        if: github.event_name == 'push'
+        run: >-
+          python3 .github/scripts/hindsight-retain-changes.py push
+          --before "${{ github.event.before }}" --after "${{ github.event.after }}"
+
+      - name: Backfill
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          PRS: ${{ inputs.prs }}
+          COMMITS_SINCE: ${{ inputs.commits_since }}
+        run: >-
+          python3 .github/scripts/hindsight-retain-changes.py backfill
+          --prs "$PRS" --commits-since "$COMMITS_SINCE"
