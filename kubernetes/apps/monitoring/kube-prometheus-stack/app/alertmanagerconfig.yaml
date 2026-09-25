@@ -76,5 +76,8 @@ spec:
         # argus-holmes and posts a triage summary to Discord (optionally
         # gated behind HITL approve/reject buttons). See
         # kubernetes/apps/ai/argus/, home-ops-qv0.6.
+        # sendResolved: true (#712) -- the forwarder retains resolutions
+        # (firing duration + that firing's verdict) into Hindsight's
+        # `incidents` bank; it never triages or posts on resolved alerts.
         - url: "http://argus-forwarder.ai.svc.cluster.local/webhook"
-          sendResolved: false
+          sendResolved: true

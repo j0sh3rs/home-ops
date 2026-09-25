@@ -53,6 +53,23 @@ spec:
       # durable git commits directly; argus's parallel repo-mapping feature
       # is unused for this design.
       repoMappings: {}
+      # Incident memory (#712, chart >= 0.1.4). Before each triage the
+      # forwarder recalls prior incidents from Hindsight's `incidents` bank
+      # into the Holmes prompt (<= 1500 chars); it retains every triage,
+      # every resolution (needs sendResolved on the Alertmanager receiver,
+      # see monitoring/kube-prometheus-stack alertmanagerconfig.yaml), and
+      # any proposal approve/reject/revise. Done in the forwarder, NOT as a
+      # Hindsight MCP toolset on Holmes: tool schemas would eat the 32k
+      # coder-large context (helm/core alone overflowed it) and gpt-oss-20b
+      # may not call the tool. HINDSIGHT_API_KEY is argus's own tenant key
+      # (mapped to user josh in hindsight-secret -> schema user_josh).
+      hindsight:
+        url: http://hindsight-api.ai.svc.cluster.local:8888
+        bank: incidents
+        recallMaxChars: 1500
+        apiKeySecret:
+          name: argus-forwarder
+          key: HINDSIGHT_API_KEY
 
     # Holmes subchart override -- consolidates everything validated in
     # Tasks 2-3 of this plan onto the one Holmes instance argus manages.
