@@ -17,7 +17,7 @@ Fully self-hosted AI namespace: no cloud LLM providers for automated workloads. 
 - **hindsight** (`hindsight/`): OCI chart and image 0.10.1. API with in-process worker, plus control plane. Routes (both `traefik-internal`): `hindsight.68cc.io` → API `:8888`, bearer keys only, no forwardAuth; `hindsight-ui.68cc.io` → `:3000`, forwardAuth. In-cluster: `hindsight-api.ai.svc.cluster.local:8888`.
   - Auth: `StaticKeysTenantExtension` ConfigMap, copied verbatim from v0.10.1 (regenerate on chart bump). `HINDSIGHT_API_TENANT_USERS` maps the laptop-claude, holyclaude, and control-plane keys to user `josh`, so all share schema `user_josh`. Routes are `/v1/default/...`.
   - DB: CNPG `postgres17` database `hindsight`; pgvector comes from a CNPG `Database` resource. `hindsight-db-creds` (ns `databases`) must match `postgres-password` in `hindsight-secret`. Rotate both together.
-  - LLM: `llamaswap/reasoner` via the `hindsight-retain` key (restricted to that one model). Concurrency: global 5, retain 2, consolidation 1, mental-model 1. atuin and argus share the same 5 gpt-oss slots without being counted. Settings: `RETAIN_MAX_COMPLETION_TOKENS=16000`, reasoning `low`, `LLM_STRICT_SCHEMA_RETAIN=true` (soft schema drops fields).
+  - LLM: **direct to llama-swap** (`reasoner`), not Omniroute (its 120s cap killed long calls); 600s timeout. Concurrency: global 5, retain 2, consolidation 1, mental-model 1. atuin and argus share the same 5 gpt-oss slots without being counted. Settings: `RETAIN_MAX_COMPLETION_TOKENS=16000`, reasoning `low`, `LLM_STRICT_SCHEMA_RETAIN=true` (soft schema drops fields).
   - Memory Defense redacts sensitive data on every bank via `DEFAULT_BANK_TEMPLATE`. The `relation "public.banks" does not exist` log line is a known, swallowed upstream quirk.
   - Worker durability: stable `HINDSIGHT_API_WORKER_ID=hindsight-api` plus a `Recreate` strategy via `postRenderers`. Keep both, because orphaned `processing` rows wedge the queue. There is no wedged-queue alert yet.
   - Clients: plugin `@vectorize-io/hindsight-coding-agents@0.7.0`, `autoInject: "recall"` (not `reflect`, which times out), `autoUpdate: false`, bank `coding-agent::home-ops`. **Not GitOps-managed**: `~/.hindsight/coding-agent.json` lives on the laptop and on HolyClaude's PVC. Check both copies after plugin maintenance, because `autoUpdate` has flipped back to `true` before.
@@ -45,7 +45,7 @@ Fully self-hosted AI namespace: no cloud LLM providers for automated workloads. 
 Details: `docs/ai-history/omniroute.md`.
 
 - **`/v1/messages` has no auth**: any pod that can reach Omniroute gets free Claude inference, bypassing the lane policy. Accepted for a single-user lab.
-- **`blockedModels` can't be set through the API**, because PATCH strips it. The automated keys have `modelAccessMode: "all"`. Lane isolation relies only on no automated combo containing Claude. **`hindsight-retain`** is the one restricted automated key.
+- **`blockedModels` can't be set through the API**, because PATCH strips it. The automated keys have `modelAccessMode: "all"`. Lane isolation relies only on no automated combo containing Claude.
 - **`maxWaitMs` is an execution deadline**, not a queue wait; the default is 15s. The `llama-swap` connection's `120000` override (the max) lives **only in Omniroute's DB**, not git. Re-apply it after any data reset, and restart Omniroute after any change.
 
 ## Do not relitigate

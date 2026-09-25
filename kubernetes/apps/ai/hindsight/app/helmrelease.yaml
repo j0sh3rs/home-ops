@@ -67,7 +67,7 @@ spec:
     # configmap-extension.yaml (Renovate automerge disabled for
     # vectorize-io -- see .renovate/autoMerge.json5).
     version: "0.10.1"
-    # envFrom on both pods: postgres-password, HINDSIGHT_API_LLM_API_KEY,
+    # envFrom on both pods: postgres-password,
     # HINDSIGHT_API_TENANT_USERS, HINDSIGHT_CP_DATAPLANE_API_KEY.
     existingSecret: hindsight-secret
     podAnnotations:
@@ -91,10 +91,22 @@ spec:
         # pod replacement -- see the postRenderers comment above.
         HINDSIGHT_API_WORKER_ID: hindsight-api
         HINDSIGHT_API_LLM_PROVIDER: openai
-        HINDSIGHT_API_LLM_BASE_URL: http://omniroute.ai.svc.cluster.local:20128/v1
-        # gpt-oss-20b via the scoped hindsight-retain key (restricted to this
-        # one model -- cannot reach the Claude lane).
-        HINDSIGHT_API_LLM_MODEL: llamaswap/reasoner
+        # Direct to llama-swap (gpt-oss-20b via its `reasoner` alias), NOT
+        # through Omniroute -- changed 2026-09-25. Long consolidation/retain
+        # calls under 5-slot contention exceed 120s; Omniroute's per-
+        # connection execution cap (maxWaitMs) tops out at 120000 by schema,
+        # so no Omniroute setting can allow longer calls. With the old 120s
+        # client timeout too, 43 consolidation batches timed out in 12h and
+        # were retried from scratch (one operation spun for 9.5h). llama-swap
+        # serves only local models, so the Anthropic-lane isolation the old
+        # scoped `hindsight-retain` Omniroute key provided is now structural
+        # (that key was revoked). llama-swap ignores the API key.
+        HINDSIGHT_API_LLM_BASE_URL: http://llama-swap.ai.svc.cluster.local:8080/v1
+        HINDSIGHT_API_LLM_MODEL: reasoner
+        HINDSIGHT_API_LLM_API_KEY: not-needed
+        # Per-attempt LLM timeout (default 120s). Covers retain and
+        # consolidation (they inherit it); reflect keeps its own 30s default.
+        HINDSIGHT_API_LLM_TIMEOUT: "600"
         # llama-swap runs gpt-oss-20b with 5 slots (raised 4 -> 5
         # 2026-09-24, #701 task 8b: retain queue was backlogged at
         # retain=1, one batch_retain took 13 min). Background operations
