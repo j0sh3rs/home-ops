@@ -62,7 +62,9 @@ spec:
               # gateway). The child stdio process inherits this env.
               LINKWARDEN_BASE_URL: http://linkwarden.services.svc.cluster.local:3000
               READ_ONLY: "true"
-              TOOLSETS: search,link,collection,tags
+              # No TOOLSETS: the env var isn't comma-split (the binary read
+              # "search,link,collection,tags" as one toolset name and exited).
+              # Default = all toolsets; --read-only leaves 9 read tools.
             envFrom:
               - secretRef:
                   name: linkwarden-mcp-secret
