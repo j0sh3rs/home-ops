@@ -76,6 +76,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        # Hindsight key for .github/workflows/hindsight-changes.yaml (#713).
+        # Runner pods are ephemeral (recreated after every job), so a key
+        # rotation is picked up by the next job without Reloader.
+        - name: HINDSIGHT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: home-ops-runner-hindsight
+              key: HINDSIGHT_API_KEY
       resources:
         requests:
           cpu: 100m
