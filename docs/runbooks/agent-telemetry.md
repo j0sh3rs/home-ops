@@ -185,8 +185,8 @@ specifically — logs/traces should still work.
 ## Explicitly deferred (per issue #707)
 
 - **Hindsight retain-queue-depth alert** — Hindsight **is** deployed
-  (#701, running in parallel with OpenViking pending the #704 cutover
-  gate) and there is still no alert on this. A 16-hour silent queue wedge
+  (#701; the sole memory layer since OpenViking's 2026-09-25 retirement)
+  and there is still no alert on this — tracked in #719. A 16-hour silent queue wedge
   actually happened 2026-09-24/25: hostname-based worker ids left 6
   retains stuck `processing` under a replaced pod, blocking 10 pending
   retains behind them with no alert firing (see the "2026-09-24/25
@@ -203,7 +203,8 @@ specifically — logs/traces should still work.
     it doesn't cover this gap either way.
 
 - **Hook-failure alerts (recall/retain)** — investigated 2026-09-23,
-  deliberately not shipped. Findings:
+  deliberately not shipped. Findings (historical: OpenViking was retired
+  2026-09-25, so its log queries below no longer return new data):
   - OpenViking's server logs (`app_name:openviking` in VictoriaLogs) have
     **zero** ERROR/exception/traceback-level entries in the last 30 days.
   - The only related signal is a `WARNING ... slow call ... duration_ms=`
