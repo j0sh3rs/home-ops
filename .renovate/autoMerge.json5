@@ -54,5 +54,10 @@
       automergeType: "branch",
       ignoreTests: false,
     },
+    {
+      description: "Hindsight: chart, image tag and vendored StaticKeysTenantExtension ConfigMap must move together (kubernetes/apps/ai/hindsight/app) — never auto-merge",
+      matchPackageNames: ["/vectorize-io/"],
+      automerge: false,
+    },
   ],
 }
