@@ -2,7 +2,8 @@
 name: Hindsight Changes
 
 # Retains the "why" behind every human change to main into Hindsight's
-# `home-ops-changes` bank so agents can recall it (#713). Most changes here
+# `coding-agent::home-ops` bank -- the one the Claude Code plugin recalls
+# from and argus shares -- tagged source:github (#713). Most changes here
 # are direct pushes, not PRs, so this triggers on push to main: a commit
 # that belongs to a merged PR is stored once as the PR (pr-<n>), anything
 # else as the commit (commit-<sha>). Bot authors (renovate[bot]) are skipped.
@@ -43,7 +44,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
       HINDSIGHT_URL: http://hindsight-api.ai.svc.cluster.local:8888
-      HINDSIGHT_BANK: home-ops-changes
+      HINDSIGHT_BANK: coding-agent::home-ops
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7

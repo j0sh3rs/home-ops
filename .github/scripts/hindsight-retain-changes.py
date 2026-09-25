@@ -15,7 +15,8 @@ Bot authors (login ending in "[bot]", e.g. renovate[bot]) are skipped.
 document_id makes every write an idempotent upsert, so re-runs are safe.
 
 Env: GITHUB_TOKEN, GITHUB_REPOSITORY, HINDSIGHT_URL, HINDSIGHT_API_KEY,
-     HINDSIGHT_BANK (default home-ops-changes). --dry-run prints instead
+     HINDSIGHT_BANK (default coding-agent::home-ops, the bank the Claude Code
+     plugin recalls from, so sessions see change history too). --dry-run prints instead
      of retaining (HINDSIGHT_* not needed).
 """
 
@@ -31,7 +32,7 @@ import urllib.request
 
 GITHUB_API = "https://api.github.com"
 REPO = os.environ.get("GITHUB_REPOSITORY", "j0sh3rs/home-ops")
-BANK = os.environ.get("HINDSIGHT_BANK", "home-ops-changes")
+BANK = os.environ.get("HINDSIGHT_BANK", "coding-agent::home-ops")
 MAX_BODY_CHARS = 6000
 MAX_PATHS = 80
 MAX_TAGS = 10
@@ -61,7 +62,7 @@ def is_bot(login: str | None) -> bool:
 
 
 def tags_for(paths: list[str], kind: str) -> list[str]:
-    tags = ["home-ops", f"kind:{kind}"]
+    tags = ["home-ops", "source:github", f"kind:{kind}"]
     for p in paths:
         parts = p.split("/")
         if parts[:2] == ["kubernetes", "apps"] and len(parts) >= 5:
@@ -107,6 +108,9 @@ def pr_item(number: int) -> dict | None:
         "content": content,
         "context": "home-ops merged pull request: why this change was made",
         "document_id": f"pr-{number}",
+        # Named strategies from the coding-agent bank config: a PR is prose
+        # (title + description), not a commit with a diff.
+        "strategy": "document",
         "timestamp": pr["merged_at"],
         "tags": tags_for(files, "pr"),
         "metadata": {
@@ -135,6 +139,7 @@ def commit_item(sha: str, detail: dict | None = None) -> dict | None:
         "content": content,
         "context": "home-ops direct commit to main: why this change was made",
         "document_id": f"commit-{sha}",
+        "strategy": "git",
         "timestamp": date,
         "tags": tags_for(files, "commit"),
         "metadata": {"kind": "commit", "sha": sha, "url": c["html_url"]},

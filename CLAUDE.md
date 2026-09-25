@@ -312,7 +312,7 @@ Grafana is deployed using the **Grafana Operator** with a multi-kustomization st
 
 ## CI/CD
 
-**Change memory (#713)**: `.github/workflows/hindsight-changes.yaml` runs on every push to main, on the in-cluster `home-ops-runner`. It retains each human change into Hindsight bank `home-ops-changes`: merged PRs as `pr-<n>` (title, body, paths) and direct commits as `commit-<sha>` (message, paths). Bots are skipped. Its key is the SOPS secret `home-ops-runner-hindsight`, not a GitHub secret. Commit messages are what agents recall later, so write the *why* in them. To backfill, run the workflow via `workflow_dispatch`.
+**Change memory (#713)**: `.github/workflows/hindsight-changes.yaml` runs on every push to main, on the in-cluster `home-ops-runner`. It retains each human change into Hindsight bank `coding-agent::home-ops`, tagged `source:github`: merged PRs as `pr-<n>` (title, body, paths) and direct commits as `commit-<sha>` (message, paths). Bots are skipped. Its key is the SOPS secret `home-ops-runner-hindsight`, not a GitHub secret. Commit messages are what agents recall later, so write the *why* in them. To backfill, run the workflow via `workflow_dispatch`. **One bank per repo**: `coding-agent::home-ops` holds Claude Code sessions (plugin), change history (`source:github`), and argus incidents (`source:argus`), so each source's recall sees the others. Filter by tag if needed; don't create side banks.
 
 ### Pre-Commit Validation
 
