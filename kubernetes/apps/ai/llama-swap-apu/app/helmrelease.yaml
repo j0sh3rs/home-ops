@@ -80,6 +80,8 @@ spec:
                   1200000000
                 # Qwen3-Embedding-0.6B Q8_0 (~640 MB) — RAG embeddings.
                 # Moved from the main llama-swap instance 2026-08-17.
+                # Model DISABLED 2026-09-25 (OpenViking retired); fetch kept so
+                # re-enabling is a configmap-only change (file already cached).
                 fetch \
                   "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true" \
                   "Qwen3-Embedding-0.6B-Q8_0.gguf" \
@@ -93,6 +95,8 @@ spec:
                 # Qwen2-VL-2B-Instruct Q4_K_M (~940 MiB) + f16 mmproj
                 # (~1.27 GiB) — openviking's real vlm, added 2026-08-19.
                 # See configmap.yaml's qwen2-vl-2b comment.
+                # Model DISABLED 2026-09-25 (OpenViking retired); fetch kept so
+                # re-enabling is a configmap-only change (files already cached).
                 fetch \
                   "https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf?download=true" \
                   "Qwen2-VL-2B-Instruct-Q4_K_M.gguf" \

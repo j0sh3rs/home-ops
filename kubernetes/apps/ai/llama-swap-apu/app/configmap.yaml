@@ -75,6 +75,9 @@ data:
         # has generous VRAM headroom here, no eviction pressure.
         ttl: 0
 
+      # DISABLED 2026-09-25 (#701): only consumer was OpenViking's
+      # embedding.dense (via Omniroute); OpenViking retired, Hindsight
+      # embeds in-process (bge-small-en-v1.5).
       # RAG embedding. Moved from llama-swap (bigboi-jms-01) 2026-08-17 —
       # small (~0.64 GiB) and latency-tolerant, doesn't need dGPU horsepower.
       # openviking's real, live consumer (embedding.dense + vlm placeholder
@@ -82,17 +85,17 @@ data:
       # api_base there if this ever moves again). --pooling last mandatory;
       # dims 1024 with MRL truncation, instruction-aware — callers must send
       # a query instruction prefix or retrieval quality degrades.
-      "qwen3-embed":
-        cmd: |
-          ${apu-embed}
-          --model /models/Qwen3-Embedding-0.6B-Q8_0.gguf
-          --ctx-size 32768
-          --pooling last
-        aliases:
-          - "embed"
-          - "embedding"
-          - "text-embedding-ada-002"
-        ttl: 0
+      # "qwen3-embed":
+      #   cmd: |
+      #     ${apu-embed}
+      #     --model /models/Qwen3-Embedding-0.6B-Q8_0.gguf
+      #     --ctx-size 32768
+      #     --pooling last
+      #   aliases:
+      #     - "embed"
+      #     - "embedding"
+      #     - "text-embedding-ada-002"
+      #   ttl: 0
 
       # Light chat model — fills the "Chat" category on this tier. Beats
       # Phi-4-mini at the same size across the board (mmlu_pro 79.1 vs
@@ -114,6 +117,8 @@ data:
           - "small-chat"
         ttl: 0
 
+      # DISABLED 2026-09-25 (#701): only consumers were OpenViking's vlm
+      # leg and the Omniroute shim's local fallback; both retired.
       # Vision-language model for OpenViking's `vlm` config (content
       # understanding / memory extraction from images) — no vision-capable
       # model existed anywhere in the fleet before this; openviking's vlm
@@ -179,17 +184,17 @@ data:
       # again at a still-larger prompt size, re-measure via rocm-smi with
       # all four models warm before raising this further -- do not assume
       # there's room for 49152 without a fresh reading.
-      "qwen2-vl-2b":
-        cmd: |
-          ${apu-vulkan}
-          --model /models/Qwen2-VL-2B-Instruct-Q4_K_M.gguf
-          --mmproj /models/mmproj-Qwen2-VL-2B-Instruct-f16.gguf
-          --ctx-size 32768
-          --temp 0.0
-        aliases:
-          - "vlm"
-          - "vision"
-        ttl: 0
+      # "qwen2-vl-2b":
+      #   cmd: |
+      #     ${apu-vulkan}
+      #     --model /models/Qwen2-VL-2B-Instruct-Q4_K_M.gguf
+      #     --mmproj /models/mmproj-Qwen2-VL-2B-Instruct-f16.gguf
+      #     --ctx-size 32768
+      #     --temp 0.0
+      #   aliases:
+      #     - "vlm"
+      #     - "vision"
+      #   ttl: 0
 
     groups:
       "always-on":
@@ -198,6 +203,4 @@ data:
         persistent: true
         members:
           - "qwen3-1.7b"
-          - "qwen3-embed"
           - "qwen3.5-4b"
-          - "qwen2-vl-2b"

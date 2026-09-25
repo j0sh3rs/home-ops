@@ -23,6 +23,11 @@ data:
     # was a real memory-bandwidth-constrained node for VLM/embedding, and
     # rerank benefits from dGPU throughput too. See agentic-coder's ctx-size
     # comment below for the real VRAM math this required.
+    # jina-reranker-v2 DISABLED 2026-09-25: its only consumer was
+    # OpenViking's `retrieval.rerank` (retired -- operator decision,
+    # Hindsight preferred after hands-on comparison). Hindsight reranks
+    # in-process, no external reranker model needed. gpt-oss-20b is now the
+    # only always-on model on this card.
     healthCheckTimeout: 180
     logLevel: info
     startPort: 5800
@@ -149,8 +154,10 @@ data:
       # (coder-large) also address this same model and share these same
       # 5 physical slots, uncounted by Hindsight's caps. Re-measure VRAM
       # (mem_info_vram_used)
-      # after any change here; >=2 GiB free with jina-reranker-v2 loaded
-      # is the bar -- if a future raise breaks that bar, revert to 4
+      # after any change here; >=2 GiB free is the bar (last measured
+      # 2690 MiB free with jina-reranker-v2 still loaded; it was disabled
+      # 2026-09-25, freeing ~305 MiB more) -- if a future raise breaks
+      # that bar, revert to 4
       # slots / --ctx-size 131072.
       "gpt-oss-20b":
         cmd: |
@@ -187,6 +194,8 @@ data:
 
       # ==================== ALWAYS-ON (concurrent) ====================
 
+      # DISABLED 2026-09-25 (#701): only consumer was OpenViking's retrieval.rerank;
+      # OpenViking retired (operator decision), Hindsight reranks in-process.
       # Reranker for OpenViking's `rerank` config, moved here 2026-09-10
       # from llama-swap-apu (bee-jms-03) for better throughput -- the APU
       # tier is a real memory-bandwidth-constrained node (documented
@@ -203,36 +212,33 @@ data:
       # 2026-09-24 (#701), so rerank calls never wait on anything. See
       # agentic-coder's ctx-size comment above for the VRAM trade-off this
       # originally required.
-      "jina-reranker-v2":
-        cmd: |
-          ${llama-vulkan-rerank}
-          --model /models/jina-reranker-v2-base-multilingual-Q8_0.gguf
-          --ctx-size 8192
-        aliases:
-          - "rerank"
-          - "reranker"
-        ttl: 0
+      # "jina-reranker-v2":
+      #   cmd: |
+      #     ${llama-vulkan-rerank}
+      #     --model /models/jina-reranker-v2-base-multilingual-Q8_0.gguf
+      #     --ctx-size 8192
+      #   aliases:
+      #     - "rerank"
+      #     - "reranker"
+      #   ttl: 0
 
     groups:
       # No "chat" group since 2026-09-24 (#701): gpt-oss-20b is the only
       # chat model on this card and lives in "always-on" below instead --
       # there is nothing left to swap between.
       #
-      # Both gpt-oss-20b (chat, 5x32k slots) and jina-reranker-v2 (rerank)
-      # run concurrently, always resident -- deliberately NOT an exclusive
-      # swap group. persistent: true keeps them resident (ttl: 0 on each
-      # model itself does the same; both set for clarity, matching
-      # llama-swap-apu's "always-on" group convention).
+      # gpt-oss-20b (chat, 5x32k slots) is the only resident model:
+      # jina-reranker-v2 was disabled 2026-09-25 with OpenViking. Kept as an
+      # "always-on" group (persistent: true, and ttl: 0 on the model) to
+      # match llama-swap-apu's convention.
       "always-on":
         swap: false
         exclusive: false
         persistent: true
         members:
           - "gpt-oss-20b"
-          - "jina-reranker-v2"
 
     hooks:
       on_startup:
         preload:
           - "gpt-oss-20b"
-          - "jina-reranker-v2"
