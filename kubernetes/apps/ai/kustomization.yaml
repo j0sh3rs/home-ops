@@ -16,8 +16,11 @@
 # subchart (argus-holmes) is now the only HolmesGPT instance, fronted by
 # argus's Discord-bridging forwarder for triage summaries. argus was
 # re-enabled and openclaw archived to archive/openclaw/ 2026-09-24 (#711);
-# see CLAUDE.md. Hindsight runs in parallel with OpenViking (#701) until the #704 eval
-# gates cutover.
+# see CLAUDE.md. OpenViking retired 2026-09-25 (operator decision, Hindsight
+# preferred after hands-on comparison); manifests moved to
+# archive/openviking/, data backed up to
+# /volume1/backups/openviking/openviking-data-2026-09-25.tgz. Hindsight
+# (#701) is now the sole memory layer; #704 eval still open. See CLAUDE.md.
 #
 # Components:
 #   - common                 — namespace + cluster-secrets + sops-age
@@ -41,7 +44,6 @@ resources:
   - ./llama-swap/ks.yaml
   - ./llama-swap-apu/ks.yaml
   - ./omniroute/ks.yaml
-  - ./openviking/ks.yaml
   - ./piper/ks.yaml
 
 # holyclaude needs SYS_ADMIN/SYS_PTRACE capabilities and

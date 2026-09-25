@@ -5,13 +5,14 @@
 # ahead of upstream, tagged and released independently.
 #
 # Deliberate exception to this repo's OCIRepository+chartRef convention,
-# same reasoning as kubernetes/apps/ai/openviking/app/gitrepository.yaml:
-# GitRepository + ref.tag lets Renovate's flux manager bump this the same
-# way it already does for openviking, without inventing a separate
-# commit-digest tracking mechanism. (The fork *does* also publish an OCI
-# artifact at oci://ghcr.io/j0sh3rs/argus/charts/argus and a gh-pages
-# index -- see .github/workflows/release.yml in the fork -- but this repo
-# stays on the GitRepository pattern for consistency with openviking.)
+# same reasoning as archive/openviking/app/gitrepository.yaml used before
+# OpenViking was retired 2026-09-25 (see kubernetes/apps/ai/CLAUDE.md):
+# GitRepository + ref.tag lets Renovate's flux manager bump this without
+# inventing a separate commit-digest tracking mechanism. (The fork *does*
+# also publish an OCI artifact at oci://ghcr.io/j0sh3rs/argus/charts/argus
+# and a gh-pages index -- see .github/workflows/release.yml in the fork --
+# but this repo stays on the GitRepository pattern here for consistency
+# with that precedent.)
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
