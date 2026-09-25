@@ -58,19 +58,21 @@ spec:
               # heap ceiling was set EQUAL to the container's entire 2Gi
               # memory limit -- zero headroom for anything else the process
               # needs (request/response buffers for large vlm payloads,
-              # native/external memory, libuv). This tier now proxies much
+              # native/external memory, libuv). This tier proxied much
               # larger, longer-lived requests than when these values were
-              # first set: the 2026-09-17 vlm timeout fix (see openviking's
-              # helmrelease.yaml) raised how long a single large-payload
-              # request can stay in flight from 15s to 120s, and Omniroute's
-              # own per-connection maxWaitMs cap is separately maxed at
-              # 120000ms -- more large payloads now overlap in memory at
-              # once than before that fix, which plausibly triggered this.
-              # 2560/3072 leaves ~512Mi (~17%) headroom below the new
-              # container limit for non-heap overhead, matching the
-              # node's real, checked headroom (bigboi-jms-01: 33% memory
-              # used cluster-wide per `kubectl top node`, ~20 GiB free --
-              # raising this tier's ceiling costs nothing else running here).
+              # first set: a 2026-09-17 vlm timeout fix on OpenViking's side
+              # (now archive/openviking/app/helmrelease.yaml -- OpenViking
+              # retired 2026-09-25) raised how long a single large-payload
+              # request could stay in flight from 15s to 120s, and
+              # Omniroute's own per-connection maxWaitMs cap is separately
+              # maxed at 120000ms -- more large payloads overlapped in
+              # memory at once than before that fix, which plausibly
+              # triggered this. 2560/3072 leaves ~512Mi (~17%) headroom
+              # below the new container limit for non-heap overhead,
+              # matching the node's real, checked headroom (bigboi-jms-01:
+              # 33% memory used cluster-wide per `kubectl top node`, ~20 GiB
+              # free -- raising this tier's ceiling costs nothing else
+              # running here).
               #
               # Raised again same day, 3Gi->6Gi container limit / 2560->5120
               # heap ceiling -- explicit operator ask for headroom to grow
@@ -84,9 +86,11 @@ spec:
               # `kubectl top node` the same day: every node sits at 20-43%
               # memory used). Re-measure real usage under load (grep for
               # "resourcePressure" in this pod's logs) before raising
-              # further; if pressure trips persist even at 6Gi, the actual
-              # fix is probably capping how much OpenViking buffers per
-              # vlm call, not another bump here.
+              # further. The vlm-payload-driven pressure this comment
+              # describes was OpenViking-specific load; with OpenViking
+              # retired and its shim container removed 2026-09-25 (below),
+              # this ceiling is left as-is rather than lowered speculatively
+              # -- re-measure before changing it either direction.
               NODE_OPTIONS: "--max-old-space-size=5120"
               CLIPROXYAPI_HOST: "127.0.0.1"
               CLIPROXYAPI_PORT: "8317"
@@ -182,91 +186,19 @@ spec:
                   initialDelaySeconds: 10
                   periodSeconds: 10
 
-          shim:
-            # Chat-Completions -> Responses API translation shim for
-            # CLIProxyAPI, added 2026-09-17 (see
-            # docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md).
-            # CLIProxyAPI (the cliproxyapi container above) never
-            # implemented a Chat Completions endpoint -- confirmed via
-            # direct request, GET /v1/chat/completions there returns 404;
-            # only /v1/responses exists. This container translates the
-            # shape so CLIProxyAPI's gpt-* models work over plain
-            # Chat-Completions.
-            #
-            # As of 2026-09-18 (see
-            # docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md),
-            # this container is reached DIRECTLY by OpenViking via the new
-            # `shim` Service below (not through Omniroute's own routing --
-            # Omniroute's cliproxyapi provider-node baseUrl was reverted
-            # back to CLIProxyAPI directly after a bug was found in
-            # Omniroute's own request-construction pipeline that silently
-            # dropped the `messages` field once its baseUrl pointed
-            # anywhere but CLIProxyAPI itself; root cause lives in
-            # Omniroute's closed bundled source, not fixable from this
-            # repo). CLIProxyAPI's own port (8317) still binds to
-            # 127.0.0.1 only and is NOT exposed by the new Service --
-            # only this container's own translated+auth-gated endpoint is.
-            # SHIM_SHARED_SECRET gates every route except /healthz (see
-            # configmap-shim.yaml) since this is now reachable
-            # cluster-wide, not just pod-locally. FALLBACK_BASE_URL/
-            # FALLBACK_MODEL point at llama-swap-apu's real vlm model,
-            # used when CLIProxyAPI fails or the request contains
-            # non-text content this shim doesn't translate for CLIProxyAPI.
-            image:
-              repository: docker.io/library/node
-              # renovate: datasource=docker depName=node versioning=node
-              tag: 24-alpine
-              pullPolicy: IfNotPresent
-            command: ["node", "/shim/server.js"]
-            env:
-              FALLBACK_BASE_URL: "http://llama-swap-apu.ai.svc.cluster.local:8080/v1"
-              FALLBACK_MODEL: "vlm"
-              # Two separately-tunable timeouts (fixed 2026-09-18 review --
-              # a single shared 60s constant undercut the fallback leg's
-              # usable capacity and structurally couldn't return a timely
-              # double-failure error). PRIMARY_TIMEOUT_MS: 45s -- CLIProxyAPI
-              # is a remote API; if it hasn't answered in 45s it isn't going
-              # to. FALLBACK_TIMEOUT_MS: 110s -- leaves 10s headroom under
-              # OpenViking's own 120s client-side timeout (vlm.timeout in
-              # openviking/app/helmrelease.yaml) while at llama-swap-apu's
-              # measured ~154 tok/s prefill this covers ~16,940 tokens,
-              # restoring most of the ~18,480-token ceiling the local leg
-              # had before this shim existed (via Omniroute's old 120s
-              # maxWaitMs). See CLAUDE.md's openviking bullet for the full
-              # capacity math.
-              PRIMARY_TIMEOUT_MS: "45000"
-              FALLBACK_TIMEOUT_MS: "110000"
-              SHIM_SHARED_SECRET:
-                valueFrom:
-                  secretKeyRef:
-                    name: omniroute-secrets
-                    key: SHIM_SHARED_SECRET
-            resources:
-              requests:
-                cpu: 50m
-                memory: 64Mi
-              limits:
-                cpu: "1"
-                memory: 256Mi
-            probes:
-              liveness:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /healthz
-                    port: 8318
-                  initialDelaySeconds: 5
-                  periodSeconds: 15
-              readiness:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /healthz
-                    port: 8318
-                  initialDelaySeconds: 3
-                  periodSeconds: 10
+    # The `shim` container (Chat-Completions -> Responses API translation
+    # for CLIProxyAPI, added 2026-09-17; reached directly by OpenViking's
+    # vlm leg via its own Service, added 2026-09-18 -- see
+    # docs/superpowers/specs/2026-09-17-cliproxyapi-responses-shim-design.md
+    # and docs/superpowers/specs/2026-09-18-openviking-vlm-direct-shim-design.md
+    # for the original design) was removed 2026-09-25 along with OpenViking
+    # (its only consumer, retired -- operator decision, Hindsight preferred
+    # after hands-on comparison). Removed alongside it: the `shim` Service
+    # below, the `shim-script` persistence entry and configMap, and the
+    # `shim` advancedMounts entry under `cliproxy-config`. `cliproxyapi`'s
+    # own Chat-Completions gap this shim used to paper over is now moot --
+    # nothing talks to CLIProxyAPI's gpt-* models over plain
+    # Chat-Completions from this repo anymore.
 
     service:
       app:
@@ -284,11 +216,6 @@ spec:
         ports:
           http:
             port: 8317
-      shim:
-        controller: *app
-        ports:
-          http:
-            port: 8318
 
     persistence:
       data:
@@ -319,17 +246,4 @@ spec:
             cliproxyapi:
               - path: /CLIProxyAPI/config.yaml
                 subPath: cliproxy-config.yaml
-                readOnly: true
-            shim:
-              - path: /shim-config/cliproxy-config.yaml
-                subPath: cliproxy-config.yaml
-                readOnly: true
-      shim-script:
-        type: configMap
-        name: omniroute-shim-script
-        advancedMounts:
-          omniroute:
-            shim:
-              - path: /shim/server.js
-                subPath: server.js
                 readOnly: true
