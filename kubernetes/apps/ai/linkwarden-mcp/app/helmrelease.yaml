@@ -1,0 +1,130 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# Linkwarden MCP server (#714): lets agents search bookmarks. Upstream
+# (irfansofyana/linkwarden-mcp-server) speaks stdio only and ships no
+# binaries, so an init container copies its static Go binary (CGO off) out of
+# the image into an emptyDir, and supergateway serves it as streamable HTTP
+# at :8000/mcp. Runs --read-only (search/read tools only: no create/delete).
+# Unauthenticated by design until the single authenticated MCP endpoint
+# (#708) exists -- hence read-only + LAN-only (traefik-internal) route.
+# Registered in Claude Code on the operator's machine (LAN route) and in
+# HolyClaude (in-cluster Service).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app linkwarden-mcp
+spec:
+  interval: 1h
+  timeout: 10m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      linkwarden-mcp:
+        replicas: 1
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          copy-binary:
+            image:
+              repository: ghcr.io/irfansofyana/linkwarden-mcp-server
+              tag: 0.1.0@sha256:649fba1b2e041cfc0273127d91de2e80b818e1731e5b7ffc83ee99af36df09f9
+            command: ["sh", "-c", "cp /app/linkwarden-mcp-server /mcp/ && chmod 0555 /mcp/linkwarden-mcp-server"]
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+        containers:
+          app:
+            image:
+              # Pinned below 4.0.0 (a major released 2026-09-25, unvetted).
+              repository: ghcr.io/supercorp-ai/supergateway
+              tag: 3.4.3@sha256:095acf4471e142553c1a5514aa5e480abbc5885d00549d4a3481cc70eac53889
+            args:
+              - --stdio
+              - /mcp/linkwarden-mcp-server stdio --read-only
+              - --outputTransport
+              - streamableHttp
+              - --port
+              - "8000"
+              - --streamableHttpPath
+              - /mcp
+            env:
+              # In-cluster Service, not links.68cc.io (skips the external
+              # gateway). The child stdio process inherits this env.
+              LINKWARDEN_BASE_URL: http://linkwarden.services.svc.cluster.local:3000
+              READ_ONLY: "true"
+              TOOLSETS: search,link,collection,tags
+            envFrom:
+              - secretRef:
+                  name: linkwarden-mcp-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 8000
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 8000
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+        pod:
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            fsGroup: 1000
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            primary: true
+            port: 8000
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        hostnames: ["linkwarden-mcp.68cc.io"]
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          - backendRefs:
+              - name: *app
+                port: 8000
+    persistence:
+      mcp-bin:
+        type: emptyDir
+        globalMounts:
+          - path: /mcp
+      # supergateway (node) + npm may write caches under HOME/tmp.
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
