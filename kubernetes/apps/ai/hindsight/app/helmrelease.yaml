@@ -1,7 +1,9 @@
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
-# Hindsight memory server (#701), running in parallel with OpenViking until
-# the #704 eval gates cutover. Design:
+# Hindsight memory server (#701): the sole memory layer since 2026-09-25,
+# when OpenViking was retired by operator decision after hands-on comparison
+# (manifests in archive/openviking/; the #704 recall eval is still open).
+# Design:
 # docs/superpowers/specs/2026-09-24-hindsight-deployment-design.md
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
