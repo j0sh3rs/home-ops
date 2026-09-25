@@ -144,7 +144,11 @@ data:
       # mental-model refresh 1 = 4 slots max, nested inside the global
       # cap, so one slot is always free for reflect (the plugin's
       # first-prompt synthesis) -- same invariant as before, just with
-      # more background throughput. Re-measure VRAM (mem_info_vram_used)
+      # more background throughput. This reservation only holds within
+      # Hindsight's own traffic: atuin (coder-large/frontier) and argus
+      # (coder-large) also address this same model and share these same
+      # 5 physical slots, uncounted by Hindsight's caps. Re-measure VRAM
+      # (mem_info_vram_used)
       # after any change here; >=2 GiB free with jina-reranker-v2 loaded
       # is the bar -- if a future raise breaks that bar, revert to 4
       # slots / --ctx-size 131072.

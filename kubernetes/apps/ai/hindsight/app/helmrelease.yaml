@@ -19,20 +19,35 @@ spec:
     cleanupOnFail: true
     remediation:
       retries: 3
-  # Stop-then-start rollout for hindsight-api (chart has no strategy value):
-  # RollingUpdate with maxSurge 0 / maxUnavailable 1, which for a single
-  # replica terminates the old pod before creating the new one. Pairs with
-  # the stable HINDSIGHT_API_WORKER_ID below: startup recovery only reclaims
-  # 'processing' rows owned by this worker's own id, so a stable id lets a
-  # replacement pod reclaim its predecessor's claims -- and stop-then-start
-  # guarantees the predecessor is gone first, so it can never reset rows a
-  # still-running old pod is mid-way through. (type: Recreate was tried and
-  # rejected: under server-side apply the live Deployment's defaulted
-  # rollingUpdate fields, owned by another field manager, survive the patch
-  # and the API refuses rollingUpdate + Recreate.) 2026-09-25: with
-  # hostname ids, the task-8b rollout left 6 retains wedged in 'processing'
-  # under a dead pod for 16h, and per-document serialization blocked 10
-  # pending retains behind them.
+  # True stop-then-start rollout for hindsight-api (chart has no strategy
+  # value): type: Recreate -- the old pod is fully deleted before the new
+  # one is created. Pairs with the stable HINDSIGHT_API_WORKER_ID below:
+  # startup recovery only reclaims 'processing' rows owned by this worker's
+  # own id, so a stable id lets a replacement pod reclaim its predecessor's
+  # claims -- and Recreate guarantees the predecessor is gone (not merely
+  # Terminating) before the replacement starts, so it can never reset rows
+  # a still-running old pod is mid-way through.
+  #
+  # 2026-09-25 history: hostname-based worker ids left 6 retains wedged in
+  # 'processing' under a dead pod for 16h (task 8b incident), fixed with
+  # the stable worker id above. The first fix for the rollout itself was
+  # RollingUpdate maxSurge 0 / maxUnavailable 1, on the theory that for a
+  # single replica it serializes old-then-new -- WRONG: Kubernetes creates
+  # the new pod as soon as the old pod gets a deletionTimestamp, not after
+  # it actually exits, so the two pods can run concurrently for up to the
+  # full 30s terminationGracePeriodSeconds (upstream shutdown_graceful
+  # timeout) while the old pod's release_own_tasks() and the new pod's
+  # recover_own_tasks() race over the same worker id -- double extraction.
+  # type: Recreate was tried next and initially rejected: under
+  # server-side apply the *live* Deployment's defaulted
+  # spec.strategy.rollingUpdate fields, owned by another field manager,
+  # survived the patch and the API refused rollingUpdate + Recreate
+  # together. Fixed with a one-time, out-of-band live patch that clears
+  # the stale rollingUpdate block so SSA stops fighting (does not itself
+  # restart the pod; run again only if a future Deployment recreate
+  # reintroduces a defaulted rollingUpdate):
+  #   kubectl patch deploy -n ai hindsight-api --type=json \
+  #     -p '[{"op":"replace","path":"/spec/strategy","value":{"type":"Recreate"}}]'
   postRenderers:
     - kustomize:
         patches:
@@ -40,15 +55,15 @@ spec:
               kind: Deployment
               name: hindsight-api
             patch: |
-              - op: replace
+              - op: add
                 path: /spec/strategy
                 value:
-                  type: RollingUpdate
-                  rollingUpdate:
-                    maxSurge: 0
-                    maxUnavailable: 1
+                  type: Recreate
   values:
     # Image tag for api + control plane. Keep equal to the chart tag.
+    # Bump together with ocirepository.yaml's tag and regenerate
+    # configmap-extension.yaml (Renovate automerge disabled for
+    # vectorize-io -- see .renovate/autoMerge.json5).
     version: "0.10.1"
     # envFrom on both pods: postgres-password, HINDSIGHT_API_LLM_API_KEY,
     # HINDSIGHT_API_TENANT_USERS, HINDSIGHT_CP_DATAPLANE_API_KEY.
@@ -82,8 +97,11 @@ spec:
         # 2026-09-24, #701 task 8b: retain queue was backlogged at
         # retain=1, one batch_retain took 13 min). Background operations
         # are capped at retain 2 + consolidation 1 + mental-model refresh
-        # 1 = 4 slots max (the per-op caps nest inside the global cap),
-        # so one slot always stays free for reflect.
+        # 1 = 4 slots max (the per-op caps nest inside the global cap), so
+        # one slot always stays free for reflect -- but only within
+        # Hindsight's own traffic: atuin (coder-large/frontier) and argus
+        # (coder-large) share the same 5 physical slots on this model,
+        # unaccounted for by this reservation.
         HINDSIGHT_API_LLM_MAX_CONCURRENT: "5"
         HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
         HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "1"
