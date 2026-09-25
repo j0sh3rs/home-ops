@@ -11,7 +11,7 @@ Fully self-hosted AI namespace: no cloud LLM providers for automated workloads. 
 
 ## Currently deployed
 
-- **llama-swap** (dGPU, `bigboi-jms-01`, RX 9070 XT / gfx1201, 16 GiB): Vulkan `unified-vulkan-YYYY-MM-DD` image (bundles `rocm-smi`), `--flash-attn on`. **`gpt-oss-20b` is the sole chat model**, always resident, `ttl: 0`, 5 parallel slots × 32768 tokens (`--ctx-size 163840 --parallel 5`). Aliases `reasoner`/`reasoning`/`coder`/`code-large`/`coder-large`/`frontier`/`frontier-chat` all point to it. Nothing else fits beside it. Route `llm.68cc.io` (forwardAuth). Truth: `llama-swap/app/configmap.yaml`. History: `docs/ai-history/llama-swap.md`.
+- **llama-swap** (dGPU, `bigboi-jms-01`, RX 9070 XT / gfx1201, 16 GiB): Vulkan `unified-vulkan-YYYY-MM-DD` image (bundles `rocm-smi`), `--flash-attn on`. **`gpt-oss-20b` is the sole chat model**, always resident, `ttl: 0`, 5 parallel slots × 32768 tokens (`--ctx-size 163840 --parallel 5`). Aliases `reasoner`/`reasoning`/`coder`/`code-large`/`coder-large`/`frontier`/`frontier-chat` all point to it. Route `llm.68cc.io` (forwardAuth). Truth: `llama-swap/app/configmap.yaml`. History: `docs/ai-history/llama-swap.md`.
 - **llama-swap-apu** (`bee-jms-03` Renoir iGPU, BIOS 16 GiB VRAM): always-on, all models co-resident: `qwen3-1.7b` (`fast`/`small`/`router`) and `qwen3.5-4b` (`chat`/`small-chat`). `embed`, `vlm`, and `rerank` were disabled on 2026-09-25 with OpenViking. Cluster-internal only. Re-measure with `rocm-smi` before adding a model. `bee-jms-01`/`-02` are excluded (3 GiB VRAM). History: `docs/ai-history/llama-swap.md`.
 - **omniroute** (`omniroute/`): the gateway plus the cliproxyapi sidecar. Debug UI `omniroute.68cc.io` (Authentik forwardAuth). Keys, combos, and connection overrides live in its DB, not git. History: `docs/ai-history/omniroute.md`.
 - **hindsight** (`hindsight/`): OCI chart and image 0.10.1. API with in-process worker, plus control plane. Routes (both `traefik-internal`): `hindsight.68cc.io` → API `:8888`, bearer keys only, no forwardAuth; `hindsight-ui.68cc.io` → `:3000`, forwardAuth. In-cluster: `hindsight-api.ai.svc.cluster.local:8888`.
@@ -29,6 +29,7 @@ Fully self-hosted AI namespace: no cloud LLM providers for automated workloads. 
   - Single PVC with narrow subPath mounts. Never mount the whole `/home/claude`, because that shadows `~/.local/bin`. Git identity is `BarryBot`. OTel metrics and logs go straight to `metrics.68cc.io`/`logs.68cc.io`. Query them with dotted names (`{"claude_code.session.count"}`); see `docs/runbooks/agent-telemetry.md`. History: `docs/ai-history/holyclaude.md`.
 - **argus** (`argus/`): Alertmanager → HolmesGPT (`argus-holmes` subchart) → Discord triage. The chart comes from the fork `j0sh3rs/argus` (GitRepository `ref.tag`). Model `openai/llamaswap/coder-large` (LiteLLM prefix, #718), local only (automated). The `modelList.litellm` key name is kept on purpose. The chart default `modelList.auto` is overwritten field by field, not nulled (Helm ignores null). `cilium`/`hubble`/`helm` toolsets stay off: they overflow the context, so re-check the 32k budget before adding any toolset. The standalone holmesgpt app is retired; its secret now lives at `argus/app/secret-holmesgpt.sops.yaml`. History: `docs/ai-history/argus.md`.
 - **atuin-ai-server** (`atuin-ai-server/`): backend for Atuin's `[ai]` feature. It has no auth of its own, so it is LAN-only (`atuin-ai.68cc.io`, internal gateway). It uses Omniroute with its own key (`CHAT_API_KEY`). `default_model = "coder-large"` → the `coding-fast` combo (local only). History: `docs/ai-history/atuin-ai-server.md`.
+- **linkwarden-mcp**: read-only MCP, `linkwarden-mcp.68cc.io/mcp` (LAN, no auth; #714/#708).
 - **faster-whisper**: `rhasspy/wyoming-whisper:3.3.0`, `tiny-int8`, Wyoming `:10300`. HA needs Wyoming, **not** the OpenAI-HTTP `fedirz/faster-whisper-server`.
 - **piper**: `rhasspy/wyoming-piper:2.2.2`, `en_US-lessac-medium`, Wyoming `:10200`. History for both: `docs/ai-history/misc.md`.
 - **omega-mcp**: commented out of the kustomization. **Planned**: a kid-safe layer, only if a concrete need arises (`docs/ai-history/misc.md`).
@@ -38,7 +39,7 @@ Fully self-hosted AI namespace: no cloud LLM providers for automated workloads. 
 - **openviking**: retired 2026-09-25; Hindsight replaces it (`docs/ai-history/openviking.md`).
 - **openclaw**: archived 2026-09-24. Revive only with a concrete autonomous use case, pointing its memory at Hindsight (`docs/ai-history/argus.md`, `docs/ai-history/retired-apps.md`).
 - **LiteLLM/litellm-operator**: removed 2026-09-08 when Omniroute took over (`docs/ai-history/retired-apps.md`).
-- **n8n, OpenCode (standalone), agent-canvas, cognee, kelos**: removed 2026-08-14. **memini**, **ollama**: archived 2026-08-16. **LangFuse, AnythingLLM, Open WebUI, Goose, claude-code**: removed 2026-07-01 (`docs/ai-history/retired-apps.md`).
+- **n8n, OpenCode (standalone), agent-canvas, cognee, kelos**: removed 2026-08-14. **memini**, **ollama**: archived 2026-08-16. LangFuse/AnythingLLM/Open WebUI/Goose/claude-code: 2026-07-01 (`docs/ai-history/retired-apps.md`).
 
 ## Accepted risks
 
