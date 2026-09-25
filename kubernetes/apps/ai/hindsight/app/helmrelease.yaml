@@ -19,12 +19,17 @@ spec:
     cleanupOnFail: true
     remediation:
       retries: 3
-  # Recreate, not RollingUpdate, for hindsight-api (chart has no strategy
-  # value). Pairs with the stable HINDSIGHT_API_WORKER_ID below: startup
-  # recovery only reclaims 'processing' rows owned by this worker's own id,
-  # so a stable id lets a replacement pod reclaim its predecessor's claims --
-  # and Recreate guarantees the predecessor is gone first, so it can never
-  # reset rows a still-running old pod is mid-way through. 2026-09-25: with
+  # Stop-then-start rollout for hindsight-api (chart has no strategy value):
+  # RollingUpdate with maxSurge 0 / maxUnavailable 1, which for a single
+  # replica terminates the old pod before creating the new one. Pairs with
+  # the stable HINDSIGHT_API_WORKER_ID below: startup recovery only reclaims
+  # 'processing' rows owned by this worker's own id, so a stable id lets a
+  # replacement pod reclaim its predecessor's claims -- and stop-then-start
+  # guarantees the predecessor is gone first, so it can never reset rows a
+  # still-running old pod is mid-way through. (type: Recreate was tried and
+  # rejected: under server-side apply the live Deployment's defaulted
+  # rollingUpdate fields, owned by another field manager, survive the patch
+  # and the API refuses rollingUpdate + Recreate.) 2026-09-25: with
   # hostname ids, the task-8b rollout left 6 retains wedged in 'processing'
   # under a dead pod for 16h, and per-document serialization blocked 10
   # pending retains behind them.
@@ -38,7 +43,10 @@ spec:
               - op: replace
                 path: /spec/strategy
                 value:
-                  type: Recreate
+                  type: RollingUpdate
+                  rollingUpdate:
+                    maxSurge: 0
+                    maxUnavailable: 1
   values:
     # Image tag for api + control plane. Keep equal to the chart tag.
     version: "0.10.1"
