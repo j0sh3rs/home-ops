@@ -75,9 +75,10 @@ spec:
             description: >-
               claude_code.cost.usage summed by session.id exceeded $10 over
               24h. This is Claude Code's own internal cost estimate (model
-              pricing table), not necessarily a real bill through Omniroute
-              -- treat as a runaway-usage signal, not a billing alert.
-              Tune the 10 threshold once a few weeks of real data exist.
+              pricing table) against a Claude Max/Pro subscription, not a
+              real per-token bill -- treat as a runaway-usage signal, not a
+              billing alert. Tune the 10 threshold once a few weeks of real
+              data exist.
             runbook: docs/runbooks/agent-telemetry.md
           expr: |-
             sum by ("session.id", "deployment.environment") (increase({"claude_code.cost.usage"}[24h])) > 10
