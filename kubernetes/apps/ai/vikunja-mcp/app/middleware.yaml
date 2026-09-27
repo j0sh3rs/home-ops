@@ -1,0 +1,14 @@
+---
+# Basic auth in front of the LAN route. Unlike linkwarden-mcp (read-only,
+# unauthenticated), this server can create and update tasks, so LAN clients
+# must present credentials. MCP clients can't do the Authentik forwardAuth
+# browser flow, so basic auth it is until #708's authenticated endpoint
+# exists. The password is in vikunja-mcp-basic-auth (`task sops:view`).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: vikunja-mcp-basic-auth
+spec:
+  basicAuth:
+    secret: vikunja-mcp-basic-auth
+    removeHeader: true

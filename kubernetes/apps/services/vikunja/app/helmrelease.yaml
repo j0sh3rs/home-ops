@@ -48,7 +48,7 @@ spec:
               VIKUNJA_DATABASE_SSLMODE: disable
               VIKUNJA_FILES_BASEPATH: /app/vikunja/files
               VIKUNJA_METRICS_ENABLED: "true"
-              # /api/v1 and /dav are public (no forwardAuth, see route), so
+              # /api/v1, /api/v2 and /dav are public (no forwardAuth, see route), so
               # turn on Vikunja's limiter for its noauthlimit (10/min/IP on
               # login etc.). Traefik doesn't trust forwarded headers from the
               # pod CIDR, so tunnel clients share cloudflared's pod IP here --
@@ -137,12 +137,15 @@ spec:
           # API and CalDAV are exempt from forwardAuth: the mobile apps,
           # CalDAV clients, and MCP/automation clients can't complete a
           # browser redirect, and Vikunja enforces its own auth on these
-          # (JWT / API tokens on /api/v1, basic auth on /dav). The
+          # (JWT / API tokens on /api/v1 and /api/v2, basic auth on /dav). The
           # .well-known path is CalDAV autodiscovery (same basic auth).
           - matches:
               - path:
                   type: PathPrefix
                   value: /api/v1
+              - path:
+                  type: PathPrefix
+                  value: /api/v2
               - path:
                   type: PathPrefix
                   value: /dav

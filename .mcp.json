@@ -74,17 +74,6 @@
          "type": "http",
          "url": "http://omniroute.ai.svc.cluster.local:20128/api/mcp/stream",
          "headersHelper": "/workspace/home-ops/scripts/omniroute-mcp-headers.sh"
-      },
-      "unifi": {
-         "args": [
-            "unifi-network-mcp"
-         ],
-         "command": "uvx",
-         "env": {
-            "UNIFI_HOST": "${UNIFI_HOST}",
-            "UNIFI_PASSWORD": "${UNIFI_PASSWORD}",
-            "UNIFI_USERNAME": "${UNIFI_USERNAME}"
-         }
       }
    }
 }
