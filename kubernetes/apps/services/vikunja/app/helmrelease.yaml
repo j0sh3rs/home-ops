@@ -64,13 +64,19 @@ spec:
               # VIKUNJA_A_B_C -> a.b.c, so the provider key must not contain
               # "_". Callback: https://tasks.68cc.io/auth/openid/authentik.
               # emailfallback links the SSO login to the existing local user
-              # with the same email. Local auth stays on as break-glass.
+              # with the same email.
               VIKUNJA_AUTH_OPENID_ENABLED: "true"
               VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_NAME: Authentik
               VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_AUTHURL: https://auth.68cc.io/application/o/vikunja/
               VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_LOGOUTURL: https://auth.68cc.io/application/o/vikunja/end-session/
               VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_SCOPE: openid email profile
               VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_EMAILFALLBACK: "true"
+              # Local auth off makes the login page auto-redirect to Authentik
+              # (the frontend does this only when local+LDAP are off and there
+              # is exactly one provider). It also removes password /login and
+              # password reset; API and CalDAV tokens keep working. Break-glass
+              # if Authentik is down: flip this back to "true".
+              VIKUNJA_AUTH_LOCAL_ENABLED: "false"
             # DB creds, VIKUNJA_SERVICE_SECRET (JWT signing key), and the
             # Authentik OIDC client id/secret.
             envFrom: *envFrom
