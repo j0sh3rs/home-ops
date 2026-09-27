@@ -15,7 +15,7 @@
       {
         "hooks": [
           {
-            "command": "jq -r '.tool_input.command // empty' | awk 'BEGIN{rc=0} { cmd=$0; stripped=cmd; gsub(/\"[^\"]*\"/, \"\", stripped); gsub(/\\x27[^\\x27]*\\x27/, \"\", stripped); n=split(stripped, segs, /(\u0026\u0026|\\|\\||;)/); for (i=1; i\u003c=n; i++) { seg=segs[i]; sub(/^[[:space:]]+/, \"\", seg); sub(/^rtk[[:space:]]+/, \"\", seg); sub(/^sudo[[:space:]]+/, \"\", seg); if (seg ~ /^git[[:space:]]+commit([[:space:]]|$)/) { r=system(\"task sops:verify \u003e/dev/null 2\u003e\u00261\"); if (r != 0) { print \"SOPS guard: task sops:verify FAILED. Plaintext secret staged. Run: task sops:verify\" \u003e \"/dev/stderr\"; rc=2 } } } } END { exit rc }'",
+            "command": "jq -r '.tool_input.command // empty' | awk 'BEGIN{rc=0} { cmd=$0; stripped=cmd; gsub(/\"[^\"]*\"/, \"\", stripped); gsub(/\\x27[^\\x27]*\\x27/, \"\", stripped); n=split(stripped, segs, /(\u0026\u0026|\\|\\||;)/); for (i=1; i\u003c=n; i++) { seg=segs[i]; sub(/^[[:space:]]+/, \"\", seg); sub(/^rtk[[:space:]]+/, \"\", seg); sub(/^sudo[[:space:]]+/, \"\", seg); if (seg ~ /^git[[:space:]]+commit([[:space:]]|$)/) { r=system(\"PATH=$PATH:$HOME/.local/share/mise/shims task sops:verify \u003e/dev/null 2\u003e\u00261\"); if (r != 0) { print \"SOPS guard: task sops:verify FAILED. Plaintext secret staged. Run: task sops:verify\" \u003e \"/dev/stderr\"; rc=2 } } } } END { exit rc }'",
             "type": "command"
           }
         ],
