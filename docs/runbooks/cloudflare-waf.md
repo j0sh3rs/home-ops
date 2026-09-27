@@ -83,6 +83,7 @@ machine traffic) and the apex (`68cc.io` / Homepage).
 (cf.client.bot) and (http.host in {
   "grafana.68cc.io" "auth.68cc.io" "links.68cc.io" "n8n.68cc.io"
   "ai.68cc.io" "paperless.68cc.io" "sh.68cc.io" "tools.68cc.io"
+  "tasks.68cc.io"
 })
 ```
 
