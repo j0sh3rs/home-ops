@@ -59,7 +59,20 @@ spec:
               VIKUNJA_SERVICE_TRUSTEDPROXIES: 10.42.0.0/16
               VIKUNJA_RATELIMIT_ENABLED: "true"
               VIKUNJA_RATELIMIT_LIMIT: "600"
-            # DB creds + VIKUNJA_SERVICE_SECRET (JWT signing key).
+              # Native Authentik OIDC SSO. Vikunja ignores forwardAuth headers,
+              # so this is the only way to skip its own login. Env maps
+              # VIKUNJA_A_B_C -> a.b.c, so the provider key must not contain
+              # "_". Callback: https://tasks.68cc.io/auth/openid/authentik.
+              # emailfallback links the SSO login to the existing local user
+              # with the same email. Local auth stays on as break-glass.
+              VIKUNJA_AUTH_OPENID_ENABLED: "true"
+              VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_NAME: Authentik
+              VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_AUTHURL: https://auth.68cc.io/application/o/vikunja/
+              VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_LOGOUTURL: https://auth.68cc.io/application/o/vikunja/end-session/
+              VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_SCOPE: openid email profile
+              VIKUNJA_AUTH_OPENID_PROVIDERS_AUTHENTIK_EMAILFALLBACK: "true"
+            # DB creds, VIKUNJA_SERVICE_SECRET (JWT signing key), and the
+            # Authentik OIDC client id/secret.
             envFrom: *envFrom
             probes:
               liveness: &probe
