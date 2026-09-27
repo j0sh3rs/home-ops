@@ -42,6 +42,7 @@ resources:
   - ./holyclaude/ks.yaml
   - ./hindsight/ks.yaml
   - ./linkwarden-mcp/ks.yaml
+  - ./vikunja-mcp/ks.yaml
   - ./llama-swap/ks.yaml
   - ./llama-swap-apu/ks.yaml
   - ./omniroute/ks.yaml
