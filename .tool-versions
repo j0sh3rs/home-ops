@@ -1,4 +1,4 @@
-kubectl    1.37.0
+kubectl    1.37.1
 python     3.14.7
 kubectx    latest
 kubens     latest
