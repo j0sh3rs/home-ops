@@ -12,8 +12,6 @@ spec:
   dependsOn:
     - name: openebs
       namespace: kube-system
-    - name: velero-crds
-      namespace: flux-system
   interval: 1h
   path: ./kubernetes/apps/velero/app
   prune: true

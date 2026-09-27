@@ -28,17 +28,23 @@ spec:
         namespace: velero
   install:
     createNamespace: true
+    crds: CreateReplace
     remediation:
       retries: 3
   upgrade:
     cleanupOnFail: true
+    crds: CreateReplace
     remediation:
       retries: 3
   values:
-    # CRDs managed out-of-band by the velero-crds Flux Kustomization
-    # (../crds/app) pinned to the same chart tag as chart.spec.version below.
-    # Keep false so the chart never touches CRDs on upgrade.
-    upgradeCRDs: false
+    # Chart ships CRDs via a native crds/ dir (installed on `helm install`
+    # only) plus its own pre-install/pre-upgrade Job (upgrade-crds.yaml,
+    # runs `velero install --crds-only --apply`) gated by this flag — that
+    # Job is what keeps the CRD schema current on every upgrade. Replaces
+    # the previously vendored kubernetes/apps/velero/crds/ directory, which
+    # required a separate Flux Kustomization and a manual re-vendor step on
+    # every chart bump.
+    upgradeCRDs: true
 
     # Resource limits per NFR-SCALE-001
     resources:
