@@ -21,6 +21,7 @@ resources:
   - ./mosquitto/ks.yaml
   - ./paperless/ks.yaml
   - ./tetragon-policies/ks.yaml
+  - ./vikunja/ks.yaml
 
 # home-assistant needs hostNetwork=true for mDNS/UPnP device auto-discovery.
 # PodSecurity "baseline" rejects host namespaces, so label the namespace

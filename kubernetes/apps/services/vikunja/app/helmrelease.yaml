@@ -1,0 +1,158 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app vikunja
+spec:
+  interval: 1h
+  # Upstream's chart (go-vikunja/helm-chart) is a thin wrapper around the
+  # same bjw-s common library and only ships to a classic Helm repo, so
+  # app-template via the namespace OCIRepository is the equivalent path.
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      vikunja:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              # Tracks the PG major version of the shared CNPG cluster.
+              tag: 18
+            envFrom: &envFrom
+              - secretRef:
+                  name: vikunja-secrets
+        containers:
+          app:
+            image:
+              repository: docker.io/vikunja/vikunja
+              tag: 2.6.0@sha256:417ada6f94e81f0267aa2f007d0a811fc82d38dd2aa58351e3ea520ca01c2ea5
+            env:
+              VIKUNJA_SERVICE_PUBLICURL: https://tasks.68cc.io/
+              VIKUNJA_SERVICE_TIMEZONE: America/New_York
+              # Accounts are created via `vikunja user create` (see issue #721);
+              # no self-signup.
+              VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
+              VIKUNJA_DATABASE_TYPE: postgres
+              VIKUNJA_DATABASE_SSLMODE: disable
+              VIKUNJA_FILES_BASEPATH: /app/vikunja/files
+              VIKUNJA_METRICS_ENABLED: "true"
+              # /api/v1 and /dav are public (no forwardAuth, see route), so
+              # turn on Vikunja's limiter for its noauthlimit (10/min/IP on
+              # login etc.). Traefik doesn't trust forwarded headers from the
+              # pod CIDR, so tunnel clients share cloudflared's pod IP here --
+              # strict but fine single-user; CrowdSec bans per real IP at the
+              # entrypoint. Authenticated limit raised from 100 so the SPA
+              # isn't throttled.
+              VIKUNJA_SERVICE_IPEXTRACTIONMETHOD: xff
+              VIKUNJA_SERVICE_TRUSTEDPROXIES: 10.42.0.0/16
+              VIKUNJA_RATELIMIT_ENABLED: "true"
+              VIKUNJA_RATELIMIT_LIMIT: "600"
+            # DB creds + VIKUNJA_SERVICE_SECRET (JWT signing key).
+            envFrom: *envFrom
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/info
+                    port: &port 3456
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probe
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+        pod:
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            fsGroup: 1000
+            fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+    serviceMonitor:
+      app:
+        serviceName: *app
+        endpoints:
+          - port: http
+            scheme: http
+            path: /metrics
+            interval: 1m
+            scrapeTimeout: 10s
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+        hostnames: ["tasks.68cc.io"]
+        parentRefs:
+          - name: traefik-external-gateway
+            namespace: network
+        rules:
+          # API and CalDAV are exempt from forwardAuth: the mobile apps,
+          # CalDAV clients, and MCP/automation clients can't complete a
+          # browser redirect, and Vikunja enforces its own auth on these
+          # (JWT / API tokens on /api/v1, basic auth on /dav). The
+          # .well-known path is CalDAV autodiscovery (same basic auth).
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /api/v1
+              - path:
+                  type: PathPrefix
+                  value: /dav
+              - path:
+                  type: PathPrefix
+                  value: /.well-known/caldav
+            backendRefs:
+              - name: *app
+                port: *port
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
+              - name: *app
+                port: *port
+    persistence:
+      # Task attachments + avatars. Velero's daily kopia fs-backup covers it.
+      files:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 2Gi
+        retain: true
+        globalMounts:
+          - path: /app/vikunja/files
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
