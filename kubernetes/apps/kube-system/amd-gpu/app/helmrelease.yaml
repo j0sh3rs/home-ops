@@ -16,6 +16,10 @@ spec:
         name: amd-gpu
         namespace: flux-system
   interval: 10m0s
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
   values:
     # KMM + NFD ship at chart defaults (both enabled). KMM stays idle here:
     # DeviceConfig (deviceconfig.yaml) sets driver.enable=false, scoped to

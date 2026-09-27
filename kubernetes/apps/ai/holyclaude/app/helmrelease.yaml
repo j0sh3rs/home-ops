@@ -210,6 +210,18 @@ spec:
               PUID: "1000"
               PGID: "1000"
               NODE_OPTIONS: "--max-old-space-size=4096"
+              # Image-baked PATH (holyclaude 1.6.3 config.Env) plus mise's
+              # shims dir APPENDED. mise activation lives only in .bashrc
+              # (holyclaude-bashrc-extra), which Claude Code itself and its
+              # hooks never source -- so the repo's SOPS commit guard ran
+              # `task sops:verify`, got exit 127, and blocked every commit.
+              # Shims resolve per-dir versions and apply .mise.toml [env]
+              # (SOPS_AGE_KEY_FILE etc.) without activation. Appended, not
+              # prepended: the shims dir also has python3/pip/jq/gh/go,
+              # which would otherwise shadow the image's system Python and
+              # its baked packages. s6-overlay still prepends /command.
+              # Re-check against the image's PATH on a holyclaude bump.
+              PATH: "/home/claude/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/claude/.local/share/mise/shims"
               GIT_USER_NAME: BarryBot
               GIT_USER_EMAIL: github+barrybot@beholdthehurricane.com
               HOLYCLAUDE_DESLOPPIFY_SETUP: "claude,opencode"
