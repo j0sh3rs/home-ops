@@ -1,0 +1,174 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# n8n (#723): workflow orchestration between Vikunja webhooks and Omniroute's
+# triage endpoint. No vendor Helm chart exists, so app-template + the raw
+# n8nio/n8n image, same pattern as Vikunja/Linkwarden. Single-process
+# "regular" execution mode (no queue/Redis workers) matches this repo's
+# single-replica philosophy. Internal-only: LAN gateway, Authentik
+# forwardAuth on the editor UI, forwardAuth EXEMPT on /webhook* (webhook
+# callers, e.g. Vikunja, can't complete an SSO browser redirect). All
+# durable state lives in Postgres (DB_TYPE=postgresdb) -- /home/node/.n8n is
+# emptyDir, so no PVC and no Velero action needed for this app.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app n8n
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      n8n:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              # Tracks the PG major version of the shared CNPG cluster.
+              tag: 18
+            envFrom: &envFrom
+              - secretRef:
+                  name: n8n-secrets
+        containers:
+          app:
+            image:
+              repository: docker.io/n8nio/n8n
+              tag: "2.40.7"
+            env:
+              - name: TZ
+                value: America/New_York
+              - name: GENERIC_TIMEZONE
+                value: America/New_York
+              - name: N8N_HOST
+                value: "0.0.0.0"
+              - name: N8N_PORT
+                value: "5678"
+              - name: N8N_PROTOCOL
+                value: https
+              - name: N8N_EDITOR_BASE_URL
+                value: https://n8n.68cc.io
+              - name: WEBHOOK_URL
+                value: https://n8n.68cc.io/
+              - name: N8N_DIAGNOSTICS_ENABLED
+                value: "false"
+              - name: N8N_HIRING_BANNER_ENABLED
+                value: "false"
+              - name: N8N_TEMPLATES_ENABLED
+                value: "false"
+              - name: N8N_METRICS
+                value: "true"
+              # Task runners are mandatory (n8n >= 1.8x): Code nodes execute
+              # in a separate task-runner process, in-process mode needs no
+              # extra pod. N8N_RUNNERS_AUTH_TOKEN comes from n8n-secrets.
+              - name: N8N_RUNNERS_ENABLED
+                value: "true"
+              - name: N8N_RUNNERS_MODE
+                value: internal
+              # The HMAC-verification Code node needs Node's crypto builtin
+              # and $env access -- both blocked by n8n's secure defaults.
+              - name: NODE_FUNCTION_ALLOW_BUILTIN
+                value: crypto
+              - name: N8N_BLOCK_ENV_ACCESS_IN_NODE
+                value: "false"
+            envFrom: *envFrom
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 1Gi
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: &port 5678
+                  initialDelaySeconds: 15
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+        pod:
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            fsGroup: 1000
+            fsGroupChangePolicy: OnRootMismatch
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.17
+        hostnames: ["n8n.68cc.io"]
+        parentRefs:
+          - name: traefik-internal-gateway
+            namespace: network
+        rules:
+          # Webhook endpoints are exempt from forwardAuth: Vikunja (and any
+          # future webhook caller) can't complete an SSO browser redirect.
+          # n8n's own webhook path is unguessable per-workflow, so this is
+          # scoped to the /webhook* prefixes only, not the whole app.
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /webhook
+              - path:
+                  type: PathPrefix
+                  value: /webhook-test
+              - path:
+                  type: PathPrefix
+                  value: /webhook-waiting
+            backendRefs:
+              - name: *app
+                port: *port
+          - filters:
+              - type: ExtensionRef
+                extensionRef:
+                  group: traefik.io
+                  kind: Middleware
+                  name: authentik-forwardauth
+            backendRefs:
+              - name: *app
+                port: *port
+    persistence:
+      config:
+        # All durable state lives in Postgres; this only holds the runtime
+        # binaryData cache. No PVC, no Velero action required.
+        type: emptyDir
+        globalMounts:
+          - path: /home/node/.n8n
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
