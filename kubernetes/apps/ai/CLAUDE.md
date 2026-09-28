@@ -60,7 +60,7 @@ Details: `docs/ai-history/rejected-decisions.md`.
 - **Replacing llama-swap with Ollama**: duplicate engine; we'd lose GGUF control.
 - **LiteLLM as a gateway**: its features were inert here. (Omniroute as the gateway is adopted, not rejected.)
 - **OmniRoute browser-scraping mode**: ToS risk. Only CLIProxyAPI CLI-session reuse is allowed.
-- **Kelos, n8n, agent-canvas, cognee**: redundant or unused surfaces.
+- **Kelos, agent-canvas, cognee**: redundant or unused surfaces, stay removed. n8n was revived in `services` (#723) as a narrowly-scoped Vikunja-webhook → Omniroute-triage orchestrator — a different role from its original `ai`-namespace coding-agent-platform deployment that this line originally retired. Don't read n8n's presence in `services` as reopening the original coding-agent-platform decision; that stays retired.
 - **Khoj**: no notes habit; stalled upstream.
 - **vLLM**: needs ROCm; no gain on APUs.
 - **Moving whisper/piper onto llama-swap's audio tools**: they don't speak Wyoming.
