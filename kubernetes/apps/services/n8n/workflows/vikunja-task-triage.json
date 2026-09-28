@@ -13,7 +13,7 @@
         "path": "vikunja-task-triage",
         "httpMethod": "POST",
         "responseMode": "lastNode",
-        "options": {}
+        "options": { "rawBody": true }
       }
     },
     {
@@ -24,7 +24,7 @@
       "position": [220, 0],
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const crypto = require('crypto');\nconst secret = $env.VIKUNJA_WEBHOOK_SECRET;\nconst signature = $input.first().json.headers['x-vikunja-signature'];\nconst rawBody = JSON.stringify($input.first().json.body);\nconst expected = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');\nif (signature !== expected) {\n  throw new Error('Invalid Vikunja webhook signature');\n}\nreturn [{ json: $input.first().json.body }];"
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.VIKUNJA_WEBHOOK_SECRET;\nconst item = $input.first();\nconst signature = String(item.json.headers['x-vikunja-signature'] || '');\nconst rawBody = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');\nconst a = Buffer.from(signature);\nconst b = Buffer.from(expected);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  throw new Error('Invalid Vikunja webhook signature');\n}\nreturn [{ json: item.json.body }];"
       }
     },
     {
