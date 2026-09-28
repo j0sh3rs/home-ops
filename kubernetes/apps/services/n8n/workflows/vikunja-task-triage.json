@@ -77,7 +77,7 @@
       "position": [880, 0],
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const content = $input.first().json.choices[0].message.content;\nconst triage = JSON.parse(content);\nreturn [{ json: { ...triage, taskId: $('Verify Signature').first().json.data.task.id } }];"
+        "jsCode": "const content = $input.first().json.choices[0].message.content;\nconst start = content.indexOf('{');\nconst end = content.lastIndexOf('}');\nif (start === -1 || end <= start) throw new Error('Omniroute reply contained no JSON object');\nconst triage = JSON.parse(content.slice(start, end + 1));\nconst esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst list = (v) => (Array.isArray(v) ? v : []).map(esc);\nconst subtasks = list(triage.subtasks);\nconst labels = list(triage.labels);\nconst comment = '<p><strong>AI Triage</strong></p>' +\n  '<p>Suggested subtasks:</p><ul>' + subtasks.map((s) => '<li>' + s + '</li>').join('') + '</ul>' +\n  '<p>Suggested priority: ' + esc(triage.priority) + '<br>Suggested labels: ' + labels.join(', ') + '<br>Effort estimate: ' + esc(triage.effort_estimate) + '</p>';\nreturn [{ json: { comment, taskId: $('Verify Signature').first().json.data.task.id } }];"
       }
     },
     {
@@ -87,7 +87,7 @@
       "typeVersion": 4.2,
       "position": [1100, 0],
       "parameters": {
-        "method": "POST",
+        "method": "PUT",
         "url": "=http://vikunja.services.svc.cluster.local:3456/api/v1/tasks/{{$json.taskId}}/comments",
         "authentication": "none",
         "sendHeaders": true,
@@ -99,7 +99,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ comment: \"**AI Triage**\\n\\nSuggested subtasks:\\n\" + $json.subtasks.map(s => \"- \" + s).join(\"\\n\") + \"\\n\\nSuggested priority: \" + $json.priority + \"\\nSuggested labels: \" + $json.labels.join(\", \") + \"\\nEffort estimate: \" + $json.effort_estimate }) }}"
+        "jsonBody": "={{ JSON.stringify({ comment: $json.comment }) }}"
       }
     }
   ],
