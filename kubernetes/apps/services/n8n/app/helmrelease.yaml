@@ -168,6 +168,12 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /home/node/.n8n
+      cache:
+        # n8n mkdirs /home/node/.cache on start (static asset generation);
+        # with readOnlyRootFilesystem it crash-loops with ENOENT otherwise.
+        type: emptyDir
+        globalMounts:
+          - path: /home/node/.cache
       tmp:
         type: emptyDir
         globalMounts:
