@@ -1,0 +1,113 @@
+{
+  "name": "Vikunja Task Triage",
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Vikunja Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "parameters": {
+        "path": "vikunja-task-triage",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": { "rawBody": true }
+      }
+    },
+    {
+      "id": "verify-hmac",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const crypto = require('crypto');\nconst secret = $env.VIKUNJA_WEBHOOK_SECRET;\nconst item = $input.first();\nconst signature = String(item.json.headers['x-vikunja-signature'] || '');\nconst rawBody = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');\nconst a = Buffer.from(signature);\nconst b = Buffer.from(expected);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  throw new Error('Invalid Vikunja webhook signature');\n}\nreturn [{ json: item.json.body }];"
+      }
+    },
+    {
+      "id": "filter-event",
+      "name": "Is task.created?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "conditions": [
+            {
+              "leftValue": "={{$json.event_name}}",
+              "rightValue": "task.created",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "call-omniroute",
+      "name": "Omniroute Triage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "http://omniroute.ai.svc.cluster.local:20128/v1/chat/completions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{$env.OMNIROUTE_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"task-triage\", messages: [ { role: \"system\", content: \"You triage new task-tracker tasks. Reply with STRICT JSON only, no prose, matching exactly: {\\\"subtasks\\\": string[], \\\"priority\\\": 1|2|3|4|5, \\\"labels\\\": string[], \\\"effort_estimate\\\": string}.\" }, { role: \"user\", content: \"Title: \" + $json.data.task.title + \"\\n\\nDescription: \" + ($json.data.task.description || \"(none)\") } ] }) }}"
+      }
+    },
+    {
+      "id": "parse-response",
+      "name": "Parse Triage JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const content = $input.first().json.choices[0].message.content;\nconst start = content.indexOf('{');\nconst end = content.lastIndexOf('}');\nif (start === -1 || end <= start) throw new Error('Omniroute reply contained no JSON object');\nconst triage = JSON.parse(content.slice(start, end + 1));\nconst esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst list = (v) => (Array.isArray(v) ? v : []).map(esc);\nconst subtasks = list(triage.subtasks);\nconst labels = list(triage.labels);\nconst comment = '<p><strong>AI Triage</strong></p>' +\n  '<p>Suggested subtasks:</p><ul>' + subtasks.map((s) => '<li>' + s + '</li>').join('') + '</ul>' +\n  '<p>Suggested priority: ' + esc(triage.priority) + '<br>Suggested labels: ' + labels.join(', ') + '<br>Effort estimate: ' + esc(triage.effort_estimate) + '</p>';\nreturn [{ json: { comment, taskId: $('Verify Signature').first().json.data.task.id } }];"
+      }
+    },
+    {
+      "id": "post-comment",
+      "name": "Write Vikunja Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 0],
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://vikunja.services.svc.cluster.local:3456/api/v1/tasks/{{$json.taskId}}/comments",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{$env.VIKUNJA_API_TOKEN}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ comment: $json.comment }) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Vikunja Webhook": { "main": [[{ "node": "Verify Signature", "type": "main", "index": 0 }]] },
+    "Verify Signature": { "main": [[{ "node": "Is task.created?", "type": "main", "index": 0 }]] },
+    "Is task.created?": { "main": [[{ "node": "Omniroute Triage", "type": "main", "index": 0 }]] },
+    "Omniroute Triage": { "main": [[{ "node": "Parse Triage JSON", "type": "main", "index": 0 }]] },
+    "Parse Triage JSON": { "main": [[{ "node": "Write Vikunja Comment", "type": "main", "index": 0 }]] }
+  }
+}
