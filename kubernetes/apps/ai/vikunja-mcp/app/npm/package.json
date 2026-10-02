@@ -3,6 +3,6 @@
   "private": true,
   "description": "Pinned install of @aimbitgmbh/vikunja-mcp for the vikunja-mcp pod (npm ci in an initContainer). Renovate bumps this + the lockfile.",
   "dependencies": {
-    "@aimbitgmbh/vikunja-mcp": "1.0.0"
+    "@aimbitgmbh/vikunja-mcp": "1.0.1"
   }
 }
