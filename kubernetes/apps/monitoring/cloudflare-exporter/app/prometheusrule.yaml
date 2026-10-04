@@ -1,0 +1,53 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Edge-side signals for 68cc.io. Tunnel/connector health is already covered
+# by cloudflared's own rules (kubernetes/apps/network/cloudflared) and by the
+# Cloudflare Notifications listed in docs/runbooks/cloudflare-waf.md -- these
+# rules only add what the edge sees.
+#
+# Series are per-minute window values, not counters (see helmrelease.yaml
+# header): use sum_over_time, never rate/increase. No rules on
+# cloudflare_zone_firewall_events_count -- its series go stale-but-present
+# after a quiet minute, so a single rate-limit hit could keep an alert firing.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cloudflare-exporter-rules
+spec:
+  groups:
+    - name: cloudflare-edge.rules
+      rules:
+        # The exporter has no error metric of its own: a revoked token or
+        # GraphQL failure just means the zone series stop updating. HTTP
+        # series are cleared every window, so absence is reliable here.
+        - alert: CloudflareAnalyticsMissing
+          expr: |
+            absent(cloudflare_zone_requests_total{zone="68cc.io"})
+          for: 30m
+          annotations:
+            summary: >-
+              No Cloudflare analytics for 68cc.io for 30m -- check the
+              cloudflare-exporter logs and the API token
+          labels:
+            severity: warning
+
+        # 5xx served at the edge across all 68cc.io hosts. Includes 52x/530
+        # (origin/tunnel unreachable) as well as app 5xx. The volume floor
+        # keeps a quiet night with a handful of errors from paging.
+        - alert: CloudflareEdge5xxHigh
+          expr: |
+            (
+              sum by (host) (sum_over_time(cloudflare_zone_requests_status_country_host{zone="68cc.io", status=~"5.."}[15m]))
+              /
+              sum by (host) (sum_over_time(cloudflare_zone_requests_status_country_host{zone="68cc.io"}[15m]))
+            ) > 0.10
+            and
+            sum by (host) (sum_over_time(cloudflare_zone_requests_status_country_host{zone="68cc.io"}[15m])) > 50
+          for: 10m
+          annotations:
+            summary: >-
+              {{ $labels.host }}: {{ $value | humanizePercentage }} of edge
+              responses are 5xx over 15m
+          labels:
+            severity: warning
