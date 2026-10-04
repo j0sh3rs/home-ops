@@ -11,7 +11,7 @@ produced this layout: `docs/runbooks/cloudflare-account-review-2026-10.md`.
 - **Zone**: `68cc.io` (id `eb20e71f8f6552f423760f6d9ba6e477`)
 - **Account**: `BTH Account` (id `8ba89444e86d240c9e8ab1cd0ad60c2c`)
 - **Plan**: Pro — caps:
-  - 20 custom rules (8 used)
+  - 20 custom rules (9 used)
   - 2 rate-limiting rules (2 used), periods/timeouts up to 1h,
     characteristics `ip.src` + `cf.colo.id` only (per-colo, not global)
   - Cloudflare Managed Ruleset + OWASP Core Ruleset
@@ -66,20 +66,21 @@ touch Cloudflare, so edge blocks (e.g. Authentik admin) don't affect LAN use.
   curl -s https://api.github.com/meta | jq -r '.hooks[]'
   ```
 
-## Custom rules (8/20)
+## Custom rules (9/20)
 
 Evaluated top to bottom; the first terminating action wins.
 
 | # | Name | Action | Expression |
 |---|---|---|---|
 | 1 | `skip-github-webhooks` | skip rest of custom rules + rate limit + managed WAF + SBFM (logged) | `(ip.src in $github_hooks) and (http.host eq "flux-webhook.68cc.io") and starts_with(http.request.uri.path, "/hook/")` |
-| 2 | `block-flux-webhook-non-github` | block | `(http.host eq "flux-webhook.68cc.io")` — anything not skipped by #1 |
-| 3 | `geo-allowlist-us-ca` | block | `(not ip.src.country in {"US" "CA"})` |
-| 4 | `block-bad-methods` | block | `(http.request.method in {"TRACE" "TRACK" "CONNECT"})` |
-| 5 | `block-scanner-user-agents` | block | empty UA, or UA contains `zgrab`, `masscan`, `nuclei`, `sqlmap`, `nikto`, `censysinspect` (lower-cased) |
-| 6 | `block-exploit-paths` | block | lower-cased path contains `/.env`, `/.git/`, `/.aws/`, `/.ds_store`, `/wp-admin`, `/wp-login.php`, `/xmlrpc.php`, `/phpinfo`, `/vendor/phpunit`, `/cgi-bin/`, `/server-status`, `/actuator` |
-| 7 | `block-authentik-admin-external` | block | `(http.host eq "auth.68cc.io") and starts_with(lower(http.request.uri.path), "/if/admin")` |
-| 8 | `block-ai-crawlers` | block | `(cf.client.bot) and (http.host ne "68cc.io")` |
+| 2 | `skip-cloudflare-healthcheck` | skip rest of custom rules + SBFM (logged) | `(http.host eq "auth.68cc.io") and (http.request.uri.path eq "/-/health/live/") and (http.request.method eq "GET") and starts_with(http.user_agent, "Mozilla/5.0 (compatible;Cloudflare-Healthchecks/")` |
+| 3 | `block-flux-webhook-non-github` | block | `(http.host eq "flux-webhook.68cc.io")` — anything not skipped by #1 |
+| 4 | `geo-allowlist-us-ca` | block | `(not ip.src.country in {"US" "CA"})` |
+| 5 | `block-bad-methods` | block | `(http.request.method in {"TRACE" "TRACK" "CONNECT"})` |
+| 6 | `block-scanner-user-agents` | block | empty UA, or UA contains `zgrab`, `masscan`, `nuclei`, `sqlmap`, `nikto`, `censysinspect` (lower-cased) |
+| 7 | `block-exploit-paths` | block | lower-cased path contains `/.env`, `/.git/`, `/.aws/`, `/.ds_store`, `/wp-admin`, `/wp-login.php`, `/xmlrpc.php`, `/phpinfo`, `/vendor/phpunit`, `/cgi-bin/`, `/server-status`, `/actuator` |
+| 8 | `block-authentik-admin-external` | block | `(http.host eq "auth.68cc.io") and starts_with(lower(http.request.uri.path), "/if/admin")` |
+| 9 | `block-ai-crawlers` | block | `(cf.client.bot) and (http.host ne "68cc.io")` |
 
 Notes:
 
@@ -89,10 +90,14 @@ Notes:
 - n8n is on `traefik-internal-gateway` only; it is not referenced here. If
   n8n webhooks are ever published, add its host/path to rule #1 rather than
   a new skip rule.
-- Rule #7: Authentik admin is LAN-only. Remote admin = VPN to LAN.
-- Rule #5: an API client that sends no `User-Agent` will be blocked. Every
+- Rule #2: Cloudflare's Health Check prober is `cf.client.bot`, so rule #9
+  (and SBFM `verified_bots=block`) 403'd it. The UA is spoofable, but the
+  skip only covers one public GET that returns 200 anyway; rate limiting and
+  the managed WAF still apply.
+- Rule #8: Authentik admin is LAN-only. Remote admin = VPN to LAN.
+- Rule #6: an API client that sends no `User-Agent` will be blocked. Every
   known client (HA, CalDAV, mobile apps, atuin, curl) sends one.
-- Travel: add a country to rule #3, or a temporary `ip.src eq <ip>` skip
+- Travel: add a country to rule #4, or a temporary `ip.src eq <ip>` skip
   rule above it.
 
 ## Rate limiting rules (2/2)
@@ -163,7 +168,7 @@ async () => {
 
 ```json
 {
-  "custom": ["skip-github-webhooks","block-flux-webhook-non-github","geo-allowlist-us-ca","block-bad-methods","block-scanner-user-agents","block-exploit-paths","block-authentik-admin-external","block-ai-crawlers"],
+  "custom": ["skip-github-webhooks","skip-cloudflare-healthcheck","block-flux-webhook-non-github","geo-allowlist-us-ca","block-bad-methods","block-scanner-user-agents","block-exploit-paths","block-authentik-admin-external","block-ai-crawlers"],
   "ratelimit": ["rl-authentik-flow-executor","rl-global-backstop"],
   "managed": ["cloudflare-managed-ruleset","owasp-core-pl1-threshold60"],
   "sbfm": { "automated": "allow", "verified": "block", "ai": "block" },
@@ -183,6 +188,38 @@ t flux-webhook.68cc.io /hook/x -X POST  # 403 (not a GitHub IP)
 t links.68cc.io /.env               # 403
 ```
 
+## Monitoring and notifications
+
+**Cloudflare Notifications** (account-level). Every policy delivers to email
+`cloudflare@beholdthehurricane.com` and to webhook destination
+`discord-home-ops-alerts` (`77ef7521…`, native Discord type, the same channel
+Alertmanager uses via `alertmanager-secret`). If that Discord webhook is
+rotated, update the destination as well.
+
+| Policy | Alert type | Scope |
+|---|---|---|
+| `home-ops: tunnel health (home)` | `tunnel_health_event` | tunnel `3ecf7dee…`, every status change (incl. recovery) |
+| `home-ops: tunnel created/deleted` | `tunnel_update_event` | account |
+| `home-ops: auth edge health check` | `health_check_status_notification` | health check below, Healthy + Unhealthy |
+| `home-ops: HTTP DDoS attack` | `dos_attack_l7` | all zones |
+| `home-ops: Universal SSL` | `universal_ssl_event_type` | all zones |
+
+**Health Check** `auth-edge-to-authentik` (`f509144d…`, Pro): HTTPS GET
+`auth.68cc.io/-/health/live/` expecting 200, 60s interval, ENAM + WNAM,
+unhealthy after 3 consecutive failures. It is the only external synthetic
+probe: in-cluster probes resolve `*.68cc.io` to LAN VIPs and never touch the
+edge. A pass proves edge → tunnel → traefik-external → Authentik. Needs
+custom rule #2.
+
+**Metrics**: `kubernetes/apps/monitoring/cloudflare-exporter/` (lablabs
+`cloudflare_exporter`) polls GraphQL Analytics for 68cc.io with a dedicated
+read-only token and is scraped by vmagent. Grafana: *Network → Cloudflare
+Edge (68cc.io)*: requests/status by host, firewall events by
+rule/action/host/country, origin p95. Alerts: `CloudflareAnalyticsMissing`,
+`CloudflareEdge5xxHigh` (both warning). Tunnel-connector alerts live with
+cloudflared. Read the helmrelease header before writing queries: the series
+are per-minute windows, not counters.
+
 ## Change management
 
 1. Edit this markdown first (PR against `main`).
@@ -193,5 +230,4 @@ t links.68cc.io /.env               # 403
 4. Merge the PR.
 
 **Not covered** (candidates for future work): Terraform-managed rules,
-Turnstile on forms, Cloudflare Notifications → Alertmanager, a
-cloudflare-exporter for VictoriaMetrics.
+Turnstile on forms, sampled security events → VictoriaLogs, Access-level MFA.

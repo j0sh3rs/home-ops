@@ -1,0 +1,100 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+#
+# Cloudflare GraphQL Analytics -> Prometheus for the 68cc.io zone (Pro).
+# vmagent scrapes the ServiceMonitor and remote-writes to metrics.68cc.io.
+#
+# Metric semantics (read from the exporter source, v0.2.3): every
+# SCRAPE_INTERVAL the exporter queries a 1-minute window ending SCRAPE_DELAY
+# ago, deletes the zone's series and re-adds the counts. So each series is
+# "events in that 1-minute window", not a monotonic counter -- never use
+# rate()/increase() on them; use the raw value or sum_over_time(). The
+# ServiceMonitor interval matches SCRAPE_INTERVAL so sum_over_time doesn't
+# double count.
+#
+# Caveat: firewall-event and health-check series are only cleared when the
+# next window has at least one event, so after a quiet minute they keep their
+# last value. Fine for dashboards; don't alert on them.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cloudflare-exporter
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      cloudflare-exporter:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/lablabs/cloudflare_exporter
+              tag: 0.2.3@sha256:6bf84a81725c6d75b14fb584135ccfe5f8aff89d23c36b04511d22b1c6cc10cb
+            env:
+              TZ: America/New_York
+              LISTEN: ":8080"
+              CF_ACCOUNTS: 8ba89444e86d240c9e8ab1cd0ad60c2c
+              # 68cc.io only -- the other zones are Free and parked/mail-only.
+              CF_ZONES: eb20e71f8f6552f423760f6d9ba6e477
+              FREE_TIER: "false"
+              SCRAPE_INTERVAL: "60"
+              SCRAPE_DELAY: "300"
+              # No Workers / Logpush / Load Balancing on this account.
+              METRICS_DENYLIST: >-
+                cloudflare_worker_requests_count,cloudflare_worker_errors_count,cloudflare_worker_cpu_time,cloudflare_worker_duration,cloudflare_logpush_failed_jobs_account_count,cloudflare_logpush_failed_jobs_zone_count,cloudflare_zone_pool_health_status,cloudflare_zone_pool_requests_total,cloudflare_pool_origin_health_status
+            envFrom:
+              - secretRef:
+                  name: cloudflare-exporter-secret
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8080
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probe
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 128Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: cloudflare-exporter
+        ports:
+          http:
+            port: 8080
+    serviceMonitor:
+      app:
+        serviceName: cloudflare-exporter
+        endpoints:
+          - port: http
+            scheme: http
+            path: /metrics
+            interval: 1m # == SCRAPE_INTERVAL, see header
+            scrapeTimeout: 30s
