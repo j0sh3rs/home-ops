@@ -4,7 +4,7 @@
 # Cloudflare GraphQL Analytics -> Prometheus for the 68cc.io zone (Pro).
 # vmagent scrapes the ServiceMonitor and remote-writes to metrics.68cc.io.
 #
-# Metric semantics (read from the exporter source, v0.2.3): every
+# Metric semantics (read from the exporter source, 64d366f): every
 # SCRAPE_INTERVAL the exporter queries a 1-minute window ending SCRAPE_DELAY
 # ago, deletes the zone's series and re-adds the counts. So each series is
 # "events in that 1-minute window", not a monotonic counter -- never use
@@ -39,8 +39,14 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/lablabs/cloudflare_exporter
-              tag: 0.2.3@sha256:6bf84a81725c6d75b14fb584135ccfe5f8aff89d23c36b04511d22b1c6cc10cb
+              # Upstream's master build (ko, published by docker-master.yaml), at
+              # lablabs/cloudflare-exporter@64d366f. The newest tagged image,
+              # ghcr.io/lablabs/cloudflare_exporter:0.2.3, is unusable here: it
+              # dies on the legacy Firewall Rules API (10021, our custom rules
+              # are Rulesets-only). Move to a version tag once one ships after
+              # 64d366f; until then Renovate tracks the digest.
+              repository: ghcr.io/lablabs/cloudflare-exporter
+              tag: latest@sha256:c213cded2db6b49d3199d1cfa660fba5469ca66309596fbc87c24acd269834a7
             env:
               TZ: America/New_York
               LISTEN: ":8080"
@@ -50,9 +56,11 @@ spec:
               FREE_TIER: "false"
               SCRAPE_INTERVAL: "60"
               SCRAPE_DELAY: "300"
-              # No Workers / Logpush / Load Balancing on this account.
+              # No Workers / Logpush / Load Balancing on this account; tunnel health
+              # comes from cloudflared itself (and the token has no Tunnel:Read).
+              # Names must exist in the running version or the exporter exits.
               METRICS_DENYLIST: >-
-                cloudflare_worker_requests_count,cloudflare_worker_errors_count,cloudflare_worker_cpu_time,cloudflare_worker_duration,cloudflare_logpush_failed_jobs_account_count,cloudflare_logpush_failed_jobs_zone_count,cloudflare_zone_pool_health_status,cloudflare_zone_pool_requests_total,cloudflare_pool_origin_health_status
+                cloudflare_worker_requests_count,cloudflare_worker_errors_count,cloudflare_worker_cpu_time,cloudflare_worker_duration,cloudflare_logpush_failed_jobs_account_count,cloudflare_logpush_failed_jobs_zone_count,cloudflare_zone_pool_health_status,cloudflare_zone_pool_requests_total,cloudflare_pool_origin_health_status,cloudflare_tunnel_info,cloudflare_tunnel_health_status,cloudflare_tunnel_connector_info,cloudflare_tunnel_connector_active_connections
             envFrom:
               - secretRef:
                   name: cloudflare-exporter-secret
