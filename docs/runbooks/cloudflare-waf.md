@@ -66,7 +66,7 @@ touch Cloudflare, so edge blocks (e.g. Authentik admin) don't affect LAN use.
   curl -s https://api.github.com/meta | jq -r '.hooks[]'
   ```
 
-## Custom rules (9/20)
+## Custom rules (10/20)
 
 Evaluated top to bottom; the first terminating action wins.
 
@@ -78,9 +78,10 @@ Evaluated top to bottom; the first terminating action wins.
 | 4 | `geo-allowlist-us-ca` | block | `(not ip.src.country in {"US" "CA"})` |
 | 5 | `block-bad-methods` | block | `(http.request.method in {"TRACE" "TRACK" "CONNECT"})` |
 | 6 | `block-scanner-user-agents` | block | empty UA, or UA contains `zgrab`, `masscan`, `nuclei`, `sqlmap`, `nikto`, `censysinspect` (lower-cased) |
-| 7 | `block-exploit-paths` | block | lower-cased path contains `/.env`, `/.git/`, `/.aws/`, `/.ds_store`, `/wp-admin`, `/wp-login.php`, `/xmlrpc.php`, `/phpinfo`, `/vendor/phpunit`, `/cgi-bin/`, `/server-status`, `/actuator` |
+| 7 | `block-exploit-paths` | block | lower-cased path: contains `/.` (any dotfile/dotdir, plus `..` traversal) except `/.well-known`; ends with `.php`, `.bak`, `.sql`, `.tfstate`, `.tfvars`, `.swp`; or contains `/wp-admin`, `/phpinfo`, `/vendor/phpunit`, `/cgi-bin/`, `/server-status`, `/actuator`, `/jenkinsfile`, `/docker-compose` |
 | 8 | `block-authentik-admin-external` | block | `(http.host eq "auth.68cc.io") and starts_with(lower(http.request.uri.path), "/if/admin")` |
-| 9 | `block-ai-crawlers` | block | `(cf.client.bot) and (http.host ne "68cc.io")` |
+| 9 | `allowlist-authentik-paths` | block | `(http.host eq "auth.68cc.io") and not (path in {"/" "/favicon.ico" "/robots.txt"} or starts_with(path, ...))`, prefixes: `/if/`, `/api/v3/`, `/application/`, `/flows/`, `/source/`, `/static/`, `/media/`, `/outpost.goauthentik.io/`, `/ws/`, `/-/health/`, `/.well-known/`, `/cdn-cgi/` (path is case-sensitive, not lower-cased) |
+| 10 | `block-ai-crawlers` | block | `(cf.client.bot) and (http.host ne "68cc.io")` |
 
 Notes:
 
@@ -95,6 +96,17 @@ Notes:
   skip only covers one public GET that returns 200 anyway; rate limiting and
   the managed WAF still apply.
 - Rule #8: Authentik admin is LAN-only. Remote admin = VPN to LAN.
+- Rule #7 (broadened 2026-10-04): a 24h zone-wide query found no 2xx/3xx
+  traffic on any of the new patterns except `/.well-known/...` (Authentik
+  OIDC discovery, `tasks` CalDAV), hence the `/.well-known` carve-out. No app
+  behind the tunnel serves PHP. If one ever does, scope the `.php` clause by host.
+- Rule #9 (2026-10-04): scanners from US IPs probed `auth.68cc.io` for
+  `/terraform.tfstate`, `/kubeconfig`, `/id_ed25519`, `/secrets.yml`, etc.
+  Authentik 404'd them, but anything outside its real URL space is now blocked
+  at the edge. The prefixes come from 24h of traffic plus Authentik's URL
+  layout. If an Authentik upgrade adds a top-level path (e.g. a new
+  `/endpoints/` flow), add it here, or login breaks for external users only.
+  LAN clients use split-horizon DNS and never hit this rule.
 - Rule #6: an API client that sends no `User-Agent` will be blocked. Every
   known client (HA, CalDAV, mobile apps, atuin, curl) sends one.
 - Travel: add a country to rule #4, or a temporary `ip.src eq <ip>` skip
@@ -168,7 +180,7 @@ async () => {
 
 ```json
 {
-  "custom": ["skip-github-webhooks","skip-cloudflare-healthcheck","block-flux-webhook-non-github","geo-allowlist-us-ca","block-bad-methods","block-scanner-user-agents","block-exploit-paths","block-authentik-admin-external","block-ai-crawlers"],
+  "custom": ["skip-github-webhooks","skip-cloudflare-healthcheck","block-flux-webhook-non-github","geo-allowlist-us-ca","block-bad-methods","block-scanner-user-agents","block-exploit-paths","block-authentik-admin-external","allowlist-authentik-paths","block-ai-crawlers"],
   "ratelimit": ["rl-authentik-flow-executor","rl-global-backstop"],
   "managed": ["cloudflare-managed-ruleset","owasp-core-pl1-threshold60"],
   "sbfm": { "automated": "allow", "verified": "block", "ai": "block" },
@@ -186,6 +198,10 @@ t tasks.68cc.io /api/v1/info        # 200 (Access bypass)
 t auth.68cc.io /if/admin/           # 403
 t flux-webhook.68cc.io /hook/x -X POST  # 403 (not a GitHub IP)
 t links.68cc.io /.env               # 403
+t auth.68cc.io /terraform.tfstate   # 403 (rule #7)
+t auth.68cc.io /kubeconfig          # 403 (rule #9, not an Authentik path)
+t auth.68cc.io /if/flow/default-authentication-flow/  # 200
+t auth.68cc.io /application/o/vikunja/.well-known/openid-configuration  # 200
 ```
 
 ## Monitoring and notifications

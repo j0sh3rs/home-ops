@@ -155,15 +155,15 @@ Deployed state now lives in `docs/runbooks/cloudflare-waf.md`.
 | H3 single-layer apps | Added Access apps for `holyclaude` (8h), `omniroute`, and `tasks`. A bypass app keeps `tasks` `/api/v1`, `/api/v2`, `/dav`, and `/.well-known/caldav` reachable for token clients. |
 | M1 flux-webhook | Added the `github_hooks` IP list (v4 + v6), a skip rule, and a block for everything else. The old skip matched `/webhook`, but Flux serves `/hook/`, so the skip never fired. |
 | M2 Authentik admin | `/if/admin*` is blocked at the edge. |
-| M3 WAN IP in DNS | **Not changed.** `home.68cc.io` / `home.bth.wtf` → `100.0.186.56` may be a VPN DDNS anchor. Needs a decision. The bogus `home.bth.wtf` A `104.18.0.0` was deleted. |
+| M3 WAN IP in DNS | **Decided 2026-10-04:** `home.68cc.io` is the intended DDNS endpoint and stays. `home.bth.wtf` was deleted, but an off-cluster DDNS client on the WAN IP recreated it 86s later. Remove the `bth.wtf` entry from that client, then delete the record. The bogus `home.bth.wtf` A `104.18.0.0` was deleted. |
 | M4 zone settings | ssl strict, rocket_loader off, email_obfuscation off, browser_cache_ttl 0, 0rtt off. |
 | M5 email | Added `v=spf1 -all`, DMARC `p=reject` (rua `josh@bth.wtf`, authorized via `68cc.io._report._dmarc.bth.wtf`), and null MX. |
+| Mail, other zones (2026-10-04) | `68cc.io`: added the null DKIM `*._domainkey` `v=DKIM1; p=`. `*simmonds.com` (5 zones): added the missing null MX `0 .`. `200pope.us` had no records; it got the full parked set (null MX, `v=spf1 -all`, DMARC reject, null DKIM). `beholdthehurricane.com` (Proton): SPF → `include:_spf.protonmail.ch -all`, DMARC → `p=reject; rua=mailto:josh@bth.wtf`. `robinhoodpto.com` (Hostinger, shared mailboxes): DMARC `p=none` + `rua=mailto:josh@bth.wtf`, so reports come in before tightening. Every zone has a `<zone>._report._dmarc.bth.wtf TXT "v=DMARC1"` authorization. `bth.wtf` was already correct. |
 | Hygiene | Deleted `_acme-challenge.{dsm,photos,rustfs}`, the `openclaw` Access app, the duplicate `josh-only` policy, and the `bth.wtf` CNAMEs `cd`, `external`, `flux-webhook`, `grafana`, `links`, `sh`, and `tools`. The AI-crawler rule is inverted to cover all hosts. |
 | Other zones | All 9: ssl strict, Always Use HTTPS on, min TLS 1.2. None have real web origins. Only Google `_domainconnect` CNAMEs are proxied. |
 | Pro | Cloudflare Managed Ruleset, OWASP PL1/threshold 60/managed challenge (scoped off agent and API paths), SBFM verified bots = block (definitely automated = allow), 8 custom rules, 2 rate limits, leaked-credential detection on. |
 
 Deliberately not changed: the Access MFA `require` (with the Google IdP, an
 `auth_method: mfa` requirement can lock you out unless Google returns `amr`. Test it on
-one app first), `robinhoodpto.com` DMARC `p=none` and `beholdthehurricane.com`
-SPF `~all` (live mail domains, so ramp them deliberately), and `200pope.us` DNSSEC (needs a DS record at
+one app first), `robinhoodpto.com` DMARC `p=none` (live mail domain used by others. Move to `quarantine` once the aggregate reports show only Hostinger-aligned senders), and `200pope.us` DNSSEC (needs a DS record at
 the registrar).
