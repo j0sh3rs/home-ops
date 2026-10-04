@@ -35,8 +35,6 @@ spec:
             key: *name
     extraArgs:
       - --cloudflare-dns-records-per-page=1000
-      - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
-      - --crd-source-kind=DNSEndpoint
       - --gateway-name=traefik-external-gateway
       - --zone-id-filter=$(CF_ZONE_ID)
       # Public ingress anchor: every HTTPRoute attached to
@@ -59,7 +57,11 @@ spec:
       - --cloudflare-proxied
     triggerLoopOnEvent: true
     policy: sync
-    sources: ["crd", "gateway-httproute", "gateway-tcproute", "gateway-tlsroute"]
+    # No "crd" source: --gateway-name does not filter DNSEndpoints, and
+    # --force-default-targets rewrote the LAN-only postgres-internal
+    # DNSEndpoint (pg.68cc.io -> 192.168.35.17) into a public tunnel CNAME.
+    # DNSEndpoints are LAN-only by convention and belong to unifi-dns.
+    sources: ["gateway-httproute", "gateway-tcproute", "gateway-tlsroute"]
     txtOwnerId: default
     txtPrefix: k8s.
     domainFilters: ["68cc.io", "*.68cc.io"]

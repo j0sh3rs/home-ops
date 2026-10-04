@@ -332,7 +332,7 @@ flux build kustomization {name} --path kubernetes/apps/{path} --dry-run
 - **SOPS + age** — Git-native encryption, no external dependency
 - **Immutable infrastructure** — Talos nodes are API-configured, never SSH'd into
 - **eBPF-native** — Cilium CNI + Tetragon security for kernel-level observability
-- **Cloudflare Free plan** — 5 custom WAF rules, 1 rate-limiting rule (new engine). Bot Fight Mode is tunnel-hostile (breaks cloudflared with `websocket: bad handshake`) — keep OFF. `ai_bots_protection: block` is safe and on. Managed Rules / Super Bot Fight Mode / multi-rule rate-limit need Pro ($25/mo/zone) — not currently justified for this threat model.
+- **Cloudflare Pro plan on `68cc.io`** (since 2026-10-04) — 20 custom rules, 2 rate-limiting rules, Managed + OWASP rulesets, SBFM. Bot Fight Mode and SBFM `Definitely Automated` are tunnel-hostile (break cloudflared with `websocket: bad handshake`) — keep OFF / `allow`. Deployed state and verify snippet: `docs/runbooks/cloudflare-waf.md`.
 
 ## Debugging Cheat Sheet
 
