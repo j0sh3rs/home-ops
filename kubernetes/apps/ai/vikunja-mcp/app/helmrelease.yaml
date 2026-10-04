@@ -37,7 +37,7 @@ spec:
           npm-ci:
             image: &image
               repository: ghcr.io/supercorp-ai/supergateway
-              tag: 4.0.0@sha256:407344de762a449f129c576fa1e3934b63c43fef417322687972ffc43ec675df
+              tag: 4.1.0@sha256:1938c43538a5308bce07d58028e9de00b7acfecb40b39b059b2f3931800ad910
             command:
               - sh
               - -c
