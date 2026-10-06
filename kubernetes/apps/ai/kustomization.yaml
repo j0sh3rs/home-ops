@@ -36,7 +36,9 @@ components:
   - ../../components/repos/app-template
   - ../../components/authentik-forwardauth
 resources:
-  - ./argus/ks.yaml
+  # argus disabled 2026-10-05 pending investigation -- misbehaving; let Flux
+  # prune it. Re-enable by uncommenting (and restore the alertmanager webhook).
+  # - ./argus/ks.yaml
   - ./atuin-ai-server/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./holyclaude/ks.yaml

@@ -68,7 +68,7 @@ spec:
             key: DISCORD_WEBHOOK_URL
       # The former openclaw /hooks/alertmanager webhook was removed when
       # openclaw was archived 2026-09-24 (#711) -- see archive/openclaw/.
-      webhookConfigs:
+      # webhookConfigs:
         # argus's forwarder does its own severity filtering
         # (forwarder.investigateSeverities: "critical,warning") and dedupe
         # (forwarder.dedupeTtlSec) -- safe to send every alert this receiver
@@ -79,5 +79,7 @@ spec:
         # sendResolved: true (#712) -- the forwarder retains resolutions
         # (firing duration + that firing's verdict) into Hindsight's
         # `incidents` bank; it never triages or posts on resolved alerts.
-        - url: "http://argus-forwarder.ai.svc.cluster.local/webhook"
-          sendResolved: true
+        # argus disabled 2026-10-05 pending investigation (see
+        # kubernetes/apps/ai/kustomization.yaml) -- uncomment to restore.
+        # - url: "http://argus-forwarder.ai.svc.cluster.local/webhook"
+        #   sendResolved: true
