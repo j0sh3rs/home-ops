@@ -230,10 +230,16 @@ apiserver on all 3 bees.
 | ai/llama-swap 50Gi | Delete at cutover |
 | ai/ollama 50Gi, ai/data-agent-canvas-0 20Gi, ai/claude-code-workspace 20Gi | Orphans: delete after operator confirmation |
 
-Migration method: Velero restore with a node remap if our Velero setup
-does file-system backups of hostpath volumes (to verify); otherwise a
-one-off rsync Job. Every migrated PVC must stay covered by the daily
-Velero schedule. Retire the `openebs-hostpath-fast` StorageClass after.
+Migration method: Velero restore. Velero already runs file-level
+backups of every volume (`deployNodeAgent: true`, `uploaderType: kopia`,
+`defaultVolumesToFsBackup: true`), and none of the PVCs above is in
+`kubernetes/apps/velero/exclusions/`, so no separate restic job is
+needed. Per PVC: take a fresh backup, delete the PVC and pod, restore
+with the workload's node affinity pointing at the target bee. The
+`WaitForFirstConsumer` binding lands the new hostpath volume on that
+node and the node-agent restores the data into it. Rehearse on
+`services/gatus` first. Every migrated PVC stays covered by the daily
+schedule. Retire the `openebs-hostpath-fast` StorageClass after.
 
 **Dedupe:** remove netdata (redundant with node-exporter, vmagent and
 vector). Convert both Traefik DaemonSets to 2-replica Deployments; the
@@ -253,8 +259,8 @@ bee-03's BIOS UMA drops from 16GiB.
    macOS runner, Renovate nix manager.
 4. Bee hardening: `requests` on every workload leaving bigboi; verify
    `kubelet.systemReserved`.
-5. Verify Velero hostpath file-system backup and Cilium egress
-   masquerade.
+5. Verify Cilium egress masquerade (sets the `pf` allowlist). Rehearse
+   a Velero restore of `services/gatus` onto a bee.
 6. Drain bigboi's non-AI workloads; migrate pinned PVs; remove netdata;
    convert Traefik to Deployments.
 7. Delete orphan PVs after confirmation.
