@@ -147,7 +147,8 @@ spec:
         auto:
           # `openai/` prefix required by the LiteLLM SDK -- see modelList.litellm (#718).
           model: openai/llamaswap/coder-large
-          api_base: http://omniroute.ai.svc.cluster.local:20128/v1
+          # Via ai-tap for eval-corpus capture (argus is disabled; dormant until re-enabled).
+          api_base: http://ai-tap.ai.svc.cluster.local:8080/argus/v1
           api_key: "{{ env.OMNIROUTE_API_KEY }}"
         litellm:
           # Omniroute's own <prefix>/<model> addressing replaces LiteLLM
@@ -179,7 +180,8 @@ spec:
           # api_base unchanged. Reproduced + verified with the pod's own
           # /venv LiteLLM before this change. Same fix on `auto` above.
           model: openai/llamaswap/coder-large
-          api_base: http://omniroute.ai.svc.cluster.local:20128/v1
+          # Via ai-tap for eval-corpus capture (argus is disabled; dormant until re-enabled).
+          api_base: http://ai-tap.ai.svc.cluster.local:8080/argus/v1
           api_key: "{{ env.OMNIROUTE_API_KEY }}"
       toolsets:
         robusta:

@@ -4,7 +4,10 @@ port = 8080
 # Switched from LiteLLM 2026-09-09 (Phase 2 switchover follow-up -- this
 # consumer was missed in the original repoint pass and discovered
 # live-broken while validating Task 5's teardown).
-endpoint = "http://omniroute.ai.svc.cluster.local:20128/v1"
+# Through ai-tap (eval-corpus capture, Mac Studio plan) to the same
+# Omniroute upstream; revert to http://omniroute.ai.svc.cluster.local:20128/v1
+# if the tap misbehaves.
+endpoint = "http://ai-tap.ai.svc.cluster.local:8080/atuin/v1"
 
 default_model = "coder-large"
 

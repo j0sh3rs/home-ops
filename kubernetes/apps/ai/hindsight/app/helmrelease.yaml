@@ -101,7 +101,10 @@ spec:
         # serves only local models, so the Anthropic-lane isolation the old
         # scoped `hindsight-retain` Omniroute key provided is now structural
         # (that key was revoked). llama-swap ignores the API key.
-        HINDSIGHT_API_LLM_BASE_URL: http://llama-swap.ai.svc.cluster.local:8080/v1
+        # Through ai-tap (eval-corpus capture, Mac Studio plan) to the same
+        # llama-swap upstream; revert to http://llama-swap.ai.svc.cluster.local:8080/v1
+        # if the tap misbehaves.
+        HINDSIGHT_API_LLM_BASE_URL: http://ai-tap.ai.svc.cluster.local:8080/hindsight/v1
         HINDSIGHT_API_LLM_MODEL: reasoner
         HINDSIGHT_API_LLM_API_KEY: not-needed
         # Per-attempt LLM timeout (default 120s). Covers retain and
