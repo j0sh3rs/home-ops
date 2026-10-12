@@ -14,7 +14,7 @@ from jsonschema import Draft202012Validator
 import ha
 
 _WORD = re.compile(r"[a-z0-9]+")
-COLUMNS = ["n", "error_rate", "structured_valid_rate", "tool_valid_rate", "fact_recall_mean",
+COLUMNS = ["n", "error_rate", "empty_rate", "structured_valid_rate", "tool_valid_rate", "fact_recall_mean",
            "ha_agreement_rate", "ttft_ms_p50", "ttft_ms_p95", "latency_ms_p50", "latency_ms_p95",
            "decode_tps_median"]
 
@@ -36,7 +36,7 @@ def structured_valid(request, message):
     if data is None:
         return False
     if kind == "json_object":
-        return True
+        return isinstance(data, dict)
     schema = (fmt.get("json_schema") or {}).get("schema") or {}
     return next(Draft202012Validator(schema).iter_errors(data), None) is None
 
@@ -44,7 +44,11 @@ def structured_valid(request, message):
 def tool_calls_valid(request, production_message, candidate_message):
     """None unless tools are offered and production or candidate called one; then whether every
     candidate call names an offered tool with JSON-object arguments."""
-    offered = {(t.get("function") or {}).get("name") for t in request.get("tools") or []}
+    params = {}
+    for tool in request.get("tools") or []:
+        fn = tool.get("function") or {}
+        params[fn.get("name")] = fn.get("parameters") or {}
+    offered = set(params)
     if not offered:
         return None
     cand = (candidate_message or {}).get("tool_calls") or []
@@ -55,7 +59,13 @@ def tool_calls_valid(request, production_message, candidate_message):
         return False
     for call in cand:
         fn = call.get("function") or {}
-        if fn.get("name") not in offered or not isinstance(_json(fn.get("arguments") or "{}"), dict):
+        if fn.get("name") not in offered:
+            return False
+        args = _json(fn.get("arguments") or "{}")
+        if not isinstance(args, dict):
+            return False
+        schema = params[fn.get("name")]
+        if schema and next(Draft202012Validator(schema).iter_errors(args), None) is not None:
             return False
     return True
 
@@ -107,18 +117,39 @@ def _rate(values):
     return round(sum(values) / len(values), 3) if values else None
 
 
+def _empty(cand):
+    """Silent failure: no error, no tool call, and no visible text."""
+    if cand.get("error") is not None:
+        return False
+    msg = (cand.get("output") or {}).get("message") or {}
+    content = msg.get("content")
+    return not msg.get("tool_calls") and not (content or "").strip()
+
+
 def _score(row, baseline):
     cand = row["candidate"]
     msg = (cand.get("output") or {}).get("message")
     prod = (row.get("production") or {}).get("message")
     errored = cand.get("error") is not None
+    empty = _empty(cand)
     structured = structured_valid(row["request"], msg)
+    if errored and row["request"].get("tools"):
+        tool_valid = False
+    else:
+        tool_valid = tool_calls_valid(row["request"], prod, msg)
+    if baseline is None:
+        ha_agrees = None
+    elif errored or empty:
+        ha_agrees = False
+    else:
+        ha_agrees = ha.agrees(baseline, msg)
     return {
         "error": errored,
+        "empty": empty,
         "structured_valid": structured,
-        "tool_valid": tool_calls_valid(row["request"], prod, msg),
+        "tool_valid": tool_valid,
         "fact_recall": fact_recall(prod, msg),
-        "ha_agrees": ha.agrees(baseline, msg) if baseline is not None else None,
+        "ha_agrees": ha_agrees,
     }
 
 
@@ -129,13 +160,14 @@ def summarize(rows, baselines=None):
     summary = {}
     for consumer, group in sorted(groups.items()):
         scores = [_score(r, (baselines or {}).get(r["id"])) for r in group]
-        ok = [r["candidate"] for r in group if r["candidate"].get("error") is None]
+        ok = [r["candidate"] for r, s in zip(group, scores) if not s["error"] and not s["empty"]]
         ttft = [c["ttft_ms"] for c in ok if c.get("ttft_ms") is not None]
         latency = [c["latency_ms"] for c in ok]
         tps = [t for t in (decode_tps(c) for c in ok) if t is not None]
         summary[consumer] = {
             "n": len(group),
             "error_rate": _rate([s["error"] for s in scores]),
+            "empty_rate": _rate([s["empty"] for s in scores]),
             "structured_valid_rate": _rate([s["structured_valid"] for s in scores]),
             "tool_valid_rate": _rate([s["tool_valid"] for s in scores]),
             "fact_recall_mean": _rate([s["fact_recall"] for s in scores]),

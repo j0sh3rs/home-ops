@@ -76,3 +76,47 @@ def test_summarize_and_markdown():
     md = grade.to_markdown(s, "test run")
     assert md.splitlines()[0] == "### test run"
     assert "| hindsight | 3 |" in md
+
+
+ARGS_REQ = {"tools": [{"type": "function", "function": {"name": "run", "parameters": {
+    "type": "object", "required": ["cmd"], "properties": {"cmd": {"type": "string"}}}}}]}
+
+
+def test_json_object_must_be_dict():
+    req = {"response_format": {"type": "json_object"}}
+    assert grade.structured_valid(req, msg("[]")) is False
+    assert grade.structured_valid(req, msg("{}")) is True
+
+
+def test_tool_args_checked_against_parameters():
+    assert grade.tool_calls_valid(ARGS_REQ, None, msg(calls=[("run", '{"cmd": "ls"}')])) is True
+    assert grade.tool_calls_valid(ARGS_REQ, None, msg(calls=[("run", "{}")])) is False
+    assert grade.tool_calls_valid(ARGS_REQ, None, msg(calls=[("run", '{"cmd": 5}')])) is False
+
+
+def test_silent_empty_counts_as_failure_and_skips_latency():
+    rows = [
+        row("x", TOOLS_REQ, None, msg("hello"), rid="ok", lat=1100),
+        row("x", TOOLS_REQ, None, msg(None), rid="empty", lat=5000),
+        row("x", TOOLS_REQ, None, msg("   "), rid="blank", lat=5000),
+    ]
+    x = grade.summarize(rows)["x"]
+    assert x["empty_rate"] == 0.667
+    assert x["latency_ms_p95"] == 1100  # empty rows excluded from latency
+
+
+def test_errored_ha_candidate_disagrees_with_text_baseline():
+    rows = [row("ha", TOOLS_REQ, None, None, error="HTTP 500", rid="z")]
+    s = grade.summarize(rows, {"z": msg("turn on the lamp")})
+    assert s["ha"]["ha_agreement_rate"] == 0.0
+
+
+def test_empty_ha_candidate_disagrees_with_text_baseline():
+    rows = [row("ha", TOOLS_REQ, None, msg(None), rid="z")]
+    s = grade.summarize(rows, {"z": msg("turn on the lamp")})
+    assert s["ha"]["ha_agreement_rate"] == 0.0
+
+
+def test_errored_candidate_with_tools_is_invalid_tool_call():
+    rows = [row("ha", TOOLS_REQ, None, None, error="HTTP 500", rid="z")]
+    assert grade.summarize(rows)["ha"]["tool_valid_rate"] == 0.0
