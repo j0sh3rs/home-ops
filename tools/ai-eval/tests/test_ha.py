@@ -38,6 +38,29 @@ def test_pick_template_and_build_request():
         ha.pick_template([{"request": {"messages": []}}])
 
 
+def test_pick_template_uses_newest_ts_not_list_order():
+    newest = {"model": "gpt", "tools": [{"function": {"name": "new"}}], "messages": []}
+    older = {"model": "gpt", "tools": [{"function": {"name": "old"}}], "messages": []}
+    records = [
+        {"ts": "2026-10-12T10:00:00Z", "request": newest},
+        {"ts": "2026-10-11T10:00:00Z", "request": older},  # last in list, but older
+        {"ts": "2026-10-13T10:00:00Z", "request": {"model": "gpt", "messages": []}},  # no tools
+    ]
+    assert ha.pick_template(records) is newest
+
+
+def test_dict_and_string_arguments_normalise_equal():
+    as_dict = {"tool_calls": [{"function": {"name": "s", "arguments": {"entity_id": "Light.Kitchen "}}}]}
+    as_str = {"tool_calls": [{"function": {"name": "s", "arguments": '{"entity_id":"light.kitchen"}'}}]}
+    assert ha.normalise_calls(as_dict) == ha.normalise_calls(as_str)
+    assert ha.agrees(as_dict, as_str)
+
+
+def test_unparsable_string_arguments_are_normalised():
+    msg = {"tool_calls": [{"function": {"name": "s", "arguments": "  Not JSON  "}}]}
+    assert ha.normalise_calls(msg) == [("s", "not json")]
+
+
 def test_agrees_normalises_case_order_and_whitespace():
     base = {"tool_calls": [call("execute_services", {"entity_id": "Light.Lamp "}), call("b", {})]}
     same = {"tool_calls": [call("b", {}), call("execute_services", {"entity_id": "light.lamp"})]}

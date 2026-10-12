@@ -25,11 +25,11 @@ def load_intents(path):
 
 
 def pick_template(records):
-    """Newest captured HA request that offers tools."""
-    for record in reversed(records):
-        if record["request"].get("tools"):
-            return record["request"]
-    raise ValueError("no captured HA request with tools")
+    """Captured HA request that offers tools, with the greatest ts (ISO-8601 string)."""
+    candidates = [r for r in records if r["request"].get("tools")]
+    if not candidates:
+        raise ValueError("no captured HA request with tools")
+    return max(candidates, key=lambda r: r.get("ts") or "")["request"]
 
 
 def build_request(template, utterance):
@@ -54,10 +54,14 @@ def normalise_calls(message):
     calls = []
     for call in (message or {}).get("tool_calls") or []:
         fn = call.get("function") or {}
-        try:
-            args = json.loads(fn.get("arguments") or "{}")
-        except ValueError:
-            args = fn.get("arguments")
+        raw = fn.get("arguments")
+        if isinstance(raw, (dict, list)):
+            args = raw
+        else:
+            try:
+                args = json.loads(raw or "{}")
+            except (ValueError, TypeError):
+                args = raw
         calls.append((fn.get("name"), _norm(args)))
     return sorted(calls, key=lambda c: json.dumps(c, sort_keys=True))
 
