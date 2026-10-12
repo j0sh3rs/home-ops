@@ -20,7 +20,7 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 import ha
-from corpus import assemble_sse, load_records, production_output, record_id, sample
+from corpus import assemble_sse_checked, load_records, production_output, record_id, sample
 
 
 def prepare(request, model):
@@ -38,8 +38,14 @@ def _is_token(line):
         event = json.loads(line[5:])
     except ValueError:
         return False
+    if not isinstance(event, dict):
+        return False
     for choice in event.get("choices") or []:
+        if not isinstance(choice, dict):
+            continue
         delta = choice.get("delta") or {}
+        if not isinstance(delta, dict):
+            continue
         if (delta.get("content") or delta.get("reasoning_content")
                 or delta.get("reasoning") or delta.get("tool_calls")):
             return True
@@ -74,8 +80,12 @@ def replay_one(base_url, api_key, body, timeout=900):
                 "latency_ms": elapsed(), "output": None}
     finally:
         conn.close()
-    return {"error": None, "ttft_ms": ttft_ms, "latency_ms": elapsed(),
-            "output": assemble_sse("".join(lines))}
+    try:
+        output, stream_error = assemble_sse_checked("".join(lines))
+    except Exception as exc:  # any parse failure is this row's error, never the run's
+        return {"error": f"unparseable stream: {type(exc).__name__}: {exc}", "ttft_ms": ttft_ms,
+                "latency_ms": elapsed(), "output": None}
+    return {"error": stream_error, "ttft_ms": ttft_ms, "latency_ms": elapsed(), "output": output}
 
 
 def _jobs(args):

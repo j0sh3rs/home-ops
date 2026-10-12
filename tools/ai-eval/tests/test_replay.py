@@ -17,6 +17,7 @@ CHUNKS = [
 class Fake(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     seen = []
+    chunks = None  # override per test
 
     def log_message(self, *args):
         pass
@@ -30,7 +31,7 @@ class Fake(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"boom")
             return
-        payload = "".join(CHUNKS).encode()
+        payload = "".join(Fake.chunks or CHUNKS).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Content-Length", str(len(payload)))
@@ -41,6 +42,7 @@ class Fake(BaseHTTPRequestHandler):
 @pytest.fixture
 def base_url():
     Fake.seen = []
+    Fake.chunks = None
     server = ThreadingHTTPServer(("127.0.0.1", 0), Fake)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{server.server_address[1]}/v1"
@@ -107,3 +109,29 @@ def test_cli_ha_intent_mode(base_url, tmp_path):
     [row] = [json.loads(line) for line in out.read_text().splitlines()]
     assert row["id"] == "lamp" and row["production"] is None
     assert Fake.seen[0]["body"]["messages"][-1] == {"role": "user", "content": "lamp on"}
+
+
+@pytest.mark.parametrize("bad", ["data: 1\n\n", "data: [1]\n\n", 'data: {"choices":[1]}\n\n',
+                                 "data: {not json\n\n"])
+def test_replay_one_malformed_sse_is_row_error(base_url, bad):
+    Fake.chunks = [CHUNKS[1], bad, CHUNKS[3]]
+    result = replay.replay_one(base_url, None, replay.prepare({"messages": []}, "qwen"))
+    assert result["error"] and "malformed" in result["error"]
+
+
+def test_replay_one_stream_error_event_is_row_error(base_url):
+    Fake.chunks = ['data: {"choices":[{"delta":{"content":"{\\"facts\\": ["}}]}\n\n',
+                   'data: {"error":{"message":"oom"}}\n\n']
+    result = replay.replay_one(base_url, None, replay.prepare({"messages": []}, "qwen"))
+    assert result["error"] and "oom" in result["error"]
+
+
+def test_replay_one_truncated_stream_is_row_error(base_url):
+    Fake.chunks = ['data: {"choices":[{"delta":{"content":"par"}}]}\n\n']
+    result = replay.replay_one(base_url, None, replay.prepare({"messages": []}, "qwen"))
+    assert result["error"] and "truncated" in result["error"]
+
+
+def test_replay_one_clean_stream_without_done_but_finished_is_ok(base_url):
+    Fake.chunks = [CHUNKS[1]]
+    assert replay.replay_one(base_url, None, replay.prepare({"messages": []}, "q"))["error"] is None

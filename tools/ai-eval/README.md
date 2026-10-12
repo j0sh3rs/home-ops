@@ -10,13 +10,18 @@ Only aggregate tables go to `docs/ai-history/mac-studio.md`.
 
 ## Setup
 
+Run everything from `tools/ai-eval/` (the paths below are relative to it).
+`corpus/` and `results/` are gitignored there and at the repo root as a
+safety net; never `git add -f` them.
+
+    cd tools/ai-eval
     pip install --break-system-packages -r requirements.txt
     python3 -m pytest tests -q -p no:cacheprovider
 
 ## Pull a corpus snapshot
 
     snap=corpus/$(date +%F)
-    mkdir -p "$snap"
+    mkdir -p "$snap" results
     kubectl -n ai exec deploy/ai-tap -- tar -C /data -cf - . | tar -C "$snap" -xf -
 
 ## Replay and grade
@@ -52,10 +57,10 @@ the corpus. Run it on the Mac where vllm-metal is installed:
 
 | Metric | Meaning |
 |---|---|
-| error_rate | transport or HTTP failure |
+| error_rate | transport or HTTP failure, a malformed SSE line, a mid-stream error event, or a stream that ended with neither `finish_reason` nor `[DONE]` (truncated) |
 | empty_rate | 200 response with no text and no tool call (e.g. a server that ignored `stream`, or a thinking model that spent its budget on reasoning); excluded from latency stats |
 | structured_valid_rate | answer parses and meets the request's `response_format` (errors count as invalid) |
-| fact_recall_mean | share of production's JSON facts matched by the candidate (token Jaccard ≥ 0.5) |
+| fact_recall_mean | share of production's JSON facts (production answers that were truncated or errored in capture have no reference and are not scored) matched by the candidate (token Jaccard ≥ 0.5) |
 | tool_valid_rate | candidate tool calls name an offered tool and their args validate against its `parameters` schema (errors count as invalid when tools were offered) |
 | ha_agreement_rate | same tool calls (name + normalised args) as GPT-5.5 on the intent set; errored or empty answers disagree. Two text-only answers agree regardless of wording — check state-query intents by hand |
 | ttft / latency / decode_tps | measured on streaming replay; decode = completion tokens ÷ (latency − TTFT) |

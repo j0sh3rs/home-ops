@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 import corpus
 
 SSE = "\n".join([
@@ -71,3 +73,46 @@ def test_sample_dedupes_and_is_deterministic():
     assert len({corpus.record_id(r["request"]) for r in first}) == 3
     assert first == corpus.sample(records, 3, seed=1)
     assert len(corpus.sample(records, 100)) == 5
+
+
+@pytest.mark.parametrize("bad", ["data: 1", "data: [1]", 'data: "x"', 'data: {"choices":[1]}',
+                                 'data: {"choices":[{"delta":1}]}', "data: {nope"])
+def test_assemble_sse_survives_malformed_lines(bad):
+    text = 'data: {"choices":[{"delta":{"content":"a"},"finish_reason":"stop"}]}\n' + bad + "\ndata: [DONE]\n"
+    out, err = corpus.assemble_sse_checked(text)
+    assert out["message"]["content"] == "a"
+    assert err and "malformed" in err
+    assert corpus.assemble_sse(text) == out
+
+
+def test_assemble_sse_error_event_and_truncation():
+    _, err = corpus.assemble_sse_checked('data: {"error":{"message":"boom"}}\n')
+    assert "boom" in err
+    out, err = corpus.assemble_sse_checked('data: {"choices":[{"delta":{"content":"x"}}]}\n')
+    assert "truncated" in err and out["message"]["content"] == "x"
+    assert corpus.assemble_sse_checked(SSE)[1] is None
+
+
+def _calls(*chunks):
+    lines = "".join('data: {"choices":[{"delta":{"tool_calls":[%s]}}]}\n' % c for c in chunks)
+    return corpus.assemble_sse(lines + "data: [DONE]\n")["message"]["tool_calls"]
+
+
+def test_tool_calls_without_index_are_not_merged():
+    calls = _calls('{"id":"a","function":{"name":"x","arguments":"{}"}}',
+                   '{"id":"b","function":{"name":"y","arguments":"{}"}}')
+    assert [(c["id"], c["function"]["name"], c["function"]["arguments"]) for c in calls] == [
+        ("a", "x", "{}"), ("b", "y", "{}")]
+
+
+def test_unindexed_argument_chunks_continue_current_call():
+    calls = _calls('{"id":"a","function":{"name":"x","arguments":"{\\"k\\":"}}',
+                   '{"function":{"arguments":"1}"}}')
+    assert len(calls) == 1 and calls[0]["function"]["arguments"] == '{"k":1}'
+
+
+def test_production_output_blanked_when_truncated_or_errored():
+    assert corpus.production_output(rec(error="client disconnected"))["message"] == {}
+    assert corpus.production_output(rec(stream=True, response='data: {"choices":[{"delta":{"content":"p"}}]}\n'))["message"] == {}
+    assert corpus.production_output(rec(stream=True, response='data: {"error":{"m":1}}\n'))["message"] == {}
+    assert corpus.production_output(rec(stream=True, error="x", response=SSE))["message"] == {}

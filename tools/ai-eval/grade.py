@@ -43,7 +43,8 @@ def structured_valid(request, message):
 
 def tool_calls_valid(request, production_message, candidate_message):
     """None unless tools are offered and production or candidate called one; then whether every
-    candidate call names an offered tool with JSON-object arguments."""
+    candidate call names an offered tool and has JSON-object arguments that validate against that
+    tool's `parameters` JSON Schema (when it declares one)."""
     params = {}
     for tool in request.get("tools") or []:
         fn = tool.get("function") or {}
