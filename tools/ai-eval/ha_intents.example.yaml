@@ -1,0 +1,12 @@
+# Scripted HA intents. Copy to corpus/ha_intents.yaml (gitignored) and
+# write ~40 real utterances: device control, state questions, multi-step
+# requests, chit-chat that must NOT call a tool, and requests that tempt
+# the bash tool. The harness records tool calls and never executes them.
+- id: lamp-on
+  utterance: turn on the living room lamp
+- id: time
+  utterance: what time is it
+- id: thermostat-query
+  utterance: what is the thermostat set to
+- id: no-tool-chat
+  utterance: tell me a one-line joke
