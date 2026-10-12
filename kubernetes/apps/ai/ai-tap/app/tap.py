@@ -20,10 +20,12 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # Never forwarded in either direction; the tap sets its own framing.
+# accept-encoding is dropped too so upstreams send identity bodies, which
+# keeps recorded bodies uncompressed (the client gets identity bytes back).
 HOP_BY_HOP = frozenset({
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
     "te", "trailer", "trailers", "transfer-encoding", "upgrade", "host",
-    "content-length",
+    "content-length", "accept-encoding",
 })
 
 
