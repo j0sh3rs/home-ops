@@ -1,0 +1,109 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# ai-tap: logging reverse proxy that records the Mac Studio eval corpus
+# (docs/superpowers/plans/2026-10-10-mac-ai-eval-corpus-capture.md).
+# Consumers address it as /<consumer>/v1; the prefix picks the upstream in
+# TAP_ROUTES and names the capture directory. Captures hold personal memory
+# content: they stay on this PVC and are never committed. Delete this app
+# and its PVC after the last consumer cuts over to the Mac (Phase 3).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app ai-tap
+spec:
+  interval: 1h
+  timeout: 10m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      ai-tap:
+        replicas: 1
+        # RWO hostpath PVC: never run two pods against it.
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/library/python
+              tag: 3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
+            command: ["python3", "/app/tap.py"]
+            env:
+              PYTHONDONTWRITEBYTECODE: "1"
+              PYTHONUNBUFFERED: "1"
+              TAP_DATA_DIR: /data
+              TAP_PORT: "8080"
+              # Above every consumer's own client timeout (Hindsight 600s).
+              TAP_UPSTREAM_TIMEOUT: "900"
+              TAP_ROUTES: >-
+                hindsight=http://llama-swap.ai.svc.cluster.local:8080,
+                atuin=http://omniroute.ai.svc.cluster.local:20128,
+                ha=http://omniroute.ai.svc.cluster.local:20128,
+                argus=http://omniroute.ai.svc.cluster.local:20128
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8080
+                  initialDelaySeconds: 5
+                  periodSeconds: 30
+              readiness: *probe
+        pod:
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            fsGroup: 1000
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      # bigboi is being decommissioned (Mac Studio spec D2).
+                      - key: kubernetes.io/hostname
+                        operator: NotIn
+                        values: ["bigboi-jms-01"]
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            primary: true
+            port: 8080
+    persistence:
+      code:
+        type: configMap
+        name: ai-tap-code
+        globalMounts:
+          - path: /app
+            readOnly: true
+      data:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 5Gi
+        retain: true
+        globalMounts:
+          - path: /data

@@ -39,6 +39,7 @@ resources:
   # argus disabled 2026-10-05 pending investigation -- misbehaving; let Flux
   # prune it. Re-enable by uncommenting (and restore the alertmanager webhook).
   # - ./argus/ks.yaml
+  - ./ai-tap/ks.yaml
   - ./atuin-ai-server/ks.yaml
   - ./faster-whisper/ks.yaml
   - ./holyclaude/ks.yaml
