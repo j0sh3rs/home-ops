@@ -68,3 +68,9 @@ node_modules/
 # Task files
 # tasks.json
 # tasks/ 
+
+# Mac Studio eval harness: captured prompts are personal data, never commit
+tools/ai-eval/corpus/
+tools/ai-eval/results/
+__pycache__/
+.pytest_cache/
