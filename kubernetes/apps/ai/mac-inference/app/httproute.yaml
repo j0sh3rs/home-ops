@@ -1,0 +1,26 @@
+---
+# oMLX admin UI and API, LAN-only (traefik-internal, no Cloudflare record),
+# behind Authentik like every admin UI (spec: Exposure and security). oMLX
+# still asks for its main key at /admin.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: omlx-admin
+  annotations:
+    external-dns.alpha.kubernetes.io/target: 192.168.35.17
+spec:
+  hostnames:
+    - omlx.68cc.io
+  parentRefs:
+    - name: traefik-internal-gateway
+      namespace: network
+  rules:
+    - filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: authentik-forwardauth
+      backendRefs:
+        - name: mac-inference
+          port: 8000

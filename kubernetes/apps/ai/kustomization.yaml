@@ -48,6 +48,8 @@ resources:
   - ./vikunja-mcp/ks.yaml
   - ./llama-swap/ks.yaml
   - ./llama-swap-apu/ks.yaml
+  # Mac Studio inference host (macOS, outside the cluster) -- spec 2026-10-10.
+  - ./mac-inference/ks.yaml
   - ./omniroute/ks.yaml
   - ./piper/ks.yaml
 

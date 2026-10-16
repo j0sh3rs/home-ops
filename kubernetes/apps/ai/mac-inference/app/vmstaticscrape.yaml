@@ -1,0 +1,27 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/operator.victoriametrics.com/vmstaticscrape_v1beta1.json
+# Scrapes the Mac through the mac-inference Service, so the IP stays in the
+# EndpointSlice. vmagent's source IP is its node's (Cilium masquerade),
+# which macos/modules/pf.nix allows.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMStaticScrape
+metadata:
+  name: mac-jms-01
+spec:
+  jobName: mac-jms-01
+  targetEndpoints:
+    - targets: ["mac-inference.ai.svc.cluster.local:9100"]
+      labels:
+        instance: mac-jms-01
+        exporter: node
+      interval: 30s
+    - targets: ["mac-inference.ai.svc.cluster.local:9090"]
+      labels:
+        instance: mac-jms-01
+        exporter: macmon
+      interval: 30s
+    - targets: ["mac-inference.ai.svc.cluster.local:9101"]
+      labels:
+        instance: mac-jms-01
+        exporter: omlx
+      interval: 30s
