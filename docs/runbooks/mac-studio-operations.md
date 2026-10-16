@@ -22,14 +22,22 @@ task mac:reboot
 
 Uses `fdesetup authrestart`, so the Mac boots past the FileVault screen.
 Ends when oMLX answers again (≤ 10 min) — otherwise follow "Unplanned reboot".
+The confirmation prompt needs `task -y mac:reboot` when run non-interactively.
 
 ## Unplanned reboot (power cut, panic, plain `reboot`)
 
-The Mac stops at FileVault pre-boot; nothing runs, `MacStudioUnreachable`
-pages. Unlock over SSH: `ssh mac-jms-01`, answer the pre-boot prompt, then
-`task mac:wait-up`.
+The Mac stops at FileVault pre-boot; the OS and all services are down and
+`MacStudioUnreachable` pages. macOS itself is not running, but the pre-boot
+SSH unlock service is expected to be.
 
-Pre-boot unlock result from bring-up (§11): untested at bring-up — after the first unlock over SSH, replace this line with what happened (worked / needed console).
+Pre-boot unlock result from bring-up (§11): untested at bring-up — after the
+first unlock over SSH, replace this line with what happened (worked / needed
+console).
+
+1. Attempt the SSH unlock: `ssh mac-jms-01`, answer the pre-boot prompt.
+2. If SSH does not answer within a minute, unlock at the console (keyboard and
+   monitor on the Mac).
+3. Then `task mac:wait-up`.
 
 ## macOS update (manual only — auto-updates are off in nix)
 
@@ -37,8 +45,9 @@ Pre-boot unlock result from bring-up (§11): untested at bring-up — after the 
    macmon issues for the new version.
 2. On the Mac: `softwareupdate --list`.
 3. `sudo softwareupdate --install --all --restart --user j0sh3rs --stdinpass`
-   (Apple silicon needs the owner's credentials).
-4. The update reboot lands at FileVault pre-boot — unlock as in
+   (Apple silicon needs the owner's credentials; `--stdinpass` reads the
+   password from stdin).
+4. The update reboot is expected to land at FileVault pre-boot — unlock as in
    "Unplanned reboot", then `task mac:wait-up`.
 5. Verify: `task mac:status`; `home_ops_iogpu_wired_limit_bytes` ≈ 90.2e9;
    `home_ops_pf_ruleset_loaded 1`; Grafana macmon power panels non-zero
@@ -79,8 +88,9 @@ UI over the LAN, use `https://omlx.68cc.io/admin`.
    Otherwise it re-enables pf within 60 s.
 2. Then `sudo pfctl -d`.
 3. Do **not** use `pfctl -X`. The enforcer enables pf with reference-counted
-   `pfctl -E` and never releases its token, so `-X` on another token doesn't
-   turn pf off.
+   `pfctl -E` and never releases its token. `-X <token>` only releases that
+   one token's reference, so the enforcer's reference is still held and pf
+   stays enabled. `-d` force-disables pf.
 
 Recovery is the next `darwin-rebuild switch`, which reloads the daemon, or
 `sudo launchctl bootstrap system /Library/LaunchDaemons/org.nixos.pf-home-ops.plist`.
@@ -105,7 +115,8 @@ consumer's cluster Secret.
 - **Revoke:** log in through the admin UI (`https://omlx.68cc.io/admin`) →
   sub keys, or POST the main key to `/admin/api/login` (JSON
   `{"api_key": "<main key>"}`) and use the returned `omlx_admin_session`
-  cookie for `DELETE /admin/api/sub-keys`. oMLX 0.7.0 admin routes do not
+  cookie for `DELETE /admin/api/sub-keys` (check the request shape in the
+  admin UI's network tab before scripting it). oMLX 0.7.0 admin routes do not
   accept the main key as a Bearer token.
 - **Main key:** change `omlx.main-key` in sops and merge. oMLX picks it up on
   restart: `sudo launchctl kickstart -k system/org.nixos.omlx`.
