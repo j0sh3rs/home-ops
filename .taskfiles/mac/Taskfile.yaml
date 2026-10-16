@@ -79,7 +79,8 @@ tasks:
     cmds:
       - sleep 60
       - |
-        while [ "$SECONDS" -lt 600 ]; do
+        deadline=$(( $(date +%s) + 600 ))
+        while [ "$(date +%s)" -lt "$deadline" ]; do
           if ssh -o ConnectTimeout=5 -o BatchMode=yes {{.MAC_HOST}} 'curl -s --max-time 5 -o /dev/null -w "%{http_code}" localhost:8000/v1/models | grep -q 401'; then
             echo "mac-jms-01 is back and oMLX is answering"; exit 0
           fi
