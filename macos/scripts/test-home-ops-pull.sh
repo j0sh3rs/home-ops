@@ -24,6 +24,11 @@ export HOME_OPS_STATE_DIR="$work/state"
 export HOME_OPS_TEXTFILE_DIR="$work/textfile"
 export HOME_OPS_REBUILD="$work/rebuild"
 export REBUILD_LOG="$work/rebuild.log"
+# pgrep stubs: "none running" (exit 1) by default, "running" (exit 0) on demand.
+printf '#!/usr/bin/env bash\nexit 1\n' > "$work/pgrep-none"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$work/pgrep-busy"
+chmod +x "$work/pgrep-none" "$work/pgrep-busy"
+export HOME_OPS_PGREP="$work/pgrep-none"
 prom="$work/textfile/home_ops_pull.prom"
 
 fail() { echo "FAIL: $*"; echo "--- prom:"; cat "$prom" 2>/dev/null || true; exit 1; }
@@ -61,7 +66,15 @@ if HOME_OPS_REPO_URL="$work/missing" bash "$here/home-ops-pull.sh"; then fail "u
 [ -z "$(metric home_ops_nix_apply_behind_main)" ] || fail "behind metric should be absent when main is unknown"
 [ "$(metric home_ops_nix_apply_last_in_sync_timestamp_seconds)" = "$kept" ] || fail "in-sync timestamp moved"
 
-# 6. No stray temp files in the textfile dir.
+# 6. A darwin-rebuild already running: exit 0, no rebuild, state and metrics untouched.
+third_log=$(wc -l < "$REBUILD_LOG")
+git -C "$work/repo" -c user.email=t@t -c user.name=t commit -q --allow-empty -m three
+before=$(cat "$prom"; cat "$work"/state/*)
+HOME_OPS_PGREP="$work/pgrep-busy" bash "$here/home-ops-pull.sh" || fail "busy run should exit 0"
+[ "$(wc -l < "$REBUILD_LOG")" -eq "$third_log" ] || fail "rebuilt while another darwin-rebuild was running"
+[ "$(cat "$prom"; cat "$work"/state/*)" = "$before" ] || fail "state or metrics changed while busy"
+
+# 7. No stray temp files in the textfile dir.
 [ "$(find "$work/textfile" -type f | wc -l)" -eq 1 ] || fail "temp files left behind"
 
 echo "PASS: home-ops-pull"

@@ -12,6 +12,17 @@ FLAKE_REPO="${HOME_OPS_FLAKE_REPO:-github:j0sh3rs/home-ops}"
 STATE_DIR="${HOME_OPS_STATE_DIR:-/var/lib/home-ops-pull}"
 TEXTFILE_DIR="${HOME_OPS_TEXTFILE_DIR:-/var/lib/node-exporter/textfile}"
 REBUILD="${HOME_OPS_REBUILD:-darwin-rebuild}"
+# Absolute path: macOS always ships it, and the launchd PATH need not.
+PGREP="${HOME_OPS_PGREP:-/usr/bin/pgrep}"
+
+log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+
+# launchd runs this at plist load (RunAtLoad), which happens mid-switch.
+# Don't start a second darwin-rebuild; leave state and metrics untouched.
+if "$PGREP" -f darwin-rebuild >/dev/null 2>&1; then
+  log "darwin-rebuild already running; skipping this run"
+  exit 0
+fi
 
 mkdir -p "$STATE_DIR" "$TEXTFILE_DIR"
 now=$(date +%s)
@@ -19,8 +30,6 @@ applied=$(cat "$STATE_DIR/applied-commit" 2>/dev/null || true)
 in_sync_at=$(cat "$STATE_DIR/in-sync-at" 2>/dev/null || echo 0)
 rc=0
 head=""
-
-log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
 
 if ! head=$(git ls-remote "$REPO_URL" refs/heads/main | cut -f1) || [ -z "$head" ]; then
   log "could not read main from $REPO_URL"
