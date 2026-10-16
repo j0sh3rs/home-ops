@@ -40,4 +40,4 @@ tasks:
   status:
     desc: Show the Mac's generation, daemons, and home-ops textfile metrics
     cmds:
-      - ssh {{.MAC_HOST}} 'zsh -lc "darwin-version --json 2>/dev/null || true; launchctl list | grep org.nixos || true; cat /var/lib/node-exporter/textfile/*.prom 2>/dev/null || true"'
+      - ssh {{.MAC_HOST}} 'zsh -lc "darwin-version --json 2>/dev/null || true; launchctl print system | grep org.nixos || true; cat /var/lib/node-exporter/textfile/*.prom 2>/dev/null || true"'
