@@ -10,7 +10,8 @@ let
     name = "home-ops-wired-limit";
     runtimeInputs = [ pkgs.coreutils ];
     text = ''
-      /usr/sbin/sysctl -w iogpu.wired_limit_mb=${toString wiredLimitMb}
+      # A failed set must not skip the metric write, or the stale .prom would hide it.
+      /usr/sbin/sysctl -w iogpu.wired_limit_mb=${toString wiredLimitMb} || echo "sysctl -w iogpu.wired_limit_mb failed; reporting current kernel value" >&2
       got=$(/usr/sbin/sysctl -n iogpu.wired_limit_mb)
       dir=/var/lib/node-exporter/textfile
       tmp=$(mktemp "$dir/.wired_limit.XXXXXX")
