@@ -39,10 +39,11 @@
   - Alerts: Mac unreachable, engine down, sustained swap, wired memory near limit, nix apply older than 24h, nix apply behind main. Plus one Gatus check on the model-list endpoint and one GrafanaDashboard.
 - **Ports on the Mac:** oMLX `8000`, macmon `9090`, node_exporter `9100`, omlx-exporter `9101`.
 - **Fact values:** the §9 facts from `docs/runbooks/mac-studio-bringup.md` are `ADMIN_USER`, `MAC_IP`, `MACOS_VERSION` and `MAC_AGE_PUBKEY`.
-  - Task 1 writes them into `macos/hosts/mac-studio/facts.nix`. Task 8 writes `MAC_IP` into the EndpointSlice.
+  - **Recorded 2026-10-16:** host `mac-jms-01` (Mac Studio hardware; doc filenames keep `mac-studio`), `ADMIN_USER=j0sh3rs`, `MAC_IP=192.168.35.7`, `MACOS_VERSION=27.0.1` (macOS 27, so the macmon >= 0.10.0 rule below matters), `MAC_AGE_PUBKEY=age1hua5s0wwmnysukxmtxkfepwcuzsc08kjmpn9pjjpwaka0lzvydwswlgq0j`.
+  - Task 1 writes them into `macos/hosts/mac-jms-01/facts.nix`. Task 8 writes `MAC_IP` into the EndpointSlice.
   - No other file may contain the IP.
 - **Execution mode:**
-  - **Agent-runnable:** steps marked *(on Mac)* that only need `ssh mac-studio` without sudo. Allowed only if the operator authorized HolyClaude's key (checklist §5). If not, hand those steps to the operator.
+  - **Agent-runnable:** steps marked *(on Mac)* that only need `ssh mac-jms-01` without sudo. Allowed only if the operator authorized HolyClaude's key (checklist §5). If not, hand those steps to the operator.
   - **Operator only:** steps marked **OPERATOR**. They need sudo on the Mac. Stop and ask the operator to run them.
 - **kubectl and flux:** prefix with `rtk` when it works. The shim currently errors; plain commands with `KUBECONFIG=/workspace/home-ops/kubeconfig` are fine.
 - **Reloader:** every new cluster workload that consumes a Secret or ConfigMap gets a reloader annotation on the pod template (repo CLAUDE.md).
@@ -61,10 +62,10 @@
 
 ```
 macos/
-  flake.nix                       # inputs + darwinConfigurations.mac-studio
+  flake.nix                       # inputs + darwinConfigurations.mac-jms-01
   flake.lock                      # generated on the Mac (Task 1)
   README.md                       # how the flake is applied, tested, rolled back
-  hosts/mac-studio/
+  hosts/mac-jms-01/
     default.nix                   # imports the modules below
     facts.nix                     # ADMIN_USER, MAC_IP, cluster IPs (non-secret)
   modules/
@@ -85,7 +86,7 @@ macos/
     pyproject.toml                # uv project pinning oMLX
     uv.lock                       # generated on the Mac (Task 5)
   secrets/
-    mac-studio.sops.yaml          # omlx main key + sub keys (both age keys)
+    mac-jms-01.sops.yaml          # omlx main key + sub keys (both age keys)
 .sops.yaml                        # + rule for macos/secrets/
 .taskfiles/mac/Taskfile.yaml      # apply-local, build-local, omlx-lock, status, reboot
 Taskfile.yaml                     # + include mac
@@ -114,19 +115,19 @@ docs/runbooks/mac-studio-operations.md         # reboot, unlock, OS update, roll
 ### Task 1: Flake scaffold, base module, mac taskfile, first apply
 
 **Files:**
-- Create: `macos/flake.nix`, `macos/hosts/mac-studio/default.nix`, `macos/hosts/mac-studio/facts.nix`, `macos/modules/base.nix`, `macos/README.md`, `.taskfiles/mac/Taskfile.yaml`
+- Create: `macos/flake.nix`, `macos/hosts/mac-jms-01/default.nix`, `macos/hosts/mac-jms-01/facts.nix`, `macos/modules/base.nix`, `macos/README.md`, `.taskfiles/mac/Taskfile.yaml`
 - Create (generated on the Mac): `macos/flake.lock`
 - Modify: `Taskfile.yaml` (includes), `.gitignore` (add `macos/result*`)
 
 **Interfaces:**
 - Consumes: the §9 facts from `docs/runbooks/mac-studio-bringup.md`.
 - Produces:
-  - Flake output `darwinConfigurations.mac-studio`.
+  - Flake output `darwinConfigurations.mac-jms-01`.
   - The module args `facts` (an attrset with `hostName`, `adminUser`, `lanIp`, `clusterNodeIps`) and `self`.
   - Tasks `mac:apply-local`, `mac:build-local`, `mac:status`.
-  - Later tasks add one line each to `imports` in `hosts/mac-studio/default.nix`.
+  - Later tasks add one line each to `imports` in `hosts/mac-jms-01/default.nix`.
 
-- [ ] **Step 1: Write `macos/hosts/mac-studio/facts.nix`.** Substitute the operator's §9 values for `ADMIN_USER` and `MAC_IP`:
+- [ ] **Step 1: Write `macos/hosts/mac-jms-01/facts.nix`.** Substitute the operator's §9 values for `ADMIN_USER` and `MAC_IP`:
 
 ```nix
 # Non-secret facts about the Mac Studio, recorded during manual bring-up
@@ -134,9 +135,9 @@ docs/runbooks/mac-studio-operations.md         # reboot, unlock, OS update, roll
 # kubernetes/apps/ai/mac-inference/app/service.yaml (EndpointSlice) and
 # nowhere else.
 {
-  hostName = "mac-studio";
-  adminUser = "ADMIN_USER";
-  lanIp = "MAC_IP";
+  hostName = "mac-jms-01";
+  adminUser = "j0sh3rs";
+  lanIp = "192.168.35.7";
   # Cluster node IPs. Cilium masquerades pod egress to the node IP, so these
   # are the only sources pf has to admit. bigboi-jms-01 (.4) leaves at
   # spec Phase 3.5 -- remove it here in that change.
@@ -171,22 +172,22 @@ docs/runbooks/mac-studio-operations.md         # reboot, unlock, OS update, roll
   };
 
   outputs = { self, nix-darwin, determinate, sops-nix, ... }: {
-    darwinConfigurations.mac-studio = nix-darwin.lib.darwinSystem {
+    darwinConfigurations.mac-jms-01 = nix-darwin.lib.darwinSystem {
       specialArgs = {
         inherit self;
-        facts = import ./hosts/mac-studio/facts.nix;
+        facts = import ./hosts/mac-jms-01/facts.nix;
       };
       modules = [
         determinate.darwinModules.default
         sops-nix.darwinModules.sops
-        ./hosts/mac-studio
+        ./hosts/mac-jms-01
       ];
     };
   };
 }
 ```
 
-- [ ] **Step 3: Write `macos/hosts/mac-studio/default.nix`**
+- [ ] **Step 3: Write `macos/hosts/mac-jms-01/default.nix`**
 
 ```nix
 { ... }:
@@ -272,12 +273,12 @@ docs/runbooks/mac-studio-operations.md         # reboot, unlock, OS update, roll
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 version: "3"
 
-# Every task reaches the Mac as `ssh mac-studio` -- set up the Host alias
+# Every task reaches the Mac as `ssh mac-jms-01` -- set up the Host alias
 # per docs/runbooks/mac-studio-bringup.md §5. Remote commands run through a
 # login shell so Determinate's /nix/var/nix/profiles/default/bin is on PATH.
 
 vars:
-  MAC_HOST: mac-studio
+  MAC_HOST: mac-jms-01
   MACOS_DIR: "{{.ROOT_DIR}}/macos"
   REMOTE_DIR: home-ops-macos
 
@@ -291,14 +292,14 @@ tasks:
     desc: Copy macos/ to the Mac and build the darwin closure (no sudo, no switch)
     cmds:
       - task: sync
-      - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && nix build .#darwinConfigurations.mac-studio.system --no-link --print-out-paths"'
+      - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && nix build .#darwinConfigurations.mac-jms-01.system --no-link --print-out-paths"'
 
   apply-local:
     desc: Copy macos/ to the Mac and darwin-rebuild switch from it (pre-merge testing; the pull loop re-applies main when main next moves)
-    prompt: darwin-rebuild switch mac-studio from your working copy of macos/?
+    prompt: darwin-rebuild switch mac-jms-01 from your working copy of macos/?
     cmds:
       - task: sync
-      - ssh -t {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && if command -v darwin-rebuild >/dev/null; then sudo darwin-rebuild switch --flake .#mac-studio; else sudo nix run nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake .#mac-studio; fi"'
+      - ssh -t {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && if command -v darwin-rebuild >/dev/null; then sudo darwin-rebuild switch --flake .#mac-jms-01; else sudo nix run nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake .#mac-jms-01; fi"'
 
   lock:
     desc: Regenerate macos/flake.lock on the Mac and copy it back
@@ -323,7 +324,7 @@ tasks:
 Spec: `docs/superpowers/specs/2026-10-10-mac-studio-ai-host-design.md`.
 
 - **How it applies:** `modules/pull-loop.nix` runs every 5 minutes and
-  `darwin-rebuild switch`es `github:j0sh3rs/home-ops/<main sha>?dir=macos#mac-studio`
+  `darwin-rebuild switch`es `github:j0sh3rs/home-ops/<main sha>?dir=macos#mac-jms-01`
   whenever `main` moves. Merging to `main` *is* deploying.
 - **Before merge:** `task mac:build-local` (build only) or `task mac:apply-local`
   (switch from your working copy). The next move of `main` re-applies `main`.
@@ -334,7 +335,7 @@ Spec: `docs/superpowers/specs/2026-10-10-mac-studio-ai-host-design.md`.
   until main moves again.
 - **Secrets:** `secrets/*.sops.yaml`, encrypted to the repo key and the Mac's
   own age key (`/var/lib/sops-nix/key.txt` on the Mac). Edit with
-  `sops macos/secrets/mac-studio.sops.yaml`.
+  `sops macos/secrets/mac-jms-01.sops.yaml`.
 - **Health:** textfile metrics under `/var/lib/node-exporter/textfile/`, scraped
   via `kubernetes/apps/ai/mac-inference/`.
 - **Homebrew:** `cleanup = "zap"` — only declare packages here; by-hand
@@ -391,7 +392,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Modify: `.github/renovate.json5`, `.renovate/customManagers.json5`, `.renovate/autoMerge.json5`
 
 **Interfaces:**
-- Consumes: `macos/flake.nix` output `darwinConfigurations.mac-studio.system` (Task 1).
+- Consumes: `macos/flake.nix` output `darwinConfigurations.mac-jms-01.system` (Task 1).
 - Produces:
   - A PR check named **"macOS Nix / Build darwin closure"**, plus a sticky PR comment that starts with `## macOS closure diff`.
   - Two test runners that later tasks append test commands to: `macos/scripts/test-home-ops-pull.sh` and `python3 -m unittest discover -s macos/pkgs/omlx-exporter`. The workflow runs them only if the files exist.
@@ -451,14 +452,14 @@ jobs:
           fi
 
       - name: Build head closure
-        run: nix build ./macos#darwinConfigurations.mac-studio.system --out-link result-head --print-build-logs
+        run: nix build ./macos#darwinConfigurations.mac-jms-01.system --out-link result-head --print-build-logs
 
       - name: Build base closure
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           git worktree add /tmp/macos-base "${{ github.event.pull_request.base.sha }}"
           if [ -f /tmp/macos-base/macos/flake.nix ]; then
-            nix build /tmp/macos-base/macos#darwinConfigurations.mac-studio.system --out-link result-base
+            nix build /tmp/macos-base/macos#darwinConfigurations.mac-jms-01.system --out-link result-base
           fi
 
       - name: Diff closures
@@ -581,7 +582,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Create: `macos/scripts/home-ops-pull.sh`, `macos/scripts/test-home-ops-pull.sh`, `macos/modules/pull-loop.nix`
-- Modify: `macos/hosts/mac-studio/default.nix` (import)
+- Modify: `macos/hosts/mac-jms-01/default.nix` (import)
 
 **Interfaces:**
 - Consumes: `facts` (Task 1). CI runs `macos/scripts/test-home-ops-pull.sh` (Task 2).
@@ -632,7 +633,7 @@ metric() { awk -v m="$1" '$1 == m { print $2 }' "$prom"; }
 
 # 1. First run applies main and is in sync.
 bash "$here/home-ops-pull.sh" || fail "first run exited non-zero"
-grep -qx "switch --flake github:example/repo/${first}?dir=macos#mac-studio" "$REBUILD_LOG" || fail "rebuild not called with pinned commit"
+grep -qx "switch --flake github:example/repo/${first}?dir=macos#mac-jms-01" "$REBUILD_LOG" || fail "rebuild not called with pinned commit"
 [ "$(metric home_ops_nix_apply_behind_main)" = 0 ] || fail "behind after first apply"
 [ "$(metric home_ops_nix_apply_last_exit_code)" = 0 ] || fail "exit code not 0"
 grep -q "home_ops_nix_apply_info{commit=\"${first}\"} 1" "$prom" || fail "applied commit info missing"
@@ -706,7 +707,7 @@ if ! head=$(git ls-remote "$REPO_URL" refs/heads/main | cut -f1) || [ -z "$head"
   rc=2
 elif [ "$head" != "$applied" ]; then
   log "applying $head (was ${applied:-nothing})"
-  if "$REBUILD" switch --flake "${FLAKE_REPO}/${head}?dir=macos#mac-studio"; then
+  if "$REBUILD" switch --flake "${FLAKE_REPO}/${head}?dir=macos#mac-jms-01"; then
     applied="$head"
     printf '%s\n' "$applied" > "$STATE_DIR/applied-commit"
     log "applied $head"
@@ -794,7 +795,7 @@ in
 }
 ```
 
-Add `../../modules/pull-loop.nix` to `imports` in `macos/hosts/mac-studio/default.nix`.
+Add `../../modules/pull-loop.nix` to `imports` in `macos/hosts/mac-jms-01/default.nix`.
 
 - [ ] **Step 6: Build** *(on Mac, no sudo)*
 
@@ -804,7 +805,7 @@ Expected: a store path. shellcheck runs inside `writeShellApplication`, and any 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add macos/scripts/home-ops-pull.sh macos/scripts/test-home-ops-pull.sh macos/modules/pull-loop.nix macos/hosts/mac-studio/default.nix
+git add macos/scripts/home-ops-pull.sh macos/scripts/test-home-ops-pull.sh macos/modules/pull-loop.nix macos/hosts/mac-jms-01/default.nix
 git commit -m "feat(macos): pull loop applies main and reports apply health
 
 Spec Phase 1.2. Pins each apply to the commit it read so a mid-apply push
@@ -821,7 +822,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Create: `macos/modules/server.nix`
-- Modify: `macos/hosts/mac-studio/default.nix` (import)
+- Modify: `macos/hosts/mac-jms-01/default.nix` (import)
 
 **Interfaces:**
 - Consumes: `/var/lib/node-exporter/textfile` and `/var/log/home-ops` (Task 3).
@@ -892,7 +893,7 @@ in
 }
 ```
 
-Add `../../modules/server.nix` to `imports` in `macos/hosts/mac-studio/default.nix`.
+Add `../../modules/server.nix` to `imports` in `macos/hosts/mac-jms-01/default.nix`.
 
 - [ ] **Step 2: Build** *(on Mac, no sudo)*
 
@@ -904,7 +905,7 @@ Expected:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add macos/modules/server.nix macos/hosts/mac-studio/default.nix
+git add macos/modules/server.nix macos/hosts/mac-jms-01/default.nix
 git commit -m "feat(macos): wired-memory limit, never-sleep, Spotlight-safe /opt/ai
 
 Spec Phase 1.3. iogpu.wired_limit_mb=86016 (~84 GB) is set at boot and
@@ -920,11 +921,11 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 ### Task 5: oMLX engine daemon, Mac secrets, sub-key reconciler
 
 **Files:**
-- Create: `macos/engines/omlx/pyproject.toml`, `macos/engines/omlx/uv.lock` (generated on the Mac), `macos/modules/omlx.nix`, `macos/scripts/omlx-sub-keys.sh`, `macos/secrets/mac-studio.sops.yaml`
+- Create: `macos/engines/omlx/pyproject.toml`, `macos/engines/omlx/uv.lock` (generated on the Mac), `macos/modules/omlx.nix`, `macos/scripts/omlx-sub-keys.sh`, `macos/secrets/mac-jms-01.sops.yaml`
 - Modify:
   - `.sops.yaml`: add the `macos/secrets/` rule
   - `.taskfiles/mac/Taskfile.yaml`: add the `omlx-lock` task
-  - `macos/hosts/mac-studio/default.nix`: import the new module
+  - `macos/hosts/mac-jms-01/default.nix`: import the new module
 
 **Interfaces:**
 - Consumes: `/opt/ai` (Task 4) and `/var/log/home-ops` (Task 3).
@@ -942,7 +943,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 ```yaml
   - path_regex: macos/secrets/.*\.sops\.ya?ml
     mac_only_encrypted: true
-    age: "age1qwwzsz6z2mmu6hpmjt2he7nepmnhutmhehvkva7l5zy5xzf08d5s5n4d6n,MAC_AGE_PUBKEY"
+    age: "age1qwwzsz6z2mmu6hpmjt2he7nepmnhutmhehvkva7l5zy5xzf08d5s5n4d6n,age1hua5s0wwmnysukxmtxkfepwcuzsc08kjmpn9pjjpwaka0lzvydwswlgq0j"
 ```
 
 - [ ] **Step 2: Create the encrypted secrets file.** The plaintext must never be written into the repo tree:
@@ -950,17 +951,17 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 ```bash
 umask 077
 tmp=$(mktemp -d)
-cat > "$tmp/mac-studio.sops.yaml" <<EOF
+cat > "$tmp/mac-jms-01.sops.yaml" <<EOF
 omlx:
   main-key: $(openssl rand -hex 32)
   sub-keys:
     gatus: $(openssl rand -hex 32)
 EOF
 mkdir -p macos/secrets
-sops --encrypt --filename-override macos/secrets/mac-studio.sops.yaml "$tmp/mac-studio.sops.yaml" > macos/secrets/mac-studio.sops.yaml
+sops --encrypt --filename-override macos/secrets/mac-jms-01.sops.yaml "$tmp/mac-jms-01.sops.yaml" > macos/secrets/mac-jms-01.sops.yaml
 rm -rf "$tmp"
-grep -c 'ENC\[' macos/secrets/mac-studio.sops.yaml
-grep -c 'recipient: age1' macos/secrets/mac-studio.sops.yaml
+grep -c 'ENC\[' macos/secrets/mac-jms-01.sops.yaml
+grep -c 'recipient: age1' macos/secrets/mac-jms-01.sops.yaml
 ```
 Expected:
 - The first `grep -c` prints `2` (two encrypted values).
@@ -1052,7 +1053,7 @@ let
   python = pkgs.python312;
   mainKey = config.sops.secrets."omlx/main-key".path;
   # One entry per consumer. Each needs omlx/sub-keys/<name> in
-  # secrets/mac-studio.sops.yaml and a matching cluster Secret.
+  # secrets/mac-jms-01.sops.yaml and a matching cluster Secret.
   omlxSubKeyNames = [ "gatus" ];
 
   env = ''
@@ -1100,7 +1101,7 @@ in
     description = "oMLX inference engine";
   };
 
-  sops.defaultSopsFile = ../secrets/mac-studio.sops.yaml;
+  sops.defaultSopsFile = ../secrets/mac-jms-01.sops.yaml;
   sops.secrets = {
     "omlx/main-key".owner = "_omlx";
   } // lib.genAttrs (map (n: "omlx/sub-keys/${n}") omlxSubKeyNames) (_: { owner = "_omlx"; });
@@ -1144,7 +1145,7 @@ in
 
 `shasum` comes from macOS `/usr/bin`, which needs `perl` in `runtimeInputs`, and `/usr/bin` is on the inherited PATH. Before using uid 455, check that it is free *(on Mac)*: `dscl . -list /Users UniqueID | awk '$2==455'`. Expected: no output. If 455 is taken, pick the next free number below 500 and use it for both uid and gid.
 
-Add `../../modules/omlx.nix` to `imports` in `macos/hosts/mac-studio/default.nix`.
+Add `../../modules/omlx.nix` to `imports` in `macos/hosts/mac-jms-01/default.nix`.
 
 - [ ] **Step 7: Build** *(on Mac, no sudo)*
 
@@ -1174,8 +1175,8 @@ Expected:
 - [ ] **Step 9: Commit**
 
 ```bash
-git add .sops.yaml macos/secrets/mac-studio.sops.yaml macos/engines/omlx macos/scripts/omlx-sub-keys.sh \
-  macos/modules/omlx.nix macos/hosts/mac-studio/default.nix .taskfiles/mac/Taskfile.yaml
+git add .sops.yaml macos/secrets/mac-jms-01.sops.yaml macos/engines/omlx macos/scripts/omlx-sub-keys.sh \
+  macos/modules/omlx.nix macos/hosts/mac-jms-01/default.nix .taskfiles/mac/Taskfile.yaml
 git commit -m "feat(macos): oMLX baseline engine as a uv-pinned LaunchDaemon
 
 oMLX (spec D7) lands in Phase 1 so API keys and engine metrics can be
@@ -1192,7 +1193,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Create: `macos/pkgs/omlx-exporter/omlx_exporter.py`, `macos/pkgs/omlx-exporter/test_omlx_exporter.py`, `macos/modules/observability.nix`
-- Modify: `macos/hosts/mac-studio/default.nix` (import)
+- Modify: `macos/hosts/mac-jms-01/default.nix` (import)
 
 **Interfaces:**
 - Consumes: the textfile dir (Task 3), the `_omlx` user and `omlx/main-key` (Task 5), and the oMLX server log path (Task 5).
@@ -1200,7 +1201,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
   - **node_exporter** on `:9100`, reading the textfile dir.
   - **macmon** on `:9090`, metric prefix `macmon_`.
   - **omlx-exporter** on `:9101`, with metrics `omlx_up`, `omlx_scrape_duration_seconds` and `omlx_stat{scope,path}`.
-  - **vector** shipping logs to `https://logs.68cc.io` with `hostname="mac-studio"`. `app_name` is the log file's base name, or `omlx` for the server log.
+  - **vector** shipping logs to `https://logs.68cc.io` with `hostname="mac-jms-01"`. `app_name` is the log file's base name, or `omlx` for the server log.
 
 - [ ] **Step 1: Write the failing test `macos/pkgs/omlx-exporter/test_omlx_exporter.py`**
 
@@ -1436,8 +1437,8 @@ let
       type = "remap";
       inputs = [ "files" ];
       source = ''
-        .hostname = "mac-studio"
-        .stream = "mac-studio"
+        .hostname = "mac-jms-01"
+        .stream = "mac-jms-01"
         if contains(string!(.file), "/.omlx/") {
           .app_name = "omlx"
         } else {
@@ -1519,7 +1520,7 @@ Notes for the implementer:
 - vector ships its own log file too, as `app_name="vector"`. Its error lines go to VictoriaLogs, which is fine.
 - The newsyslog glob from Task 4 covers every file in `/var/log/home-ops/`.
 
-Add `../../modules/observability.nix` to `imports` in `macos/hosts/mac-studio/default.nix`.
+Add `../../modules/observability.nix` to `imports` in `macos/hosts/mac-jms-01/default.nix`.
 
 - [ ] **Step 6: Build and validate vector's config** *(on Mac, no sudo)*
 
@@ -1529,14 +1530,14 @@ Expected: a store path. flake8 runs inside `writePython3Bin`, and a lint error f
 Then, on the Mac, validate the generated vector config:
 
 ```
-ssh mac-studio 'zsh -lc "cd ~/home-ops-macos && cfg=\$(nix eval --raw .#darwinConfigurations.mac-studio.config.launchd.daemons.vector.serviceConfig.ProgramArguments --apply \"a: builtins.elemAt a 2\") && nix build --no-link \$cfg 2>/dev/null; nix run nixpkgs#vector -- validate --no-environment \$cfg"'
+ssh mac-jms-01 'zsh -lc "cd ~/home-ops-macos && cfg=\$(nix eval --raw .#darwinConfigurations.mac-jms-01.config.launchd.daemons.vector.serviceConfig.ProgramArguments --apply \"a: builtins.elemAt a 2\") && nix build --no-link \$cfg 2>/dev/null; nix run nixpkgs#vector -- validate --no-environment \$cfg"'
 ```
 Expected: `Validated`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add macos/pkgs/omlx-exporter macos/modules/observability.nix macos/hosts/mac-studio/default.nix
+git add macos/pkgs/omlx-exporter macos/modules/observability.nix macos/hosts/mac-jms-01/default.nix
 git commit -m "feat(macos): node_exporter, macmon, oMLX exporter and vector
 
 Spec Phase 1.4 (Mac half). oMLX has no /metrics and documents no stats
@@ -1554,7 +1555,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 **Files:**
 - Create: `macos/modules/pf.nix`
-- Modify: `macos/hosts/mac-studio/default.nix` (import)
+- Modify: `macos/hosts/mac-jms-01/default.nix` (import)
 
 **Interfaces:**
 - Consumes:
@@ -1635,14 +1636,14 @@ in
 }
 ```
 
-Add `../../modules/pf.nix` to `imports` in `macos/hosts/mac-studio/default.nix`.
+Add `../../modules/pf.nix` to `imports` in `macos/hosts/mac-jms-01/default.nix`.
 
 - [ ] **Step 2: Syntax-check the generated ruleset** *(on Mac; `pfctl -n` parses without loading, which needs sudo)*
 
 Run: `task mac:build-local`, then:
 
 ```
-ssh -t mac-studio 'zsh -lc "cd ~/home-ops-macos && p=\$(nix eval --raw .#darwinConfigurations.mac-studio.config.launchd.daemons.pf-home-ops.serviceConfig.ProgramArguments --apply \"a: builtins.head a\") && nix build --no-link \$(dirname \$(dirname \$p)) && grep -o \"/nix/store/[^ ]*pf.home-ops.conf\" \$p | head -1 | xargs sudo pfctl -nf"'
+ssh -t mac-jms-01 'zsh -lc "cd ~/home-ops-macos && p=\$(nix eval --raw .#darwinConfigurations.mac-jms-01.config.launchd.daemons.pf-home-ops.serviceConfig.ProgramArguments --apply \"a: builtins.head a\") && nix build --no-link \$(dirname \$(dirname \$p)) && grep -o \"/nix/store/[^ ]*pf.home-ops.conf\" \$p | head -1 | xargs sudo pfctl -nf"'
 ```
 
 Expected: no output, exit 0. This step needs sudo, so it is **OPERATOR** unless done during Task 8's apply.
@@ -1650,7 +1651,7 @@ Expected: no output, exit 0. This step needs sudo, so it is **OPERATOR** unless 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add macos/modules/pf.nix macos/hosts/mac-studio/default.nix
+git add macos/modules/pf.nix macos/hosts/mac-jms-01/default.nix
 git commit -m "feat(macos): pf allowlist for engine and exporter ports
 
 Spec Phase 1.5 (Mac half). Only the cluster node IPs (Cilium SNATs pod
@@ -1673,10 +1674,10 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Consumes:
   - `MAC_IP` (facts)
   - the Mac ports and metric names from Tasks 3–7
-  - the plaintext `omlx/sub-keys/gatus` value from `macos/secrets/mac-studio.sops.yaml`
+  - the plaintext `omlx/sub-keys/gatus` value from `macos/secrets/mac-jms-01.sops.yaml`
 - Produces:
   - **Service DNS:** `mac-inference.ai.svc.cluster.local`, with ports `http` 8000, `macmon` 9090, `node-exporter` 9100, `omlx-exporter` 9101.
-  - **Scrape job:** `job="mac-studio"`, with label `exporter` set to `node`, `macmon` or `omlx`.
+  - **Scrape job:** `job="mac-jms-01"`, with label `exporter` set to `node`, `macmon` or `omlx`.
   - **Admin host:** `omlx.68cc.io`, internal only.
 
 - [ ] **Step 1: Write `kubernetes/apps/ai/mac-inference/app/service.yaml`.** Substitute `MAC_IP`:
@@ -1685,7 +1686,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 ---
 # The Mac Studio (macOS, not a node) as an in-cluster name. Selector-less:
 # the EndpointSlice below is the one place in Kubernetes that holds the
-# Mac's IP (the other is macos/hosts/mac-studio/facts.nix). Consumers,
+# Mac's IP (the other is macos/hosts/mac-jms-01/facts.nix). Consumers,
 # vmagent, Gatus and the admin HTTPRoute all use this Service.
 apiVersion: v1
 kind: Service
@@ -1733,7 +1734,7 @@ ports:
     protocol: TCP
 endpoints:
   - addresses:
-      - "MAC_IP"
+      - "192.168.35.7"
     conditions:
       ready: true
 ```
@@ -1749,23 +1750,23 @@ endpoints:
 apiVersion: operator.victoriametrics.com/v1beta1
 kind: VMStaticScrape
 metadata:
-  name: mac-studio
+  name: mac-jms-01
 spec:
-  jobName: mac-studio
+  jobName: mac-jms-01
   targetEndpoints:
     - targets: ["mac-inference.ai.svc.cluster.local:9100"]
       labels:
-        instance: mac-studio
+        instance: mac-jms-01
         exporter: node
       interval: 30s
     - targets: ["mac-inference.ai.svc.cluster.local:9090"]
       labels:
-        instance: mac-studio
+        instance: mac-jms-01
         exporter: macmon
       interval: 30s
     - targets: ["mac-inference.ai.svc.cluster.local:9101"]
       labels:
-        instance: mac-studio
+        instance: mac-jms-01
         exporter: omlx
       interval: 30s
 ```
@@ -1782,18 +1783,18 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: mac-studio-rules
+  name: mac-jms-01-rules
   labels:
     prometheus: k8s
     role: alert-rules
 spec:
   groups:
-    - name: mac-studio.rules
+    - name: mac-jms-01.rules
       rules:
         - alert: MacStudioUnreachable
           expr: |
-            up{job="mac-studio",exporter="node"} == 0
-              or absent(up{job="mac-studio",exporter="node"})
+            up{job="mac-jms-01",exporter="node"} == 0
+              or absent(up{job="mac-jms-01",exporter="node"})
           for: 5m
           labels:
             severity: critical
@@ -1805,8 +1806,8 @@ spec:
 
         - alert: MacStudioEngineDown
           expr: |
-            omlx_up{job="mac-studio"} == 0
-              or (up{job="mac-studio",exporter="omlx"} == 0 and on(instance) up{job="mac-studio",exporter="node"} == 1)
+            omlx_up{job="mac-jms-01"} == 0
+              or (up{job="mac-jms-01",exporter="omlx"} == 0 and on(instance) up{job="mac-jms-01",exporter="node"} == 1)
           for: 5m
           labels:
             severity: critical
@@ -1819,7 +1820,7 @@ spec:
         # around long after pressure ends.
         - alert: MacStudioSwapping
           expr: |
-            rate(node_memory_swapped_out_bytes_total{job="mac-studio"}[10m]) > 1048576
+            rate(node_memory_swapped_out_bytes_total{job="mac-jms-01"}[10m]) > 1048576
           for: 15m
           labels:
             severity: warning
@@ -1830,8 +1831,8 @@ spec:
 
         - alert: MacStudioWiredNearLimit
           expr: |
-            node_memory_wired_bytes{job="mac-studio"}
-              / on(instance) home_ops_iogpu_wired_limit_bytes{job="mac-studio"} > 0.95
+            node_memory_wired_bytes{job="mac-jms-01"}
+              / on(instance) home_ops_iogpu_wired_limit_bytes{job="mac-jms-01"} > 0.95
           for: 15m
           labels:
             severity: warning
@@ -1841,8 +1842,8 @@ spec:
 
         - alert: MacStudioWiredLimitNotSet
           expr: |
-            home_ops_iogpu_wired_limit_bytes{job="mac-studio"} < 80e9
-              or (absent(home_ops_iogpu_wired_limit_bytes{job="mac-studio"}) and on() up{job="mac-studio",exporter="node"} == 1)
+            home_ops_iogpu_wired_limit_bytes{job="mac-jms-01"} < 80e9
+              or (absent(home_ops_iogpu_wired_limit_bytes{job="mac-jms-01"}) and on() up{job="mac-jms-01",exporter="node"} == 1)
           for: 15m
           labels:
             severity: warning
@@ -1853,7 +1854,7 @@ spec:
 
         - alert: MacStudioNixApplyStale
           expr: |
-            time() - home_ops_nix_apply_last_in_sync_timestamp_seconds{job="mac-studio"} > 86400
+            time() - home_ops_nix_apply_last_in_sync_timestamp_seconds{job="mac-jms-01"} > 86400
           for: 15m
           labels:
             severity: warning
@@ -1864,18 +1865,18 @@ spec:
 
         - alert: MacStudioNixBehindMain
           expr: |
-            home_ops_nix_apply_behind_main{job="mac-studio"} == 1
+            home_ops_nix_apply_behind_main{job="mac-jms-01"} == 1
           for: 2h
           labels:
             severity: warning
           annotations:
             summary: >-
               Mac Studio applied commit is behind main for 2h (last exit code
-              {{ with query "home_ops_nix_apply_last_exit_code{job='mac-studio'}" }}{{ . | first | value }}{{ end }})
+              {{ with query "home_ops_nix_apply_last_exit_code{job='mac-jms-01'}" }}{{ . | first | value }}{{ end }})
 
         - alert: MacStudioPfNotLoaded
           expr: |
-            home_ops_pf_ruleset_loaded{job="mac-studio"} == 0
+            home_ops_pf_ruleset_loaded{job="mac-jms-01"} == 0
           for: 15m
           labels:
             severity: warning
@@ -1897,7 +1898,7 @@ spec:
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: mac-studio
+  name: mac-jms-01
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
@@ -1910,8 +1911,8 @@ spec:
   json: |
     {
       "title": "Mac Studio",
-      "uid": "mac-studio",
-      "tags": ["ai", "mac-studio"],
+      "uid": "mac-jms-01",
+      "tags": ["ai", "mac-jms-01"],
       "timezone": "browser",
       "schemaVersion": 39,
       "version": 1,
@@ -1922,51 +1923,51 @@ spec:
       "panels": [
         {"id": 1, "type": "stat", "title": "Host up", "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
-         "targets": [{"expr": "up{job=\"mac-studio\",exporter=\"node\"}", "refId": "A", "instant": true}]},
+         "targets": [{"expr": "up{job=\"mac-jms-01\",exporter=\"node\"}", "refId": "A", "instant": true}]},
         {"id": 2, "type": "stat", "title": "oMLX up", "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
-         "targets": [{"expr": "omlx_up{job=\"mac-studio\"}", "refId": "A", "instant": true}]},
+         "targets": [{"expr": "omlx_up{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
         {"id": 3, "type": "stat", "title": "Since last in sync with main", "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
          "fieldConfig": {"defaults": {"unit": "s"}},
-         "targets": [{"expr": "time() - home_ops_nix_apply_last_in_sync_timestamp_seconds{job=\"mac-studio\"}", "refId": "A", "instant": true}]},
+         "targets": [{"expr": "time() - home_ops_nix_apply_last_in_sync_timestamp_seconds{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
         {"id": 4, "type": "stat", "title": "Behind main", "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
-         "targets": [{"expr": "home_ops_nix_apply_behind_main{job=\"mac-studio\"}", "refId": "A", "instant": true}]},
+         "targets": [{"expr": "home_ops_nix_apply_behind_main{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
         {"id": 5, "type": "stat", "title": "pf allowlist loaded", "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
-         "targets": [{"expr": "home_ops_pf_ruleset_loaded{job=\"mac-studio\"}", "refId": "A", "instant": true}]},
+         "targets": [{"expr": "home_ops_pf_ruleset_loaded{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
         {"id": 6, "type": "stat", "title": "Wired limit", "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
          "fieldConfig": {"defaults": {"unit": "bytes"}},
-         "targets": [{"expr": "home_ops_iogpu_wired_limit_bytes{job=\"mac-studio\"}", "refId": "A", "instant": true}]},
+         "targets": [{"expr": "home_ops_iogpu_wired_limit_bytes{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
         {"id": 7, "type": "timeseries", "title": "Memory", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
          "fieldConfig": {"defaults": {"unit": "bytes"}},
          "targets": [
-           {"expr": "node_memory_wired_bytes{job=\"mac-studio\"}", "legendFormat": "wired", "refId": "A"},
-           {"expr": "home_ops_iogpu_wired_limit_bytes{job=\"mac-studio\"}", "legendFormat": "wired limit", "refId": "B"},
-           {"expr": "node_memory_compressed_bytes{job=\"mac-studio\"}", "legendFormat": "compressed", "refId": "C"},
-           {"expr": "node_memory_swap_used_bytes{job=\"mac-studio\"}", "legendFormat": "swap used", "refId": "D"}]},
+           {"expr": "node_memory_wired_bytes{job=\"mac-jms-01\"}", "legendFormat": "wired", "refId": "A"},
+           {"expr": "home_ops_iogpu_wired_limit_bytes{job=\"mac-jms-01\"}", "legendFormat": "wired limit", "refId": "B"},
+           {"expr": "node_memory_compressed_bytes{job=\"mac-jms-01\"}", "legendFormat": "compressed", "refId": "C"},
+           {"expr": "node_memory_swap_used_bytes{job=\"mac-jms-01\"}", "legendFormat": "swap used", "refId": "D"}]},
         {"id": 8, "type": "timeseries", "title": "Swap-out rate", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
          "fieldConfig": {"defaults": {"unit": "Bps"}},
-         "targets": [{"expr": "rate(node_memory_swapped_out_bytes_total{job=\"mac-studio\"}[5m])", "legendFormat": "swap out", "refId": "A"}]},
+         "targets": [{"expr": "rate(node_memory_swapped_out_bytes_total{job=\"mac-jms-01\"}[5m])", "legendFormat": "swap out", "refId": "A"}]},
         {"id": 9, "type": "timeseries", "title": "Power (macmon)", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
          "fieldConfig": {"defaults": {"unit": "watt"}},
-         "targets": [{"expr": "{__name__=~\"macmon_.*_power_watts\",job=\"mac-studio\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
+         "targets": [{"expr": "{__name__=~\"macmon_.*_power_watts\",job=\"mac-jms-01\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
         {"id": 10, "type": "timeseries", "title": "Temperature (macmon)", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
          "fieldConfig": {"defaults": {"unit": "celsius"}},
-         "targets": [{"expr": "{__name__=~\"macmon_.*_temp_celsius\",job=\"mac-studio\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
+         "targets": [{"expr": "{__name__=~\"macmon_.*_temp_celsius\",job=\"mac-jms-01\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
         {"id": 11, "type": "timeseries", "title": "CPU / GPU utilisation (macmon)", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
          "fieldConfig": {"defaults": {"unit": "percentunit", "max": 1}},
-         "targets": [{"expr": "{__name__=~\"macmon_(cpu|gpu)_(active|usage|scaled)_ratio\",job=\"mac-studio\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
+         "targets": [{"expr": "{__name__=~\"macmon_(cpu|gpu)_(active|usage|scaled)_ratio\",job=\"mac-jms-01\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
         {"id": 12, "type": "table", "title": "oMLX stats (all numeric fields, all time)", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
          "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
-         "targets": [{"expr": "omlx_stat{job=\"mac-studio\",scope=\"alltime\"}", "format": "table", "refId": "A", "instant": true}]}
+         "targets": [{"expr": "omlx_stat{job=\"mac-jms-01\",scope=\"alltime\"}", "format": "table", "refId": "A", "instant": true}]}
       ]
     }
 ```
@@ -2050,7 +2051,7 @@ Create the Secret without writing plaintext into the repo:
 
 ```bash
 umask 077
-key=$(sops -d --extract '["omlx"]["sub-keys"]["gatus"]' macos/secrets/mac-studio.sops.yaml)
+key=$(sops -d --extract '["omlx"]["sub-keys"]["gatus"]' macos/secrets/mac-jms-01.sops.yaml)
 tmp=$(mktemp -d)
 cat > "$tmp/secret.yaml" <<EOF
 ---
@@ -2138,7 +2139,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - Modify: `.taskfiles/mac/Taskfile.yaml` (add `reboot` and `wait-up`)
 
 **Interfaces:**
-- Consumes: the `ssh mac-studio` alias, the launchd labels `org.nixos.*`, `task mac:status`, and the outcome of the checklist §11 pre-boot unlock test, which the ledger recorded in Task 1, Step 9.
+- Consumes: the `ssh mac-jms-01` alias, the launchd labels `org.nixos.*`, `task mac:status`, and the outcome of the checklist §11 pre-boot unlock test, which the ledger recorded in Task 1, Step 9.
 - Produces: `task mac:reboot`.
 
 - [ ] **Step 1: Add the tasks.** Append under `tasks:` in `.taskfiles/mac/Taskfile.yaml`:
@@ -2149,7 +2150,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
     summary: |
       Every LLM consumer fails while the Mac is down (spec D4, no fallback).
       fdesetup asks for the FileVault user's password on the Mac's sudo.
-    prompt: Reboot mac-studio now? All LLM consumers fail until it is back (~2-3 min).
+    prompt: Reboot mac-jms-01 now? All LLM consumers fail until it is back (~2-3 min).
     cmds:
       - ssh -t {{.MAC_HOST}} 'fdesetup supportsauthrestart | grep -q true && sudo fdesetup authrestart -delayminutes 0'
       - task: wait-up
@@ -2161,11 +2162,11 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
       - |
         for i in $(seq 1 54); do
           if ssh -o ConnectTimeout=5 -o BatchMode=yes {{.MAC_HOST}} 'curl -s -o /dev/null -w "%{http_code}" localhost:8000/v1/models | grep -q 401'; then
-            echo "mac-studio is back and oMLX is answering"; exit 0
+            echo "mac-jms-01 is back and oMLX is answering"; exit 0
           fi
           sleep 10
         done
-        echo "mac-studio not back after 10 min -- see docs/runbooks/mac-studio-operations.md (Unplanned reboot)"; exit 1
+        echo "mac-jms-01 not back after 10 min -- see docs/runbooks/mac-studio-operations.md (Unplanned reboot)"; exit 1
 ```
 
 A `401` without a key proves oMLX is serving and enforcing auth, without needing a key on the operator machine.
@@ -2175,7 +2176,7 @@ A `401` without a key proves oMLX is serving and enforcing auth, without needing
 ````markdown
 # Mac Studio operations
 
-Host: `mac-studio` (macOS, nix-darwin, **not** a k8s node). Config: `macos/`.
+Host: `mac-jms-01` (macOS, nix-darwin, **not** a k8s node). Config: `macos/`.
 In-cluster name: `mac-inference.ai.svc` (`kubernetes/apps/ai/mac-inference/`).
 Spec: `docs/superpowers/specs/2026-10-10-mac-studio-ai-host-design.md`.
 
@@ -2186,7 +2187,7 @@ Hindsight queues, everything else fails fast. Reboot deliberately.
 
 - `task mac:status` — current generation, `org.nixos.*` daemons, textfile metrics.
 - Grafana → AI → **Mac Studio**.
-- Logs: VictoriaLogs `hostname:"mac-studio"`, or on the Mac `/var/log/home-ops/*.log`
+- Logs: VictoriaLogs `hostname:"mac-jms-01"`, or on the Mac `/var/log/home-ops/*.log`
   and `/opt/ai/omlx/home/.omlx/logs/server.log`.
 
 ## Planned reboot
@@ -2201,7 +2202,7 @@ Ends when oMLX answers again (≤ 10 min) — otherwise follow "Unplanned reboot
 ## Unplanned reboot (power cut, panic, plain `reboot`)
 
 The Mac stops at FileVault pre-boot; nothing runs, `MacStudioUnreachable`
-pages. Unlock over SSH: `ssh mac-studio`, answer the pre-boot prompt, then
+pages. Unlock over SSH: `ssh mac-jms-01`, answer the pre-boot prompt, then
 `task mac:wait-up`.
 
 Pre-boot unlock result from bring-up (§11): RECORD_RESULT_HERE
@@ -2211,7 +2212,7 @@ Pre-boot unlock result from bring-up (§11): RECORD_RESULT_HERE
 1. Read the release notes for Metal / MLX / `iogpu` changes; check oMLX and
    macmon issues for the new version.
 2. On the Mac: `softwareupdate --list`.
-3. `sudo softwareupdate --install --all --restart --user <ADMIN_USER> --stdinpass`
+3. `sudo softwareupdate --install --all --restart --user j0sh3rs --stdinpass`
    (Apple silicon needs the owner's credentials).
 4. The update reboot lands at FileVault pre-boot — unlock as in
    "Unplanned reboot", then `task mac:wait-up`.
@@ -2241,7 +2242,7 @@ Pre-boot unlock result from bring-up (§11): RECORD_RESULT_HERE
 ## Rotate or revoke a consumer key
 
 oMLX sub keys are inference-only. Keys live in
-`macos/secrets/mac-studio.sops.yaml` (`omlx.sub-keys.<name>`) and in the
+`macos/secrets/mac-jms-01.sops.yaml` (`omlx.sub-keys.<name>`) and in the
 consumer's cluster Secret.
 
 - **Add:** add the key to sops and the name to `omlxSubKeyNames` in
@@ -2256,7 +2257,7 @@ consumer's cluster Secret.
 
 ## Mac IP change
 
-Two places: `macos/hosts/mac-studio/facts.nix` and the EndpointSlice in
+Two places: `macos/hosts/mac-jms-01/facts.nix` and the EndpointSlice in
 `kubernetes/apps/ai/mac-inference/app/service.yaml`. Keep the UniFi DHCP
 reservation as the source of truth.
 
@@ -2305,7 +2306,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 - [ ] **Step 2: Metric names the rules rely on** *(on Mac)*:
 
 ```
-ssh mac-studio 'curl -s localhost:9100/metrics | grep -E "^node_memory_(wired_bytes|swap_used_bytes|swapped_out_bytes_total|compressed_bytes)" ; curl -s localhost:9090/metrics | grep -E "^macmon_" | cut -d"{" -f1 | sort -u ; curl -s localhost:9101/metrics | head -12'
+ssh mac-jms-01 'curl -s localhost:9100/metrics | grep -E "^node_memory_(wired_bytes|swap_used_bytes|swapped_out_bytes_total|compressed_bytes)" ; curl -s localhost:9090/metrics | grep -E "^macmon_" | cut -d"{" -f1 | sort -u ; curl -s localhost:9101/metrics | head -12'
 ```
 
 Expected:
@@ -2314,13 +2315,13 @@ Expected:
 - `omlx_up 1`.
 - If any `node_memory_*` name differs, fix the rule and dashboard expressions in Task 8's files and commit the fix: `fix(ai): match darwin node_exporter metric names`.
 
-- [ ] **Step 3: Cilium SNAT check (spec Phase 0.5).** **OPERATOR**: run `sudo tcpdump -ni any 'tcp dst port 8000' -c 5` on the Mac. Then from HolyClaude run `curl -s -o /dev/null -w '%{http_code}\n' http://MAC_IP:8000/v1/models`.
+- [ ] **Step 3: Cilium SNAT check (spec Phase 0.5).** **OPERATOR**: run `sudo tcpdump -ni any 'tcp dst port 8000' -c 5` on the Mac. Then from HolyClaude run `curl -s -o /dev/null -w '%{http_code}\n' http://192.168.35.7:8000/v1/models`.
   Expected:
   - The source address is one of `192.168.35.3/.6/.10/.4`, never `10.42.x.x`.
   - curl prints `401`.
   - Record the observed source IP in the ledger and in the memory file.
 
-- [ ] **Step 4: pf blocks the LAN.** **OPERATOR**: from the workstation, which is not a cluster node, run `curl -m 5 http://MAC_IP:8000/v1/models`.
+- [ ] **Step 4: pf blocks the LAN.** **OPERATOR**: from the workstation, which is not a cluster node, run `curl -m 5 http://192.168.35.7:8000/v1/models`.
   Expected: a timeout. pf drops the traffic silently.
 
 - [ ] **Step 5: Stop for the merge.** Push, PR and merge need the operator's OK.
@@ -2330,8 +2331,8 @@ Expected:
 - [ ] **Step 6: After the merge**
   - **Mac:** within 5 minutes, `task mac:status` shows `home_ops_nix_apply_info{commit="<main sha>"} 1` and `home_ops_nix_apply_behind_main 0`.
   - **Flux:** `KUBECONFIG=/workspace/home-ops/kubeconfig flux get ks -n ai mac-inference` reports Ready.
-  - **Scrapes:** `kubectl -n monitoring port-forward svc/vmagent-vmagent 8429` and open `/targets` in a browser. Three `mac-studio` targets are up.
+  - **Scrapes:** `kubectl -n monitoring port-forward svc/vmagent-vmagent 8429` and open `/targets` in a browser. Three `mac-jms-01` targets are up.
   - **Gatus:** `mac-inference-models` is green.
   - **Admin route:** `https://omlx.68cc.io/admin` from the LAN redirects to Authentik.
-  - **Alert pipeline:** run `ssh mac-studio sudo launchctl bootout system/org.nixos.omlx-exporter`, then wait 6 minutes. `MacStudioEngineDown` should reach Alertmanager. Restore with `task mac:apply-local`, or wait for the next main move.
+  - **Alert pipeline:** run `ssh mac-jms-01 sudo launchctl bootout system/org.nixos.omlx-exporter`, then wait 6 minutes. `MacStudioEngineDown` should reach Alertmanager. Restore with `task mac:apply-local`, or wait for the next main move.
 ````

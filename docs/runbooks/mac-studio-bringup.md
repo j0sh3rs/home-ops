@@ -12,8 +12,8 @@ hand back; the plan's Task 1 needs every one of them.
 
 - [ ] Create **one admin account**. Pick a short username and write it down
       (fact `ADMIN_USER`).
-- [ ] Computer name: **`mac-studio`** (System Settings → General → Sharing →
-      Local hostname, check it reads `mac-studio.local`).
+- [ ] Computer name: **`mac-jms-01`** (System Settings → General → Sharing →
+      Local hostname, check it reads `mac-jms-01.local`).
 - [ ] Decline Apple Intelligence, Siri, Screen Time and analytics. None are
       needed on a server and each adds background memory use.
 - [ ] Sign in to an Apple Account **only if** you want Find My. It is not needed
@@ -59,10 +59,10 @@ hand back; the plan's Task 1 needs every one of them.
 - [ ] From your workstation: `ssh-copy-id <ADMIN_USER>@<MAC_IP>`, then
       `ssh <ADMIN_USER>@<MAC_IP> true` must succeed **without a password**.
 - [ ] Add this to `~/.ssh/config` on every machine you'll run `task mac:*` from.
-      The taskfile only ever calls `ssh mac-studio`:
+      The taskfile only ever calls `ssh mac-jms-01`:
 
       ```
-      Host mac-studio
+      Host mac-jms-01
         HostName <MAC_IP>
         User <ADMIN_USER>
         IdentitiesOnly yes
@@ -76,12 +76,12 @@ hand back; the plan's Task 1 needs every one of them.
 
       ```bash
       mkdir -p ~/.claude/ssh && chmod 700 ~/.claude/ssh
-      ssh-keygen -t ed25519 -N '' -f ~/.claude/ssh/mac-studio -C holyclaude@mac-studio
-      cat ~/.claude/ssh/mac-studio.pub   # paste into the Mac's ~/.ssh/authorized_keys
+      ssh-keygen -t ed25519 -N '' -f ~/.claude/ssh/mac-jms-01 -C holyclaude@mac-jms-01
+      cat ~/.claude/ssh/mac-jms-01.pub   # paste into the Mac's ~/.ssh/authorized_keys
       ```
 
-      Then add `IdentityFile ~/.claude/ssh/mac-studio` to HolyClaude's
-      `Host mac-studio` block. (`~/.claude` is the only persisted path in the
+      Then add `IdentityFile ~/.claude/ssh/mac-jms-01` to HolyClaude's
+      `Host mac-jms-01` block. (`~/.claude` is the only persisted path in the
       container.)
 - [ ] Do **not** disable password auth by hand. nix does it in Task 1, and you
       verify with `sudo sshd -T | grep -i passwordauthentication`.
@@ -146,7 +146,7 @@ Tahoe's FileVault pre-boot SSH lets you unlock after an unplanned reboot
 (power cut). Test it while you are at the Mac, not during an outage:
 
 - [ ] `sudo reboot` (plain reboot, **not** authrestart).
-- [ ] From the workstation: `ssh mac-studio`. Expect the pre-boot unlock
+- [ ] From the workstation: `ssh mac-jms-01`. Expect the pre-boot unlock
       prompt. Unlock, and confirm the Mac finishes booting and SSH works
       normally afterwards.
 - [ ] If pre-boot SSH needs password auth, or refuses the key, write down

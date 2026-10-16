@@ -2,12 +2,12 @@
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 version: "3"
 
-# Every task reaches the Mac as `ssh mac-studio` -- set up the Host alias
+# Every task reaches the Mac as `ssh mac-jms-01` -- set up the Host alias
 # per docs/runbooks/mac-studio-bringup.md §5. Remote commands run through a
 # login shell so Determinate's /nix/var/nix/profiles/default/bin is on PATH.
 
 vars:
-  MAC_HOST: mac-studio
+  MAC_HOST: mac-jms-01
   MACOS_DIR: "{{.ROOT_DIR}}/macos"
   REMOTE_DIR: home-ops-macos
 
@@ -21,14 +21,14 @@ tasks:
     desc: Copy macos/ to the Mac and build the darwin closure (no sudo, no switch)
     cmds:
       - task: sync
-      - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && nix build .#darwinConfigurations.mac-studio.system --no-link --print-out-paths"'
+      - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && nix build .#darwinConfigurations.mac-jms-01.system --no-link --print-out-paths"'
 
   apply-local:
     desc: Copy macos/ to the Mac and darwin-rebuild switch from it (pre-merge testing; the pull loop re-applies main when main next moves)
-    prompt: darwin-rebuild switch mac-studio from your working copy of macos/?
+    prompt: darwin-rebuild switch mac-jms-01 from your working copy of macos/?
     cmds:
       - task: sync
-      - ssh -t {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && if command -v darwin-rebuild >/dev/null; then sudo darwin-rebuild switch --flake .#mac-studio; else sudo nix run nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake .#mac-studio; fi"'
+      - ssh -t {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && if command -v darwin-rebuild >/dev/null; then sudo darwin-rebuild switch --flake .#mac-jms-01; else sudo nix run nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake .#mac-jms-01; fi"'
 
   lock:
     desc: Regenerate macos/flake.lock on the Mac and copy it back

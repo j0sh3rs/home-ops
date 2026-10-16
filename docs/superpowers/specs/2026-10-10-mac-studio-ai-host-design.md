@@ -88,7 +88,7 @@ until the Phase 4 gateway has no request cap below 600s.
 - Python/MLX engines are `uv`-pinned and run as nix-declared
   LaunchDaemons.
 - **Pull loop:** a launchd timer runs
-  `darwin-rebuild switch --flake github:j0sh3rs/home-ops?dir=macos#mac-studio`
+  `darwin-rebuild switch --flake github:j0sh3rs/home-ops?dir=macos#mac-jms-01`
   when `main` moves, and writes the applied commit and timestamp to a
   node_exporter textfile metric.
 - **PR CI:** `nix build` of the darwin closure on a GitHub-hosted macOS

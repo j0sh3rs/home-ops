@@ -36,7 +36,7 @@ metric() { awk -v m="$1" '$1 == m { print $2 }' "$prom"; }
 
 # 1. First run applies main and is in sync.
 bash "$here/home-ops-pull.sh" || fail "first run exited non-zero"
-grep -qx "switch --flake github:example/repo/${first}?dir=macos#mac-studio" "$REBUILD_LOG" || fail "rebuild not called with pinned commit"
+grep -qx "switch --flake github:example/repo/${first}?dir=macos#mac-jms-01" "$REBUILD_LOG" || fail "rebuild not called with pinned commit"
 [ "$(metric home_ops_nix_apply_behind_main)" = 0 ] || fail "behind after first apply"
 [ "$(metric home_ops_nix_apply_last_exit_code)" = 0 ] || fail "exit code not 0"
 grep -q "home_ops_nix_apply_info{commit=\"${first}\"} 1" "$prom" || fail "applied commit info missing"

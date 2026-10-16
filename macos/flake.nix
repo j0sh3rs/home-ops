@@ -17,15 +17,15 @@
   };
 
   outputs = { self, nix-darwin, determinate, sops-nix, ... }: {
-    darwinConfigurations.mac-studio = nix-darwin.lib.darwinSystem {
+    darwinConfigurations.mac-jms-01 = nix-darwin.lib.darwinSystem {
       specialArgs = {
         inherit self;
-        facts = import ./hosts/mac-studio/facts.nix;
+        facts = import ./hosts/mac-jms-01/facts.nix;
       };
       modules = [
         determinate.darwinModules.default
         sops-nix.darwinModules.sops
-        ./hosts/mac-studio
+        ./hosts/mac-jms-01
       ];
     };
   };

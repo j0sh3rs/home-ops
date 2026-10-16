@@ -50,14 +50,14 @@ jobs:
           fi
 
       - name: Build head closure
-        run: nix build ./macos#darwinConfigurations.mac-studio.system --out-link result-head --print-build-logs
+        run: nix build ./macos#darwinConfigurations.mac-jms-01.system --out-link result-head --print-build-logs
 
       - name: Build base closure
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           git worktree add /tmp/macos-base "${{ github.event.pull_request.base.sha }}"
           if [ -f /tmp/macos-base/macos/flake.nix ]; then
-            nix build /tmp/macos-base/macos#darwinConfigurations.mac-studio.system --out-link result-base
+            nix build /tmp/macos-base/macos#darwinConfigurations.mac-jms-01.system --out-link result-base
           fi
 
       - name: Diff closures

@@ -37,7 +37,7 @@ if ! head=$(git ls-remote "$REPO_URL" refs/heads/main | cut -f1) || [ -z "$head"
   rc=2
 elif [ "$head" != "$applied" ]; then
   log "applying $head (was ${applied:-nothing})"
-  if "$REBUILD" switch --flake "${FLAKE_REPO}/${head}?dir=macos#mac-studio"; then
+  if "$REBUILD" switch --flake "${FLAKE_REPO}/${head}?dir=macos#mac-jms-01"; then
     applied="$head"
     printf '%s\n' "$applied" > "$STATE_DIR/applied-commit"
     log "applied $head"

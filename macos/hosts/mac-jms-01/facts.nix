@@ -3,9 +3,9 @@
 # kubernetes/apps/ai/mac-inference/app/service.yaml (EndpointSlice) and
 # nowhere else.
 {
-  hostName = "mac-studio";
-  adminUser = "ADMIN_USER";
-  lanIp = "MAC_IP";
+  hostName = "mac-jms-01";
+  adminUser = "j0sh3rs";
+  lanIp = "192.168.35.7";
   # Cluster node IPs. Cilium masquerades pod egress to the node IP, so these
   # are the only sources pf has to admit. bigboi-jms-01 (.4) leaves at
   # spec Phase 3.5 -- remove it here in that change.

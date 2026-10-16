@@ -3,7 +3,7 @@
 Spec: `docs/superpowers/specs/2026-10-10-mac-studio-ai-host-design.md`.
 
 - **How it applies:** `modules/pull-loop.nix` runs every 5 minutes and
-  `darwin-rebuild switch`es `github:j0sh3rs/home-ops/<main sha>?dir=macos#mac-studio`
+  `darwin-rebuild switch`es `github:j0sh3rs/home-ops/<main sha>?dir=macos#mac-jms-01`
   whenever `main` moves. Merging to `main` *is* deploying.
 - **Before merge:** `task mac:build-local` (build only) or `task mac:apply-local`
   (switch from your working copy). The next move of `main` re-applies `main`.
@@ -14,7 +14,7 @@ Spec: `docs/superpowers/specs/2026-10-10-mac-studio-ai-host-design.md`.
   until main moves again.
 - **Secrets:** `secrets/*.sops.yaml`, encrypted to the repo key and the Mac's
   own age key (`/var/lib/sops-nix/key.txt` on the Mac). Edit with
-  `sops macos/secrets/mac-studio.sops.yaml`.
+  `sops macos/secrets/mac-jms-01.sops.yaml`.
 - **Health:** textfile metrics under `/var/lib/node-exporter/textfile/`, scraped
   via `kubernetes/apps/ai/mac-inference/`.
 - **Homebrew:** `cleanup = "zap"` — only declare packages here; by-hand
