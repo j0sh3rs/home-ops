@@ -36,9 +36,10 @@
   # macOS updates are a manual runbook step (docs/runbooks/mac-studio-operations.md):
   # an unattended update reboots into a FileVault-locked pre-boot screen.
   # ConfigDataInstall stays on: XProtect/Gatekeeper data, no restart.
+  # Absolute path: a bare domain is written to root's home prefs, not the system plist softwareupdated reads.
   system.defaults.SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false;
   system.defaults.CustomSystemPreferences = {
-    "com.apple.SoftwareUpdate" = {
+    "/Library/Preferences/com.apple.SoftwareUpdate" = {
       AutomaticCheckEnabled = true;
       AutomaticDownload = false;
       CriticalUpdateInstall = false;
