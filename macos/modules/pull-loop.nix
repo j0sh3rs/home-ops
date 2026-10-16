@@ -10,7 +10,9 @@ in
 {
   environment.systemPackages = [ pull ];
 
-  system.activationScripts.postActivation.text = ''
+  # preActivation, not postActivation: the launchd step loads daemons that
+  # log or write under these dirs, and it runs before postActivation.
+  system.activationScripts.preActivation.text = ''
     install -d -m 0755 -o root -g wheel /var/log/home-ops /var/lib/node-exporter/textfile /var/lib/home-ops-pull
   '';
 
