@@ -1,5 +1,8 @@
 ---
 creation_rules:
+  - path_regex: macos/secrets/.*\.sops\.ya?ml
+    mac_only_encrypted: true
+    age: "age1qwwzsz6z2mmu6hpmjt2he7nepmnhutmhehvkva7l5zy5xzf08d5s5n4d6n,age1hua5s0wwmnysukxmtxkfepwcuzsc08kjmpn9pjjpwaka0lzvydwswlgq0j"
   - path_regex: talos/.*\.sops\.ya?ml
     mac_only_encrypted: true
     age: "age1qwwzsz6z2mmu6hpmjt2he7nepmnhutmhehvkva7l5zy5xzf08d5s5n4d6n"

@@ -1,0 +1,14 @@
+# uv project that pins the oMLX engine for the Mac Studio (macos/modules/omlx.nix).
+# Bump by PR only: change the tag, run `task mac:omlx-lock`, run the eval
+# replay (tools/ai-eval) before merging. Merging deploys.
+[project]
+name = "home-ops-omlx"
+version = "0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "omlx @ git+https://github.com/jundot/omlx@v0.7.0",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
