@@ -14,7 +14,9 @@ let
     data_dir = "/var/lib/vector";
     sources.files = {
       type = "file";
-      include = [ "/var/log/home-ops/*.log" "/opt/ai/omlx/home/.omlx/logs/*.log" ];
+      include = [ "/var/log/home-ops/*.log" ];
+      # vector's own log would feed its sink retries back into itself.
+      exclude = [ "/var/log/home-ops/vector.log" ];
     };
     transforms.tag = {
       type = "remap";
@@ -22,11 +24,7 @@ let
       source = ''
         .hostname = "mac-jms-01"
         .stream = "mac-jms-01"
-        if contains(string!(.file), "/.omlx/") {
-          .app_name = "omlx"
-        } else {
-          .app_name = replace(replace(string!(.file), r'^.*/', ""), r'\.log$', "")
-        }
+        .app_name = replace(replace(string!(.file), r'^.*/', ""), r'\.log$', "")
       '';
     };
     # Same ingest path and headers as the cluster's vector
@@ -60,6 +58,7 @@ in
   homebrew.brews = lib.optional (!nixMacmon) "macmon";
 
   launchd.daemons.macmon.serviceConfig = {
+    ThrottleInterval = 30;
     ProgramArguments = [ macmonBin "serve" "--port" "9090" ];
     UserName = "nobody";
     RunAtLoad = true;
@@ -69,6 +68,7 @@ in
   };
 
   launchd.daemons.omlx-exporter.serviceConfig = {
+    ThrottleInterval = 30;
     ProgramArguments = [
       "${omlxExporter}/bin/omlx-exporter"
       "--listen-port" "9101"
@@ -83,6 +83,7 @@ in
   };
 
   launchd.daemons.vector.serviceConfig = {
+    ThrottleInterval = 30;
     ProgramArguments = [ "${pkgs.vector}/bin/vector" "--config" "${vectorConfig}" ];
     RunAtLoad = true;
     KeepAlive = true;

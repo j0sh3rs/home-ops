@@ -74,6 +74,12 @@ class ServerTest(unittest.TestCase):
             server.server_close()
 
 
+class ProducerTest(unittest.TestCase):
+    def test_missing_key_file_renders_down(self):
+        text = ex.make_producer("http://127.0.0.1:1", "/nonexistent/key")()
+        self.assertIn("omlx_up 0\n", text)
+
+
 class FetchSessionTest(unittest.TestCase):
     """The real fetch() against a stub of oMLX's cookie-session admin API."""
 
@@ -136,6 +142,29 @@ class FetchSessionTest(unittest.TestCase):
         self.sessions.clear()  # server forgets the session (restart, expiry)
         self.assertEqual(ex.fetch(self.base, "sekret", "session"), {"requests": 4})
         self.assertEqual(self.logins, 2)
+
+    def test_concurrent_scrapes_share_one_login(self):
+        results = []
+
+        def scrape():
+            results.append(ex.collect(self.base, "sekret"))
+
+        threads = [threading.Thread(target=scrape) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(self.logins, 1)
+        self.assertTrue(all("omlx_up 1\n" in r for r in results))
+        self.sessions.clear()
+        threads = [threading.Thread(target=scrape) for _ in range(8)]
+        results.clear()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(self.logins, 2)
+        self.assertTrue(all("omlx_up 1\n" in r for r in results))
 
     def test_bad_key_raises_without_leaking_it(self):
         with self.assertRaises(Exception) as err:

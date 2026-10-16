@@ -16,6 +16,7 @@ import http.cookiejar
 import json
 import math
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -23,6 +24,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SCOPES = ("session", "alltime")
 SESSION_COOKIE = "omlx_admin_session"
+_lock = threading.Lock()  # one session shared by concurrent scrapes
 _jar = http.cookiejar.CookieJar()
 _opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(_jar))
 _ESCAPES = str.maketrans({"\\": "\\\\", '"': '\\"', "\n": "\\n"})
@@ -82,6 +84,7 @@ def _login(base_url, api_key, timeout):
         with _opener.open(req, timeout=timeout):
             pass
     except urllib.error.HTTPError as exc:
+        exc.close()
         raise RuntimeError(f"login failed: HTTP {exc.code}") from None
 
 
@@ -91,11 +94,17 @@ def _get_stats(base_url, scope, timeout):
 
 
 def fetch(base_url, api_key, scope, timeout=5):
+    with _lock:
+        return _fetch_locked(base_url, api_key, scope, timeout)
+
+
+def _fetch_locked(base_url, api_key, scope, timeout):
     if not any(c.name == SESSION_COOKIE for c in _jar):
         _login(base_url, api_key, timeout)
     try:
         return _get_stats(base_url, scope, timeout)
     except urllib.error.HTTPError as exc:
+        exc.close()
         if exc.code not in (401, 403):
             raise RuntimeError(f"{scope}: stats failed: HTTP {exc.code}") from None
     # Session expired or the server restarted: log in once more and retry.
@@ -104,6 +113,7 @@ def fetch(base_url, api_key, scope, timeout=5):
     try:
         return _get_stats(base_url, scope, timeout)
     except urllib.error.HTTPError as exc:
+        exc.close()
         raise RuntimeError(f"{scope}: stats failed after re-login: HTTP {exc.code}") from None
 
 
@@ -138,6 +148,19 @@ def make_server(host, port, produce):
     return ThreadingHTTPServer((host, port), Handler)
 
 
+def make_producer(base_url, api_key_file):
+    def produce():
+        try:
+            with open(api_key_file) as handle:
+                key = handle.read().strip()
+        except (OSError, ValueError) as exc:
+            print(f"omlx-exporter: key file: {type(exc).__name__}", file=sys.stderr)
+            return render(False, {}, 0.0)
+        return collect(base_url, key)
+
+    return produce
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--listen-host", default="0.0.0.0")
@@ -146,12 +169,7 @@ def main(argv=None):
     parser.add_argument("--api-key-file", required=True)
     args = parser.parse_args(argv)
 
-    def produce():
-        with open(args.api_key_file) as handle:
-            key = handle.read().strip()
-        return collect(args.base_url, key)
-
-    make_server(args.listen_host, args.listen_port, produce).serve_forever()
+    make_server(args.listen_host, args.listen_port, make_producer(args.base_url, args.api_key_file)).serve_forever()
 
 
 if __name__ == "__main__":
