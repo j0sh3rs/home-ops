@@ -48,3 +48,26 @@ tasks:
     desc: Show the Mac's generation, daemons, and home-ops textfile metrics
     cmds:
       - ssh {{.MAC_HOST}} 'zsh -lc "darwin-version --json 2>/dev/null || true; launchctl print system | grep org.nixos || true; cat /var/lib/node-exporter/textfile/*.prom 2>/dev/null || true"'
+
+  reboot:
+    desc: Planned reboot via FileVault authrestart (boots straight past the unlock screen)
+    summary: |
+      Every LLM consumer fails while the Mac is down (spec D4, no fallback).
+      fdesetup asks for the FileVault user's password on the Mac's sudo.
+    prompt: Reboot mac-jms-01 now? All LLM consumers fail until it is back (~2-3 min).
+    cmds:
+      - ssh -t {{.MAC_HOST}} 'fdesetup supportsauthrestart | grep -q true && sudo fdesetup authrestart -delayminutes 0'
+      - task: wait-up
+
+  wait-up:
+    desc: Wait (up to 10 min) for the Mac's SSH and oMLX to answer after a reboot
+    cmds:
+      - sleep 60
+      - |
+        for i in $(seq 1 54); do
+          if ssh -o ConnectTimeout=5 -o BatchMode=yes {{.MAC_HOST}} 'curl -s -o /dev/null -w "%{http_code}" localhost:8000/v1/models | grep -q 401'; then
+            echo "mac-jms-01 is back and oMLX is answering"; exit 0
+          fi
+          sleep 10
+        done
+        echo "mac-jms-01 not back after 10 min -- see docs/runbooks/mac-studio-operations.md (Unplanned reboot)"; exit 1
