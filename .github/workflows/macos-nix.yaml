@@ -1,0 +1,107 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: macOS Nix
+
+# Builds the Mac Studio's darwin closure on a GitHub-hosted Apple-silicon
+# runner (the in-cluster home-ops-runner is Linux) and posts
+# `nix store diff-closures` against the PR base. Merging to main deploys
+# (macos/modules/pull-loop.nix), so this check is the only pre-merge gate.
+on:
+  pull_request:
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-nix.yaml"
+  push:
+    branches:
+      - "renovate/**"
+    paths:
+      - "macos/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build:
+    name: Build darwin closure
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
+
+      - name: Unit tests
+        run: |
+          if [ -f macos/scripts/test-home-ops-pull.sh ]; then bash macos/scripts/test-home-ops-pull.sh; fi
+          if [ -d macos/pkgs/omlx-exporter ]; then python3 -m unittest discover -s macos/pkgs/omlx-exporter -v; fi
+
+      - name: Check uv lock is current
+        run: |
+          if [ -f macos/engines/omlx/pyproject.toml ]; then
+            nix run nixpkgs#uv -- lock --check --project macos/engines/omlx
+          fi
+
+      - name: Build head closure
+        run: nix build ./macos#darwinConfigurations.mac-studio.system --out-link result-head --print-build-logs
+
+      - name: Build base closure
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git worktree add /tmp/macos-base "${{ github.event.pull_request.base.sha }}"
+          if [ -f /tmp/macos-base/macos/flake.nix ]; then
+            nix build /tmp/macos-base/macos#darwinConfigurations.mac-studio.system --out-link result-base
+          fi
+
+      - name: Diff closures
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          {
+            echo '## macOS closure diff'
+            echo ''
+            if [ -e result-base ]; then
+              echo '```'
+              nix store diff-closures ./result-base ./result-head || true
+              echo '```'
+            else
+              echo '_No base closure: first PR that adds macos/._'
+            fi
+          } > comment.md
+
+      - name: Comment on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('comment.md', 'utf8');
+            const marker = '## macOS closure diff';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const prior = comments.reverse().find(c =>
+              c.user.type === 'Bot' && c.body.startsWith(marker));
+            if (prior) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: prior.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              });
+            }
