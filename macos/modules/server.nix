@@ -24,6 +24,28 @@ let
       mv "$tmp" "$dir/home_ops_wired_limit.prom"
     '';
   };
+
+  # Copy-then-truncate for logs held open by always-on daemons. Keeps 3
+  # generations (.0 newest). Size check every 10 min; 10 MB threshold.
+  logRotate = pkgs.writeShellApplication {
+    name = "home-ops-logrotate";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = ''
+      max=$((10 * 1024 * 1024))
+      for name in omlx omlx-exporter macmon vector; do
+        f=/var/log/home-ops/$name.log
+        [ -f "$f" ] || continue
+        size=$(stat -c %s "$f")
+        [ "$size" -ge "$max" ] || continue
+        rm -f "$f.2"
+        [ -f "$f.1" ] && mv "$f.1" "$f.2"
+        [ -f "$f.0" ] && mv "$f.0" "$f.1"
+        cp -p "$f" "$f.0"
+        : > "$f"
+        echo "rotated $f ($size bytes)"
+      done
+    '';
+  };
 in
 {
   launchd.daemons.home-ops-wired-limit.serviceConfig = {
@@ -49,9 +71,31 @@ in
     install -d -m 0755 -o root -g wheel /opt/ai
   '';
 
-  # Rotate our daemons' logs: keep 7, rotate at 10 MB, G = glob, N = no signal.
+  # Always-on daemons (KeepAlive) hold their log open since launch, and
+  # macOS newsyslog has no copytruncate: a rename would leave them writing to
+  # the rotated file forever. home-ops-logrotate copies and truncates those in
+  # place instead. Assumption (not verified against launchd source): launchd
+  # opens StandardOutPath/StandardErrorPath with O_APPEND, so writes after the
+  # truncate land at the new end of file rather than leaving a sparse hole.
+  # vector tails *.log; a truncation is seen as a new file, at worst a few
+  # lines near the cut are not shipped.
+  #
+  # Everything else (short-lived jobs that reopen their log every run) stays
+  # on newsyslog: keep 7, rotate at 10 MB, N = no signal. Listed explicitly,
+  # NOT globbed, so newsyslog never renames the files above.
   environment.etc."newsyslog.d/home-ops.conf".text = ''
-    # logfilename              mode count size  when flags
-    /var/log/home-ops/*.log    644  7     10240 *    GN
+    # logfilename                                  owner:group mode count size  when flags
+    /var/log/home-ops/home-ops-pull.log            root:wheel   644  7     10240 *    N
+    /var/log/home-ops/home-ops-wired-limit.log     root:wheel   644  7     10240 *    N
+    /var/log/home-ops/pf-home-ops.log              root:wheel   644  7     10240 *    N
+    /var/log/home-ops/omlx-sub-keys.log            _omlx:_omlx  644  7     10240 *    N
   '';
+
+  launchd.daemons.home-ops-logrotate.serviceConfig = {
+    ProgramArguments = [ "${logRotate}/bin/home-ops-logrotate" ];
+    RunAtLoad = true;
+    StartInterval = 600;
+    StandardOutPath = "/var/log/home-ops/home-ops-logrotate.log";
+    StandardErrorPath = "/var/log/home-ops/home-ops-logrotate.log";
+  };
 }
