@@ -59,6 +59,10 @@ console).
 
 - Change `macos/` by PR. CI (`macOS Nix`) builds it; merging deploys within
   5 min (pull loop). Test first with `task mac:apply-local` if risky.
+- **Before merging a PR that adds any user or group** (including one created
+  implicitly by a module, see below), apply the head tree with
+  `task mac:apply-local` from a Full Disk Access terminal. Otherwise every
+  pull-loop switch aborts.
 - **Roll back:** `git revert` the commit on main (the loop applies it), or on
   the Mac `sudo darwin-rebuild --rollback` (immediate; the loop won't
   override it until main moves again).
@@ -67,7 +71,15 @@ console).
 - User/group changes (e.g. the `_omlx` service user) are **not** applied by
   the pull loop. Creating users needs Full Disk Access, so apply them
   manually with `task mac:apply-local` from a terminal that has Full Disk
-  Access.
+  Access. This includes users created *implicitly* by nix-darwin service
+  modules, not only `users.users` entries: for example
+  `services.prometheus.exporters.node.enable = true` creates
+  `_prometheus-node-exporter`. Any change that adds a user or group must be
+  applied with `task mac:apply-local` from an FDA terminal **before** it
+  merges. Otherwise the loop's whole switch aborts in `system.checks` every
+  5 minutes (nothing in the PR deploys), and each failed run still advances
+  the system profile to an unactivated generation, which a reboot would then
+  half-activate. Recover with `sudo darwin-rebuild --rollback` or an FDA apply.
 
 ## Firewall (pf)
 
@@ -92,8 +104,15 @@ UI over the LAN, use `https://omlx.68cc.io/admin`.
    one token's reference, so the enforcer's reference is still held and pf
    stays enabled. `-d` force-disables pf.
 
-Recovery is the next `darwin-rebuild switch`, which reloads the daemon, or
-`sudo launchctl bootstrap system /Library/LaunchDaemons/org.nixos.pf-home-ops.plist`.
+Recovery: `sudo launchctl bootstrap system /Library/LaunchDaemons/org.nixos.pf-home-ops.plist`.
+A `darwin-rebuild switch` does **not** reload it, because nix-darwin only
+reloads a daemon whose plist changed.
+
+After `bootout` the `home_ops_pf_ruleset_loaded` gauge goes stale (the last
+`.prom` value is frozen at 1) rather than dropping to 0, so
+`MacStudioPfNotLoaded` stays quiet. `MacStudioTextfileStale` fires after 15 min
+of no textfile update and catches a stopped enforcer (and any other dead
+textfile writer).
 
 ## Engine (oMLX) upgrade
 
@@ -101,6 +120,9 @@ Recovery is the next `darwin-rebuild switch`, which reloads the daemon, or
 2. `task mac:omlx-lock`, commit `uv.lock` to the PR branch.
 3. Run the eval replay against the new build before merging (spec: every
    engine/model bump re-runs the replay as a regression gate).
+
+The lock hash is part of the daemon plist (`OMLX_LOCK_HASH`), so the merge
+restarts the engine on the new lock.
 
 ## Rotate or revoke a consumer key
 
