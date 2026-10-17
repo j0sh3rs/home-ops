@@ -108,3 +108,17 @@ spec:
             summary: >-
               Mac Studio pf allowlist not loaded -- engine ports are open to
               the whole LAN (API keys still required)
+
+        # node_exporter keeps serving the last .prom content when its writer
+        # dies (e.g. pf enforcer booted out), so the gauge itself never moves.
+        - alert: MacStudioTextfileStale
+          expr: |
+            time() - node_textfile_mtime_seconds{job="mac-jms-01",file=~"home_ops_.*"} > 900
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              Mac Studio textfile metric {{ $labels.file }} not updated for
+              15m -- its writer daemon is dead or stopped (pf enforcer? pull
+              loop?), so the gauge is frozen
