@@ -110,9 +110,11 @@ reloads a daemon whose plist changed.
 
 After `bootout` the `home_ops_pf_ruleset_loaded` gauge goes stale (the last
 `.prom` value is frozen at 1) rather than dropping to 0, so
-`MacStudioPfNotLoaded` stays quiet. `MacStudioTextfileStale` fires after 15 min
-of no textfile update and catches a stopped enforcer (and any other dead
-textfile writer).
+`MacStudioPfNotLoaded` stays quiet. `MacStudioTextfileStale` fires when a textfile
+stops updating (pf after 15 min, pull loop after 40 min, wired-limit after
+~2 h) and catches a stopped enforcer (and any other dead textfile writer).
+A single very long `darwin-rebuild` can also trip it for the pull file; it
+clears on the next successful loop run.
 
 ## Engine (oMLX) upgrade
 

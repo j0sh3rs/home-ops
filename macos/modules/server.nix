@@ -89,6 +89,7 @@ in
     /var/log/home-ops/home-ops-wired-limit.log     root:wheel   644  7     10240 *    N
     /var/log/home-ops/pf-home-ops.log              root:wheel   644  7     10240 *    N
     /var/log/home-ops/omlx-sub-keys.log            _omlx:_omlx  644  7     10240 *    N
+    /var/log/home-ops/home-ops-logrotate.log       root:wheel   644  7     10240 *    N
   '';
 
   launchd.daemons.home-ops-logrotate.serviceConfig = {

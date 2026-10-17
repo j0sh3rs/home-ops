@@ -111,14 +111,20 @@ spec:
 
         # node_exporter keeps serving the last .prom content when its writer
         # dies (e.g. pf enforcer booted out), so the gauge itself never moves.
+        # Thresholds are per writer interval: pf 60s, pull 300s (but skips
+        # its write while a long darwin-rebuild runs), wired-limit 3600s.
         - alert: MacStudioTextfileStale
           expr: |
-            time() - node_textfile_mtime_seconds{job="mac-jms-01",file=~"home_ops_.*"} > 900
+            (time() - node_textfile_mtime_seconds{job="mac-jms-01",file="home_ops_pf.prom"} > 900)
+            or
+            (time() - node_textfile_mtime_seconds{job="mac-jms-01",file="home_ops_pull.prom"} > 2400)
+            or
+            (time() - node_textfile_mtime_seconds{job="mac-jms-01",file="home_ops_wired_limit.prom"} > 7800)
           for: 5m
           labels:
             severity: warning
           annotations:
             summary: >-
-              Mac Studio textfile metric {{ $labels.file }} not updated for
-              15m -- its writer daemon is dead or stopped (pf enforcer? pull
-              loop?), so the gauge is frozen
+              Mac Studio textfile metric {{ $labels.file }} is stale -- its
+              writer daemon is dead or stopped (pf enforcer? pull loop?
+              wired-limit?), so the gauge is frozen
