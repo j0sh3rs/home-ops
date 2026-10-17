@@ -99,5 +99,15 @@
       datasourceTemplate: "npm",
       versioningTemplate: "npm",
     },
+    {
+      customType: "regex",
+      description: "oMLX pinned by git tag in the Mac's uv project. Renovate cannot regenerate uv.lock for a git dependency: the macOS Nix check fails until someone runs `task mac:omlx-lock` and pushes to the PR branch",
+      fileMatch: ["(^|/)macos/engines/.+/pyproject\\.toml$"],
+      matchStrings: [
+        "git\\+https://github\\.com/(?<depName>[^/@\\s]+/[^/@\\s\"]+)@(?<currentValue>v[^\"\\s]+)",
+      ],
+      datasourceTemplate: "github-releases",
+      versioningTemplate: "semver",
+    },
   ],
 }

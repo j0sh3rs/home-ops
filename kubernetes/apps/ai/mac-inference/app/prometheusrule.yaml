@@ -1,0 +1,130 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+#
+# Mac Studio inference host (spec: Observability). home_ops_* series are
+# node_exporter textfile metrics written by macos/modules/*.nix. Critical =
+# every LLM consumer is down (no fallback, spec D4); everything else warns.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mac-jms-01-rules
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: mac-jms-01.rules
+      rules:
+        - alert: MacStudioUnreachable
+          expr: |
+            up{job="mac-jms-01",exporter="node"} == 0
+              or absent(up{job="mac-jms-01",exporter="node"})
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: >-
+              Mac Studio node_exporter unreachable for 5m -- every LLM consumer
+              is down. Power cut? FileVault pre-boot unlock: see
+              docs/runbooks/mac-studio-operations.md
+
+        - alert: MacStudioEngineDown
+          expr: |
+            omlx_up{job="mac-jms-01"} == 0
+              or (up{job="mac-jms-01",exporter="omlx"} == 0 and on(instance) up{job="mac-jms-01",exporter="node"} == 1)
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: >-
+              oMLX not answering on the Mac Studio for 5m (host is up) -- check
+              /var/log/home-ops/omlx.log
+
+        # Active swap-out, not swap residency: macOS keeps swapped pages
+        # around long after pressure ends.
+        - alert: MacStudioSwapping
+          expr: |
+            rate(node_memory_swapped_out_bytes_total{job="mac-jms-01"}[10m]) > 1048576
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              Mac Studio swapping out >1 MiB/s for 15m -- models plus KV cache
+              exceed the 80 GB budget, or a desktop app is running
+
+        - alert: MacStudioWiredNearLimit
+          expr: |
+            node_memory_wired_bytes{job="mac-jms-01"}
+              / on(instance) home_ops_iogpu_wired_limit_bytes{job="mac-jms-01"} > 0.95
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              Mac Studio wired memory above 95% of iogpu.wired_limit_mb for 15m
+
+        - alert: MacStudioWiredLimitNotSet
+          expr: |
+            home_ops_iogpu_wired_limit_bytes{job="mac-jms-01"} < 80e9
+              or (absent(home_ops_iogpu_wired_limit_bytes{job="mac-jms-01"}) and on() up{job="mac-jms-01",exporter="node"} == 1)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              iogpu.wired_limit_mb is not at its ~84 GB setting -- check
+              /var/log/home-ops/home-ops-wired-limit.log
+
+        - alert: MacStudioNixApplyStale
+          expr: |
+            time() - home_ops_nix_apply_last_in_sync_timestamp_seconds{job="mac-jms-01"} > 86400
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              Mac Studio has not been in sync with main for 24h -- check
+              /var/log/home-ops/home-ops-pull.log
+
+        - alert: MacStudioNixBehindMain
+          expr: |
+            home_ops_nix_apply_behind_main{job="mac-jms-01"} == 1
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              Mac Studio applied commit is behind main for 2h (last exit code
+              {{ with query "home_ops_nix_apply_last_exit_code{job='mac-jms-01'}" }}{{ . | first | value }}{{ end }})
+
+        - alert: MacStudioPfNotLoaded
+          expr: |
+            home_ops_pf_ruleset_loaded{job="mac-jms-01"} == 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              Mac Studio pf allowlist not loaded -- engine ports are open to
+              the whole LAN (API keys still required)
+
+        # node_exporter keeps serving the last .prom content when its writer
+        # dies (e.g. pf enforcer booted out), so the gauge itself never moves.
+        # Thresholds are per writer interval: pf 60s, pull 300s (but skips
+        # its write while a long darwin-rebuild runs), wired-limit 3600s.
+        - alert: MacStudioTextfileStale
+          expr: |
+            (time() - node_textfile_mtime_seconds{job="mac-jms-01",file="home_ops_pf.prom"} > 900)
+            or
+            (time() - node_textfile_mtime_seconds{job="mac-jms-01",file="home_ops_pull.prom"} > 2400)
+            or
+            (time() - node_textfile_mtime_seconds{job="mac-jms-01",file="home_ops_wired_limit.prom"} > 7800)
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: >-
+              Mac Studio textfile metric {{ $labels.file }} is stale -- its
+              writer daemon is dead or stopped (pf enforcer? pull loop?
+              wired-limit?), so the gauge is frozen

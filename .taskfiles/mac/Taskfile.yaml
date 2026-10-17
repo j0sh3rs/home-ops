@@ -1,0 +1,89 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+# Every task reaches the Mac as `ssh mac-jms-01` -- set up the Host alias
+# per docs/runbooks/mac-studio-bringup.md §5. Remote commands run through a
+# login shell so Determinate's /nix/var/nix/profiles/default/bin is on PATH.
+
+vars:
+  MAC_HOST: mac-jms-01
+  MACOS_DIR: "{{.ROOT_DIR}}/macos"
+  REMOTE_DIR: home-ops-macos
+
+tasks:
+  sync:
+    internal: true
+    cmds:
+      - tar -C {{.MACOS_DIR}} --exclude='./result*' -cf - . | ssh {{.MAC_HOST}} 'rm -rf ~/{{.REMOTE_DIR}} && mkdir -p ~/{{.REMOTE_DIR}} && tar -C ~/{{.REMOTE_DIR}} -xf -'
+
+  build-local:
+    desc: Copy macos/ to the Mac and build the darwin closure (no sudo, no switch)
+    cmds:
+      - task: sync
+      - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && nix build .#darwinConfigurations.mac-jms-01.system --no-link --print-out-paths"'
+
+  apply-local:
+    desc: Copy macos/ to the Mac and darwin-rebuild switch from it (pre-merge testing; the pull loop re-applies main when main next moves)
+    prompt: darwin-rebuild switch mac-jms-01 from your working copy of macos/?
+    cmds:
+      - task: sync
+      - ssh -t {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && if command -v darwin-rebuild >/dev/null; then sudo darwin-rebuild switch --flake .#mac-jms-01; else sudo nix run nix-darwin/nix-darwin-26.05#darwin-rebuild -- switch --flake .#mac-jms-01; fi"'
+
+  lock:
+    desc: Regenerate macos/flake.lock on the Mac and copy it back
+    cmds:
+      - task: sync
+      - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && nix flake lock"'
+      - scp {{.MAC_HOST}}:{{.REMOTE_DIR}}/flake.lock {{.MACOS_DIR}}/flake.lock
+
+  omlx-lock:
+    desc: Regenerate macos/engines/omlx/uv.lock on the Mac and copy it back
+    cmds:
+      - task: sync
+      - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}}/engines/omlx && nix run nixpkgs#uv -- lock --python 3.12"'
+      - scp {{.MAC_HOST}}:{{.REMOTE_DIR}}/engines/omlx/uv.lock {{.MACOS_DIR}}/engines/omlx/uv.lock
+
+  status:
+    desc: Show the Mac's generation, daemons, and home-ops textfile metrics
+    cmds:
+      - ssh {{.MAC_HOST}} 'zsh -lc "darwin-version --json 2>/dev/null || true; launchctl print system | grep org.nixos || true; cat /var/lib/node-exporter/textfile/*.prom 2>/dev/null || true"'
+
+  reboot:
+    desc: Planned reboot via FileVault authrestart (boots straight past the unlock screen)
+    summary: |
+      Every LLM consumer fails while the Mac is down (spec D4, no fallback).
+      fdesetup asks for the FileVault user's password on the Mac's sudo.
+      The prompt needs `task -y mac:reboot` when run non-interactively.
+    prompt: Reboot mac-jms-01 now? All LLM consumers fail until it is back (~2-3 min).
+    cmds:
+      # Fails loudly if FileVault authrestart is unsupported.
+      - ssh -o BatchMode=yes {{.MAC_HOST}} 'fdesetup supportsauthrestart | grep -q true'
+      # The connection drops as the Mac goes down, which exits 255.
+      - cmd: ssh -t {{.MAC_HOST}} 'sudo fdesetup authrestart -delayminutes 0'
+        ignore_error: true
+      # Confirm the Mac really went down; otherwise a failed sudo would fall
+      # through to wait-up, which would succeed instantly against the live Mac.
+      - |
+        for _ in $(seq 1 18); do
+          if ! ssh -o ConnectTimeout=5 -o BatchMode=yes {{.MAC_HOST}} true; then
+            exit 0
+          fi
+          sleep 5
+        done
+        echo "reboot did not start (wrong sudo password?)"; exit 1
+      - task: wait-up
+
+  wait-up:
+    desc: Wait (up to 10 min) for the Mac's SSH and oMLX to answer after a reboot
+    cmds:
+      - sleep 60
+      - |
+        deadline=$(( $(date +%s) + 600 ))
+        while [ "$(date +%s)" -lt "$deadline" ]; do
+          if ssh -o ConnectTimeout=5 -o BatchMode=yes {{.MAC_HOST}} 'curl -s --max-time 5 -o /dev/null -w "%{http_code}" localhost:8000/v1/models | grep -q 401'; then
+            echo "mac-jms-01 is back and oMLX is answering"; exit 0
+          fi
+          sleep 10
+        done
+        echo "mac-jms-01 not back after 10 min -- see docs/runbooks/mac-studio-operations.md (Unplanned reboot)"; exit 1

@@ -1,0 +1,81 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+#
+# Hand-built. macmon and oMLX metric names are matched by regex
+# ({__name__=~"macmon_.*_power_watts"}, omlx_stat paths) because neither
+# upstream documents a stable list; edit the JSON directly.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: mac-jms-01
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: AI
+  datasources:
+    - datasourceName: vmsingle
+      inputName: DS_PROMETHEUS
+  json: |
+    {
+      "title": "Mac Studio",
+      "uid": "mac-jms-01",
+      "tags": ["ai", "mac-jms-01"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "editable": true,
+      "refresh": "1m",
+      "time": {"from": "now-24h", "to": "now"},
+      "templating": {"list": [{"name": "DS_PROMETHEUS", "type": "datasource", "query": "prometheus", "current": {"text": "vmsingle", "value": "vmsingle"}, "hide": 0}]},
+      "panels": [
+        {"id": 1, "type": "stat", "title": "Host up", "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "targets": [{"expr": "up{job=\"mac-jms-01\",exporter=\"node\"}", "refId": "A", "instant": true}]},
+        {"id": 2, "type": "stat", "title": "oMLX up", "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "targets": [{"expr": "omlx_up{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
+        {"id": 3, "type": "stat", "title": "Since last in sync with main", "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "fieldConfig": {"defaults": {"unit": "s"}},
+         "targets": [{"expr": "time() - home_ops_nix_apply_last_in_sync_timestamp_seconds{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
+        {"id": 4, "type": "stat", "title": "Behind main", "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "targets": [{"expr": "home_ops_nix_apply_behind_main{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
+        {"id": 5, "type": "stat", "title": "pf allowlist loaded", "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "targets": [{"expr": "home_ops_pf_ruleset_loaded{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
+        {"id": 6, "type": "stat", "title": "Wired limit", "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "fieldConfig": {"defaults": {"unit": "bytes"}},
+         "targets": [{"expr": "home_ops_iogpu_wired_limit_bytes{job=\"mac-jms-01\"}", "refId": "A", "instant": true}]},
+        {"id": 7, "type": "timeseries", "title": "Memory", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "fieldConfig": {"defaults": {"unit": "bytes"}},
+         "targets": [
+           {"expr": "node_memory_wired_bytes{job=\"mac-jms-01\"}", "legendFormat": "wired", "refId": "A"},
+           {"expr": "home_ops_iogpu_wired_limit_bytes{job=\"mac-jms-01\"}", "legendFormat": "wired limit", "refId": "B"},
+           {"expr": "node_memory_compressed_bytes{job=\"mac-jms-01\"}", "legendFormat": "compressed", "refId": "C"},
+           {"expr": "node_memory_swap_used_bytes{job=\"mac-jms-01\"}", "legendFormat": "swap used", "refId": "D"}]},
+        {"id": 8, "type": "timeseries", "title": "Swap-out rate", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "fieldConfig": {"defaults": {"unit": "Bps"}},
+         "targets": [{"expr": "rate(node_memory_swapped_out_bytes_total{job=\"mac-jms-01\"}[5m])", "legendFormat": "swap out", "refId": "A"}]},
+        {"id": 9, "type": "timeseries", "title": "Power (macmon)", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "fieldConfig": {"defaults": {"unit": "watt"}},
+         "targets": [{"expr": "{__name__=~\"macmon_.*_power_watts\",job=\"mac-jms-01\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
+        {"id": 10, "type": "timeseries", "title": "Temperature (macmon)", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "fieldConfig": {"defaults": {"unit": "celsius"}},
+         "targets": [{"expr": "{__name__=~\"macmon_.*_temp_celsius\",job=\"mac-jms-01\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
+        {"id": 11, "type": "timeseries", "title": "CPU / GPU utilisation (macmon)", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "fieldConfig": {"defaults": {"unit": "percentunit", "max": 1}},
+         "targets": [{"expr": "{__name__=~\"macmon_(cpu|gpu)_(active|usage|scaled)_ratio\",job=\"mac-jms-01\"}", "legendFormat": "{{__name__}}", "refId": "A"}]},
+        {"id": 12, "type": "table", "title": "oMLX stats (all numeric fields, all time)", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+         "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+         "targets": [{"expr": "omlx_stat{job=\"mac-jms-01\",scope=\"alltime\"}", "format": "table", "refId": "A", "instant": true}]}
+      ]
+    }

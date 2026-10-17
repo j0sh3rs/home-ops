@@ -23,6 +23,11 @@ spec:
     remediation:
       retries: 3
   values:
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
+    envFrom:
+      - secretRef:
+          name: gatus-mac-inference
     # No ingress, no alerting config here - this instance is the
     # everyday-visibility layer feeding Homepage's status widget, not the
     # safety net (that's the NAS-hosted instance, which alerts on its own).
@@ -46,6 +51,14 @@ spec:
           group: monitoring
           url: "https://logs.68cc.io/health"
           interval: 1m
+          conditions:
+            - "[STATUS] == 200"
+        - name: mac-inference-models
+          group: ai
+          url: "http://mac-inference.ai.svc.cluster.local:8000/v1/models"
+          interval: 1m
+          headers:
+            Authorization: "Bearer ${MAC_INFERENCE_GATUS_KEY}"
           conditions:
             - "[STATUS] == 200"
     persistence:

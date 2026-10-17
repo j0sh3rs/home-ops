@@ -41,4 +41,14 @@
       '/(^|/)kubernetes/.+\\.ya?ml$/',
     ],
   },
+  // macos/flake.lock. Branch-tracking inputs (nixpkgs-26.05-darwin) only
+  // move via lock-file maintenance. Never automerged: merging deploys to the
+  // Mac (see .renovate/autoMerge.json5).
+  nix: {
+    enabled: true,
+    lockFileMaintenance: {
+      enabled: true,
+      schedule: ['before 6am on monday'],
+    },
+  },
 }

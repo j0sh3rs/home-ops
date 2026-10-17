@@ -1,0 +1,54 @@
+---
+# The Mac Studio (macOS, not a node) as an in-cluster name. Selector-less:
+# the EndpointSlice below is the one place in Kubernetes that holds the
+# Mac's IP (the other is macos/hosts/mac-jms-01/facts.nix). Consumers,
+# vmagent, Gatus and the admin HTTPRoute all use this Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mac-inference
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+    - name: macmon
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+    - name: node-exporter
+      port: 9100
+      targetPort: 9100
+      protocol: TCP
+    - name: omlx-exporter
+      port: 9101
+      targetPort: 9101
+      protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: mac-inference-1
+  labels:
+    kubernetes.io/service-name: mac-inference
+    endpointslice.kubernetes.io/managed-by: flux.home-ops
+addressType: IPv4
+ports:
+  - name: http
+    port: 8000
+    protocol: TCP
+  - name: macmon
+    port: 9090
+    protocol: TCP
+  - name: node-exporter
+    port: 9100
+    protocol: TCP
+  - name: omlx-exporter
+    port: 9101
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "192.168.35.7"
+    conditions:
+      ready: true

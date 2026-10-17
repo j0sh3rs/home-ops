@@ -22,6 +22,7 @@ includes:
   ai: .taskfiles/ai
   bootstrap: .taskfiles/bootstrap
   flux: .taskfiles/flux
+  mac: .taskfiles/mac
   sops: .taskfiles/sops
   talos: .taskfiles/talos
   template: .taskfiles/template

@@ -76,3 +76,6 @@ tools/ai-eval/results/
 /results/
 __pycache__/
 .pytest_cache/
+
+# nix-darwin build outputs
+macos/result*
