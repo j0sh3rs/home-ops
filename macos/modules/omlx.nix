@@ -83,6 +83,11 @@ in
     GroupName = "_omlx";
     # /usr/bin for the Xcode CLT compilers uv needs when building oMLX.
     EnvironmentVariables.PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
+    # The engine lives in /etc/home-ops/omlx (a plain path, not a store path),
+    # so a version or lock bump would not change the plist and nix-darwin
+    # would not reload the daemon. Hashing the lock into the plist forces a
+    # restart on every engine change.
+    EnvironmentVariables.OMLX_LOCK_HASH = builtins.hashFile "sha256" ../engines/omlx/uv.lock;
     RunAtLoad = true;
     KeepAlive = true;
     ThrottleInterval = 30;
