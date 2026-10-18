@@ -19,6 +19,12 @@ spec:
     remediation:
       retries: 3
   values:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
     fullnameOverride: *app
     provider:
       name: cloudflare

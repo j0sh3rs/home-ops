@@ -46,14 +46,19 @@ spec:
     # every chart bump.
     upgradeCRDs: true
 
-    # Resource limits per NFR-SCALE-001
+    # Server memory: the 500Mi limit OOMKilled the server ~15s into every
+    # daily-backup since at least 2026-09-28 (21 Failed / 0 Completed). On
+    # restart Velero marks the InProgress backup Failed without bumping
+    # velero_backup_failure_total, so VeleroBackupFailure never fired.
+    # Item collection for a cluster-wide (includedNamespaces "*") backup
+    # holds every object in memory; 2Gi leaves headroom.
     resources:
       requests:
         cpu: 100m
-        memory: 128Mi
+        memory: 512Mi
       limits:
-        cpu: 500m
-        memory: 500Mi
+        cpu: "1"
+        memory: 2Gi
 
     # Initialize with AWS S3 plugin (CSI plugin temporarily disabled until working version found)
     initContainers:

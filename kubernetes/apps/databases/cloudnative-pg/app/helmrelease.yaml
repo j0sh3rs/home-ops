@@ -23,6 +23,12 @@ spec:
       strategy: rollback
       retries: 3
   values:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
     crds:
       create: true
     monitoring:

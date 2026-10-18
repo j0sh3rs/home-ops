@@ -430,7 +430,7 @@ spec:
             resources:
               requests:
                 cpu: 250m
-                memory: 1Gi
+                memory: 1536Mi
               limits:
                 memory: 6Gi
           # Kubernetes MCP server sidecar, matching openclaw's kube-mcp
