@@ -79,6 +79,9 @@ spec:
               No daily-backup Backup has reached Completed in the last 27
               hours. Check the server pod for OOMKilled restarts and:
               kubectl get backups.velero.io -n velero --sort-by=.metadata.creationTimestamp
+              This clears only on a Completed backup. Persistent
+              PartiallyFailed backups keep it firing, which is intended:
+              resolve the failing items or exclude them.
 
         - alert: VeleroBackupDurationHigh
           expr: |

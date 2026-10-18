@@ -442,7 +442,7 @@ Repeat with `IP=192.168.35.3`, `IP=192.168.35.6`, `IP=192.168.35.10` in turn, wa
 
 **Interfaces:**
 - Consumes: Task 1's verified Velero.
-- Produces: the runbook Task 5 follows verbatim, with variables `NS`, `APP` (Deployment, HelmRelease and Kustomization name), `PVCS` (space-separated), `TARGET` (bee hostname).
+- Produces: the runbook Task 5 follows verbatim, with variables `NS`, `APP` (Deployment, HelmRelease and Kustomization name), `PVCS` (shell array), `TARGET` (bee hostname).
 
 - [ ] **Step 1: Cilium egress masquerade check (read-only)**
 
@@ -453,263 +453,15 @@ Expected: `Masquerading: BPF` with the native-routing CIDR `10.42.0.0/16` exclud
 
 - [ ] **Step 2: Write the runbook**
 
-Create `docs/runbooks/pv-node-migration.md` with this content:
+The runbook is committed at `docs/runbooks/pv-node-migration.md`, and that file is authoritative. It was corrected against the Velero 1.18 source during PR1 review (for example, it no longer uses the `change-pvc-node-selector` ConfigMap, and its rollback differs from the first draft). Do not copy a runbook body from this plan. Read the committed file and follow it. It takes `NS`, `APP`, `TARGET` as exports and `PVCS` as a shell array (`PVCS=(a b)`, expanded as `"${PVCS[@]}"`).
 
-````markdown
-# Runbook: move an openebs-hostpath PVC to another node (Velero)
-
-openebs-hostpath PVs are node-local. Moving one = back up the data with
-Velero kopia FS backup, delete the PVC, restore it with the PVC's
-selected-node remapped so WFFC provisioning lands on the target node.
-
-Proven on services/gatus (2026-10). All mutating steps are operator-run.
-
-## Variables
-
-Set these once per migration, in the shell you run the steps from:
-
-```bash
-export NS=services APP=gatus PVCS="gatus" TARGET=bee-jms-03
-export MIG="mig-${APP}-$(date +%Y%m%d%H%M)"
-```
-
-Only a throwaway holder pod is backed up and restored (never the app pod),
-so app init containers, sidecars, memory emptyDirs and webhook-injected
-volumes never enter the backup.
-
-## 0. Preconditions
-
-```bash
-kubectl -n velero get backups.velero.io --sort-by=.metadata.creationTimestamp | tail -3
-kubectl -n "$NS" get pvc $PVCS -o wide
-```
-
-The latest backup must be `Completed`, and every PVC `Bound`.
-
-## 1. Freeze Flux for the app
-
-```bash
-flux -n "$NS" suspend kustomization "$APP"
-flux -n "$NS" suspend helmrelease "$APP"
-```
-
-## 2. Label the PVCs to move
-
-```bash
-POD=$(kubectl -n "$NS" get pod -l app.kubernetes.io/name="$APP" -o jsonpath='{.items[0].metadata.name}')
-kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move=true --overwrite
-```
-
-## 3. Quiesce the app, then back up
-
-Scale to zero so the data is consistent. Then run a backup pod that
-holds the PVCs. That pod is not part of the scaled-down Deployment.
-
-```bash
-kubectl -n "$NS" scale deploy "$APP" --replicas=0
-kubectl -n "$NS" wait --for=delete pod/"$POD" --timeout=180s
-```
-
-Create `/tmp/$MIG-holder.yaml`, listing every PVC in `$PVCS` under `volumes:` and `volumeMounts:`:
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: mig-holder
-  labels:
-    migrate.home-ops.io/move: "true"
-  annotations:
-    k8tz.io/inject: "false"
-spec:
-  restartPolicy: Never
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 65534
-    runAsGroup: 65534
-    seccompProfile:
-      type: RuntimeDefault
-  containers:
-    - name: hold
-      image: busybox:1.37
-      command: ["sleep", "86400"]
-      securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop: ["ALL"]
-      volumeMounts:
-        - name: v0
-          mountPath: /data/v0
-  volumes:
-    - name: v0
-      persistentVolumeClaim:
-        claimName: gatus
-```
-
-```bash
-kubectl -n "$NS" apply -f /tmp/$MIG-holder.yaml
-kubectl -n "$NS" wait --for=condition=Ready pod/mig-holder --timeout=180s
-```
-
-Create `/tmp/$MIG-backup.yaml`:
-
-```yaml
-apiVersion: velero.io/v1
-kind: Backup
-metadata:
-  name: REPLACE_MIG
-  namespace: velero
-spec:
-  includedNamespaces: [REPLACE_NS]
-  includedResources: [persistentvolumeclaims, pods]
-  labelSelector:
-    matchLabels:
-      migrate.home-ops.io/move: "true"
-  defaultVolumesToFsBackup: true
-  snapshotVolumes: false
-  ttl: 720h0m0s
-```
-
-```bash
-sed -i "s/REPLACE_MIG/$MIG/; s/REPLACE_NS/$NS/" /tmp/$MIG-backup.yaml
-kubectl apply -f /tmp/$MIG-backup.yaml
-kubectl -n velero get backups.velero.io "$MIG" -w
-kubectl -n velero get podvolumebackups.velero.io -l velero.io/backup-name="$MIG"
-```
-
-**Gate:** the Backup is `Completed`, and there is one `Completed`
-PodVolumeBackup per PVC with a non-zero `.status.progress.totalBytes`
-(an empty volume like a fresh gatus may show 0, which is acceptable).
-
-## 4. Keep a fallback, then delete
-
-Patch each old PV to Retain so the data survives the PVC delete:
-
-```bash
-for p in $PVCS; do kubectl patch pv "$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}')" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'; done
-kubectl -n "$NS" delete pod mig-holder
-kubectl -n "$NS" delete deploy "$APP"
-kubectl -n "$NS" delete pvc $PVCS
-```
-
-Deleting the Deployment removes its ReplicaSet, so nothing can adopt or
-kill the restored pod in step 5. The HelmRelease is suspended, so Helm
-won't recreate it.
-
-## 5. Restore onto the target node
-
-Create `/tmp/$MIG-cm.yaml`. It holds the node remap that rewrites the
-restored PVC's `volume.kubernetes.io/selected-node` annotation, plus a
-resource modifier that turns the restored pod into a bare pod with no
-pinning:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: change-pvc-node-selector-config
-  namespace: velero
-  labels:
-    velero.io/plugin-config: ""
-    velero.io/change-pvc-node-selector: RestoreItemAction
-data:
-  bigboi-jms-01: REPLACE_TARGET
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mig-pod-modifier
-  namespace: velero
-data:
-  modifier.yaml: |
-    version: v1
-    resourceModifierRules:
-      - conditions:
-          groupResource: pods
-          namespaces: [REPLACE_NS]
-        mergePatches:
-          - patchData: |
-              {"metadata":{"ownerReferences":null},"spec":{"nodeName":null,"nodeSelector":{"kubernetes.io/hostname":"REPLACE_TARGET"},"affinity":null}}
-```
-
-Create `/tmp/$MIG-restore.yaml`:
-
-```yaml
-apiVersion: velero.io/v1
-kind: Restore
-metadata:
-  name: REPLACE_MIG
-  namespace: velero
-spec:
-  backupName: REPLACE_MIG
-  includedNamespaces: [REPLACE_NS]
-  includedResources: [persistentvolumeclaims, pods]
-  restorePVs: true
-  existingResourcePolicy: none
-  resourceModifier:
-    kind: ConfigMap
-    name: mig-pod-modifier
-```
-
-```bash
-sed -i "s/REPLACE_TARGET/$TARGET/g; s/REPLACE_NS/$NS/g" /tmp/$MIG-cm.yaml
-sed -i "s/REPLACE_MIG/$MIG/g; s/REPLACE_NS/$NS/g" /tmp/$MIG-restore.yaml
-kubectl apply -f /tmp/$MIG-cm.yaml
-kubectl apply -f /tmp/$MIG-restore.yaml
-kubectl -n velero get restores.velero.io "$MIG" -w
-kubectl -n velero get podvolumerestores.velero.io -l velero.io/restore-name="$MIG"
-kubectl -n "$NS" get pvc $PVCS -o wide
-kubectl get pv -o custom-columns=N:.metadata.name,CLAIM:.spec.claimRef.name,NODE:.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0] | grep -E "$(echo $PVCS | tr ' ' '|')"
-```
-
-**Gate:** the Restore is `Completed`, the PodVolumeRestores are
-`Completed`, and the new PVs show `NODE` = `$TARGET`.
-
-## 6. Hand back to Flux
-
-```bash
-kubectl -n "$NS" delete pod mig-holder
-kubectl -n velero delete configmap change-pvc-node-selector-config mig-pod-modifier
-kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-
-flux -n "$NS" resume helmrelease "$APP"
-flux -n "$NS" resume kustomization "$APP"
-flux -n "$NS" reconcile helmrelease "$APP" --force
-kubectl -n "$NS" get pod -l app.kubernetes.io/name="$APP" -o wide
-```
-
-**Gate:** the app pod is `Running` on `$TARGET` and the app's data is
-present (app-specific check). Helm `--force` recreates the deleted
-Deployment and adopts the restored PVCs, which keep their Helm labels
-and annotations from the backup.
-
-## 7. Clean up the fallback (after ≥ 7 days healthy)
-
-```bash
-kubectl get pv | grep Released
-```
-
-Delete each listed old PV by name once the app has been healthy on the
-new node for a week. The openebs hostpath directory on the source node is removed
-when the PV is deleted only if the reclaim policy is Delete, so set it
-back first:
-`kubectl patch pv <name> -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'`.
-
-## Rollback (any step before 6)
-
-The old PV is Retained:
-
-1. Remove its `spec.claimRef` (`kubectl patch pv <old> --type json -p '[{"op":"remove","path":"/spec/claimRef"}]'`).
-2. Recreate the PVC with `spec.volumeName: <old>`.
-3. Resume Flux.
-````
-
-Note on the holder pod: it has no `nodeName`/selector, because the old PV's node affinity places it on the source node. On restore, the resource modifier strips its `ownerReferences`/affinity and sets `nodeSelector` = target, while the change-pvc-node-selector ConfigMap points the restored PVC's WFFC selected-node at the same target. kopia's node-agent writes through the kubelet pod dir as root, so the holder's non-root UID doesn't affect the restore. Confirm in the gatus rehearsal that `k8tz.io/inject: "false"` is the correct opt-out annotation for the deployed k8tz (`kubectl -n kube-system get deploy -l app.kubernetes.io/name=k8tz -o yaml | grep -i inject`), and fix the runbook if not.
+Note on the holder pod: it has no `nodeName`/selector, because the old PV's node affinity places it on the source node. On restore, the resource modifier strips its `ownerReferences`/affinity and sets `nodeSelector` = target. Velero 1.18 strips the PVC's `selected-node` annotation on restore, so WFFC provisioning follows wherever that holder pod schedules. kopia's node-agent writes through the kubelet pod dir as root, so the holder's non-root UID doesn't affect the restore. Confirm in the gatus rehearsal that `k8tz.io/inject: "false"` is the correct opt-out annotation for the deployed k8tz (`kubectl -n kube-system get deploy -l app.kubernetes.io/name=k8tz -o yaml | grep -i inject`), and fix the runbook if not.
 
 - [ ] **Step 3: Self-check the runbook against Velero 1.18 docs**
 
 Fetch and confirm three things:
 
-- `change-pvc-node-selector` ConfigMap labels: https://velero.io/docs/v1.18/restore-reference/#changing-pvc-selected-node
+- the PVC `selected-node` handling on restore (the runbook relies on Velero stripping it, so the holder pod's `nodeSelector` decides the node): https://velero.io/docs/v1.18/restore-reference/
 - `mergePatches` support in resource modifiers: https://velero.io/docs/v1.18/restore-resource-modifiers/
 - that `includedResources` + `labelSelector` on a Backup still triggers FS backup of the selected pods' volumes.
 
@@ -724,7 +476,7 @@ git commit -m "docs(runbooks): Velero-based openebs-hostpath PVC node migration
 openebs-hostpath PVs are node-local, so Phase 0c needs a repeatable way
 to move holyclaude/omniroute/gatus off bigboi. Uses a holder pod (no app
 init containers/webhooks), a labelled backup, Retain on the old PV as a
-fallback, Velero's change-pvc-node-selector remap and a merge-patch
+fallback and a merge-patch
 resource modifier that strips ownerReferences/nodeName so the restored
 pod isn't GC'd before kopia writes the data.
 
@@ -743,8 +495,9 @@ Write `/tmp/pr1-body.md` first. It should summarize the Velero outage, the reque
 
 The operator follows `docs/runbooks/pv-node-migration.md` with:
 ```bash
-export NS=services APP=gatus PVCS="gatus" TARGET=bee-jms-01
+export NS=services APP=gatus TARGET=bee-jms-01
 export MIG="mig-${APP}-$(date +%Y%m%d%H%M)"
+PVCS=(gatus)
 ```
 bee-jms-01 has the most free disk and the lowest requests. Pass criteria:
 
@@ -805,8 +558,9 @@ After merge, the holyclaude pod is still on bigboi, because a preferred affinity
 
 The operator follows the runbook with:
 ```bash
-export NS=ai APP=holyclaude PVCS="holyclaude" TARGET=bee-jms-03
+export NS=ai APP=holyclaude TARGET=bee-jms-03
 export MIG="mig-${APP}-$(date +%Y%m%d%H%M)"
+PVCS=(holyclaude)
 ```
 Before step 3, capture `kubectl -n ai exec deploy/holyclaude -c app -- ls -la /workspace > /tmp/holyclaude-before.txt`. The 50Gi volume may take a while to back up. Watch `kubectl -n velero get podvolumebackups.velero.io -l velero.io/backup-name="$MIG" -w`. Before starting, the operator should end any active holyclaude session.
 
@@ -820,8 +574,9 @@ App check after step 6 of the runbook:
 
 The operator follows the runbook with:
 ```bash
-export NS=ai APP=omniroute PVCS="omniroute-data omniroute-cliproxyapi-data" TARGET=bee-jms-03
+export NS=ai APP=omniroute TARGET=bee-jms-03
 export MIG="mig-${APP}-$(date +%Y%m%d%H%M)"
+PVCS=(omniroute-data omniroute-cliproxyapi-data)
 ```
 The holder pod lists both PVCs (`v0` = omniroute-data, `v1` = omniroute-cliproxyapi-data). App check: the Omniroute dashboard loads with existing providers and combos, and the Home Assistant conversation agent answers one prompt.
 

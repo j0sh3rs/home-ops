@@ -18,7 +18,7 @@ Rehearsal on services/gatus pending (Phase 0c Task 4 Step 6). All mutating steps
 Set these once per migration, in the shell you run the steps from:
 
 ```bash
-export NS=services APP=gatus TARGET=bee-jms-03
+export NS=services APP=gatus TARGET=bee-jms-01
 export MIG="mig-${APP}-$(date +%Y%m%d%H%M)"
 PVCS=(gatus)
 ```
@@ -175,9 +175,11 @@ do not go on: find the PVC that failed, remove the partial files, then run
 the save block again:
 
 ```bash
-for p in "${PVCS[@]}"; do rm -f "/tmp/$MIG-pvc-$p.json"; done
-rm -f "/tmp/$MIG-oldpvs.txt.new"
+if test ! -e "/tmp/$MIG-oldpvs.txt"; then for p in "${PVCS[@]}"; do rm -f "/tmp/$MIG-pvc-$p.json"; done; rm -f "/tmp/$MIG-oldpvs.txt.new"; else echo "SKIPPED: a complete save exists at /tmp/$MIG-oldpvs.txt, nothing removed"; fi
 ```
+
+The cleanup does nothing when `/tmp/$MIG-oldpvs.txt` exists, because that
+means the save finished and the saved PVC files are still needed.
 
 Then patch each old PV to Retain and delete:
 
@@ -278,14 +280,21 @@ and annotations from the backup.
 ## 7. Clean up the fallback (after ≥ 7 days healthy)
 
 ```bash
-kubectl get pv | grep Released
+while read -r pvc pv; do kubectl get pv "$pv"; done < "/tmp/$MIG-oldpvs.txt"
 ```
 
-Delete each listed old PV by name once the app has been healthy on the
-new node for a week. The openebs hostpath directory on the source node is removed
-when the PV is deleted only if the reclaim policy is Delete, so set it
-back first:
-`kubectl patch pv <name> -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'`.
+Keep `/tmp/$MIG-oldpvs.txt` for the whole 7-day retention window. It
+lists only this migration's old PVs (`<pvc> <pv>` per line), so cleanup
+never touches unrelated Released PVs elsewhere in the cluster. Each
+should show `Released`. Once the app has been healthy on the new node for
+a week, set the reclaim policy back to Delete and delete exactly those
+PVs. The openebs hostpath directory on the source node is removed
+when the PV is deleted only if the reclaim policy is Delete:
+
+```bash
+while read -r pvc pv; do kubectl patch pv "$pv" -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'; done < "/tmp/$MIG-oldpvs.txt"
+while read -r pvc pv; do kubectl delete pv "$pv"; done < "/tmp/$MIG-oldpvs.txt"
+```
 
 ## Rollback (any step before 6)
 
