@@ -149,11 +149,11 @@ PodVolumeBackup per PVC with a non-zero `.status.progress.totalBytes`
 
 Patch each old PV to Retain so the data survives the PVC delete:
 
-Record the old PV names and save each PVC manifest first. The rollback
+Record each PVC name with its old PV name (one `<pvc> <pv>` line each) and save each PVC manifest first. The rollback
 section needs both:
 
 ```bash
-for p in $PVCS; do kubectl -n "$NS" get pvc "$p" -o json | jq 'del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.finalizers,.metadata.annotations,.status)' > "/tmp/$MIG-pvc-$p.json"; kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}{"\n"}' >> "/tmp/$MIG-oldpvs.txt"; done
+for p in $PVCS; do kubectl -n "$NS" get pvc "$p" -o json | jq 'del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.finalizers,.metadata.annotations,.status)' > "/tmp/$MIG-pvc-$p.json"; printf '%s %s\n' "$p" "$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}')" >> "/tmp/$MIG-oldpvs.txt"; done
 cat "/tmp/$MIG-oldpvs.txt"
 ```
 
@@ -269,16 +269,41 @@ back first:
 
 Resuming Flux alone does not bring the app back. The Deployment was
 deleted in step 4, and the HelmRelease sees no drift, so it needs a forced
-reconcile. The steps below work from any point. They rely on
-`/tmp/$MIG-oldpvs.txt` and `/tmp/$MIG-pvc-<name>.json` from step 4, so run
-them in the same shell with `NS`, `APP`, `PVCS` and `MIG` set.
+reconcile. Run these in the same shell with `NS`, `APP`, `PVCS` and `MIG`
+set. They rely on `/tmp/$MIG-oldpvs.txt` (lines of `<pvc> <pv>`) and
+`/tmp/$MIG-pvc-<name>.json`, both written in step 4.
 
-If you have not yet reached step 4, nothing was deleted. Run
-`kubectl -n "$NS" delete pod mig-holder --ignore-not-found`, clear the
-label with `kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-`,
-then resume Flux as in the last item below and stop.
+Pick the branch by whether the file exists:
 
-1. Remove the holder pod and any PVCs a partial restore created:
+```bash
+ls -l "/tmp/$MIG-oldpvs.txt"
+```
+
+**File missing (step 4 not started).** Nothing was deleted, and the
+Deployment still exists. Remove the holder pod and the label, then do only
+the Flux resume commands from item 4 (the `reconcile --force` is
+optional) and stop:
+
+```bash
+kubectl -n "$NS" delete pod mig-holder --ignore-not-found
+kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-
+```
+
+**File present (step 4 started or finished).** Do items 1 to 4 in order.
+The order matters: the PVs must be Retain before anything is deleted.
+
+1. Protect the data first. Patch every old PV to Retain, which is safe to
+repeat, then verify. Do not continue until every line shows `Retain`:
+
+```bash
+while read -r pvc pv; do kubectl patch pv "$pv" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'; done < "/tmp/$MIG-oldpvs.txt"
+while read -r pvc pv; do kubectl get pv "$pv" -o custom-columns=N:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy,PHASE:.status.phase,NODE:.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]; done < "/tmp/$MIG-oldpvs.txt"
+```
+
+If a PV is missing, stop and raise it. Its data is gone from the cluster
+and only the Velero backup remains.
+
+2. Remove the holder pod, any restored PVCs and the modifier ConfigMap:
 
 ```bash
 kubectl -n "$NS" delete pod mig-holder --ignore-not-found
@@ -286,21 +311,22 @@ kubectl -n "$NS" delete pvc $PVCS --ignore-not-found
 kubectl -n velero delete configmap mig-pod-modifier --ignore-not-found
 ```
 
-2. Make each old PV bindable again. Its `spec.claimRef` still names the
-deleted PVC with a stale uid, so the PV controller will not bind a new
-claim to it until the claimRef is removed. Also confirm the PV is still
-there and Retained:
+3. Pre-bind each old PV to the PVC about to be recreated. The PV's
+`spec.claimRef` still names the deleted PVC with a stale uid, so the PV
+controller will not bind to it. A JSON Patch `replace` swaps the whole
+object, dropping the uid and resourceVersion (a merge patch would keep
+them). The claimRef then holds only namespace and name, so only that PVC
+can claim the PV:
 
 ```bash
-for pv in $(cat "/tmp/$MIG-oldpvs.txt"); do kubectl get pv "$pv" -o custom-columns=N:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy,PHASE:.status.phase,NODE:.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]; kubectl patch pv "$pv" --type json -p '[{"op":"remove","path":"/spec/claimRef"}]'; done
+while read -r pvc pv; do kubectl patch pv "$pv" --type json -p "[{\"op\":\"replace\",\"path\":\"/spec/claimRef\",\"value\":{\"namespace\":\"$NS\",\"name\":\"$pvc\"}}]"; done < "/tmp/$MIG-oldpvs.txt"
 ```
 
-The patch fails with a "remove" error if claimRef is already gone. That is
-fine. Each PV should then show `PHASE` `Available`.
-
-3. Recreate each PVC from the manifest saved in step 4. It keeps the
-original `storageClassName`, `accessModes`, size, and `volumeName` set to
-the old PV:
+`replace` fails if the PV has no claimRef at all. In that case use
+`--type json -p '[{"op":"add","path":"/spec/claimRef","value":{...}}]'`
+with the same value. Then recreate each PVC from the manifest saved in
+step 4. It keeps the original `storageClassName`, `accessModes`, size and
+`volumeName` set to the old PV:
 
 ```bash
 for p in $PVCS; do kubectl -n "$NS" apply -f "/tmp/$MIG-pvc-$p.json"; done
@@ -308,14 +334,13 @@ kubectl -n "$NS" get pvc $PVCS -o wide
 ```
 
 Each PVC must go `Bound` to its old PV. If one stays `Pending`, run
-`kubectl -n "$NS" describe pvc <name>` and `kubectl get pv <old>` and check
-that the claimRef is gone and the capacity, access mode and storage class
-match.
+`kubectl -n "$NS" describe pvc <name>` and `kubectl get pv <old> -o yaml`
+and check the claimRef, capacity, access mode and storage class.
 
 4. Resume Flux and force Helm to recreate the Deployment:
 
 ```bash
-kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-
+kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move- --overwrite
 flux -n "$NS" resume helmrelease "$APP"
 flux -n "$NS" resume kustomization "$APP"
 flux -n "$NS" reconcile helmrelease "$APP" --force
