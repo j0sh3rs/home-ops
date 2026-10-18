@@ -153,9 +153,17 @@ Record each PVC name with its old PV name (one `<pvc> <pv>` line each) and save 
 section needs both:
 
 ```bash
-for p in $PVCS; do kubectl -n "$NS" get pvc "$p" -o json | jq 'del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.finalizers,.metadata.annotations,.status)' > "/tmp/$MIG-pvc-$p.json"; printf '%s %s\n' "$p" "$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}')" >> "/tmp/$MIG-oldpvs.txt"; done
+test ! -e "/tmp/$MIG-oldpvs.txt" || echo "already saved, do not re-run"
+rm -f "/tmp/$MIG-oldpvs.txt.new"
+for p in $PVCS; do pv=$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}') && test -n "$pv" && test ! -e "/tmp/$MIG-oldpvs.txt" && kubectl -n "$NS" get pvc "$p" -o json | jq 'del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.finalizers,.metadata.annotations,.status)' > "/tmp/$MIG-pvc-$p.json" && printf '%s %s\n' "$p" "$pv" >> "/tmp/$MIG-oldpvs.txt.new"; done
+test -e "/tmp/$MIG-oldpvs.txt" || mv "/tmp/$MIG-oldpvs.txt.new" "/tmp/$MIG-oldpvs.txt"
 cat "/tmp/$MIG-oldpvs.txt"
 ```
+
+Run this save block once. Re-running it after the PVCs are deleted would
+clobber the saved data, so it does nothing if `/tmp/$MIG-oldpvs.txt`
+already exists. The file must list every PVC in `$PVCS`; if it does not,
+delete the partial `/tmp/$MIG-*` files and start again before going on.
 
 Then patch each old PV to Retain and delete:
 
@@ -280,14 +288,20 @@ ls -l "/tmp/$MIG-oldpvs.txt"
 ```
 
 **File missing (step 4 not started).** Nothing was deleted, and the
-Deployment still exists. Remove the holder pod and the label, then do only
-the Flux resume commands from item 4 (the `reconcile --force` is
-optional) and stop:
+Deployment still exists but step 3 scaled it to 0. The HelmRelease has no
+drift detection, so a plain resume leaves it at 0 replicas. The forced
+reconcile is mandatory here:
 
 ```bash
 kubectl -n "$NS" delete pod mig-holder --ignore-not-found
 kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-
+flux -n "$NS" resume helmrelease "$APP"
+flux -n "$NS" resume kustomization "$APP"
+flux -n "$NS" reconcile helmrelease "$APP" --force
+kubectl -n "$NS" rollout status deploy/"$APP" --timeout=5m
 ```
+
+Stop once the rollout completes.
 
 **File present (step 4 started or finished).** Do items 1 to 4 in order.
 The order matters: the PVs must be Retain before anything is deleted.
@@ -344,6 +358,7 @@ kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move- --overwrite
 flux -n "$NS" resume helmrelease "$APP"
 flux -n "$NS" resume kustomization "$APP"
 flux -n "$NS" reconcile helmrelease "$APP" --force
+kubectl -n "$NS" rollout status deploy/"$APP" --timeout=5m
 kubectl -n "$NS" get pod -l app.kubernetes.io/name="$APP" -o wide
 ```
 
