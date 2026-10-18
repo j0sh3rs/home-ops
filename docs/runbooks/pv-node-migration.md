@@ -18,9 +18,16 @@ Rehearsal on services/gatus pending (Phase 0c Task 4 Step 6). All mutating steps
 Set these once per migration, in the shell you run the steps from:
 
 ```bash
-export NS=services APP=gatus PVCS="gatus" TARGET=bee-jms-03
+export NS=services APP=gatus TARGET=bee-jms-03
 export MIG="mig-${APP}-$(date +%Y%m%d%H%M)"
+PVCS=(gatus)
 ```
+
+`PVCS` is a shell array, not a space-separated string, so the steps work
+the same in bash and zsh (zsh does not word-split an unquoted `$PVCS`).
+For several PVCs, list them inside the parentheses: `PVCS=(pvc-a pvc-b)`.
+Every step expands it as `"${PVCS[@]}"`. It is not exported, so run all
+steps from this same shell.
 
 Only a throwaway holder pod is backed up and restored (never the app pod),
 so app init containers, sidecars, memory emptyDirs and webhook-injected
@@ -30,7 +37,7 @@ volumes never enter the backup.
 
 ```bash
 kubectl -n velero get backups.velero.io --sort-by=.metadata.creationTimestamp | tail -3
-kubectl -n "$NS" get pvc $PVCS -o wide
+kubectl -n "$NS" get pvc "${PVCS[@]}" -o wide
 ```
 
 The latest backup must be `Completed`, and every PVC `Bound`. None of the
@@ -40,11 +47,11 @@ and honours it. The label on a bound PV drops it from the backup too, so
 check both. Neither command may print the label:
 
 ```bash
-kubectl -n "$NS" get pvc $PVCS --show-labels
+kubectl -n "$NS" get pvc "${PVCS[@]}" --show-labels
 kubectl get pv -l velero.io/exclude-from-backup=true
 ```
 
-The second command must not list any PV claimed by `$PVCS`.
+The second command must not list any PV claimed by a PVC in `PVCS`.
 
 ## 1. Freeze Flux for the app
 
@@ -57,7 +64,7 @@ flux -n "$NS" suspend helmrelease "$APP"
 
 ```bash
 POD=$(kubectl -n "$NS" get pod -l app.kubernetes.io/name="$APP" -o jsonpath='{.items[0].metadata.name}')
-kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move=true --overwrite
+kubectl -n "$NS" label pvc "${PVCS[@]}" migrate.home-ops.io/move=true --overwrite
 ```
 
 ## 3. Quiesce the app, then back up
@@ -70,7 +77,7 @@ kubectl -n "$NS" scale deploy "$APP" --replicas=0
 kubectl -n "$NS" wait --for=delete pod/"$POD" --timeout=180s
 ```
 
-Create `/tmp/$MIG-holder.yaml`, listing every PVC in `$PVCS` under `volumes:` and `volumeMounts:`:
+Create `/tmp/$MIG-holder.yaml`, listing every PVC in `PVCS` under `volumes:` and `volumeMounts:`:
 
 ```yaml
 apiVersion: v1
@@ -106,12 +113,12 @@ spec:
         claimName: REPLACE_PVC_0
 ```
 
-Replace `REPLACE_PVC_0` with the first PVC in `$PVCS`. For each further PVC
+Replace `REPLACE_PVC_0` with the first PVC in `PVCS`. For each further PVC
 add a `v1`, `v2`, ... volume and a matching mount at `/data/v1`, `/data/v2`, ...
 with its own `claimName`.
 
 ```bash
-kubectl -n "$NS" apply -f /tmp/$MIG-holder.yaml
+kubectl -n "$NS" apply -f "/tmp/$MIG-holder.yaml"
 kubectl -n "$NS" wait --for=condition=Ready pod/mig-holder --timeout=180s
 ```
 
@@ -135,8 +142,8 @@ spec:
 ```
 
 ```bash
-sed -i "s/REPLACE_MIG/$MIG/; s/REPLACE_NS/$NS/" /tmp/$MIG-backup.yaml
-kubectl apply -f /tmp/$MIG-backup.yaml
+sed -i "s/REPLACE_MIG/$MIG/; s/REPLACE_NS/$NS/" "/tmp/$MIG-backup.yaml"
+kubectl apply -f "/tmp/$MIG-backup.yaml"
 kubectl -n velero get backups.velero.io "$MIG" -w
 kubectl -n velero get podvolumebackups.velero.io -l velero.io/backup-name="$MIG"
 ```
@@ -155,23 +162,30 @@ section needs both:
 ```bash
 test ! -e "/tmp/$MIG-oldpvs.txt" || echo "already saved, do not re-run"
 rm -f "/tmp/$MIG-oldpvs.txt.new"
-for p in $PVCS; do pv=$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}') && test -n "$pv" && test ! -e "/tmp/$MIG-oldpvs.txt" && kubectl -n "$NS" get pvc "$p" -o json | jq 'del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.finalizers,.metadata.annotations,.status)' > "/tmp/$MIG-pvc-$p.json" && printf '%s %s\n' "$p" "$pv" >> "/tmp/$MIG-oldpvs.txt.new"; done
-test -e "/tmp/$MIG-oldpvs.txt" || mv "/tmp/$MIG-oldpvs.txt.new" "/tmp/$MIG-oldpvs.txt"
+for p in "${PVCS[@]}"; do pv=$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}') && test -n "$pv" && test ! -e "/tmp/$MIG-oldpvs.txt" && kubectl -n "$NS" get pvc "$p" -o json | jq 'del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.finalizers,.metadata.annotations,.status)' > "/tmp/$MIG-pvc-$p.json" && printf '%s %s\n' "$p" "$pv" >> "/tmp/$MIG-oldpvs.txt.new"; done
+test -e "/tmp/$MIG-oldpvs.txt" || if test "$(awk 'END{print NR}' "/tmp/$MIG-oldpvs.txt.new" 2>/dev/null)" = "${#PVCS[@]}"; then mv "/tmp/$MIG-oldpvs.txt.new" "/tmp/$MIG-oldpvs.txt"; else echo "ERROR: /tmp/$MIG-oldpvs.txt.new does not list all ${#PVCS[@]} PVCs, not moved"; fi
 cat "/tmp/$MIG-oldpvs.txt"
 ```
 
 Run this save block once. Re-running it after the PVCs are deleted would
 clobber the saved data, so it does nothing if `/tmp/$MIG-oldpvs.txt`
-already exists. The file must list every PVC in `$PVCS`; if it does not,
-delete the partial `/tmp/$MIG-*` files and start again before going on.
+already exists. It only moves `/tmp/$MIG-oldpvs.txt.new` into place when
+that file has one line per PVC in `PVCS`. If it prints `ERROR` instead,
+do not go on: find the PVC that failed, remove the partial files, then run
+the save block again:
+
+```bash
+for p in "${PVCS[@]}"; do rm -f "/tmp/$MIG-pvc-$p.json"; done
+rm -f "/tmp/$MIG-oldpvs.txt.new"
+```
 
 Then patch each old PV to Retain and delete:
 
 ```bash
-for p in $PVCS; do kubectl patch pv "$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}')" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'; done
+for p in "${PVCS[@]}"; do kubectl patch pv "$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}')" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'; done
 kubectl -n "$NS" delete pod mig-holder
 kubectl -n "$NS" delete deploy "$APP"
-kubectl -n "$NS" delete pvc $PVCS
+kubectl -n "$NS" delete pvc "${PVCS[@]}"
 ```
 
 Deleting the Deployment removes its ReplicaSet, so nothing can adopt or
@@ -230,14 +244,14 @@ on the restored PVC, which would then point at the old Retained PV on the
 source node. With it, Velero sees the pod volume backup and re-provisions.
 
 ```bash
-sed -i "s/REPLACE_TARGET/$TARGET/g; s/REPLACE_NS/$NS/g" /tmp/$MIG-cm.yaml
-sed -i "s/REPLACE_MIG/$MIG/g; s/REPLACE_NS/$NS/g" /tmp/$MIG-restore.yaml
-kubectl apply -f /tmp/$MIG-cm.yaml
-kubectl apply -f /tmp/$MIG-restore.yaml
+sed -i "s/REPLACE_TARGET/$TARGET/g; s/REPLACE_NS/$NS/g" "/tmp/$MIG-cm.yaml"
+sed -i "s/REPLACE_MIG/$MIG/g; s/REPLACE_NS/$NS/g" "/tmp/$MIG-restore.yaml"
+kubectl apply -f "/tmp/$MIG-cm.yaml"
+kubectl apply -f "/tmp/$MIG-restore.yaml"
 kubectl -n velero get restores.velero.io "$MIG" -w
 kubectl -n velero get podvolumerestores.velero.io -l velero.io/restore-name="$MIG"
-kubectl -n "$NS" get pvc $PVCS -o wide
-kubectl get pv -o custom-columns=N:.metadata.name,CLAIM:.spec.claimRef.name,NODE:.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0] | grep -E "$(echo $PVCS | tr ' ' '|')"
+kubectl -n "$NS" get pvc "${PVCS[@]}" -o wide
+kubectl get pv -o 'custom-columns=N:.metadata.name,CLAIM:.spec.claimRef.name,NODE:.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]' | grep -E "$(IFS='|'; echo "${PVCS[*]}")"
 ```
 
 **Gate:** the Restore is `Completed`, the PodVolumeRestores are
@@ -249,7 +263,7 @@ kubectl get pv -o custom-columns=N:.metadata.name,CLAIM:.spec.claimRef.name,NODE
 ```bash
 kubectl -n "$NS" delete pod mig-holder
 kubectl -n velero delete configmap mig-pod-modifier
-kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-
+kubectl -n "$NS" label pvc "${PVCS[@]}" migrate.home-ops.io/move-
 flux -n "$NS" resume helmrelease "$APP"
 flux -n "$NS" resume kustomization "$APP"
 flux -n "$NS" reconcile helmrelease "$APP" --force
@@ -294,7 +308,7 @@ reconcile is mandatory here:
 
 ```bash
 kubectl -n "$NS" delete pod mig-holder --ignore-not-found
-kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-
+kubectl -n "$NS" label pvc "${PVCS[@]}" migrate.home-ops.io/move-
 flux -n "$NS" resume helmrelease "$APP"
 flux -n "$NS" resume kustomization "$APP"
 flux -n "$NS" reconcile helmrelease "$APP" --force
@@ -311,7 +325,7 @@ repeat, then verify. Do not continue until every line shows `Retain`:
 
 ```bash
 while read -r pvc pv; do kubectl patch pv "$pv" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'; done < "/tmp/$MIG-oldpvs.txt"
-while read -r pvc pv; do kubectl get pv "$pv" -o custom-columns=N:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy,PHASE:.status.phase,NODE:.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]; done < "/tmp/$MIG-oldpvs.txt"
+while read -r pvc pv; do kubectl get pv "$pv" -o 'custom-columns=N:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy,PHASE:.status.phase,NODE:.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]'; done < "/tmp/$MIG-oldpvs.txt"
 ```
 
 If a PV is missing, stop and raise it. Its data is gone from the cluster
@@ -321,7 +335,7 @@ and only the Velero backup remains.
 
 ```bash
 kubectl -n "$NS" delete pod mig-holder --ignore-not-found
-kubectl -n "$NS" delete pvc $PVCS --ignore-not-found
+kubectl -n "$NS" delete pvc "${PVCS[@]}" --ignore-not-found
 kubectl -n velero delete configmap mig-pod-modifier --ignore-not-found
 ```
 
@@ -343,8 +357,8 @@ step 4. It keeps the original `storageClassName`, `accessModes`, size and
 `volumeName` set to the old PV:
 
 ```bash
-for p in $PVCS; do kubectl -n "$NS" apply -f "/tmp/$MIG-pvc-$p.json"; done
-kubectl -n "$NS" get pvc $PVCS -o wide
+for p in "${PVCS[@]}"; do kubectl -n "$NS" apply -f "/tmp/$MIG-pvc-$p.json"; done
+kubectl -n "$NS" get pvc "${PVCS[@]}" -o wide
 ```
 
 Each PVC must go `Bound` to its old PV. If one stays `Pending`, run
@@ -354,7 +368,7 @@ and check the claimRef, capacity, access mode and storage class.
 4. Resume Flux and force Helm to recreate the Deployment:
 
 ```bash
-kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move- --overwrite
+kubectl -n "$NS" label pvc "${PVCS[@]}" migrate.home-ops.io/move- --overwrite
 flux -n "$NS" resume helmrelease "$APP"
 flux -n "$NS" resume kustomization "$APP"
 flux -n "$NS" reconcile helmrelease "$APP" --force
