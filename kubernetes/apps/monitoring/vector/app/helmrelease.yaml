@@ -24,6 +24,15 @@ spec:
       retries: 3
   values:
     role: Agent
+    # bigboi's agent uses ~2.7Gi (it tails llama-swap's chatty logs);
+    # bees use 187-277Mi. Request reflects the bees - bigboi keeps the
+    # headroom of an unrequested node. Limit stops a runaway agent.
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 3Gi
     dataDir: /var/lib/vector
     # No metrics-exporter sink/port in this pipeline (log shipping only,
     # outbound-only to logs.68cc.io) - the chart's default service.enabled:

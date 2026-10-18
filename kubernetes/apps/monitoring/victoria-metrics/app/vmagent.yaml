@@ -16,7 +16,7 @@ spec:
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 512Mi
     limits:
       memory: 1Gi
   # bee-jms-01 apiserver /metrics response exceeds the default 16 MiB cap
