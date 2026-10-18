@@ -4,7 +4,7 @@ machine:
       serializeImagePulls: false
       systemReserved:
         cpu: "200m"
-        memory: "512Mi"
+        memory: "1536Mi"
         ephemeral-storage: "2Gi"
       kubeReserved:
         cpu: "200m"
