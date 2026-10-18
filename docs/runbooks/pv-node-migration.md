@@ -11,7 +11,7 @@ deprecated and no longer in the code), so the node comes from where the
 restored holder pod schedules. The PV is re-provisioned by the storage
 class and filled by the kopia pod volume restore.
 
-Proven on services/gatus (2026-10). All mutating steps are operator-run.
+Rehearsal on services/gatus pending (Phase 0c Task 4 Step 6). All mutating steps are operator-run.
 
 ## Variables
 
@@ -36,7 +36,15 @@ kubectl -n "$NS" get pvc $PVCS -o wide
 The latest backup must be `Completed`, and every PVC `Bound`. None of the
 PVCs may carry the `velero.io/exclude-from-backup=true` label, because the
 repo's Velero server runs with `defaultVolumesToFsBackup: true` (opt-out)
-and honours it.
+and honours it. The label on a bound PV drops it from the backup too, so
+check both. Neither command may print the label:
+
+```bash
+kubectl -n "$NS" get pvc $PVCS --show-labels
+kubectl get pv -l velero.io/exclude-from-backup=true
+```
+
+The second command must not list any PV claimed by `$PVCS`.
 
 ## 1. Freeze Flux for the app
 
@@ -95,8 +103,12 @@ spec:
   volumes:
     - name: v0
       persistentVolumeClaim:
-        claimName: gatus
+        claimName: REPLACE_PVC_0
 ```
+
+Replace `REPLACE_PVC_0` with the first PVC in `$PVCS`. For each further PVC
+add a `v1`, `v2`, ... volume and a matching mount at `/data/v1`, `/data/v2`, ...
+with its own `claimName`.
 
 ```bash
 kubectl -n "$NS" apply -f /tmp/$MIG-holder.yaml
@@ -137,6 +149,16 @@ PodVolumeBackup per PVC with a non-zero `.status.progress.totalBytes`
 
 Patch each old PV to Retain so the data survives the PVC delete:
 
+Record the old PV names and save each PVC manifest first. The rollback
+section needs both:
+
+```bash
+for p in $PVCS; do kubectl -n "$NS" get pvc "$p" -o json | jq 'del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.finalizers,.metadata.annotations,.status)' > "/tmp/$MIG-pvc-$p.json"; kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}{"\n"}' >> "/tmp/$MIG-oldpvs.txt"; done
+cat "/tmp/$MIG-oldpvs.txt"
+```
+
+Then patch each old PV to Retain and delete:
+
 ```bash
 for p in $PVCS; do kubectl patch pv "$(kubectl -n "$NS" get pvc "$p" -o jsonpath='{.spec.volumeName}')" -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'; done
 kubectl -n "$NS" delete pod mig-holder
@@ -154,7 +176,8 @@ Create `/tmp/$MIG-cm.yaml`. It is a resource modifier that patches the
 restored holder pod so it has no `nodeName` or affinity and is pinned by
 `nodeSelector` to the target. The ConfigMap must contain exactly one data
 key. Velero already drops `ownerReferences` and `nodeName` on pod restore,
-so the patch only needs to set the target.
+so the patch only needs to set the target. It also nulls `nodeName` and
+`affinity` as a defensive measure, in case the backed-up pod carried them.
 
 ```yaml
 apiVersion: v1
@@ -244,8 +267,59 @@ back first:
 
 ## Rollback (any step before 6)
 
-The old PV is Retained:
+Resuming Flux alone does not bring the app back. The Deployment was
+deleted in step 4, and the HelmRelease sees no drift, so it needs a forced
+reconcile. The steps below work from any point. They rely on
+`/tmp/$MIG-oldpvs.txt` and `/tmp/$MIG-pvc-<name>.json` from step 4, so run
+them in the same shell with `NS`, `APP`, `PVCS` and `MIG` set.
 
-1. Remove its `spec.claimRef` (`kubectl patch pv <old> --type json -p '[{"op":"remove","path":"/spec/claimRef"}]'`).
-2. Recreate the PVC with `spec.volumeName: <old>`.
-3. Resume Flux.
+If you have not yet reached step 4, nothing was deleted. Run
+`kubectl -n "$NS" delete pod mig-holder --ignore-not-found`, clear the
+label with `kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-`,
+then resume Flux as in the last item below and stop.
+
+1. Remove the holder pod and any PVCs a partial restore created:
+
+```bash
+kubectl -n "$NS" delete pod mig-holder --ignore-not-found
+kubectl -n "$NS" delete pvc $PVCS --ignore-not-found
+kubectl -n velero delete configmap mig-pod-modifier --ignore-not-found
+```
+
+2. Make each old PV bindable again. Its `spec.claimRef` still names the
+deleted PVC with a stale uid, so the PV controller will not bind a new
+claim to it until the claimRef is removed. Also confirm the PV is still
+there and Retained:
+
+```bash
+for pv in $(cat "/tmp/$MIG-oldpvs.txt"); do kubectl get pv "$pv" -o custom-columns=N:.metadata.name,RECLAIM:.spec.persistentVolumeReclaimPolicy,PHASE:.status.phase,NODE:.spec.nodeAffinity.required.nodeSelectorTerms[0].matchExpressions[0].values[0]; kubectl patch pv "$pv" --type json -p '[{"op":"remove","path":"/spec/claimRef"}]'; done
+```
+
+The patch fails with a "remove" error if claimRef is already gone. That is
+fine. Each PV should then show `PHASE` `Available`.
+
+3. Recreate each PVC from the manifest saved in step 4. It keeps the
+original `storageClassName`, `accessModes`, size, and `volumeName` set to
+the old PV:
+
+```bash
+for p in $PVCS; do kubectl -n "$NS" apply -f "/tmp/$MIG-pvc-$p.json"; done
+kubectl -n "$NS" get pvc $PVCS -o wide
+```
+
+Each PVC must go `Bound` to its old PV. If one stays `Pending`, run
+`kubectl -n "$NS" describe pvc <name>` and `kubectl get pv <old>` and check
+that the claimRef is gone and the capacity, access mode and storage class
+match.
+
+4. Resume Flux and force Helm to recreate the Deployment:
+
+```bash
+kubectl -n "$NS" label pvc $PVCS migrate.home-ops.io/move-
+flux -n "$NS" resume helmrelease "$APP"
+flux -n "$NS" resume kustomization "$APP"
+flux -n "$NS" reconcile helmrelease "$APP" --force
+kubectl -n "$NS" get pod -l app.kubernetes.io/name="$APP" -o wide
+```
+
+The pod should return to the source node, where the old PV lives.
