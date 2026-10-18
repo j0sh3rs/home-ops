@@ -62,6 +62,24 @@ spec:
               absent (scheduler halted / velero pod down / CRs never created).
               Check: kubectl get schedule,backup -n velero --context home
 
+        - alert: VeleroBackupNoRecentSuccess
+          # Attempts-based staleness (above) stayed green for 3 weeks while
+          # every attempt died to a server OOM. This one measures outcomes:
+          # no Completed backup for daily-backup in 27h.
+          expr: |
+            absent(velero_backup_last_successful_timestamp{schedule="daily-backup"}) == 1
+              or (time() - velero_backup_last_successful_timestamp{schedule="daily-backup"}) > 27 * 3600
+          for: 30m
+          labels:
+            severity: critical
+            component: backup
+          annotations:
+            summary: "Velero daily-backup has not succeeded in 27h"
+            description: |-
+              No daily-backup Backup has reached Completed in the last 27
+              hours. Check the server pod for OOMKilled restarts and:
+              kubectl get backups.velero.io -n velero --sort-by=.metadata.creationTimestamp
+
         - alert: VeleroBackupDurationHigh
           expr: |
             velero_backup_duration_seconds{schedule!=""} > 3600
