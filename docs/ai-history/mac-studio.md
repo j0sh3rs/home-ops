@@ -26,3 +26,14 @@ How to read this:
 ### ha: GPT-5.5 baseline
 
 Dropped (2026-10-19): HA is being torn down and rebuilt (#764), so there's no HA baseline.
+
+## Engine bake-off ledger
+
+### Models (2026-10-19)
+
+Both are MLX 4-bit (`bits: 4, group_size: 64, mode: affine` in `config.json`). oMLX reads them from `/opt/ai/models.noindex/`, as APFS clones (`cp -c`) owned by `_omlx`. The clones' shard sizes match the sources byte for byte, and `_omlx` can read them.
+
+| Model | HF repo | Revision | Size | Source copy |
+|---|---|---|---|---|
+| Qwen3.6-35B-A3B | `lmstudio-community/Qwen3.6-35B-A3B-MLX-4bit` | `0c4a20a6437ae5985ddc9eb1a3f122ee6c151c3b` | 19G (4 shards) | `~/bakeoff/models/` |
+| Qwen3.8-27B | `lmstudio-community/Qwen3.8-27B-MLX-4bit` | unknown (downloaded by LM Studio, no HF metadata) | 15G (3 shards) | `~/.lmstudio/models/` |
