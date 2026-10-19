@@ -11,7 +11,13 @@ deprecated and no longer in the code), so the node comes from where the
 restored holder pod schedules. The PV is re-provisioned by the storage
 class and filled by the kopia pod volume restore.
 
-Rehearsal on services/gatus pending (Phase 0c Task 4 Step 6). All mutating steps are operator-run.
+Rehearsed on services/gatus (bigboi-jms-01 → bee-jms-01) on 2026-10-19.
+That run found that the Backup must include `persistentvolumes` (step 3),
+and its salvage path is documented under "Restore stuck" below.
+
+Run every step from inside the repo checkout. The mise shims for
+`kubectl`/`flux` only resolve there, so `cd /tmp` makes every command
+fail. Keep the scratch files in `/tmp`, but don't `cd` there.
 
 ## Variables
 
@@ -122,6 +128,14 @@ kubectl -n "$NS" apply -f "/tmp/$MIG-holder.yaml"
 kubectl -n "$NS" wait --for=condition=Ready pod/mig-holder --timeout=180s
 ```
 
+Write a marker into every volume, so step 6 can prove the data moved
+even when the app itself has nothing to check. Gatus, for example, keeps
+its history in memory and its PVC is empty:
+
+```bash
+kubectl -n "$NS" exec mig-holder -- sh -c "for d in /data/*; do echo $MIG > \$d/.migration-marker; done; cat /data/*/.migration-marker"
+```
+
 Create `/tmp/$MIG-backup.yaml`:
 
 ```yaml
@@ -132,7 +146,7 @@ metadata:
   namespace: velero
 spec:
   includedNamespaces: [REPLACE_NS]
-  includedResources: [persistentvolumeclaims, pods]
+  includedResources: [persistentvolumeclaims, pods, persistentvolumes]
   labelSelector:
     matchLabels:
       migrate.home-ops.io/move: "true"
@@ -148,9 +162,22 @@ kubectl -n velero get backups.velero.io "$MIG" -w
 kubectl -n velero get podvolumebackups.velero.io -l velero.io/backup-name="$MIG"
 ```
 
+`persistentvolumes` must be in `includedResources`. The PV isn't labelled,
+so it enters the backup only as the PVC's additional item, and Velero
+still filters additional items by `includedResources`. Without it the
+restore has no PV to re-provision (step 5 then warns `stat
+.../persistentvolumes/cluster/<pv>.json: no such file or directory`) and
+the restored PVC stays `Pending` on the old PV. The gatus rehearsal hit
+exactly this.
+
 **Gate:** the Backup is `Completed`, and there is one `Completed`
-PodVolumeBackup per PVC with a non-zero `.status.progress.totalBytes`
-(an empty volume like a fresh gatus may show 0, which is acceptable).
+PodVolumeBackup per PVC whose `.status.progress.totalBytes` is at least
+the marker size. The backup's resource list must also include each PV:
+
+```bash
+VP=$(kubectl -n velero get pod -l app.kubernetes.io/name=velero,name=velero -o name | head -1)
+kubectl -n velero exec "$VP" -c velero -- /velero backup describe "$MIG" --details | grep -A3 'v1/PersistentVolume:'
+```
 
 ## 4. Keep a fallback, then delete
 
@@ -257,15 +284,45 @@ kubectl get pv -o 'custom-columns=N:.metadata.name,CLAIM:.spec.claimRef.name,NOD
 ```
 
 **Gate:** the Restore is `Completed`, the PodVolumeRestores are
-`Completed`, the new PVs show `NODE` = `$TARGET`, and each restored PVC's
-`VOLUME` is a new PV name, not the old Retained one.
+`Completed`, the new PVs show `NODE` = `$TARGET`, each restored PVC's
+`VOLUME` is a new PV name, not the old Retained one, and the markers
+read back on the target:
+
+```bash
+kubectl -n "$NS" exec mig-holder -c hold -- sh -c 'cat /data/*/.migration-marker'
+```
+
+Each volume also gets a root-owned `.velero/` directory from the kopia
+restore. It is harmless and the non-root holder can't remove it.
+
+### Restore stuck: PVC `Pending` on the old PV
+
+If the restored PVC shows the **old** PV name and stays `Pending`, with
+the holder `Pending` and unscheduled and the Restore `InProgress`, the
+backup was taken without `persistentvolumes`. Don't start over: the
+kopia snapshot is fine and the PodVolumeRestore is waiting on the holder.
+Recreate each PVC from Velero's restored copy, keeping its Helm
+annotations but dropping `volumeName`. WFFC then provisions the new PV
+where the holder's `nodeSelector` sends it, and the restore completes on
+its own:
+
+```bash
+for p in "${PVCS[@]}"; do kubectl -n "$NS" get pvc "$p" -o json | jq 'del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.finalizers,.metadata.managedFields,.status,.spec.volumeName) | .metadata.annotations |= with_entries(select(.key|startswith("meta.helm.sh/")))' > "/tmp/$MIG-reprov-$p.json"; done
+kubectl -n "$NS" delete pvc "${PVCS[@]}"
+for p in "${PVCS[@]}"; do kubectl -n "$NS" apply -f "/tmp/$MIG-reprov-$p.json"; done
+kubectl -n "$NS" get pod mig-holder -o wide
+kubectl -n velero get restores.velero.io "$MIG" -w
+```
+
+The delete isn't held by `pvc-protection`, because the holder pod is
+unscheduled. Then re-run the step 5 gate.
 
 ## 6. Hand back to Flux
 
 ```bash
 kubectl -n "$NS" delete pod mig-holder
 kubectl -n velero delete configmap mig-pod-modifier
-kubectl -n "$NS" label pvc "${PVCS[@]}" migrate.home-ops.io/move-
+kubectl -n "$NS" label pvc "${PVCS[@]}" migrate.home-ops.io/move- velero.io/backup-name- velero.io/restore-name-
 flux -n "$NS" resume helmrelease "$APP"
 flux -n "$NS" resume kustomization "$APP"
 flux -n "$NS" reconcile helmrelease "$APP" --force
