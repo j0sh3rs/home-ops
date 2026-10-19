@@ -25,4 +25,4 @@ How to read this:
 
 ### ha: GPT-5.5 baseline
 
-Pending HA repoint and `corpus/ha_intents.yaml` (plan Task 1 Steps 3–5).
+Dropped (2026-10-19): HA is being torn down and rebuilt (#764), so there's no HA baseline.

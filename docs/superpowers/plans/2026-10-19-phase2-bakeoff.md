@@ -17,7 +17,7 @@
 - Metrics (spec): decode tok/s at c=1 and c=5; TTFT at 0/8K/32K prefix, cold and cache-hit; peak memory; cold-load time; 1-hour soak with zero errors.
 - Engine decision rule (spec): pick the simplest engine within ~15% of the best on the weighted metrics. A specialty engine goes behind the front door only at ≥1.5× on a lane that matters.
 - Model fit rule (spec): resident set plus KV for 5 concurrent requests at realistic context ≤ ~80GB.
-- Consumer gate (spec): a consumer cuts over only if its candidate meets or beats today's production result for that consumer. HA must match GPT-5.5 on the scripted set; otherwise its bash tool is narrowed first, as a visible change, never silently.
+- Consumer gate (spec): a consumer cuts over only if its candidate meets or beats today's production result for that consumer. HA is out of scope (operator, 2026-10-19): the current HA setup is being torn down and rebuilt (#764), so it has no gate here.
 - Gateway requirements (spec Phase 4): no request cap below 600s; routes in git; a key per consumer with usage attribution; Prometheus metrics; routing by model name to multiple upstreams; no subscription or web-UI scraping. LiteLLM stays excluded.
 - Corpus, `results/` and raw prompts are never committed. They stay in HolyClaude `/workspace` or on the Mac. Only aggregate tables go to `docs/ai-history/mac-studio.md`.
 - Mac `sudo` and anything that edits `/opt/ai` as another user are operator gates. Live Omniroute mutations are operator gates. Bake-off installs live in `~/bakeoff` on the Mac. **Never use `brew install`**: nix-darwin's homebrew module runs `cleanup = "zap"`.
@@ -30,7 +30,7 @@
 - **R2 — Bionic isn't a production candidate as-is.** What's running is `Bionic.app`, an Electron GUI that only serves while someone is logged in, which conflicts with D6 (every service is a boot-start LaunchDaemon). It's measured because it carries LM Studio's MLX runtime and Splash. If LM Studio wins, production runs **llmster** (headless `lms daemon up` / `lms server start --bind`) under launchd, and that gets one confirming run.
 - **R3 — The Claude path is decoupled from the Omniroute verdict.** The explicit Claude path HolyClaude uses comes from the `cliproxyapi` sidecar, not from Omniroute's routing. Any replacement gateway can treat cliproxyapi as one more upstream (`claude-*` model names only). That keeps the documented HolyClaude-only subscription exception (rejected-decisions.md) without Omniroute. So "drop Omniroute" never means "lose Claude".
 - **R4 — Phase 0a's baseline never ran.** `docs/ai-history/mac-studio.md` doesn't exist and `results/` was empty on 2026-10-19. Task 1 runs it first: every gate compares against it.
-- **R5 — The GPT-5.5 HA baseline is captured before any Codex or OpenAI removal**, and only after a one-prompt check that `cliproxyapi/gpt-5.5` actually answers through Omniroute (the gpt-* legs were reported rejecting the Responses-API shape).
+- **R5 — Withdrawn (2026-10-19).** It required a GPT-5.5 HA baseline before any Codex or OpenAI removal. HA is being rebuilt from scratch (#764), so there's no baseline to protect. The rebuild picks its agent after this phase.
 
 ## File Structure
 
@@ -50,12 +50,12 @@
 
 **Files:** Create `docs/ai-history/mac-studio.md`; modify `docs/ai-history/README.md`.
 
-**Interfaces:** Produces the gitignored `tools/ai-eval/results/hindsight-prod.jsonl`, `results/ha-gpt55.jsonl` and `corpus/ha_intents.yaml`, plus the committed baseline table.
+**Interfaces:** Produces the gitignored `tools/ai-eval/results/hindsight-prod.jsonl` plus the committed baseline table. The HA outputs (`results/ha-gpt55.jsonl`, `corpus/ha_intents.yaml`) were dropped with #764.
 
 State on 2026-10-19:
 - Only `hindsight` has captures (2026-10-14 to 10-19, 321M).
 - atuin is already pointed at the tap (`atuin-ai-server/app/config.toml:10`) but has produced no traffic.
-- HA was never repointed.
+- HA was never repointed, and now won't be: it's being rebuilt (#764).
 - argus is disabled (accepted gap, Phase 0a).
 
 - [ ] **Step 1: Snapshot the corpus** (done 2026-10-19 into `tools/ai-eval/corpus/2026-10-19`). Use the README command, run from `tools/ai-eval/`.
@@ -65,9 +65,9 @@ State on 2026-10-19:
   python3 grade.py results/hindsight-prod.jsonl --markdown --label "hindsight: gpt-oss-20b (llama-swap, prod)"
   ```
   Expected: `structured_valid_rate` close to 1.0. `fact_recall_mean` is production replayed against itself, so it's the noise ceiling that later candidates are read against.
-- [ ] **Step 3 (operator gate): repoint HA.** In the HA UI, set the OpenAI-compatible conversation agent's base URL to `http://ai-tap.ai.svc.cluster.local:8080/ha/v1` (it was `http://omniroute.ai.svc.cluster.local:20128/v1`). Then send one prompt from HA and confirm that `/data/ha/<today>.jsonl` exists in the `ai-tap` pod.
-- [ ] **Step 4 (operator): write the intent set.** `cp tools/ai-eval/ha_intents.example.yaml tools/ai-eval/corpus/ha_intents.yaml`, then replace the examples with about 40 real utterances: device control, state queries, multi-step requests, and at least 5 that should trigger the bash tool. This file is gitignored and never committed.
-- [ ] **Step 5: GPT-5.5 HA baseline (R5).** First send one non-streaming prompt with HA's key to `cliproxyapi/gpt-5.5` via Omniroute and confirm a 200 with text. If it fails, stop and report: the baseline model then has to be whatever HA uses successfully today. Otherwise run the README's `ha-gpt55` command, then grade it against itself to confirm that the harness and the intents parse.
+- [x] **Step 3: dropped** (HA rebuild, #764).
+- [x] **Step 4: dropped** (HA rebuild, #764).
+- [x] **Step 5: dropped** (HA rebuild, #764).
 - [ ] **Step 6: Write `docs/ai-history/mac-studio.md`.** It gets a "Production baselines (2026-10-19)" section containing the grade tables, the capture window, row counts per consumer, and the known gaps (atuin has no traffic, argus is disabled). Link it from `docs/ai-history/README.md`. Before committing, run `git status --porcelain tools/ai-eval` and expect no corpus or results paths.
 - [ ] **Step 7: Commit** with the message `docs(ai-history): Phase 2 production baselines for the Mac bake-off`.
 
@@ -313,7 +313,7 @@ done
 - [ ] **Step 3: Models.**
   - `lmstudio-community/Qwen3.8-27B-MLX-4bit` is already in `~/.lmstudio/models`. It's the one Bionic serves (operator, 2026-10-19), so 4-bit MLX is the bake-off quantisation. The 8-bit copy is unused.
   - Download `Qwen3.6-35B-A3B` MLX 4-bit into `~/bakeoff/models/`. Verify the repo id with the HF MCP `hub_repo_search` first; prefer `mlx-community` or `lmstudio-community`.
-  - oMLX runs as uid 455 and can't read `~`. **Operator gate:** copy or hard-link both model dirs into `/opt/ai/models.noindex/` with that user's ownership, or point oMLX at a shared read-only group directory.
+  - oMLX runs as uid 455 and can't read `~`. **Operator gate:** clone both model dirs into `/opt/ai/models.noindex/` with `/bin/cp -cR` (an APFS copy-on-write clone, so no extra disk), then `chown -R _omlx:_omlx`. Hard links won't work: the chown would also change the operator's copy.
   - Record each model dir's size and its HF revision sha in the ledger.
 - [ ] **Step 4: Quiet-Mac checklist (record before each engine run).**
   - Bionic is quit, unless it's the engine under test.
@@ -358,8 +358,8 @@ Candidates, re-verified against HF for current MLX builds when the task runs: Qw
 
 - [ ] **Step 1: Fit check per model.** Load the model and run `prefix_bench.py --prefix-tokens 32768 --concurrency 5` while `memsample.sh` runs. A model passes the fit rule if peak memory ≤ ~80GB. List which pairs can co-reside (for example 35B-A3B with Coder-Next).
 - [ ] **Step 2: Reasoner role (Hindsight).** Run `replay.py` c=5 with `--limit 200 --seed 1` for each candidate, plus the gpt-oss-20b control on the Mac. Grade each; the gate is structured_valid_rate and fact_recall_mean ≥ `hindsight-prod`.
-- [ ] **Step 3: Chat/fast role (HA).** Prerequisites are Task 1 Steps 3–5. For each candidate, run `replay.py --consumer ha --ha-intents corpus/ha_intents.yaml` against the Mac and then `grade.py --ha-baseline results/ha-gpt55.jsonl`. The intent set and baseline file are created on HolyClaude, so sync them to `~/bakeoff/ai-eval/` first. Hand-check the text-only state queries, as the README warns. Gate: `ha_agreement_rate` must match GPT-5.5. If it doesn't, write down the bash-tool narrowing proposal; don't apply it.
-- [ ] **Step 4: Agent/coder role (atuin, argus).** If the atuin or argus captures are empty by now, record "no corpus; gate deferred to Phase 3 live shadow" and use the HA intent set's tool_valid_rate as a proxy for tool-call reliability.
+- [x] **Step 3: Chat/fast role (HA): dropped** (HA rebuild, #764). The fresh HA picks its agent from this task's role table.
+- [ ] **Step 4: Agent/coder role (atuin, argus).** If the atuin or argus captures are empty by now, record "no corpus; gate deferred to Phase 3 live shadow" and use the Hindsight replay's tool_valid_rate as the only tool-call signal.
 - [ ] **Step 5: Role → model table, plus the resident set** in `mac-studio.md`: which models stay loaded, which load on demand, and the total memory budget.
 - [ ] **Step 6: Commit** with the message `docs(ai-history): Phase 2 model bake-off and per-role picks`.
 
@@ -402,7 +402,7 @@ Independent of Tasks 4–5. It can run while engines download. It produces the "
   - **replace with X**, located on the Mac or in-cluster, with cliproxyapi kept as a standalone upstream for the Claude path
   - **front door only**
 
-  Include the "Codex/OpenAI removal" consequence: once the HA GPT-5.5 baseline exists, the Codex lane has no automated consumer.
+  Include the "Codex/OpenAI removal" consequence: with HA being rebuilt (#764), the Codex lane has no automated consumer now.
 - [ ] **Step 6: Commit** with the message `docs(ai-history): Phase 2 gateway evaluation and Omniroute verdict`.
 
 ### Task 7: Decisions, spec amendment, hand-off
