@@ -1,0 +1,44 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: talos-etcd-defrag-alerts
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: talos-etcd-defrag
+      interval: 5m
+      rules:
+        - alert: TalosEtcdDefragFailed
+          expr: |
+            kube_job_status_failed{namespace="kube-system", job_name=~"talos-etcd-defrag-.*"} > 0
+          for: 5m
+          labels:
+            severity: warning
+            component: etcd
+          annotations:
+            summary: "Monthly etcd defrag job {{ $labels.job_name }} failed"
+            description: |-
+              An init container in the talos-etcd-defrag chain failed, so the
+              remaining members were not defragged. Usually a peer was
+              unreachable at run time. Check which container failed:
+              kubectl -n kube-system describe pod -l job-name={{ $labels.job_name }}
+        - alert: TalosEtcdDefragStale
+          # Monthly schedule; 35d tolerates one long month plus slack. No
+          # absent() clause: the metric only exists after the first success,
+          # which can be up to a month after deploy.
+          expr: |
+            (time() - kube_cronjob_status_last_successful_time{namespace="kube-system", cronjob="talos-etcd-defrag"}) > 35 * 86400
+          for: 1h
+          labels:
+            severity: warning
+            component: etcd
+          annotations:
+            summary: "etcd has not been defragged in over 35 days"
+            description: |-
+              CronJob talos-etcd-defrag has not completed successfully in 35
+              days. etcd DB files will keep growing with free pages until
+              defragged; run `talosctl -n <ip> etcd defrag` one member at a time.

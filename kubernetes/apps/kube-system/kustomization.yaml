@@ -21,4 +21,5 @@ resources:
   - ./reflector/ks.yaml
   - ./spegel/ks.yaml
   - ./talos-backups/ks.yaml
+  - ./talos-etcd-defrag/ks.yaml
   - ./tetragon/ks.yaml

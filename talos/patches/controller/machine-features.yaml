@@ -12,4 +12,5 @@ machine:
       allowedRoles:
         - os:admin
         - os:etcd:backup
+        - os:operator
       enabled: true
