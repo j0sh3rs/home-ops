@@ -21,6 +21,10 @@ spec:
       - kube-public
       - kube-node-lease
       - flux-system
+      # Ephemeral ARC runner pods get deleted mid-backup, leaving a Canceled
+      # PodVolumeBackup that Velero waits on until the 240m timeout. Runner
+      # config lives in git; their work dirs are throwaway.
+      - actions-runner-system
     # CSI snapshots disabled cluster-wide — PV data is captured by the
     # kopia node-agent. PVCs carrying velero.io/exclude-from-backup=true
     # opt out. Tracked by home-ops-ohh.
