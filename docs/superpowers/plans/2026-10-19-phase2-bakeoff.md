@@ -311,7 +311,7 @@ done
   The corpus is personal data. It stays inside the 700-mode home directory on the FileVault volume (spec-allowed), and is deleted at Phase 3 retention alongside the cluster copy.
 - [ ] **Step 2: Python env.** Run `ssh … 'nix shell nixpkgs#uv -c uv venv --python 3.12 ~/bakeoff/py && nix shell nixpkgs#uv -c uv pip install --python ~/bakeoff/py/bin/python -r ~/bakeoff/ai-eval/requirements.txt'`, then run the test suite on the Mac with `~/bakeoff/py/bin/python -m pytest tests -q -p no:cacheprovider`. Expected: all pass.
 - [ ] **Step 3: Models.**
-  - `lmstudio-community/Qwen3.8-27B-MLX-4bit` is already in `~/.lmstudio/models`.
+  - `lmstudio-community/Qwen3.8-27B-MLX-4bit` is already in `~/.lmstudio/models`. It's the one Bionic serves (operator, 2026-10-19), so 4-bit MLX is the bake-off quantisation. The 8-bit copy is unused.
   - Download `Qwen3.6-35B-A3B` MLX 4-bit into `~/bakeoff/models/`. Verify the repo id with the HF MCP `hub_repo_search` first; prefer `mlx-community` or `lmstudio-community`.
   - oMLX runs as uid 455 and can't read `~`. **Operator gate:** copy or hard-link both model dirs into `/opt/ai/models.noindex/` with that user's ownership, or point oMLX at a shared read-only group directory.
   - Record each model dir's size and its HF revision sha in the ledger.
@@ -320,7 +320,7 @@ done
   - oMLX shows no loaded models (`/v1/models/status` or the admin API with the main key).
   - `memory_pressure` reports ≥ 90% free.
   - No Time Machine run or Spotlight indexing is in progress.
-  - Note: an unknown `bun` listener on `*:18789` was seen on 2026-10-19. Ask the operator what it is (OpenClaw's gateway default port?). It's outside the pf-filtered port set, so it's LAN-reachable.
+  - Note: an unknown `bun` listener on `*:18789` was seen on 2026-10-19. It's the operator's OpenClaw gateway (confirmed 2026-10-19). It's outside the pf-filtered port set, so it's LAN-reachable. That's out of scope here, but quit it during runs if it holds a model.
 
 ### Task 4: Engine bake-off (4 engines × 2 reference models)
 
