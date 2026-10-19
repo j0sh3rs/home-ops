@@ -1,0 +1,111 @@
+---
+# Monthly etcd defragment. etcd compaction frees revisions but never returns
+# the space to the filesystem; on 2026-10-19 each member's DB was ~660MB with
+# only ~236MB in use, and a manual defrag brought all three back to 235MB.
+#
+# The talosctl image is scratch (no shell), so members are defragged by a
+# chain of init containers: Kubernetes runs them one at a time and stops at
+# the first failure. Each defrag is preceded by `etcd status` against all
+# three members, which exits non-zero if any member is unreachable, so we
+# never defrag while a peer is down. Defrag blocks the member for ~1-2s.
+# bee-jms-01 goes last because it is usually the raft leader.
+#
+# Member IPs are static (talos/talconfig.yaml); update this list if the
+# control-plane set changes.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: talos-etcd-defrag
+spec:
+  # 1st of the month, clear of talos-s3-backup (00:10/12:10) and Velero
+  # daily-backup (02:00 UTC = 22:00/21:00 ET).
+  schedule: "30 4 1 * *"
+  timeZone: "America/New_York"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 900
+      template:
+        spec:
+          restartPolicy: Never
+          initContainers:
+            - name: status-before-bee-jms-02
+              image: ghcr.io/siderolabs/talosctl:v1.14.0
+              args: ["--nodes", "192.168.35.3,192.168.35.6,192.168.35.10", "etcd", "status"]
+              env: &env
+                - name: TALOSCONFIG
+                  value: /var/run/secrets/talos.dev/config
+              securityContext: &securityContext
+                runAsUser: 65534
+                runAsGroup: 65534
+                runAsNonRoot: true
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts: &volumeMounts
+                - mountPath: /var/run/secrets/talos.dev
+                  name: talos-secrets
+                  readOnly: true
+              resources: &resources
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+            - name: defrag-bee-jms-02
+              image: ghcr.io/siderolabs/talosctl:v1.14.0
+              args: ["--nodes", "192.168.35.6", "etcd", "defrag"]
+              env: *env
+              securityContext: *securityContext
+              volumeMounts: *volumeMounts
+              resources: *resources
+            - name: status-before-bee-jms-03
+              image: ghcr.io/siderolabs/talosctl:v1.14.0
+              args: ["--nodes", "192.168.35.3,192.168.35.6,192.168.35.10", "etcd", "status"]
+              env: *env
+              securityContext: *securityContext
+              volumeMounts: *volumeMounts
+              resources: *resources
+            - name: defrag-bee-jms-03
+              image: ghcr.io/siderolabs/talosctl:v1.14.0
+              args: ["--nodes", "192.168.35.10", "etcd", "defrag"]
+              env: *env
+              securityContext: *securityContext
+              volumeMounts: *volumeMounts
+              resources: *resources
+            - name: status-before-bee-jms-01
+              image: ghcr.io/siderolabs/talosctl:v1.14.0
+              args: ["--nodes", "192.168.35.3,192.168.35.6,192.168.35.10", "etcd", "status"]
+              env: *env
+              securityContext: *securityContext
+              volumeMounts: *volumeMounts
+              resources: *resources
+            - name: defrag-bee-jms-01
+              image: ghcr.io/siderolabs/talosctl:v1.14.0
+              args: ["--nodes", "192.168.35.3", "etcd", "defrag"]
+              env: *env
+              securityContext: *securityContext
+              volumeMounts: *volumeMounts
+              resources: *resources
+          containers:
+            - name: status-after
+              image: ghcr.io/siderolabs/talosctl:v1.14.0
+              args: ["--nodes", "192.168.35.3,192.168.35.6,192.168.35.10", "etcd", "status"]
+              env: *env
+              securityContext: *securityContext
+              volumeMounts: *volumeMounts
+              resources: *resources
+          tolerations:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+              effect: NoSchedule
+          volumes:
+            - name: talos-secrets
+              secret:
+                secretName: talos-etcd-defrag-secrets
