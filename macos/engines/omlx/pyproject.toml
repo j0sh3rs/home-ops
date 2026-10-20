@@ -6,7 +6,7 @@ name = "home-ops-omlx"
 version = "0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "omlx @ git+https://github.com/jundot/omlx@v0.7.0",
+  "omlx @ git+https://github.com/jundot/omlx@v0.7.1",
 ]
 
 [tool.uv]
