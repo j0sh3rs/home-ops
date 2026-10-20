@@ -129,6 +129,49 @@ oMLX engine notes for scoring:
 - Tool-call parsing misses some text-form calls.
 - The memory guard sheds load safely (409 until drained) rather than crashing.
 
+### LM Studio (Bionic 1.1.8)
+
+Bionic is the LM Studio desktop app, serving on :1235 and reading models from `~/.lmstudio/models`. The weights are byte-identical copies of the oMLX models, MLX 4-bit.
+
+Thinking: Bionic ignores `chat_template_kwargs`, `enable_thinking`, `reasoning_effort` and `/no_think`, and has no binary toggle in its UI. The fix is `{%- set enable_thinking = false %}` added as the first line of each Bionic copy's `chat_template.jinja`, with the originals kept as `.orig`. After that, reasoning tokens drop to 0. This is the same template branch the oMLX runs reached through the API flag.
+
+Speed benchmark: Qwen3.6-35B-A3B, thinking off. The model was already loaded, so there is no cold-load figure.
+
+| prefix | c | phase | ttft_ms p50 | decode tok/s p50 | aggregate tok/s | errors |
+|---|---|---|---|---|---|---|
+| 0 | 1 | cold | 77 | 148.1 | 148.1 | 0 |
+| 0 | 1 | warm | 63 | 148.7 | 148.7 | 0 |
+| 0 | 5 | cold | 272 | 102.1 | 555.9 | 0 |
+| 0 | 5 | warm | 189 | 103.7 | 561.6 | 0 |
+| 8192 | 1 | cold | 978 | 139.4 | 139.4 | 0 |
+| 8192 | 1 | warm | 148 | 140.4 | 140.4 | 0 |
+| 8192 | 5 | cold | 3870 | 57.8 | 354.1 | 0 |
+| 8192 | 5 | warm | 483 | 69.4 | 414.6 | 0 |
+| 32768 | 1 | cold | 4540 | 125.9 | 125.9 | 0 |
+| 32768 | 1 | warm | 342 | 126.8 | 126.8 | 0 |
+| 32768 | 5 | cold | 14957 | 18.4 | 183.9 | 0 |
+| 32768 | 5 | warm | 1185 | 42.5 | 272.4 | 0 |
+
+Compared with oMLX on the same model, the c=5 aggregate is +16% short, +21% at warm 8K and +37% at warm 32K. Cold-32K TTFT is about equal at c=1 (4.5 s against 4.1 s) and 33% better at c=5 (15 s against 22 s). c=1 decode is 13% lower (148 against 171).
+
+`json_object` is rejected. LM Studio answers `response_format: {"type":"json_object"}` with HTTP 400 ("must be 'json_schema' or 'text'"). Production Hindsight runs `provider: openai` with only `HINDSIGHT_API_LLM_STRICT_SCHEMA_RETAIN=true`, so reflect and consolidation calls send `json_object`. Those were 114 of 200 corpus requests (57% errors) in the first pass. Hindsight 0.10.1 offers two fixes. `HINDSIGHT_API_LLM_STRICT_SCHEMA=true` moves every operation to `json_schema` strict, which LM Studio grammar-enforces. `provider: lmstudio` drops `response_format` entirely. `replay.py --json-object-as text` reproduces the second, so it is the conservative case.
+
+On the 86 `json_schema` requests both engines served at c=5, LM Studio's structured validity was 0.985 against oMLX's 0.712. LM Studio enforces the schema; oMLX does not.
+
+Hindsight replay, thinking off, with `--json-object-as text`:
+
+| run | n | error_rate | structured_valid_rate | tool_valid_rate | fact_recall_mean | ttft_ms_p50 | ttft_ms_p95 | latency_ms_p50 | latency_ms_p95 | decode_tps_median |
+|---|---|---|---|---|---|---|---|---|---|---|
+| prod gpt-oss-20b | 200 | 0.0 | 0.889 | 1.0 | 0.675 | 6486 | 36037 | 46325 | 157649 | 39.1 |
+| omlx-q36-35b-nt c=5 | 200 | 0.005 | 0.889 | 0.8 | 0.559 | 1447 | 7718 | 26284 | 66405 | 34.3 |
+| lms-q36-35b-nt c=5 | 200 | 0.0 | 0.989 | 0.8 | 0.542 | 8414 | 20060 | 30934 | 67152 | 35.7 |
+| omlx-q36-35b-nt c=1 | 50 | 0.0 | 0.854 | 0.5 (n=2) | 0.509 | 157 | 258 | 6273 | 15087 | 148.7 |
+| lms-q36-35b-nt c=1 | 50 | 0.0 | 1.0 | 1.0 (n=2) | 0.568 | 778 | 4570 | 7326 | 16736 | 132.5 |
+
+Lenient and strict grades are identical for LM Studio, since it produced no fences. Free memory never went below 43% (peak engine RSS 24 GB).
+
+Reading: LM Studio is more correct, with schema enforcement and no fences. Its synthetic throughput is also higher. On the real c=5 replay, though, its TTFT p50 is 5.8× oMLX's (8.4 s against 1.4 s) and its latency p50 is 18% worse. The likely cause is queueing behind a parallel-slot limit or weaker prefix reuse on long, varied Hindsight prompts. That has not been verified. Check LM Studio's max-concurrent-predictions setting before the llmster confirming run.
+
 ## Gateway evidence (2026-10-20)
 
 ### Omniroute 3.8.51 probes (in-cluster, HolyClaude key)

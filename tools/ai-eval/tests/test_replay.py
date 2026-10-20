@@ -144,3 +144,12 @@ def test_prepare_merges_extra_body_without_mutating():
     assert body["model"] == "qwen" and body["temperature"] == 0.0 and body["stream"] is True
     body["chat_template_kwargs"]["enable_thinking"] = True
     assert extra["chat_template_kwargs"]["enable_thinking"] is False
+
+
+def test_prepare_rewrites_json_object_only_when_asked():
+    req = {"messages": [], "response_format": {"type": "json_object"}}
+    assert replay.prepare(req, "m")["response_format"] == {"type": "json_object"}
+    assert replay.prepare(req, "m", json_object_as="text")["response_format"] == {"type": "text"}
+    assert req["response_format"] == {"type": "json_object"}
+    schema = {"messages": [], "response_format": {"type": "json_schema", "json_schema": {"name": "x"}}}
+    assert replay.prepare(schema, "m", json_object_as="text")["response_format"]["type"] == "json_schema"
