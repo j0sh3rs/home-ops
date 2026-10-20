@@ -172,6 +172,39 @@ Lenient and strict grades are identical for LM Studio, since it produced no fenc
 
 Reading: LM Studio is more correct, with schema enforcement and no fences. Its synthetic throughput is also higher. On the real c=5 replay, though, its TTFT p50 is 5.8× oMLX's (8.4 s against 1.4 s) and its latency p50 is 18% worse. The likely cause is queueing behind a parallel-slot limit or weaker prefix reuse on long, varied Hindsight prompts. That has not been verified. Check LM Studio's max-concurrent-predictions setting before the llmster confirming run.
 
+#### LM Studio: Qwen3.8-27B (dense)
+
+Speed benchmark, thinking off (template edit):
+
+| prefix | c | phase | ttft_ms p50 | decode tok/s p50 | aggregate tok/s | errors |
+|---|---|---|---|---|---|---|
+| 0 | 1 | cold | 164 | 55.7 | 55.7 | 0 |
+| 0 | 1 | warm | 152 | 55.7 | 55.7 | 0 |
+| 0 | 5 | cold | 471 | 41.9 | 221.9 | 0 |
+| 0 | 5 | warm | 457 | 41.9 | 221.9 | 0 |
+| 8192 | 1 | cold | 4713 | 53.1 | 53.1 | 0 |
+| 8192 | 1 | warm | 315 | 53.3 | 53.3 | 0 |
+| 8192 | 5 | cold | 18884 | 18.6 | 118.7 | 0 |
+| 8192 | 5 | warm | 1043 | 26.7 | 159.0 | 0 |
+| 32768 | 1 | cold | 20344 | 46.9 | 46.9 | 0 |
+| 32768 | 1 | warm | 709 | 47.2 | 47.2 | 0 |
+| 32768 | 5 | cold | 66802 | 4.9 | 60.1 | 0 |
+| 32768 | 5 | warm | 3027 | 15.4 | 99.4 | 0 |
+
+Compared with oMLX: c=1 decode is +21% (55.7 against 46.0), c=5 aggregate is +26% short and +26% at warm 8K, and +45% at warm 32K. Cold-32K TTFT at c=5 is 33% better (67 s against 99 s), but 11% worse at c=1 (20 s against 18 s).
+
+Hindsight replay with `--json-object-as text`:
+
+| run | n | error_rate | structured_valid lenient | tool_valid | fact_recall lenient | ttft_ms_p50 | latency_ms_p50 | latency_ms_p95 | decode_tps_median |
+|---|---|---|---|---|---|---|---|---|---|
+| lms-q38-27b-nt c=5 | 200 | 0.06 | 0.933 | 0.95 | 0.505 | 27365 | 87718 | 182293 | 11.6 |
+| lms-q38-27b-nt c=5, first 102 | 102 | 0.0 | 1.0 | 1.0 | 0.525 | 24886 | 77604 | 182293 | 12.7 |
+| omlx-q38-27b-nt c=5, first 102 | 102 | 0.0 | 0.958 | 0.667 | 0.566 | 14342 | 97423 | 211837 | 10.1 |
+| lms-q38-27b-nt c=1 | 50 | 0.0 | 1.0 | 1.0 | 0.494 | 4024 | 17484 | 54035 | 50.6 |
+| omlx-q38-27b-nt c=1 | 50 | 0.0 | 0.938 | 1.0 | 0.55 | 583 | 20098 | 54572 | 43.6 |
+
+Memory failure: LM Studio has no memory guard. Free memory fell to 2% (64 samples at ≤5%), and requests 187–199 failed: 7 with HTTP 500 and 5 with stream error "The model has crashed without additional information". The model reloaded by itself, and the c=1 pass ran clean afterwards. oMLX's guard shed load earlier (from request ~102) but kept the process alive. So the dense 27B at c=5 over-commits memory on both engines. It is not a viable c=5 Hindsight model on a 96 GB host shared with other services unless its context or concurrency is capped.
+
 ## Gateway evidence (2026-10-20)
 
 ### Omniroute 3.8.51 probes (in-cluster, HolyClaude key)
