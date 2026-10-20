@@ -78,6 +78,57 @@ Failures 1 and 4 come from how the engine enforces and parses tool calls. Compar
 
 `fact_recall_mean` 0.559 against the 0.675 noise ceiling is a real but moderate content drift, and a model-bake-off question, not an engine one.
 
+#### Lenient JSON grading
+
+oMLX does not enforce `response_format`, so a model can wrap valid JSON in ```` ```json ```` fences. Production Hindsight strips those fences for every provider: upstream #646 added it, `parse_llm_json` in 0.8.5 hardened it, and the cluster runs 0.10.1. `grade.py --lenient-json` grades the same way, so lenient scores are the production-relevant ones. Strict stays the default so earlier rows remain comparable.
+
+Qwen3.6-35B-A3B scores identically under both modes. Its failures are schema violations (e.g. `"knowledge": null`), not fences.
+
+#### Qwen3.8-27B (dense)
+
+Speed benchmark, thinking off. Cold load 16.0 s.
+
+| prefix | c | phase | ttft_ms p50 | decode tok/s p50 | aggregate tok/s | errors |
+|---|---|---|---|---|---|---|
+| 0 | 1 | cold | 304 | 46.1 | 46.1 | 0 |
+| 0 | 1 | warm | 216 | 46.0 | 46.0 | 0 |
+| 0 | 5 | cold | 394 | 35.5 | 176.7 | 0 |
+| 0 | 5 | warm | 361 | 35.4 | 176.7 | 0 |
+| 8192 | 1 | cold | 4245 | 44.9 | 44.9 | 0 |
+| 8192 | 1 | warm | 311 | 45.1 | 45.1 | 0 |
+| 8192 | 5 | cold | 28058 | 27.4 | 123.2 | 0 |
+| 8192 | 5 | warm | 944 | 25.1 | 125.9 | 0 |
+| 32768 | 1 | cold | 18263 | 40.0 | 40.0 | 0 |
+| 32768 | 1 | warm | 729 | 40.2 | 40.2 | 0 |
+| 32768 | 5 | cold | 99056 | 13.7 | 67.4 | 0 |
+| 32768 | 5 | warm | 1756 | 13.7 | 68.7 | 0 |
+
+Compared with Qwen3.6-35B-A3B, it is about 3.7× slower at c=1 decode and 2.7× slower at c=5 warm-8K aggregate. Cold-32K TTFT is 4.5× worse. That is the expected dense-vs-MoE gap (27B active parameters vs 3B).
+
+c=5 replay: the memory guard tripped. At about request 102, oMLX's `--memory-guard-gb 80` limit was hit (81.1 GB). oMLX aborted 4 requests mid-prefill, returned one HTTP 507, and then rejected 84 requests with HTTP 409 "busy… unload pending" until the in-flight work drained. Overall error_rate is 0.445. The guard behaves safely (it shed load and recovered without crashing), but at c=5 with long Hindsight prompts the dense 27B's KV cache doesn't fit under an 80 GB guard. A clean c=5 run needs a higher guard (an operator/sudo change to the LaunchDaemon) or lower concurrency.
+
+Only the first 102 requests are pre-guard and comparable. Both models, same 102 requests:
+
+| first 102 | structured_valid strict | structured_valid lenient | tool_valid | fact_recall strict | fact_recall lenient | latency_ms_p50 | decode_tps_median |
+|---|---|---|---|---|---|---|---|
+| omlx-q38-27b-nt | 0.573 | 0.958 | 0.667 | 0.293 | 0.566 | 97423 | 10.1 |
+| omlx-q36-35b-nt | 0.833 | 0.833 | 0.5 | 0.524 | 0.524 | ~25000 | 37.2 |
+
+Qwen3.8-27B's 41 strict failures were 37 fenced JSON and 4 prose. With fences stripped it has the better structure and recall, but its latency is about 4× worse.
+
+c=1 replays (n=50, same seed). No memory pressure at c=1. Free memory got as low as 5% during the 27B c=5 run, against 45% for 35B at c=5.
+
+| run | n | error_rate | structured_valid strict | structured_valid lenient | tool_valid | fact_recall strict | fact_recall lenient | ttft_ms_p50 | latency_ms_p50 | latency_ms_p95 | decode_tps_median |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| omlx-q38-27b-nt c=1 | 50 | 0.0 | 0.583 | 0.938 | 1.0 (n=2) | 0.27 | 0.55 | 583 | 20098 | 54572 | 43.6 |
+| omlx-q36-35b-nt c=1 | 50 | 0.0 | 0.854 | 0.854 | 0.5 (n=2) | 0.509 | 0.509 | 157 | 6273 | 15087 | 148.7 |
+
+oMLX engine notes for scoring:
+- `response_format` is not enforced.
+- `tool_choice: required` is not enforced.
+- Tool-call parsing misses some text-form calls.
+- The memory guard sheds load safely (409 until drained) rather than crashing.
+
 ## Gateway evidence (2026-10-20)
 
 ### Omniroute 3.8.51 probes (in-cluster, HolyClaude key)
