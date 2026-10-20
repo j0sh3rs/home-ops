@@ -120,3 +120,12 @@ def test_empty_ha_candidate_disagrees_with_text_baseline():
 def test_errored_candidate_with_tools_is_invalid_tool_call():
     rows = [row("ha", TOOLS_REQ, None, None, error="HTTP 500", rid="z")]
     assert grade.summarize(rows)["ha"]["tool_valid_rate"] == 0.0
+
+
+def test_lenient_json_accepts_fenced_content(monkeypatch):
+    req = {"response_format": {"type": "json_object"}}
+    msg = {"content": "```json\n{\"facts\": []}\n```"}
+    assert grade.structured_valid(req, msg) is False
+    monkeypatch.setattr(grade, "LENIENT_JSON", True)
+    assert grade.structured_valid(req, msg) is True
+    assert grade.structured_valid(req, {"content": "Here you go:\n```json\n{}\n```"}) is False

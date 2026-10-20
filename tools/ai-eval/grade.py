@@ -19,7 +19,17 @@ COLUMNS = ["n", "error_rate", "empty_rate", "structured_valid_rate", "tool_valid
            "decode_tps_median"]
 
 
+# Set by --lenient-json: accept content wrapped in one markdown code fence. Engines that don't
+# enforce response_format let models fence their JSON; whether that counts depends on the consumer.
+LENIENT_JSON = False
+_FENCE = re.compile(r"^\s*```[A-Za-z]*\s*\n(.*)\n\s*```\s*$", re.S)
+
+
 def _json(text):
+    if LENIENT_JSON and isinstance(text, str):
+        fenced = _FENCE.match(text)
+        if fenced:
+            text = fenced.group(1)
     try:
         return json.loads(text)
     except (TypeError, ValueError):
@@ -202,7 +212,10 @@ def main(argv=None):
     p.add_argument("--ha-baseline", help="replay.py output of the HA intent set against GPT-5.5")
     p.add_argument("--markdown", action="store_true")
     p.add_argument("--label", default="results")
+    p.add_argument("--lenient-json", action="store_true", help="strip one ```json fence before parsing content")
     args = p.parse_args(argv)
+    global LENIENT_JSON
+    LENIENT_JSON = args.lenient_json
     baselines = None
     if args.ha_baseline:
         baselines = {r["id"]: r["candidate"]["output"]["message"]
