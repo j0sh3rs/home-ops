@@ -3,7 +3,7 @@
 set -euo pipefail
 pid=$1
 echo "epoch,rss_mb,mem_free_pct"
-while kill -0 "$pid" 2>/dev/null; do
+while ps -p "$pid" >/dev/null 2>&1; do
   rss=$(ps -o rss= -p "$pid" | tr -d ' ')
   free=$(memory_pressure | awk -F': ' '/free percentage/ {gsub("%","",$2); print $2}')
   echo "$(date +%s),$((rss / 1024)),$free"
