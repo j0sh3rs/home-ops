@@ -135,3 +135,12 @@ def test_replay_one_truncated_stream_is_row_error(base_url):
 def test_replay_one_clean_stream_without_done_but_finished_is_ok(base_url):
     Fake.chunks = [CHUNKS[1]]
     assert replay.replay_one(base_url, None, replay.prepare({"messages": []}, "q"))["error"] is None
+
+
+def test_prepare_merges_extra_body_without_mutating():
+    extra = {"chat_template_kwargs": {"enable_thinking": False}, "model": "ignored"}
+    body = replay.prepare({"messages": [], "temperature": 0.0}, "qwen", extra)
+    assert body["chat_template_kwargs"] == {"enable_thinking": False}
+    assert body["model"] == "qwen" and body["temperature"] == 0.0 and body["stream"] is True
+    body["chat_template_kwargs"]["enable_thinking"] = True
+    assert extra["chat_template_kwargs"]["enable_thinking"] is False

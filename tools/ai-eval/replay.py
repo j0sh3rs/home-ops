@@ -23,8 +23,9 @@ import ha
 from corpus import assemble_sse_checked, load_records, production_output, record_id, sample
 
 
-def prepare(request, model):
+def prepare(request, model, extra=None):
     body = copy.deepcopy(request)
+    body.update(copy.deepcopy(extra or {}))
     body["model"] = model
     body["stream"] = True
     body["stream_options"] = {"include_usage": True}
@@ -95,10 +96,10 @@ def _jobs(args):
         template = ha.pick_template(records)
         for intent in ha.load_intents(args.ha_intents):
             body = ha.build_request(template, intent["utterance"])
-            yield intent["id"], body, None, prepare(body, args.model)
+            yield intent["id"], body, None, prepare(body, args.model, args.extra_body)
         return
     for rec in sample(records, args.limit, args.seed):
-        yield record_id(rec["request"]), rec["request"], production_output(rec), prepare(rec["request"], args.model)
+        yield record_id(rec["request"]), rec["request"], production_output(rec), prepare(rec["request"], args.model, args.extra_body)
 
 
 def main(argv=None):
@@ -113,6 +114,8 @@ def main(argv=None):
     p.add_argument("--limit", type=int, default=200)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--timeout", type=float, default=900)
+    p.add_argument("--extra-body", type=json.loads, default=None,
+                   help='JSON object merged into every request, e.g. \'{"chat_template_kwargs":{"enable_thinking":false}}\'')
     p.add_argument("--out", required=True)
     args = p.parse_args(argv)
 
