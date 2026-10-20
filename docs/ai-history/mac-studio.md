@@ -21,7 +21,7 @@ Replayed against production at c=5, 200 sampled requests, seed 1.
 How to read this:
 - `fact_recall_mean` here compares production with itself, so 0.675 is the run-to-run noise ceiling. A candidate at around 0.67 is matching production, not losing 33%.
 - `empty_rate` 0.095 means production returns no answer on almost 1 in 10 requests (probably the reasoning budget spent before any output). That's the bar to beat, not a harness fault.
-- p95 latency is 158s, over Omniroute's 120s `maxWaitMs` cap. This confirms why Hindsight bypasses Omniroute, and it's evidence for the gateway evaluation's "no cap below 600s" requirement.
+- p95 latency is 158s. ~~This is over Omniroute's 120s `maxWaitMs` cap.~~ The 2026-10-20 forced-length test refuted this: `maxWaitMs` doesn't cut generations (see Gateway evidence). The "no cap below 600s" requirement still stands.
 
 ### ha: GPT-5.5 baseline
 
@@ -37,6 +37,46 @@ Both are MLX 4-bit (`bits: 4, group_size: 64, mode: affine` in `config.json`). o
 |---|---|---|---|---|
 | Qwen3.6-35B-A3B | `lmstudio-community/Qwen3.6-35B-A3B-MLX-4bit` | `0c4a20a6437ae5985ddc9eb1a3f122ee6c151c3b` | 19G (4 shards) | `~/bakeoff/models/` |
 | Qwen3.8-27B | `lmstudio-community/Qwen3.8-27B-MLX-4bit` | unknown (downloaded by LM Studio, no HF metadata) | 15G (3 shards) | `~/.lmstudio/models/` |
+
+### Thinking mode (methodology, 2026-10-20)
+
+Qwen3.6/3.8 MLX builds think by default (oMLX reports `thinking_default: true`), and Hindsight's production requests carry no reasoning control. The first oMLX Qwen3.6-35B replay therefore benchmarked thinking. Across 51 requests at c=5, reasoning averaged about 15.7K characters per 2K-character answer (median), with latency p50 178 s, p95 283 s and max 1013 s. That pass was stopped and kept as `hindsight-omlx-q36-35b-think-c5-partial.jsonl`, outside git. All engine passes from here on send `chat_template_kwargs: {"enable_thinking": false}` via `replay.py --extra-body`, since Hindsight consumes only `content`. Labels end in `-nt`.
+
+### oMLX v0.7.0
+
+Speed benchmark: Qwen3.6-35B-A3B. Thinking on, which doesn't affect token rate. Cold load 6.2 s.
+
+| prefix | c | phase | ttft_ms p50 | decode tok/s p50 | aggregate tok/s | errors |
+|---|---|---|---|---|---|---|
+| 0 | 1 | cold | 376 | 171.2 | 171.2 | 0 |
+| 0 | 1 | warm | 72 | 170.7 | 170.7 | 0 |
+| 0 | 5 | cold | 377 | 94.4 | 465.1 | 0 |
+| 0 | 5 | warm | 140 | 96.6 | 483.9 | 0 |
+| 8192 | 1 | cold | 2499 | 154.4 | 154.4 | 0 |
+| 8192 | 1 | warm | 178 | 155.3 | 155.3 | 0 |
+| 8192 | 5 | cold | 7293 | 80.5 | 370.0 | 0 |
+| 8192 | 5 | warm | 497 | 69.1 | 344.1 | 0 |
+| 32768 | 1 | cold | 4079 | 139.1 | 139.1 | 0 |
+| 32768 | 1 | warm | 401 | 139.5 | 139.5 | 0 |
+| 32768 | 5 | cold | 22205 | 45.2 | 221.8 | 0 |
+| 32768 | 5 | warm | 1231 | 39.2 | 198.2 | 0 |
+
+Hindsight replay: Qwen3.6-35B-A3B, thinking off, c=5, 200 requests, seed 1. The production row is repeated for comparison.
+
+| run | n | error_rate | empty_rate | structured_valid_rate | tool_valid_rate | fact_recall_mean | ttft_ms_p50 | ttft_ms_p95 | latency_ms_p50 | latency_ms_p95 | decode_tps_median |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| prod gpt-oss-20b | 200 | 0.0 | 0.095 | 0.889 | 1.0 | 0.675 | 6486 | 36037 | 46325 | 157649 | 39.1 |
+| omlx-q36-35b-nt | 200 | 0.005 | 0.0 | 0.889 | 0.8 | 0.559 | 1447 | 7718 | 26284 | 66405 | 34.3 |
+
+`tool_valid_rate` 0.8 = 16 of 20 tool-offering requests, and all 4 failures had `tool_choice: required`:
+1. Prose answer, no call. The engine didn't enforce `required`.
+2. The one error: oMLX stream error "Model output contains an unrecoverable tool call".
+3. The correct call plus a call to a tool that wasn't offered.
+4. The call written as plain text (`search_observations(query=…)`), not parsed.
+
+Failures 1 and 4 come from how the engine enforces and parses tool calls. Comparing the same model on LM Studio/llmster separates engine from model. n=20 is small, so treat the gap as indicative.
+
+`fact_recall_mean` 0.559 against the 0.675 noise ceiling is a real but moderate content drift, and a model-bake-off question, not an engine one.
 
 ## Gateway evidence (2026-10-20)
 
