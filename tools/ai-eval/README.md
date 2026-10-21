@@ -44,6 +44,25 @@ safety net; never `git add -f` them.
 Use `--concurrency 1` for c=1 numbers and `--concurrency 5` for c=5. Run one
 engine at a time on an idle Mac (spec).
 
+## Bake-off on the Mac
+
+Engines are measured from the Mac against `127.0.0.1`, so nothing on trial
+needs exposing. Plan: `docs/superpowers/plans/2026-10-19-phase2-bakeoff.md`.
+
+    ssh -F ~/.claude/ssh/config mac-jms-01 'mkdir -p ~/bakeoff/ai-eval && chmod 700 ~/bakeoff'
+    tar -C tools/ai-eval --exclude=__pycache__ --exclude=results -cf - . | ssh -F ~/.claude/ssh/config mac-jms-01 'tar -C ~/bakeoff/ai-eval -xf -'
+
+Synthetic probe (cold vs cache-hit TTFT at fixed prefixes, decode at c=1/c=5;
+no vllm needed):
+
+    python3 prefix_bench.py --base-url http://127.0.0.1:<port>/v1 --model <model> \
+      --prefix-tokens 0,8192,32768 --concurrency 1,5 --label "<engine> <model>" \
+      --out results/bench-<label>.jsonl
+
+Peak memory: `./memsample.sh <engine pid> > results/mem-<label>.csv` during the
+run; peak is the max `rss_mb`. RSS can undercount Metal memory, so cross-check
+`mem_free_pct`.
+
 ## Synthetic load (`vllm bench serve`)
 
 For TTFT at fixed 0/8K/32K prefixes and concurrency sweeps, independent of
