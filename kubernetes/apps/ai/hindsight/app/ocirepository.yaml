@@ -11,5 +11,5 @@ spec:
     operation: copy
   ref:
     # renovate: datasource=docker depName=ghcr.io/vectorize-io/charts/hindsight
-    tag: 1.0.0
+    tag: 1.1.0
   url: oci://ghcr.io/vectorize-io/charts/hindsight
