@@ -365,6 +365,8 @@ Candidates, re-verified against HF for current MLX builds when the task runs: Qw
 
 ### Task 6: Gateway evaluation — does Omniroute stay?
 
+**Shelved 2026-10-21 by operator ruling: keep Omniroute.** Step 1's probes were run (ledger "Gateway evidence"); Steps 2–5 were not. Verdict and accepted limits: ledger "Gateway verdict".
+
 Independent of Tasks 4–5. It can run while engines download. It produces the "Gateway" section in `mac-studio.md` and a keep/replace recommendation.
 
 - [ ] **Step 1: Measure Omniroute against each requirement, using evidence rather than recollection** (read-only probes; no config changes):

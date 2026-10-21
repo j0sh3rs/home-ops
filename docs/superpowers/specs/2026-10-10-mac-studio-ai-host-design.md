@@ -39,8 +39,8 @@ every automated consumer.
   puts write replication on the etcd nodes; it gets its own design.
 - **Replacing HolyClaude with OpenClaw** (better macOS integration).
   Deferred until the hardware is in hand.
-- **Choosing the replacement AI gateway.** Phase 4 below sets its
-  requirements; the choice gets its own short spec.
+- **Choosing a replacement AI gateway.** Shelved 2026-10-21: Omniroute
+  stays (D9). Phase 4 below keeps the requirements as revisit triggers.
 
 ## Decisions
 
@@ -52,10 +52,10 @@ every automated consumer.
 | D4 | No LLM fallback when the Mac is down | Hindsight's queue absorbs outages; argus, atuin and HA fail (fast) until the Mac returns. Bees keep only what must survive Mac downtime and meets latency on bee hardware: faster-whisper and piper. |
 | D5 | Determinate Nix + nix-darwin, pull-based apply | Ansible rejected (not declarative). Pull model mirrors Flux. Serving-engine app settings may live outside nix. |
 | D6 | FileVault on; every service is a LaunchDaemon | Starts at boot without a login. Planned reboots via `fdesetup authrestart`; unplanned via Tahoe SSH pre-boot unlock. |
-| D7 | oMLX is the primary engine candidate | Only candidate that both replaces llama-swap's multi-model LRU/TTL/pinning and passed all three SiliconBench audit gates (performance, memory discipline, fidelity). Has per-key auth, embeddings and rerank. Gap: no Prometheus `/metrics`. |
+| D7 | oMLX is the foundation engine (confirmed by the Phase 2 bake-off, 2026-10-21) | Won on the simplicity tie-break among general engines within 15% (llmster, vllm-metal); Splash excluded as a foundation (two model families). Model picks: gpt-oss-20b (Hindsight), Qwen3.6-35B-A3B (agents, provisional), Qwen3-Coder-Next on demand. See `docs/ai-history/mac-studio.md`. Original rationale: only candidate that both replaces llama-swap's multi-model LRU/TTL/pinning and passed all three SiliconBench audit gates (performance, memory discipline, fidelity). Has per-key auth, embeddings and rerank. Gap: no Prometheus `/metrics`. |
 | D8 | Engine bake-off includes LM Studio, Splash and vllm-metal | Operator wants the best pick proven on the hardware, closed source or not. vllm-mlx dropped (failed SiliconBench fidelity and memory gates). |
-| D9 | Omniroute is the interim gateway, then replaced | Its reason to exist (cloud fallback for weak local hardware) disappears. Known limits: 120s request cap (Hindsight already bypasses it), keys/combos only in its DB, unreliable combo fallback (HolyClaude revert, 2026-09-26), lane isolation by convention only. |
-| D10 | A front door routes model names to engines | Lets a bake-off winner (Splash, vllm-metal) be added for one lane without touching consumers. Interim: Omniroute. Final: the Phase 4 gateway. |
+| D9 | Omniroute stays as the gateway (amended 2026-10-21; was "interim, then replaced") | It still exposes the Claude subscriptions (cliproxyapi) and OpenAI/Codex, and the 2026-10-20 probes refuted the 120s request cap (254s completed) and found unauthenticated `/v1/messages` fixed. Accepted limits: keys/combos only in its DB, no Prometheus metrics or per-key attribution, combos that mix Claude with local fallbacks. Hindsight keeps bypassing it. |
+| D10 | A front door routes model names to engines | Lets a bake-off winner (Splash, vllm-metal) be added for one lane without touching consumers. Omniroute, in-cluster, is the front door (amended 2026-10-21). |
 | D11 | HolyClaude moves to bee-03 as an accepted risk | It was pinned to bigboi to keep a privileged, cluster-admin pod off etcd nodes. With bigboi gone every node is control-plane. bee-03 has the most headroom. Revisit with the OpenClaw decision. |
 
 ## Architecture
@@ -64,7 +64,7 @@ every automated consumer.
 consumers (in-cluster on bees, and Mac localhost)
         │  one URL, one key per consumer
         ▼
-  gateway (interim: Omniroute; later: Phase 4 choice)
+  gateway (Omniroute, in-cluster)
         │
         ▼  mac-inference.ai.svc (selector-less Service + EndpointSlice)
   ┌──────────────── Mac Studio (macOS, nix-darwin) ────────────────┐
@@ -77,8 +77,8 @@ consumers (in-cluster on bees, and Mac localhost)
 Bees: all workloads + faster-whisper + piper
 ```
 
-Hindsight talks to the Mac directly (as it talks to llama-swap today)
-until the Phase 4 gateway has no request cap below 600s.
+Hindsight talks to the Mac directly (as it talks to llama-swap today),
+with `max_tokens` capped in its config to stop gpt-oss reasoning runaways.
 
 ### Mac configuration management
 
@@ -302,7 +302,11 @@ bee-03's BIOS UMA drops from 16GiB.
    argus policy contradiction disappears) and the root `CLAUDE.md`
    (AI stack, AMD GPU operator, per-node schematics).
 
-### Phase 4 — Gateway replacement (own spec)
+### Phase 4 — Gateway replacement (shelved 2026-10-21)
+
+Shelved: Omniroute stays (D9). The requirements below are kept as the
+bar a replacement must meet if a revisit trigger fires (see
+`docs/ai-history/mac-studio.md`, "Gateway verdict").
 
 Requirements: no request cap below 600s; routes in git; a key per
 consumer with usage attribution; Prometheus metrics; routing by model
