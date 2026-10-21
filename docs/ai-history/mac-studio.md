@@ -170,7 +170,7 @@ Hindsight replay, thinking off, with `--json-object-as text`:
 
 Lenient and strict grades are identical for LM Studio, since it produced no fences. Free memory never went below 43% (peak engine RSS 24 GB).
 
-Reading: LM Studio is more correct, with schema enforcement and no fences. Its synthetic throughput is also higher. On the real c=5 replay, though, its TTFT p50 is 5.8× oMLX's (8.4 s against 1.4 s) and its latency p50 is 18% worse. The likely cause is queueing behind a parallel-slot limit or weaker prefix reuse on long, varied Hindsight prompts. That has not been verified. Check LM Studio's max-concurrent-predictions setting before the llmster confirming run.
+Reading: LM Studio is more correct, with schema enforcement and no fences. Its synthetic throughput is also higher. On the real c=5 replay, though, its TTFT p50 is 5.8× oMLX's (8.4 s against 1.4 s) and its latency p50 is 18% worse. The model was loaded with Max Concurrent Predictions = 4, but a slot cap does not explain the gap. With 4 slots at c=5 most requests would start fast, leaving a long tail. Instead, the whole TTFT distribution shifts: p10/p50/p90 are 3.0/8.4/16.6 s against oMLX's 0.4/1.4/7.2 s. TTFT is also 4.4× worse at c=1 (0.78 s against 0.16 s), where no slot cap applies. The probable cause is weaker prefix-cache reuse on the shared Hindsight system prompts; the synthetic bench uses fresh prefixes, so it does not hit that path. That is an inference, not confirmed from engine logs. These Bionic runs used the `mlx-llm … nax-advsimd@1.13.1` runtime, which is Bionic's selection in `~/.lmstudio/apps/bionic/.internal/backend-preferences-v1.json`.
 
 #### LM Studio: Qwen3.8-27B (dense)
 
@@ -204,6 +204,32 @@ Hindsight replay with `--json-object-as text`:
 | omlx-q38-27b-nt c=1 | 50 | 0.0 | 0.938 | 1.0 | 0.55 | 583 | 20098 | 54572 | 43.6 |
 
 Memory failure: LM Studio has no memory guard. Free memory fell to 2% (64 samples at ≤5%), and requests 187–199 failed: 7 with HTTP 500 and 5 with stream error "The model has crashed without additional information". The model reloaded by itself, and the c=1 pass ran clean afterwards. oMLX's guard shed load earlier (from request ~102) but kept the process alive. So the dense 27B at c=5 over-commits memory on both engines. It is not a viable c=5 Hindsight model on a 96 GB host shared with other services unless its context or concurrency is capped.
+
+### llmster 0.0.25 (headless LM Studio, 2026-10-21)
+
+llmster is the production form of LM Studio (ruling R2). It runs as a daemon, shares `~/.lmstudio` (models, edited templates, runtimes) with Bionic, and loads with `lms load qwen3.6-35b-a3b-mlx -c 262144 --parallel 4 --gpu max -y` and serves with `lms server start -p 1235 --bind 127.0.0.1`. The model is Qwen3.6-35B-A3B, thinking off.
+
+Runtime pin: llmster picks the plain `mlx-llm-mac-arm64-apple-metal-advsimd@1.13.1` runtime by default, while Bionic's preferences select the `-nax-` build. The first llmster run used the plain runtime and lost badly on prefill (cold-32K TTFT 11.2 s against 4.5 s at c=1, 36 s against 15 s at c=5) and on the replay (TTFT p50 14.8 s, latency p50 43 s at c=5). Production must run `lms runtime select mlx-llm-mac-arm64-apple-metal-nax-advsimd@1.13.1` before loading. The numbers below are from the nax runtime.
+
+| prefix | c | phase | ttft_ms p50 | decode tok/s p50 | aggregate tok/s | errors |
+|---|---|---|---|---|---|---|
+| 0 | 1 | cold | 75 | 151.5 | 151.5 | 0 |
+| 0 | 5 | warm | 188 | 104.9 | 566.3 | 0 |
+| 8192 | 5 | cold | 3821 | 58.9 | 360.6 | 0 |
+| 8192 | 5 | warm | 429 | 69.4 | 413.2 | 0 |
+| 32768 | 1 | cold | 4498 | 125.0 | 125.0 | 0 |
+| 32768 | 5 | cold | 14888 | 18.7 | 185.5 | 0 |
+| 32768 | 5 | warm | 1169 | 42.6 | 275.4 | 0 |
+
+Hindsight replay with `--json-object-as text`:
+
+| run | n | error_rate | structured_valid_rate | tool_valid_rate | fact_recall_mean | ttft_ms_p50 | ttft_ms_p95 | latency_ms_p50 | latency_ms_p95 | decode_tps_median |
+|---|---|---|---|---|---|---|---|---|---|---|
+| llmster-nax c=5 | 200 | 0.0 | 1.0 | 0.9 | 0.555 | 8705 | 18504 | 29347 | 71744 | 36.2 |
+| llmster-plain c=5 | 200 | 0.0 | 0.994 | 0.9 | 0.557 | 14819 | 30736 | 43162 | 94046 | 28.9 |
+| llmster-nax c=1 | 50 | 0.0 | 1.0 | 1.0 | 0.531 | 775 | 4532 | 7150 | 12963 | 136.1 |
+
+The nax run is within noise of Bionic on every row. Free memory stayed at or above 47% (peak RSS 23.6 GB). Headless serving costs nothing, and the remaining gap to oMLX on replay TTFT (8.7 s against 1.4 s at c=5) belongs to LM Studio's engine, not to the app.
 
 ## Gateway evidence (2026-10-20)
 
