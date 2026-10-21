@@ -16,3 +16,15 @@ History moved verbatim from `kubernetes/apps/ai/CLAUDE.md` on 2026-09-25 (#710);
 - **Khoj** — operator has no notes habit; Khoj's Obsidian round-trip is its main lever and would be wasted. Stable line stalled at v0.2.0; no first-party Helm chart.
 - **vLLM** — needs ROCm gfx10+; APU performance is BW-bound, vLLM's compute wins don't materialize. Revisit only if/when an Instinct or large dGPU is added.
 - **Consolidating faster-whisper/piper onto llama-swap's audio.cpp/whisper.cpp/llama-tts (unified image)** — evaluated 2026-08-17, rejected. `llama-tts` has no `--host`/`--port` (one-shot CLI, not a server) — no TTS server candidate exists in the image at all, not even a mismatched one. `whisper-server` is a real server but same OpenAI-HTTP lineage as the already-rejected `fedirz/faster-whisper-server` — no Wyoming protocol, which HA Assist requires (see the faster-whisper bullet above for that original incident). Do not relitigate without a genuinely Wyoming-speaking option.
+
+## Mac Studio Phase 2 bake-off (2026-10-21)
+
+Evidence and tables: `docs/ai-history/mac-studio.md`.
+
+- **llmster / LM Studio as the foundation engine**: scored highest of the general engines (0.70 vs oMLX 0.64), but within the 15% simplicity band. Rejected because its runtime pin is manual user-account state that drifted silently in the first run, it has no metrics, and it is not nix-packaged.
+- **vllm-metal as the foundation engine**: within the band (0.62) but behind oMLX on simplicity (uv-pinned, not nix-packaged). Its native `/metrics` was its only edge.
+- **Splash as the foundation engine**: supports only a few Qwen families, so it cannot serve gpt-oss or Coder-Next. A Hindsight fast lane did not meet the 1.5× bar on the real replay, and the Hindsight pick (gpt-oss-20b) is not a Splash-supported model.
+- **gpt-oss-120b**: no recall gain over the 20b (0.566 vs 0.618), 2× the p50 latency, 59.6 GB resident.
+- **Qwen3.8-27B (dense)**: about 4× slower and tripped the memory guard at c=5.
+- **GLM-5.3 / GLM-5.3-Flash**: do not fit under the 80 GB budget at acceptable quality. Revisit with a ≥128 GB host or a smaller distilled GLM.
+- **Replacing Omniroute (Phase 4 gateway)**: not rejected on merit, shelved. Omniroute stays; Bifrost is the first candidate if a revisit trigger fires.
