@@ -135,7 +135,7 @@ spec:
             image:
               repository: apache/tika
               # renovate: datasource=docker depName=apache/tika
-              tag: 3.3.1.0
+              tag: 3.3.3.0
             resources:
               requests:
                 cpu: 100m
