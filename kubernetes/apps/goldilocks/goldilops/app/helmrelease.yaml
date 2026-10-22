@@ -1,0 +1,56 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: goldilocks
+  namespace: goldilocks
+spec:
+  interval: 30m
+  chartRef:
+    kind: HelmRepository
+    name: fairwinds-stable
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    # Controller creates VPAs for workloads in namespaces labeled with
+    # goldilocks.fairwinds.com/enabled=true. Use --on-by-default to
+    # create VPAs in all namespaces, excluding system ones.
+    controller:
+      enabled: true
+      flags:
+        - --on-by-default
+        - --exclude-namespaces=flux-system,kube-system,cert-manager,cilium-secrets,default,kube-node-lease,kube-public,not-used
+        - --ignore-controller-kind=Job,CronJob
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+
+    # Dashboard serves the Goldilocks UI on :8080. We expose it via an
+    # HTTPRoute on traefik-internal-gateway (same pattern as hindsight,
+    # flux-instance, etc.) so it's reachable internally at
+    # goldilocks.68cc.io behind Authentik forwardauth.
+    dashboard:
+      enabled: true
+      replicaCount: 1
+      service:
+        type: ClusterIP
+      ingress:
+        enabled: false  # We use an HTTPRoute instead (below)
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          memory: 128Mi

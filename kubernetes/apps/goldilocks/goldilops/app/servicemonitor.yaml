@@ -1,0 +1,13 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: goldilocks
+  namespace: goldilops
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: goldilocks
+  endpoints:
+    - port: http-metrics
+      interval: 30s
