@@ -41,6 +41,19 @@
       '/(^|/)kubernetes/.+\\.ya?ml$/',
     ],
   },
+  packageRules: [
+    {
+      // The engine's Python is pkgs.python312 in macos/modules/omlx.nix and
+      // uv.lock is resolved for 3.12. A requires-python bump alone breaks
+      // `uv sync --locked` and the engine stops (#799). Move the interpreter
+      // by hand: omlx.nix, pyproject.toml and `task mac:omlx-lock` together.
+      description: 'Never bump requires-python in the oMLX engine project',
+      matchManagers: ['pep621'],
+      matchFileNames: ['macos/engines/omlx/pyproject.toml'],
+      matchDepTypes: ['requires-python'],
+      enabled: false,
+    },
+  ],
   // macos/flake.lock. Branch-tracking inputs (nixpkgs-26.05-darwin) only
   // move via lock-file maintenance. Never automerged: merging deploys to the
   // Mac (see .renovate/autoMerge.json5).
