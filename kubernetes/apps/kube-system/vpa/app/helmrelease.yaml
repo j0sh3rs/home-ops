@@ -14,7 +14,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: vpa
-        namespace: flux-system
+        namespace: kube-system
   install:
     createNamespace: true
     crds: CreateReplace
