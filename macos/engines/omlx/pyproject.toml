@@ -1,14 +1,19 @@
 # uv project that pins the oMLX engine for the Mac Studio (macos/modules/omlx.nix).
-# Bump by PR only: change the tag, run `task mac:omlx-lock`, run the eval
-# replay (tools/ai-eval) before merging. Merging deploys.
+# Renovate's pep621 manager bumps the tag in [tool.uv.sources] and regenerates
+# uv.lock itself. Run the eval replay (tools/ai-eval) before merging: merging
+# deploys. The tag must stay in [tool.uv.sources]: a PEP 508 `@ git+...@tag`
+# URL is invisible to pep621, which then leaves uv.lock stale (#785).
 [project]
 name = "home-ops-omlx"
 version = "0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "omlx @ git+https://github.com/jundot/omlx@v0.7.1",
+  "omlx",
 ]
 
 [tool.uv]
 package = false
 environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
+
+[tool.uv.sources]
+omlx = { git = "https://github.com/jundot/omlx", tag = "v0.7.1" }

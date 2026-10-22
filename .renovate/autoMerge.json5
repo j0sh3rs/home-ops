@@ -60,15 +60,9 @@
       automerge: false,
     },
     {
-      description: "macos/: merging deploys to the Mac via the pull loop, and engine bumps need an eval replay (spec: Failure handling) — never auto-merge; pep621 is off because oMLX is a git dep handled by the custom manager",
+      description: "macos/: merging deploys to the Mac via the pull loop, and engine bumps need an eval replay (spec: Failure handling) — never auto-merge. pep621 bumps oMLX's [tool.uv.sources] tag and regenerates uv.lock itself",
       matchFileNames: ["macos/**"],
       automerge: false,
-    },
-    {
-      description: "macos/engines: uv.lock for a git dependency can't be maintained by Renovate",
-      matchFileNames: ["macos/engines/**"],
-      matchManagers: ["pep621"],
-      enabled: false,
     },
   ],
 }

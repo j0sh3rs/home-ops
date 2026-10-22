@@ -318,7 +318,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "omlx", git = "https://github.com/jundot/omlx?rev=v0.7.1" }]
+requires-dist = [{ name = "omlx", git = "https://github.com/jundot/omlx?tag=v0.7.1" }]
 
 [[package]]
 name = "httpcore"
@@ -703,7 +703,7 @@ wheels = [
 [[package]]
 name = "omlx"
 version = "0.7.1"
-source = { git = "https://github.com/jundot/omlx?rev=v0.7.1#bd1e9b112474862ebed550a9c83b4316038a1d74" }
+source = { git = "https://github.com/jundot/omlx?tag=v0.7.1#bd1e9b112474862ebed550a9c83b4316038a1d74" }
 dependencies = [
     { name = "cohere-melody" },
     { name = "ddgs" },

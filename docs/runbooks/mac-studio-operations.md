@@ -118,8 +118,15 @@ clears on the next successful loop run.
 
 ## Engine (oMLX) upgrade
 
-1. Bump the tag in `macos/engines/omlx/pyproject.toml` (Renovate opens this PR).
-2. `task mac:omlx-lock`, commit `uv.lock` to the PR branch.
+1. Renovate's pep621 manager opens the PR. It bumps the `tag` under
+   `[tool.uv.sources]` in `macos/engines/omlx/pyproject.toml` and regenerates
+   `uv.lock` in the same commit (`uv lock --upgrade-package omlx`). Keep the
+   pin in `[tool.uv.sources]`: a `omlx @ git+...@tag` URL in `dependencies` is
+   invisible to pep621, and a tag bump without a matching lock stops the
+   daemon (`uv sync --locked` refuses to start, #785).
+2. "Build darwin closure" must pass. A failure there on an engine bump is a
+   blocker, not noise. For a manual bump, `task mac:omlx-lock` regenerates
+   the lock on the Mac.
 3. Run the eval replay against the new build before merging (spec: every
    engine/model bump re-runs the replay as a regression gate).
 
