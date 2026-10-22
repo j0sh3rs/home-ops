@@ -63,10 +63,15 @@ with open(port_path, "w") as f:
 srv.serve_forever()
 EOF
 
-python3 "$work/stub.py" "$work/requests.log" "$work/port" &
+python3 "$work/stub.py" "$work/requests.log" "$work/port" 2> "$work/stub.err" &
 server_pid=$!
-for _ in $(seq 1 50); do [ -s "$work/port" ] && break; sleep 0.1; done
-[ -s "$work/port" ] || { echo "FAIL: stub server did not start"; exit 1; }
+# Python's first start on a fresh macOS runner can take several seconds.
+for _ in $(seq 1 600); do
+  [ -s "$work/port" ] && break
+  kill -0 "$server_pid" 2>/dev/null || break
+  sleep 0.1
+done
+[ -s "$work/port" ] || { echo "FAIL: stub server did not start"; cat "$work/stub.err"; exit 1; }
 
 export OMLX_BASE_URL="http://127.0.0.1:$(cat "$work/port")"
 export OMLX_LOGIN_ATTEMPTS=2
