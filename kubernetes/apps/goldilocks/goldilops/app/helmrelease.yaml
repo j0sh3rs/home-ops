@@ -6,9 +6,13 @@ metadata:
   namespace: goldilocks
 spec:
   interval: 30m
-  chartRef:
-    kind: HelmRepository
-    name: fairwinds-stable
+  chart:
+    spec:
+      chart: goldilocks
+      version: "11.2.0"
+      sourceRef:
+        kind: HelmRepository
+        name: fairwinds-stable
   install:
     crds: CreateReplace
     remediation:
