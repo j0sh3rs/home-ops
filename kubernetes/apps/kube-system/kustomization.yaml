@@ -23,3 +23,4 @@ resources:
   - ./talos-backups/ks.yaml
   - ./talos-etcd-defrag/ks.yaml
   - ./tetragon/ks.yaml
+  - ./vpa/ks.yaml

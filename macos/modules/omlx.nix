@@ -30,6 +30,12 @@ let
       is_pinned = true;
       max_tokens = 16384;
       enable_thinking = false;
+      # Qwen's non-thinking sampling. presence_penalty breaks the identical
+      # tool-call loops seen past ~120K context with oMLX's default of 0.
+      temperature = 0.7;
+      top_p = 0.8;
+      top_k = 20;
+      presence_penalty = 1.5;
     };
     "Qwen3-Coder-Next-MLX-4bit" = {
       model_alias = "coder";
