@@ -153,6 +153,32 @@ consumer's cluster Secret.
   restart: `sudo launchctl kickstart -k system/org.nixos.omlx`.
   The exporter re-reads it every scrape.
 
+## Model settings (aliases, pins, max_tokens)
+
+`omlxModelSettings` in `macos/modules/omlx.nix` is the source of truth. The
+`org.nixos.omlx-model-settings` daemon (every 10 minutes, and at load) PUTs
+each entry to `/admin/api/models/<dir>/settings` and loads the pinned ones.
+Changes made in the admin UI are reverted on the next run, so edit nix.
+Log: `/var/log/home-ops/omlx-model-settings.log`.
+
+| Directory | Alias | Mode |
+|---|---|---|
+| `gpt-oss-20b-MXFP4-Q8` | `reasoner` | pinned |
+| `Qwen3.6-35B-A3B-MLX-4bit` | `agent` (thinking off) | pinned |
+| `Qwen3-Coder-Next-MLX-4bit` | `coder` | on demand, 30 min TTL |
+
+- **Add or swap a model:** copy it into `/opt/ai/models.noindex/` as
+  `_omlx` (APFS clone, `cp -c`), then add or edit its entry and merge. To
+  move an alias to a new model, remove it from the old entry in the same
+  change. oMLX rejects an alias that another model still holds (http 400 in
+  the log). Each alias has to be unique and must not match a directory name.
+- **max_tokens** is only the default for requests that send none.
+  Consumers that send their own limit keep it.
+- **Unpin:** set `is_pinned = false` and merge. The model stays loaded
+  until the TTL or memory pressure evicts it. To free the memory now, use
+  `POST /admin/api/models/<dir>/unload` or the admin UI.
+- **Apply now:** `sudo launchctl kickstart -k system/org.nixos.omlx-model-settings`.
+
 ## Mac IP change
 
 Two places: `macos/hosts/mac-jms-01/facts.nix` and the EndpointSlice in
