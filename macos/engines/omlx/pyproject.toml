@@ -6,7 +6,10 @@
 [project]
 name = "home-ops-omlx"
 version = "0"
-requires-python = ">=3.15,<3.16"
+# Pinned to the interpreter omlx.nix runs (pkgs.python312) and uv.lock was
+# resolved for. Renovate must not bump it (#799 did: `uv sync --locked`
+# then refused to start the engine); see the packageRule in renovate.json5.
+requires-python = ">=3.12,<3.13"
 dependencies = [
   "omlx",
 ]
