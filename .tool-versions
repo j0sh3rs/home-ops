@@ -1,5 +1,5 @@
 kubectl    1.37.1
-python     3.15.0
+python     3.15.1
 kubectx    latest
 kubens     latest
 gh         latest
