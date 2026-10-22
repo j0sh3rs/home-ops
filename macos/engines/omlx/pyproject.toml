@@ -16,4 +16,4 @@ package = false
 environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [tool.uv.sources]
-omlx = { git = "https://github.com/jundot/omlx", tag = "v0.7.1" }
+omlx = { git = "https://github.com/jundot/omlx", tag = "v0.7.2" }

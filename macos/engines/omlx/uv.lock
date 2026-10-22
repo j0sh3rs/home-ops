@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.12.*"
 resolution-markers = [
     "platform_machine == 'arm64' and sys_platform == 'darwin'",
@@ -318,7 +318,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "omlx", git = "https://github.com/jundot/omlx?tag=v0.7.1" }]
+requires-dist = [{ name = "omlx", git = "https://github.com/jundot/omlx?tag=v0.7.2" }]
 
 [[package]]
 name = "httpcore"
@@ -702,8 +702,8 @@ wheels = [
 
 [[package]]
 name = "omlx"
-version = "0.7.1"
-source = { git = "https://github.com/jundot/omlx?tag=v0.7.1#bd1e9b112474862ebed550a9c83b4316038a1d74" }
+version = "0.7.2"
+source = { git = "https://github.com/jundot/omlx?tag=v0.7.2#23b671f64f0a64f532e38d692a6c480ea704418d" }
 dependencies = [
     { name = "cohere-melody" },
     { name = "ddgs" },
