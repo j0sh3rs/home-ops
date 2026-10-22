@@ -6,5 +6,5 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
-  url: https://kubernetes-sigs.github.io/vertical-pod-autoscaler
+  url: https://kubernetes-sigs.github.io/autoscaler
   timeout: 3m
