@@ -41,6 +41,7 @@ jobs:
       - name: Unit tests
         run: |
           if [ -f macos/scripts/test-home-ops-pull.sh ]; then bash macos/scripts/test-home-ops-pull.sh; fi
+          if [ -f macos/scripts/test-omlx-model-settings.sh ]; then bash macos/scripts/test-omlx-model-settings.sh; fi
           if [ -d macos/pkgs/omlx-exporter ]; then python3 -m unittest discover -s macos/pkgs/omlx-exporter -v; fi
 
       - name: Check uv lock is current

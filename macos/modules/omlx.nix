@@ -9,7 +9,35 @@ let
   mainKey = config.sops.secrets."omlx/main-key".path;
   # One entry per consumer. Each needs omlx/sub-keys/<name> in
   # secrets/mac-jms-01.sops.yaml and a matching cluster Secret.
-  omlxSubKeyNames = [ "gatus" ];
+  omlxSubKeyNames = [ "gatus" "hindsight" "omniroute" ];
+
+  # Per-model settings, keyed by directory name in /opt/ai/models.noindex.
+  # Roles and the 16K cap come from the Phase 2 bake-off
+  # (docs/ai-history/mac-studio.md): the aliases are the stable names
+  # consumers use, so a model swap is a one-line change here. max_tokens is
+  # the default when a request sends none; it bounds runaway reasoning (3.3%
+  # of soak requests ran to the 32K global default). Pinned models stay
+  # loaded (about 31 GB together); the coder loads on demand and unloads
+  # after 30 idle minutes.
+  omlxModelSettings = {
+    "gpt-oss-20b-MXFP4-Q8" = {
+      model_alias = "reasoner";
+      is_pinned = true;
+      max_tokens = 16384;
+    };
+    "Qwen3.6-35B-A3B-MLX-4bit" = {
+      model_alias = "agent";
+      is_pinned = true;
+      max_tokens = 16384;
+      enable_thinking = false;
+    };
+    "Qwen3-Coder-Next-MLX-4bit" = {
+      model_alias = "coder";
+      is_pinned = false;
+      ttl_seconds = 1800;
+      max_tokens = 16384;
+    };
+  };
 
   env = ''
     export HOME=${root}/home
@@ -41,6 +69,13 @@ let
     runtimeInputs = with pkgs; [ coreutils curl jq perl ];
     text = builtins.readFile ../scripts/omlx-sub-keys.sh;
   };
+
+  modelSettings = pkgs.writeShellApplication {
+    name = "omlx-model-settings";
+    runtimeInputs = with pkgs; [ coreutils curl jq ];
+    text = builtins.readFile ../scripts/omlx-model-settings.sh;
+  };
+  modelSettingsFile = pkgs.writeText "omlx-model-settings.json" (builtins.toJSON omlxModelSettings);
 in
 {
   users.knownUsers = [ "_omlx" ];
@@ -71,7 +106,7 @@ in
   system.activationScripts.preActivation.text = ''
     install -d -m 0755 -o root -g wheel /opt/ai /var/log/home-ops
     install -d -m 0750 -o ${toString uid} -g ${toString uid} ${root} ${root}/home /opt/ai/models.noindex /opt/ai/kv-cache.noindex
-    for f in omlx omlx-sub-keys; do
+    for f in omlx omlx-sub-keys omlx-model-settings; do
       touch /var/log/home-ops/$f.log
       chown ${toString uid}:${toString uid} /var/log/home-ops/$f.log
     done
@@ -104,5 +139,15 @@ in
     StartInterval = 600;
     StandardOutPath = "/var/log/home-ops/omlx-sub-keys.log";
     StandardErrorPath = "/var/log/home-ops/omlx-sub-keys.log";
+  };
+
+  launchd.daemons.omlx-model-settings.serviceConfig = {
+    ProgramArguments = [ "${modelSettings}/bin/omlx-model-settings" mainKey "${modelSettingsFile}" ];
+    UserName = "_omlx";
+    GroupName = "_omlx";
+    RunAtLoad = true;
+    StartInterval = 600;
+    StandardOutPath = "/var/log/home-ops/omlx-model-settings.log";
+    StandardErrorPath = "/var/log/home-ops/omlx-model-settings.log";
   };
 }
