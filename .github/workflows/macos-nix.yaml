@@ -60,20 +60,59 @@ jobs:
             nix build /tmp/macos-base/macos#darwinConfigurations.mac-jms-01.system --out-link result-base
           fi
 
+      # diff-closures only reports version changes and >8 KiB size deltas, so
+      # config-only PRs (etc files, launchd plists) render empty on their own.
+      # Also list the rebuilt store paths and diff the files nix-darwin
+      # installs, truncated to stay under GitHub's 65536-char comment limit.
       - name: Diff closures
         if: ${{ github.event_name == 'pull_request' }}
         run: |
+          strip() { sed -E 's#^/nix/store/[a-z0-9]{32}-##' | sort -u; }
+          section() {
+            local title="$1" lang="$2" file="$3" lines
+            lines=$(wc -l < "$file" | tr -d ' ')
+            echo "<details><summary>${title} (${lines} lines)</summary>"
+            echo ''
+            echo "\`\`\`${lang}"
+            head -n 400 "$file" | cut -c1-300
+            if [ "$lines" -gt 400 ]; then echo "... truncated, $((lines - 400)) more lines"; fi
+            echo '```'
+            echo '</details>'
+            echo ''
+          }
           {
             echo '## macOS closure diff'
             echo ''
-            if [ -e result-base ]; then
-              echo '```'
-              nix store diff-closures ./result-base ./result-head || true
-              echo '```'
-            else
+            if [ ! -e result-base ]; then
               echo '_No base closure: first PR that adds macos/._'
+            elif [ "$(readlink result-base)" = "$(readlink result-head)" ]; then
+              echo '_Closure unchanged: head builds the same system as base._'
+            else
+              nix store diff-closures ./result-base ./result-head > versions.txt 2>&1 || true
+              nix path-info -r ./result-base | sort > base-paths.txt
+              nix path-info -r ./result-head | sort > head-paths.txt
+              comm -13 base-paths.txt head-paths.txt | strip > added.txt
+              comm -23 base-paths.txt head-paths.txt | strip > removed.txt
+              : > files.txt
+              for d in etc Library/LaunchDaemons Library/LaunchAgents; do
+                if [ -e "result-base/$d" ] || [ -e "result-head/$d" ]; then
+                  nix shell nixpkgs#diffutils -c diff -ruN "result-base/$d" "result-head/$d" >> files.txt || true
+                fi
+              done
+              echo "Store paths: **$(wc -l < added.txt | tr -d ' ')** new or rebuilt, **$(wc -l < removed.txt | tr -d ' ')** gone."
+              echo ''
+              if [ -s versions.txt ]; then
+                section 'Package versions and sizes' '' versions.txt
+              else
+                echo '_No package version or size changes (config-only)._'
+                echo ''
+              fi
+              if [ -s files.txt ]; then section 'Changed files (etc, launchd)' diff files.txt; fi
+              section 'New or rebuilt store paths' '' added.txt
+              if [ -s removed.txt ]; then section 'Removed store paths' '' removed.txt; fi
             fi
           } > comment.md
+          cat comment.md
 
       - name: Comment on PR
         if: ${{ github.event_name == 'pull_request' }}
