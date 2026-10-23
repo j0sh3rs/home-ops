@@ -17,6 +17,6 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  skipDryRun: true
+  force: true
   timeout: 5m
   wait: false
