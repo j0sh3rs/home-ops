@@ -18,5 +18,27 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
+  timeout: 10m
+  # Install the operator and its CRDs before applying DeviceConfig resources.
+  wait: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: amd-gpu-deviceconfigs
+  namespace: kube-system
+spec:
+  dependsOn:
+    - name: amd-gpu
+      namespace: kube-system
+  interval: 1h
+  path: ./kubernetes/apps/kube-system/amd-gpu/deviceconfigs
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: kube-system
   timeout: 5m
   wait: false

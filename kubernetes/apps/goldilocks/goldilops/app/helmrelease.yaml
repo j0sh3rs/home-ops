@@ -31,9 +31,9 @@ spec:
     controller:
       enabled: true
       flags:
-        - --on-by-default
-        - --exclude-namespaces=flux-system,kube-system,cert-manager,cilium-secrets,default,kube-node-lease,kube-public,not-used
-        - --ignore-controller-kind=Job,CronJob
+        on-by-default: true
+        exclude-namespaces: flux-system,kube-system,cert-manager,cilium-secrets,default,kube-node-lease,kube-public,not-used
+        ignore-controller-kind: Job,CronJob
       resources:
         requests:
           cpu: 50m

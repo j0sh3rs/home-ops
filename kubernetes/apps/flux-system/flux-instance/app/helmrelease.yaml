@@ -14,6 +14,9 @@ spec:
   url: oci://ghcr.io/controlplaneio-fluxcd/charts/flux-instance
   verify:
     provider: cosign
+    matchOIDCIdentity:
+      - issuer: '^https://token\.actions\.githubusercontent\.com$'
+        subject: '^https://github\.com/controlplaneio-fluxcd/charts/\.github/workflows/release\.yml@refs/tags/.*$'
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
@@ -21,6 +24,8 @@ kind: HelmRelease
 metadata:
   name: flux-instance
 spec:
+  # Adopt the existing recovery Helm release without uninstalling Flux.
+  releaseName: flux
   interval: 1h
   chartRef:
     kind: OCIRepository
