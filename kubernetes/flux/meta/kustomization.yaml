@@ -5,4 +5,3 @@ kind: Kustomization
 resources:
   - ./repos
   - ./goldilops-namespace/ks.yaml
-  - ./goldilops-routing/ks.yaml
