@@ -11,6 +11,8 @@ spec:
   dependsOn:
     - name: goldilops-namespace
       namespace: flux-system
+    - name: goldilops
+      namespace: flux-system
   interval: 1h
   path: ./kubernetes/flux/goldilops-routing/app
   prune: true
