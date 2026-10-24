@@ -19,6 +19,10 @@ Recovery uses the Barman Cloud plugin and PostgreSQL 18.4 image already pinned i
 
 The restored cluster reached two ready instances on timeline 24, with the original system ID. Its databases include `atuin`, `authentik`, `crowdsec`, `gatus`, `hindsight`, `homeassistant`, `linkwarden`, `memos`, `n8n`, `paperless`, and `vikunja`.
 
+Continuous WAL archiving into `postgres18-v2` was verified. The first new base backup, Kubernetes Backup `postgres18-v2-recovery-20261023`, completed at `2026-10-23T23:46:08Z` with Barman backup ID `20261023T234441` on timeline 24. Scheduled backups were resumed.
+
+During reconciliation, server-side apply retained the empty replacement's `bootstrap.initdb` alongside `bootstrap.recovery`, which the CNPG webhook correctly rejected. A one-time JSON patch replaced the entire live `spec.bootstrap` with the checked-in recovery configuration; the restored data was already initialized and was not bootstrapped again.
+
 For a future disaster, inspect the newest backup and WAL in the current archive and advance the archive generation again. The checked-in bootstrap records this recovery; do not reuse its historical backup blindly for a later incident. Never bypass the empty-WAL-archive check or write a recovered cluster into its source archive.
 
 ## Reconciliation repair
@@ -33,9 +37,12 @@ For a future disaster, inspect the newest backup and WAL in the current archive 
 
 Additional bootstrap fixes split the AMD operator from its DeviceConfigs, correct Goldilocks flags from a list to a map, and configure the Flux chart publisher's Cosign identity. The FluxInstance HelmRelease adopts the existing `flux` Helm release, matching bootstrap, without uninstalling the operator-managed instance.
 
+Dragonfly operator v1.7.0 removed its managed NetworkPolicy. The remaining client and monitoring policies isolated the cache from its own operator, preventing master election and leaving the client Service without endpoints. An explicit policy now permits same-namespace operator administration on port 9999 and peer administration/replication on ports 9999/6379. The cache pod was restarted to reload its repaired password Secret. CrowdSec's stale database initialization job was also recreated after credential repair.
+
 ## References
 
 - https://cloudnative-pg.io/docs/devel/recovery/
 - https://cloudnative-pg.io/plugin-barman-cloud/docs/usage/
 - https://fluxcd.io/flux/components/kustomize/kustomizations/
 - https://fluxcd.io/flux/components/source/ocirepositories/
+- https://github.com/dragonflydb/dragonfly-operator/releases/tag/v1.7.0

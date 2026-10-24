@@ -144,13 +144,46 @@ spec:
       interval: 30s
       scrapeTimeout: 10s
 ---
-# The dragonfly operator auto-creates a NetworkPolicy that locks down
-# the admin port (9999) to operator + peer pods only. That blocks
-# vmagent from scraping /metrics. We keep the operator's policy intact
-# (lockdown on 9999 from arbitrary tenants is a feature) and add this
-# sibling policy to additively allow monitoring/vmagent → 9999.
-# Multiple ingress NetworkPolicies are additive, so this unions cleanly
-# with the operator-managed one.
+# Explicitly allow operator administration and peer replication. The Helm
+# operator v1.7.0 removed its automatically managed NetworkPolicy.
+# The other ingress policies below isolate these pods, so omitting this
+# access prevents master election and leaves the client Service empty.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dragonflydb-allow-operator-and-peers
+  namespace: databases
+spec:
+  podSelector:
+    matchLabels:
+      app: dragonflydb
+      app.kubernetes.io/name: dragonfly
+      app.kubernetes.io/part-of: dragonfly
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: dragonfly-operator
+              app.kubernetes.io/instance: dragonfly-operator
+      ports:
+        - port: 9999
+          protocol: TCP
+    - from:
+        - podSelector:
+            matchLabels:
+              app: dragonflydb
+              app.kubernetes.io/name: dragonfly
+              app.kubernetes.io/part-of: dragonfly
+      ports:
+        - port: 9999
+          protocol: TCP
+        - port: 6379
+          protocol: TCP
+---
+# Additively allow monitoring/vmagent to scrape the admin port. Other
+# tenants do not receive access to its unauthenticated admin commands.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -179,15 +212,8 @@ spec:
         - port: 9999
           protocol: TCP
 ---
-# The operator's auto-created NetworkPolicy only allows port 6379 (RESP)
-# from pods in the `databases` namespace (`podSelector: {}`, no
-# namespaceSelector). But our Redis clients live in OTHER namespaces:
-# `services` (paperless db2). When the operator deletes+recreates the
-# Dragonfly instance (e.g. on a VolumeClaimTemplates change) it re-applies
-# that lockdown, severing every cross-namespace client — a client then
-# blocks on Redis connect during startup and crashloops past its probe
-# budget. NetworkPolicies are additive, so this sibling policy unions with
-# the operator's to allow cross-namespace clients on 6379.
+# Allow Redis clients in `services` (Paperless DB 2) and `ai` (Omniroute
+# DB 1) to reach the client port. NetworkPolicies are additive.
 #
 # `ai` namespace access was removed 2026-08-16 (memini, its only client
 # there, was archived) — re-added 2026-08-17 for Omniroute (DB 1,
