@@ -51,7 +51,7 @@ spec:
       service:
         type: ClusterIP
       ingress:
-        enabled: false  # We use an HTTPRoute instead (below)
+        enabled: false  # Routed by httproute.yaml through Authentik.
       resources:
         requests:
           cpu: 25m
