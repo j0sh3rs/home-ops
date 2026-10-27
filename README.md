@@ -190,6 +190,23 @@ The cluster runs a fully self-hosted AI stack. All clients speak to **Omniroute*
 | [MCPJungle](https://github.com/mcpjungle/mcpjungle) | MCP server registry and proxy |
 | [Omega MCP](https://github.com/omega-memory/omega-mcp) | Persistent cross-session memory for AI agents |
 
+#### Mac Studio coding models — October 2026
+
+The 96 GiB M5 Ultra Mac Studio was evaluated on oMLX 0.7.2 using twelve independently graded synthetic coding tasks, split evenly between infrastructure and general coding. Results below are task attempts across repeated seeds; mean times include failures, tool use, and grading. **Qwen3.8-27B oQ8e is the quality default** because it achieved the highest verified success rate. **Qwen3.6-35B-A3B four-bit is the fast option**, completing attempts in roughly half the time with lower accuracy. On matched seeds, oQ8e passed 20/24 versus 17/24 for the corrected-template four-bit Qwen3.8 configuration.
+
+| Model / configuration | Passed attempts | Mean attempt time | Selection rationale |
+|---|---:|---:|---|
+| **Qwen3.8-27B oQ8e, daily thinking** | **30/36 (83%)** | **31.4 s** | **Default: `local-quality`**; strongest measured coding accuracy |
+| **Qwen3.6-35B-A3B four-bit, daily thinking** | **12/24 (50%)** | **16.3 s** | **Fast option: `local-fast`**; quicker edits with an accuracy tradeoff |
+| Qwen3.8-27B four-bit, corrected thinking template | 17/24 (71%) | 81.1 s | Less accurate and slower than oQ8e on matched seeds |
+| Qwen3.8-27B oQ8e, deep thinking | 20/24 (83%) | 96.9 s | No matched-seed accuracy gain; excluded after managed swap-guard failure |
+| Qwen3-Coder-Next four-bit | 4/12 (33%) | 18.9 s | Lower verified coding accuracy |
+| GPT-OSS-120B MXFP4-Q8 | 4/12 (33%) | 33.3 s | Larger checkpoint provided no quality advantage in this suite |
+| Devstral Small 2 four-bit | 2/12 (17%) | 66.2 s | Lower accuracy and longer attempts |
+| GPT-OSS-20B MXFP4-Q8 | 0/12 (0%) | 3.4 s (early failures) | Tool-workflow failures in this stack; not a general capability verdict |
+
+Aliases shown are for the direct oMLX API. Both selected daily presets enforce native thinking with a **1536-token budget per turn**, a **6144-token completion allowance including reasoning**, and a **32768-token total context window**; they passed **20/20 managed tool/context checks**. The 4096-token deep preset tied daily on matched seeds (20/24 each), took longer, and triggered the managed memory guard with approximately 3.26 GiB of new system swapouts, so it is not published. MTP remains disabled. These are configuration comparisons and sequential text-request checks, not production accuracy or concurrency guarantees. Detailed results, checkpoint hashes, and rollback instructions are retained on the Mac in `~/local-llm-lab/`.
+
 ### Services (`services`)
 
 | Application | Purpose |
