@@ -28,46 +28,26 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    # Recommender analyzes usage and writes resource recommendations to VPA
-    # CRs. In "Off" mode it only recommends requests and limits without
-    # applying them. Switch to "Update" (with InPlace strategy) after
-    # reviewing recommendations for 2+ weeks to confirm limits are safe.
+    # Goldilocks creates VPAs in Off mode. Keep recommendations advisory
+    # until at least two weeks of representative usage have been reviewed.
     recommender:
       enabled: true
-      args:
-        - --cert-dir=/tls
-        - --policy-file=/etc/vpa/policies.yaml
-        - --refresh=1m
-        - --min-recommended-cpu=25m
-        - --min-recommended-memory=32Mi
-        - --resource-policy-file=/etc/vpa/resource-policies.yaml
-      env: []
-      # No securityContext overrides needed. Chart defaults are enough.
+      # Avoid the default 250Mi recommendation floor masking small workloads.
+      # These are recommendation floors, not resource limits.
+      extraArgs:
+        - --pod-recommendation-min-cpu-millicores=25
+        - --pod-recommendation-min-memory-mb=32
+        - --recommender-interval=1m
 
-    # Updater rewrites deployed resources to apply VPA recommendations.
-    # In "Off" mode (updateMode: "Off") it does nothing. Recommendations
-    # are purely advisory. Change to "Update" with InPlace strategy after
-    # validation.
+    # The updater does not resize or evict workloads whose VPA is Off.
+    # Pilot InPlaceOrRecreate per workload after review; it can fall back
+    # to eviction. Retain disruption checks during that pilot.
     updater:
       enabled: true
+      extraArgs:
+        - --in-place-skip-disruption-budget=false
 
-    # Admission Controller injects VPA pod-replacements-strategy annotations
-    # and handles pod replacement when recommendations change in "Update"
-    # mode. We enable it alongside recommender and updater for full
-    # functionality.
+    # Admission mutation is also controlled by each VPA's updatePolicy.
     admissionController:
       enabled: true
       replicas: 2
-      args: []
-
-    # VerticalPodAutoscaler CRD. The chart installs it as part of the
-    # admission controller deployment. We set updateMode: "Off" as the
-    # cluster default so recommendations are advisory until reviewed.
-    # To override per-workload, label the deployment with:
-    #   verticalpodautoscaler.autoscaling/vpaUpdates: "Update"
-    #
-    # Or label it:
-    #   autoscaling.kubernetes.io/pod-replacements-strategy: "none"
-    # to lock limits and keep the workload out of VPA entirely.
-    api:
-      enabled: true

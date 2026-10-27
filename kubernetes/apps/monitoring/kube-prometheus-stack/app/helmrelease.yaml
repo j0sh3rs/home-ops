@@ -9,6 +9,28 @@ spec:
     kind: OCIRepository
     name: kube-prometheus-stack
   interval: 1h
+  # Prometheus is disabled, so its token Secret does not exist. Authenticate
+  # kubelet scrapes with the scraping vmagent's rotating, mounted SA token.
+  # Chart 91.9.0 exposes only Secret-based authorization for these endpoints;
+  # patch the ServiceMonitor's supported bearerTokenFile field instead.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              group: monitoring.coreos.com
+              version: v1
+              kind: ServiceMonitor
+              name: prometheus-kubelet
+            patch: |-
+              - op: add
+                path: /spec/endpoints/0/bearerTokenFile
+                value: /var/run/secrets/kubernetes.io/serviceaccount/token
+              - op: add
+                path: /spec/endpoints/1/bearerTokenFile
+                value: /var/run/secrets/kubernetes.io/serviceaccount/token
+              - op: add
+                path: /spec/endpoints/2/bearerTokenFile
+                value: /var/run/secrets/kubernetes.io/serviceaccount/token
   values:
     crds:
       enabled: true
@@ -48,8 +70,8 @@ spec:
                   storage: 1Gi
     # prometheus.enabled: false means the chart never creates the Secret these
     # control-plane ServiceMonitors default to authenticating with
-    # (prometheus.serviceAccount.createTokenSecret) - scrape unauthenticated
-    # instead of pointing at a Secret that will never exist.
+    # (prometheus.serviceAccount.createTokenSecret). Clear those references;
+    # kubelet requires authentication, supplied by the postRenderer above.
     kubeApiServer:
       serviceMonitor:
         authorization: null

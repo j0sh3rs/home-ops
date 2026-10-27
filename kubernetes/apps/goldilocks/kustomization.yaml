@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: goldilocks
+# The namespace is bootstrapped by cluster-meta. Only the child Flux
+# Kustomization belongs to cluster-apps; its application resources are
+# reconciled separately with targetNamespace: goldilocks.
+resources:
+  - ./goldilops/ks.yaml
