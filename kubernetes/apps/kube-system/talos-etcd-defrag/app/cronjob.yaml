@@ -33,7 +33,7 @@ spec:
           restartPolicy: Never
           initContainers:
             - name: status-before-bee-jms-02
-              image: ghcr.io/siderolabs/talosctl:v1.14.4
+              image: ghcr.io/siderolabs/talosctl:v1.14.5
               args: ["--nodes", "192.168.35.3,192.168.35.6,192.168.35.10", "etcd", "status"]
               env: &env
                 - name: TALOSCONFIG
@@ -59,35 +59,35 @@ spec:
                 limits:
                   memory: 128Mi
             - name: defrag-bee-jms-02
-              image: ghcr.io/siderolabs/talosctl:v1.14.4
+              image: ghcr.io/siderolabs/talosctl:v1.14.5
               args: ["--nodes", "192.168.35.6", "etcd", "defrag"]
               env: *env
               securityContext: *securityContext
               volumeMounts: *volumeMounts
               resources: *resources
             - name: status-before-bee-jms-03
-              image: ghcr.io/siderolabs/talosctl:v1.14.4
+              image: ghcr.io/siderolabs/talosctl:v1.14.5
               args: ["--nodes", "192.168.35.3,192.168.35.6,192.168.35.10", "etcd", "status"]
               env: *env
               securityContext: *securityContext
               volumeMounts: *volumeMounts
               resources: *resources
             - name: defrag-bee-jms-03
-              image: ghcr.io/siderolabs/talosctl:v1.14.4
+              image: ghcr.io/siderolabs/talosctl:v1.14.5
               args: ["--nodes", "192.168.35.10", "etcd", "defrag"]
               env: *env
               securityContext: *securityContext
               volumeMounts: *volumeMounts
               resources: *resources
             - name: status-before-bee-jms-01
-              image: ghcr.io/siderolabs/talosctl:v1.14.4
+              image: ghcr.io/siderolabs/talosctl:v1.14.5
               args: ["--nodes", "192.168.35.3,192.168.35.6,192.168.35.10", "etcd", "status"]
               env: *env
               securityContext: *securityContext
               volumeMounts: *volumeMounts
               resources: *resources
             - name: defrag-bee-jms-01
-              image: ghcr.io/siderolabs/talosctl:v1.14.4
+              image: ghcr.io/siderolabs/talosctl:v1.14.5
               args: ["--nodes", "192.168.35.3", "etcd", "defrag"]
               env: *env
               securityContext: *securityContext
@@ -95,7 +95,7 @@ spec:
               resources: *resources
           containers:
             - name: status-after
-              image: ghcr.io/siderolabs/talosctl:v1.14.4
+              image: ghcr.io/siderolabs/talosctl:v1.14.5
               args: ["--nodes", "192.168.35.3,192.168.35.6,192.168.35.10", "etcd", "status"]
               env: *env
               securityContext: *securityContext
