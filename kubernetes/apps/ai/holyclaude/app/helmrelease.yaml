@@ -442,7 +442,7 @@ spec:
           kube-mcp:
             image:
               repository: ghcr.io/containers/kubernetes-mcp-server
-              tag: v0.0.69
+              tag: v0.1.1
             args: ["--port", "8081"]
             securityContext:
               allowPrivilegeEscalation: false
