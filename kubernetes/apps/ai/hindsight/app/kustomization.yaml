@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - ./secret.sops.yaml
   - ./configmap-extension.yaml
+  - ./pvc.yaml
   - ./ocirepository.yaml
   - ./helmrelease.yaml
   - ./httproute.yaml
