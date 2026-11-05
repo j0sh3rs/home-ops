@@ -147,10 +147,15 @@ spec:
         - name: tenant-ext
           configMap:
             name: hindsight-static-keys-ext
+        - name: codex-home
+          persistentVolumeClaim:
+            claimName: hindsight-codex-home
       extraVolumeMounts:
         - name: tenant-ext
           mountPath: /app/extensions/hindsight_ext_static_keys_tenant
           readOnly: true
+        - name: codex-home
+          mountPath: /codex-home
 
     worker:
       # The API runs the queue worker in-process (single replica rule).

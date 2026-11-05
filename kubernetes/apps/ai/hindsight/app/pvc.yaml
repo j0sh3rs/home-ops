@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/v1/persistentvolumeclaim_v1.json
+# Holds the Codex OAuth auth.json for the openai-codex LLM provider. The
+# provider rewrites it on every token refresh, so it must be writable and must
+# survive pod replacement. Velero covers it (defaultVolumesToFsBackup).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hindsight-codex-home
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 1Gi
