@@ -2,6 +2,10 @@
 
 History moved verbatim from `kubernetes/apps/ai/CLAUDE.md` on 2026-09-25 (#710); current state lives in that file.
 
+## holyclaude (2026-11-06)
+
+**holyclaude** was archived 2026-11-06 to `archive/holyclaude/`. It ended the scoped interactive exception for Claude Code and OpenCode in the `ai` namespace. See `docs/ai-history/holyclaude.md` for what was pruned and what was left behind.
+
 ## n8n, OpenCode, agent-canvas, cognee, kelos, LiteLLM (2026-08-14 / 2026-09-08)
 
 **n8n, OpenCode, agent-canvas, cognee, and the kelos-system namespace** (Kelos + its GitHub-issue-spawner agents) **were removed 2026-08-14** — collapsing multiple overlapping code-agent surfaces down to openclaw alone (OpenCode later returned as a scoped, interactive-only exception inside holyclaude — see "Decisions explicitly rejected" below). **LiteLLM and OmniRoute were also removed that same day, but the removal did not stick.** OmniRoute was revived 2026-09-07 using a materially different mechanism than the one originally rejected (`docs/superpowers/specs/2026-09-07-omniroute-revival-design.md` — CLIProxyAPI CLI-session reuse, not the earlier Playwright/Chromium browser-scraping approach), then switched over 2026-09-08 to be the live AI-namespace gateway fronting both llama-swap instances plus the cliproxyapi sidecar (`docs/superpowers/specs/2026-09-08-omniroute-phase2-switchover-design.md`). **LiteLLM and litellm-operator were fully removed as part of that same Phase 2 switchover** (not kept as cold standby, per `kubernetes/apps/ai/kustomization.yaml`'s own header comment) — every consumer that previously routed through LiteLLM (openviking, argus, atuin-ai-server) now routes through Omniroute instead, and there is no `kubernetes/apps/ai/litellm/` directory left in this repo. See the "Decisions explicitly rejected" section's OmniRoute and gateway-in-front-of-llama-swap entries for how those two now-reversed rejections are annotated.

@@ -2,6 +2,19 @@
 
 History moved verbatim from `kubernetes/apps/ai/CLAUDE.md` on 2026-09-25 (#710); current state lives in that file.
 
+## Archived (2026-11-06)
+
+HolyClaude was scaled to zero and its manifests moved to `archive/holyclaude/`. The pod had been in CrashLoopBackOff (36+ restarts, `kube-mcp` sidecar printing `--help`), and the operator no longer used it.
+
+Flux prunes the HelmRelease, the `cluster-admin` ClusterRoleBinding, both ConfigMaps, both Secrets, the PrometheusRule and the Grafana dashboard. The `holyclaude` PVC (50Gi, `openebs-hostpath`, pinned to `bigboi-jms-01`) carries `helm.sh/resource-policy: keep`, so it stays. It holds the Claude OAuth session, plugins, `gh` login and the `/workspace` checkout. Delete it by hand with `kubectl -n ai delete pvc holyclaude` once you no longer need that data.
+
+Left in place on purpose:
+
+- The `holyclaude-interactive` key in Omniroute's DB and the holyclaude key in Hindsight's `StaticKeysTenantExtension`.
+- The `holyclaude` Cloudflare Access app and the WAF exclusion in `docs/runbooks/cloudflare-waf.md`.
+- The `blob:` and `esm.sh` allowances in the Traefik security-headers CSP, added for its web terminal.
+- The PSA `privileged` labels on the `ai` namespace.
+
 ## Omniroute-routed Claude Code auth reverted (2026-09-26)
 
 The 2026-09-16 to 2026-09-26 Omniroute-backed Claude Code auth mechanism
