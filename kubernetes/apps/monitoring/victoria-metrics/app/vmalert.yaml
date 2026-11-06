@@ -6,6 +6,11 @@ metadata:
   name: vmalert
 spec:
   replicaCount: 2
+  # Goldilocks reads these from the operator-created Deployment.
+  managedMetadata:
+    annotations:
+      goldilocks.fairwinds.com/vpa-update-mode: initial
+      goldilocks.fairwinds.com/vpa-resource-policy: '{"containerPolicies":[{"containerName":"*","controlledResources":["memory"],"controlledValues":"RequestsOnly"}]}'
   evaluationInterval: "30s"
   # Pick up every VMRule (including the 45 auto-converted from PrometheusRules)
   # across all namespaces without a selector.

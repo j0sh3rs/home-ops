@@ -70,3 +70,8 @@ patches:
           pod-security.kubernetes.io/enforce: privileged
           pod-security.kubernetes.io/audit: privileged
           pod-security.kubernetes.io/warn: privileged
+          # Goldilocks VPAs here apply memory requests at pod creation only.
+          # llama-swap and llama-swap-apu opt out (GPU/model memory).
+          goldilocks.fairwinds.com/vpa-update-mode: initial
+        annotations:
+          goldilocks.fairwinds.com/vpa-resource-policy: '{"containerPolicies":[{"containerName":"*","controlledResources":["memory"],"controlledValues":"RequestsOnly"}]}'
