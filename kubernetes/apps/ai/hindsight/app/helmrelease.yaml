@@ -95,7 +95,7 @@ spec:
         # Revert: provider openai, BASE_URL http://ai-tap.ai.svc.cluster.local:8080/hindsight/v1,
         # MODEL reasoner, API_KEY not-needed (bypasses ai-tap capture meanwhile).
         HINDSIGHT_API_LLM_PROVIDER: openai-codex
-        HINDSIGHT_API_LLM_MODEL: gpt-6.1-terra
+        HINDSIGHT_API_LLM_MODEL: gpt-6.1-luna
         HINDSIGHT_API_LLM_CODEX_HOME: /codex-home
         # Per-attempt LLM timeout (default 120s). Covers retain and
         # consolidation (they inherit it); reflect keeps its own 30s default.
