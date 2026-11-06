@@ -58,7 +58,7 @@ spec:
           memory: 320Mi
         limits:
           cpu: 1
-          memory: 512Mi
+          memory: 768Mi
 
     # Bundled PostgreSQL subchart disabled — use CNPG postgres17
     postgresql:
