@@ -1,15 +1,15 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
-# AI workloads namespace: fully self-hosted, no third-party providers,
-# with one documented scoped exception: holyclaude (see CLAUDE.md).
+# AI workloads namespace: fully self-hosted, no third-party providers.
+# holyclaude was archived to archive/holyclaude/ on 2026-11-06.
 # llama-swap serves local GGUFs directly (OpenAI-compatible API); Omniroute
 # fronts both llama-swap instances as the AI-namespace gateway (Phase 2
 # switchover, 2026-09-08 -- see
 # docs/superpowers/specs/2026-09-08-omniroute-phase2-switchover-design.md).
 # LiteLLM and litellm-operator were fully removed the same change (not kept
 # as cold standby). n8n, opencode, agent-canvas, cognee, and kelos-system
-# remain removed 2026-08-14 (opencode returns only inside holyclaude, a
-# scoped exception -- see CLAUDE.md); memini (memory plugin -- its own
+# remain removed 2026-08-14 (opencode only ran inside holyclaude, now
+# archived); memini (memory plugin -- its own
 # extension threw a command-registration error on every openclaw boot) was
 # removed 2026-08-16; see CLAUDE.md and archive/{cognee,memini}/. The
 # standalone holmesgpt app was retired 2026-08-19 -- argus's bundled Holmes
@@ -42,7 +42,6 @@ resources:
   - ./ai-tap/ks.yaml
   - ./atuin-ai-server/ks.yaml
   - ./faster-whisper/ks.yaml
-  - ./holyclaude/ks.yaml
   - ./hindsight/ks.yaml
   - ./linkwarden-mcp/ks.yaml
   - ./vikunja-mcp/ks.yaml
@@ -53,12 +52,9 @@ resources:
   - ./omniroute/ks.yaml
   - ./piper/ks.yaml
 
-# holyclaude needs SYS_ADMIN/SYS_PTRACE capabilities and
-# seccompProfile.type=Unconfined for its sandboxed Chromium/Playwright
-# stack. PodSecurity "baseline" (this cluster's effective default for any
-# unlabeled namespace) rejects both. No other workload in this namespace
-# currently needs elevated privileges -- this is a holyclaude-driven
-# exception, documented in CLAUDE.md. Same pattern as services/monitoring.
+# "privileged" was added for holyclaude (SYS_ADMIN/SYS_PTRACE, Unconfined
+# seccomp), archived 2026-11-06. Kept until the remaining workloads are
+# audited for baseline compatibility.
 patches:
   - target:
       kind: Namespace
