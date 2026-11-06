@@ -31,6 +31,7 @@ spec:
         strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
+          goldilocks.fairwinds.com/vpa-update-mode: "off"
         initContainers:
           model-fetch:
             # curlimages/curl is Alpine-based and already runs as root

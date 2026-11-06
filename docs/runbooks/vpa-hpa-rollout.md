@@ -101,6 +101,31 @@ not an automatic selection. Before enabling it:
 
 The updater configuration retains disruption checks for in-place updates.
 
+## Initial-mode rollout, November 6, 2026
+
+Based on 14 days of recommendations, checked against 14-day VictoriaMetrics peaks.
+
+- CPU recommendations are unusable. They sit at the 25m floor and contradict
+  observed p95 (hindsight-api: 25m recommended, 517m p95). Automation controls
+  memory only.
+- Mode is `Initial`: requests change when a pod is created, with no eviction.
+  The updater runs `--min-replicas=2` and `--in-place-skip-disruption-budget=false`,
+  which likely blocks live resizing of singletons. This is untested. Revisit
+  before any `InPlaceOrRecreate` pilot.
+- Policy is `RequestsOnly` on memory, set through the namespace annotation
+  `goldilocks.fairwinds.com/vpa-resource-policy`. The default `RequestsAndLimits`
+  scales limits by the limit-to-request ratio (llama-swap would reach about 44Gi
+  on a 30Gi node). Limits are raised by hand instead (#859).
+- Enabled by namespace label in `services` and `ai`. `llama-swap` and
+  `llama-swap-apu` opt out with a Deployment annotation
+  `goldilocks.fairwinds.com/vpa-update-mode: "off"`. `vmalert` opts in through
+  `VMAlert.spec.managedMetadata`.
+- Left `Off`: `databases`, `network`, `security`, `system-upgrade`, `velero`,
+  `goldilocks`, `kube-system`, and the rest of `monitoring`. Reasons: operator
+  ownership, ingress and SSO paths, backup spikes, and OOM-bumped targets.
+- Rollback: set the workload or namespace mode to `off`. Pods keep the requests
+  they were created with until their next restart.
+
 ## KEDA pilot
 
 After the measurement checks pass, install a pinned KEDA release compatible

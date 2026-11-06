@@ -35,6 +35,7 @@ spec:
         annotations:
           # Reload pod when the config ConfigMap changes.
           reloader.stakater.com/auto: "true"
+          goldilocks.fairwinds.com/vpa-update-mode: "off"
         initContainers:
           model-fetch:
             # One-shot GGUF downloader. Idempotent — skips files that
