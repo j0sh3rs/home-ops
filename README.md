@@ -298,10 +298,12 @@ Omniroute addresses models as `<provider-node-prefix>/<model>` (e.g. `llamaswap/
 | Workflow | Purpose |
 |---|---|
 | `validate-secrets` | Blocks PRs containing unencrypted `*.sops.yaml` files |
-| `flux-local` | Flux manifest validation + kubeconform schema check + diff generation on PRs |
+| `flux-diff` | Offline Flate render validation and PR diffs; also gates Renovate branch merges |
 | `labeler` | Auto-labels PRs by changed path with risk tiers (`risk/critical` → `risk/low`) |
 | `label-sync` | Syncs GitHub labels from `.github/labels.yaml` |
 | `e2e` | End-to-end cluster tests |
+
+Flate 0.7 uses `--allow-missing-kinds Secret,ConfigMap` instead of `--allow-missing-secrets`. It treats SOPS-encrypted values as unreadable. Both render commands use `.github/tests/flate-values.yaml` for Netdata's required Helm `valuesFrom` keys. These are reference-only dummy values, not deployment manifests or real credentials; CI does not validate their production contents or live cluster health.
 
 ### Renovate
 
@@ -309,6 +311,7 @@ Config: `.github/renovate.json5`
 
 - **Auto-merge**: patch + minor for container images, Helm charts, GitHub releases
 - **Manual review**: all major version bumps
+- **Flate action updates**: must pass `flux-diff` before auto-merge, including workflow-only changes
 - **Talos schedule**: Saturdays after 14:00, never auto-merge
 
 Commit prefixes: `fix(container):`, `fix(helm):`, `fix(deps):`, `feat(deps):`
