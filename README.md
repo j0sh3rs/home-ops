@@ -305,6 +305,8 @@ Omniroute addresses models as `<provider-node-prefix>/<model>` (e.g. `llamaswap/
 
 Flate 0.7 uses `--allow-missing-kinds Secret,ConfigMap` instead of `--allow-missing-secrets`. It treats SOPS-encrypted values as unreadable. Both render commands use `.github/tests/flate-values.yaml` for Netdata's required Helm `valuesFrom` keys. These are reference-only dummy values, not deployment manifests or real credentials; CI does not validate their production contents or live cluster health.
 
+Flate validates the full Kubernetes tree, so a broken chart upgrade on `main` blocks otherwise unrelated Renovate updates. Fix the shared render failure rather than bypassing checks. Traefik chart 42 requires `spec.values.service.spec.type`; the former `spec.values.service.type` fails schema validation.
+
 ### Renovate
 
 Config: `.github/renovate.json5`
