@@ -44,6 +44,8 @@
       "git"
       "git-extras"
       "hadolint"
+      "helm-ls"
+      "incoai/tap/splash"
       "jq"
       "markdownlint-cli"
       "pre-commit"
@@ -55,6 +57,7 @@
       "velero"
       "yaml-language-server"
       "yamllint"
+      "yq"
       "zsh"
     ];
     casks = [
@@ -62,8 +65,9 @@
       "claude-code@latest"
       "firefox"
       "ghostty"
-      "iterm2"
       "orbstack"
+      "terraform-linters/tap/tflint"
+      "vorssaint"
     ];
   };
 }
