@@ -72,7 +72,7 @@ spec:
               # Pin to the highest semver tag; Renovate auto-bumps when 0.0.4
               # ships.
               # renovate: datasource=docker depName=dgtlmoon/sockpuppetbrowser
-              tag: "0.0.3"
+              tag: "0.0.4"
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { add: ["SYS_ADMIN"] }
