@@ -1,0 +1,14 @@
+---
+# Reference-only dummy values for offline rendering; never apply this file.
+# Flate 0.7 cannot read the encrypted Netdata Helm valuesFrom keys.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: netdata-secrets
+  namespace: monitoring
+stringData:
+  PARENT_CLAIMING_TOKEN: "00000000-0000-4000-8000-000000000000"
+  PARENT_CLAIMING_ROOMS: "00000000-0000-4000-8000-000000000000"
+  CHILD_CLAIMING_TOKEN: "00000000-0000-4000-8000-000000000000"
+  CHILD_CLAIMING_ROOMS: "00000000-0000-4000-8000-000000000000"
+  DISCORD_WEBHOOK_URL: "https://example.invalid/ci-only"

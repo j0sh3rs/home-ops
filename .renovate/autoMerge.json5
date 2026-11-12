@@ -23,10 +23,15 @@
       automergeType: "branch",
       matchUpdateTypes: ["minor", "patch", "digest"],
       minimumReleaseAge: "3 days",
-      // Out of scope for the flux-diff check (it only triggers on
-      // kubernetes/**/*.yaml paths) — leave ignoreTests true so these
-      // don't wait forever on a check that never runs.
+      // Most actions are out of scope for the Flux Diff check; the Flate
+      // exception below must pass its own render check before merging.
       ignoreTests: true,
+    },
+    {
+      description: "Flate updates must pass the Flux Diff check",
+      matchManagers: ["github-actions"],
+      matchPackageNames: ["home-operations/flate"],
+      ignoreTests: false,
     },
     {
       description: "Block automerge for major version updates",

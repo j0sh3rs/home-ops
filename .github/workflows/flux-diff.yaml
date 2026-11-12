@@ -19,11 +19,14 @@ on:
     paths:
       - "kubernetes/**/*.yaml"
       - ".github/workflows/flux-diff.yaml"
+      - ".github/tests/flate-values.yaml"
   push:
     branches:
       - "renovate/**"
     paths:
       - "kubernetes/**/*.yaml"
+      - ".github/workflows/flux-diff.yaml"
+      - ".github/tests/flate-values.yaml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -44,7 +47,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup flate
-        uses: home-operations/flate/action@f7e0888c400e73901f64e1f8ae05b0def363f697  # v0.7.0
+        uses: home-operations/flate/action@bbb6ebc344da051752dbdb1b413860ceffcfb63d  # v0.7.3
         with:
           cache: true
 
@@ -59,7 +62,6 @@ jobs:
 
       - name: flate diff
         id: diff
-        continue-on-error: true
         env:
           # flate/action always exports FLATE_BASE (default: the default
           # branch); it collides with the --path-orig baseline we manage
@@ -69,12 +71,14 @@ jobs:
           flate diff all \
             --path ./kubernetes \
             --path-orig "${{ steps.baseline.outputs.dir }}/kubernetes" \
-            --allow-missing-secrets \
+            --allow-missing-kinds Secret,ConfigMap \
+            --supply "${GITHUB_WORKSPACE}/.github/tests/flate-values.yaml" \
             --api-versions monitoring.coreos.com/v1 \
             -o github > diff.md
 
       - name: flate test
         id: test
+        if: ${{ !cancelled() }}
         env:
           # Same as above: run full-tree, not the action's implicit
           # changed-only mode (which mis-resolved a HelmRepository
@@ -83,7 +87,8 @@ jobs:
         run: |
           flate test all \
             --path ./kubernetes \
-            --allow-missing-secrets \
+            --allow-missing-kinds Secret,ConfigMap \
+            --supply "${GITHUB_WORKSPACE}/.github/tests/flate-values.yaml" \
             --api-versions monitoring.coreos.com/v1
 
       - name: Render diff comment body
@@ -92,7 +97,9 @@ jobs:
           {
             echo '## flate render diff'
             echo ''
-            if [ -s diff.md ]; then
+            if [ "${{ steps.diff.outcome }}" != "success" ]; then
+              echo '_Flate diff failed; see workflow logs. No complete render diff is available._'
+            elif [ -s diff.md ]; then
               cat diff.md
             else
               echo '_No rendered resource changes detected._'
