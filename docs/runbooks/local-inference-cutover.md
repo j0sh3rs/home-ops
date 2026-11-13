@@ -21,6 +21,23 @@ inference but not administer oMLX. Their values are in a mode-0600 file on the M
 (`~/.omlx/sub-keys-handoff.json`); the `hindsight` and `voice-bridge` keys are already SOPS-encrypted in this
 change. The `home-assistant` key is for you to paste into Home Assistant. Never commit it.
 
+## 0. Prerequisite: one canonical oMLX instance (operator decision)
+
+Two oMLX instances exist on `mac-jms-01`, and the running one is not the nix-managed service:
+
+- The instance serving port 8000 today is the **user-run oMLX app** (`~/.omlx`, launched at login). The aliases,
+  pins, 70 GiB ceiling and the three sub keys above were applied there.
+- The **nix-managed launchd service** (`macos/modules/omlx.nix`, `_omlx` user, `/opt/ai/omlx`) fails every ~30 s
+  with `Address already in use` because the app holds the port, and its reconcilers (`omlx-sub-keys`,
+  `omlx-model-settings`) log `admin login failed (server down or main key mismatch)`. Those 401s against the app
+  instance are a plausible source of the `429 Too many wrong API keys` lockouts seen earlier (not confirmed).
+
+Decide which instance is canonical before merging. If the app stays canonical, disable the nix service and its
+reconcilers (otherwise they keep failing and could win the port after a restart, serving different models and
+keys). If the nix service becomes canonical, quit the app and re-declare the aliases, pins, ceiling and sub keys in
+the nix and SOPS config so the Hindsight and bridge keys in this PR match the ones the reconciler creates. The
+keys in this PR exist only in the app instance's settings.
+
 ## 1. Hindsight cutover (PR: Hindsight + ai-tap)
 
 Changes: the ai-tap `hindsight` route now points at `mac-inference`; Hindsight uses provider `openai`, base URL
