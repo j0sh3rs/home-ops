@@ -29,8 +29,18 @@ Two oMLX instances exist on `mac-jms-01`, and the running one is not the nix-man
   pins, 70 GiB ceiling and the three sub keys above were applied there.
 - The **nix-managed launchd service** (`macos/modules/omlx.nix`, `_omlx` user, `/opt/ai/omlx`) fails every ~30 s
   with `Address already in use` because the app holds the port, and its reconcilers (`omlx-sub-keys`,
-  `omlx-model-settings`) log `admin login failed (server down or main key mismatch)`. Those 401s against the app
-  instance are a plausible source of the `429 Too many wrong API keys` lockouts seen earlier (not confirmed).
+  `omlx-model-settings`) log `admin login failed (server down or main key mismatch)`. They run on the Mac, so they
+  are exempt from oMLX's wrong-key lockout (oMLX does not count loopback or same-address peers) and are not the
+  source of the earlier `429 Too many wrong API keys` responses.
+
+The 429s came from the in-cluster **Gatus** probe `mac-inference-models` (`/v1/models` every minute with
+`MAC_INFERENCE_GATUS_KEY`). That key belonged to the nix-managed instance and was unknown to the app instance, so
+every probe was a wrong key: 626 rejections in one day, all with fingerprint `6b910a23`, which matches the
+SHA-256 prefix of the Gatus key. oMLX locks out per source address and Cilium masquerades pods to the node IP, so
+**every consumer on the same node was locked out too** (a locked-out source gets 429 before its key is even
+checked). That would have hit the Hindsight, tap and bridge traffic on that node after this PR. It was mitigated
+on the Mac on 2026-11-13 by registering the existing Gatus key as an app-instance sub key named `gatus`; the
+cluster secret is unchanged.
 
 Decide which instance is canonical before merging. If the app stays canonical, disable the nix service and its
 reconcilers (otherwise they keep failing and could win the port after a restart, serving different models and
