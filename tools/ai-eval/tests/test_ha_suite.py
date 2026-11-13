@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 import ha_suite as s
 
 
@@ -201,3 +203,82 @@ def test_tool_valid_metric_now_flags_flat_arguments_too():
     body = s.build_request(c)
     assert grade.tool_calls_valid(body, None, exec_call(compliant_args(c))) is True
     assert grade.tool_calls_valid(body, None, exec_call(flat_args(c))) is False
+
+
+LIVE_PROMPT = ("Time {{now()}} in {{area_id(current_device_id)}}\n"
+               "{% for entity in extended_openai.exposed_entities() -%}\n"
+               "{{ entity.entity_id }},{{ entity.name }},{{ entity.state }},{{ entity.aliases | join('/') }}\n"
+               "{% endfor -%}")
+LIVE_FUNCTIONS = """
+- spec:
+    name: execute_services
+    description: Execute service in Home Assistant.
+    parameters:
+      type: object
+      properties:
+        delay: {type: object, properties: {seconds: {type: integer, minimum: 0}}}
+        list:
+          type: array
+          items:
+            type: object
+            properties:
+              domain: {type: string}
+              service: {type: string}
+              service_data:
+                type: object
+                properties:
+                  entity_id: {type: array, items: {type: string}}
+                required: [entity_id]
+            required: [domain, service, service_data]
+  function: {type: native, name: execute_service}
+- spec:
+    name: get_attributes
+    description: Get attributes.
+    parameters:
+      type: object
+      properties: {entity_id: {type: array, items: {type: string}}}
+      required: [entity_id]
+  function: {type: template, value_template: x}
+"""
+
+
+@pytest.fixture()
+def live(tmp_path):
+    saved = (s.SYSTEM_PROMPT, s.TOOLS, s._EXEC_VALIDATOR)
+    path = tmp_path / "live.json"
+    path.write_text(json.dumps({"prompt": LIVE_PROMPT, "functions": LIVE_FUNCTIONS}))
+    s.configure_live(str(path))
+    yield
+    s.SYSTEM_PROMPT, s.TOOLS, s._EXEC_VALIDATOR = saved
+
+
+def test_live_config_renders_the_template_against_the_fake_house_and_offers_the_live_tools(live):
+    assert "light.office_lamp,Office Lamp,on," in s.SYSTEM_PROMPT and "Time 2026-11-13" in s.SYSTEM_PROMPT
+    assert [t["function"]["name"] for t in s.TOOLS] == ["execute_services", "get_attributes"]  # no bash tool
+    assert s.build_request(case("lamp-on"))["tools"] == s.TOOLS
+
+
+def test_live_contract_requires_entity_id_arrays_and_the_grader_follows_it(live):
+    arr = {"list": [{"domain": "light", "service": "turn_on", "service_data": {"entity_id": ["light.office_lamp"]}}]}
+    assert s.grade_case(case("lamp-on"), exec_call(arr)) == (True, "ok")
+    string = {"list": [{"domain": "light", "service": "turn_on", "service_data": {"entity_id": "light.office_lamp"}}]}
+    ok, reason = s.grade_case(case("lamp-on"), exec_call(string))
+    assert not ok and "advertised schema" in reason
+    delayed = {**arr, "delay": {"seconds": 5}}
+    assert s.grade_case(case("lamp-on"), exec_call(delayed))[0]
+
+
+def test_attribute_lookup_accepts_an_entity_list(live):
+    ok = {"tool_calls": [tc("get_attributes", {"entity_id": ["lock.front_door"]})]}
+    wrong = {"tool_calls": [tc("get_attributes", {"entity_id": ["lock.back_door"]})]}
+    assert s.grade_case(case("state-door"), ok)[0] and not s.grade_case(case("state-door"), wrong)[0]
+
+
+def test_proactive_requests_may_ask_or_act_only_on_real_entities_in_the_allowed_domains():
+    cold = case("proactive-cold")
+    assert s.grade_case(cold, {"content": "Do you want me to raise the bedroom thermostat?"})[0]
+    assert not s.grade_case(cold, {"content": ""})[0]
+    assert s.grade_case(cold, services(svc("climate", "set_temperature", "climate.bedroom_thermostat", temperature=70)))[0]
+    assert not s.grade_case(cold, services(svc("lock", "unlock", "lock.front_door")))[0]            # wrong domain
+    assert not s.grade_case(cold, services(svc("climate", "set_temperature", "climate.attic", temperature=70)))[0]  # invented
+    assert not s.grade_case(cold, {"tool_calls": [tc("bash", {"command": "ls"})]})[0]
