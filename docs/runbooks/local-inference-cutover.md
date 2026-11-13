@@ -21,7 +21,12 @@ inference but not administer oMLX. Their values are in a mode-0600 file on the M
 (`~/.omlx/sub-keys-handoff.json`); the `hindsight` and `voice-bridge` keys are already SOPS-encrypted in this
 change. The `home-assistant` key is for you to paste into Home Assistant. Never commit it.
 
-## 0. Prerequisite: one canonical oMLX instance (operator decision)
+## 0. Canonical oMLX instance: decided 2026-11-13
+
+**Decision: the user-run oMLX app is canonical.** PR #900 removes the nix-managed daemon and reconcilers. The
+analysis that led here follows; boot now depends on the admin user's login (see `mac-studio-operations.md`).
+
+### Original prerequisite (operator decision)
 
 Two oMLX instances exist on `mac-jms-01`, and the running one is not the nix-managed service:
 
@@ -75,6 +80,23 @@ Caveats: oMLX does not enforce `response_format`, so `HINDSIGHT_API_LLM_STRICT_S
 (replayed answers were schema-valid on 98.9% of requests). In the evaluation, about 1 in 100 requests hit the
 length cap. Rollback: revert the PR (the Codex PVC and mount were kept for this reason) or revert only the three
 `HINDSIGHT_API_LLM_*` lines and the tap route.
+
+## 2a. Home Assistant state found on 2026-11-13 (read this first)
+
+- **The `extended_openai_conversation` integration is not loaded** since the HA upgrade to 2026.11.1 on Nov 12
+  (`Requirements ... not found: ['openai~=2.21.0']` against HA's `openai==3.26.0`). Both entries ("Omniroute
+  (Codex)" and "ai-tap (eval)") are `not_loaded` and `conversation.extended_openai_conversation*` are
+  `unavailable`, so the existing Assist pipeline has had no working conversation agent since then. The custom
+  component directory is also malformed: the live folder only contains a nested
+  `extended_openai_conversation/extended_openai_conversation/` (version 2.0.3, `openai>=3.10.0`) and the
+  `.beta-backup` folder holds 2.0.2 (`openai~=2.21.0`). Upstream `3.0.0-beta12` requires `openai>=2.21.0`, which
+  HA's 3.26 satisfies. The fix is to install a compatible release in the correct folder and restart HA.
+- **Done (additive, no restart):** a `wyoming` entry for `wyoming-openai.ai.svc.cluster.local:10300` (entities
+  `stt.openai` and `tts.openai`) and a pipeline "Local (intent) - Whisper + Kokoro" (Whisper STT, built-in intent
+  agent, Kokoro voice `af_heart`). It is **not** the preferred pipeline. Verified through HA: Kokoro audio in
+  0.32 s; a Whisper transcription of "what time is it" through the pipeline answered "5:03 PM" in 0.99 s.
+- **Not done:** removing `bash` and `load_skill`, and adding the `local-ha` agent, both need the integration
+  loaded (see above).
 
 ## 2. Home Assistant: remove the shell tool first (operator step)
 
