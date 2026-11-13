@@ -90,25 +90,25 @@ spec:
         # Stable worker id (default is the pod hostname) so claims survive
         # pod replacement -- see the postRenderers comment above.
         HINDSIGHT_API_WORKER_ID: hindsight-api
-        # TEMPORARY (2026-11-05): ChatGPT Pro via Codex OAuth to clear the
-        # consolidation backlog. auth.json lives on the hindsight-codex-home PVC.
-        # Revert: provider openai, BASE_URL http://ai-tap.ai.svc.cluster.local:8080/hindsight/v1,
-        # MODEL reasoner, API_KEY not-needed (bypasses ai-tap capture meanwhile).
-        HINDSIGHT_API_LLM_PROVIDER: openai-codex
-        HINDSIGHT_API_LLM_MODEL: gpt-6.1-luna
-        HINDSIGHT_API_LLM_CODEX_HOME: /codex-home
+        # Local gpt-oss-20b on the Mac (oMLX alias `reasoner`), reached through
+        # ai-tap so the capture tap keeps seeing Hindsight traffic. Replaces the
+        # TEMPORARY Codex OAuth route (2026-11-05, used to clear the consolidation
+        # backlog). Evidence: docs/research/2026-11-13-omlx-splash-model-evaluation/.
+        # The API key is a per-consumer oMLX sub key from hindsight-secret.
+        # Rollback: revert this block to provider openai-codex, MODEL gpt-6.1-luna,
+        # CODEX_HOME /codex-home (the PVC and mount below are kept for that).
+        HINDSIGHT_API_LLM_PROVIDER: openai
+        HINDSIGHT_API_LLM_BASE_URL: http://ai-tap.ai.svc.cluster.local:8080/hindsight/v1
+        HINDSIGHT_API_LLM_MODEL: reasoner
         # Per-attempt LLM timeout (default 120s). Covers retain and
         # consolidation (they inherit it); reflect keeps its own 30s default.
         HINDSIGHT_API_LLM_TIMEOUT: "600"
-        # llama-swap runs gpt-oss-20b with 5 slots (raised 4 -> 5
-        # 2026-09-24, #701 task 8b: retain queue was backlogged at
-        # retain=1, one batch_retain took 13 min). Background operations
-        # are capped at retain 2 + consolidation 1 + mental-model refresh
-        # 1 = 4 slots max (the per-op caps nest inside the global cap), so
-        # one slot always stays free for reflect -- but only within
-        # Hindsight's own traffic: atuin (coder-large/frontier) and argus
-        # (coder-large) share the same 5 physical slots on this model,
-        # unaccounted for by this reservation.
+        # Concurrency: the replay evaluation ran gpt-oss-20b on oMLX at 5-way with no
+        # errors. Background operations are capped at retain 2 + consolidation 1 +
+        # mental-model refresh 1 = 4 slots max (the per-op caps nest inside the
+        # global cap), so one slot always stays free for reflect. The Mac's memory
+        # (pinned resident set, 70 GiB guard) is shared with the coding model, so do
+        # not raise this without re-measuring.
         HINDSIGHT_API_LLM_MAX_CONCURRENT: "5"
         HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT: "2"
         HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT: "1"
@@ -122,9 +122,10 @@ spec:
         # into the prompt) only guarantees valid JSON, and gpt-oss-20b
         # regularly dropped required fields ("missing 'what' field",
         # "all N facts ... unusable after 4 attempts" -- ~40% of retains in
-        # a 10-min sample). Strict mode lets llama-server compile the schema
-        # into a decoding grammar; verified 3/3 schema-complete responses
-        # through Omniroute -> llama-swap before enabling.
+        # a 10-min sample). On llama-server strict mode compiled the schema into a
+        # decoding grammar. oMLX does NOT enforce response_format, so this now only
+        # asks for it: replayed gpt-oss-20b answers were schema-valid on 98.9% of
+        # requests (docs/research/2026-11-13-omlx-splash-model-evaluation/).
         HINDSIGHT_API_LLM_STRICT_SCHEMA_RETAIN: "true"
         # Per-client keys, all mapped to user josh -> one shared schema
         # (user_josh). Extension source: configmap-extension.yaml.
