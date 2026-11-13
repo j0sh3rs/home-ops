@@ -37,6 +37,13 @@ tasks:
       - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}} && nix flake lock"'
       - scp {{.MAC_HOST}}:{{.REMOTE_DIR}}/flake.lock {{.MACOS_DIR}}/flake.lock
 
+  omlx-lock:
+    desc: Regenerate macos/engines/omlx/uv.lock on the Mac and copy it back
+    cmds:
+      - task: sync
+      - ssh {{.MAC_HOST}} 'zsh -lc "cd ~/{{.REMOTE_DIR}}/engines/omlx && nix run nixpkgs#uv -- lock --python 3.12"'
+      - scp {{.MAC_HOST}}:{{.REMOTE_DIR}}/engines/omlx/uv.lock {{.MACOS_DIR}}/engines/omlx/uv.lock
+
   status:
     desc: Show the Mac's generation, daemons, and home-ops textfile metrics
     cmds:
