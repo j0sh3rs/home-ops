@@ -51,6 +51,7 @@ resources:
   - ./mac-inference/ks.yaml
   - ./omniroute/ks.yaml
   - ./piper/ks.yaml
+  - ./wyoming-openai/ks.yaml
 
 # "privileged" was added for holyclaude (SYS_ADMIN/SYS_PTRACE, Unconfined
 # seccomp), archived 2026-11-06. Kept until the remaining workloads are

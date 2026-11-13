@@ -1,0 +1,72 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app wyoming-openai
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      wyoming-openai:
+        containers:
+          app:
+            # Wyoming <-> OpenAI-style audio bridge (roryeckel/wyoming_openai, Apache-2.0).
+            # Home Assistant speaks Wyoming; oMLX on the Mac serves /v1/audio/transcriptions
+            # and /v1/audio/speech. STT = Whisper large-v3-turbo (alias local-stt),
+            # TTS = Kokoro-82M (alias local-tts). Trial: runs beside faster-whisper and
+            # piper, which stay as the fallback while the Mac is down.
+            # Evidence: docs/research/2026-11-13-omlx-splash-model-evaluation/.
+            image:
+              repository: ghcr.io/roryeckel/wyoming_openai
+              # renovate: datasource=docker depName=ghcr.io/roryeckel/wyoming_openai
+              tag: 0.9.0@sha256:27cb450fd60f8651ef90ad3536acff70b3168fe39f2529af4e57701314385094
+              pullPolicy: IfNotPresent
+            env:
+              WYOMING_URI: tcp://0.0.0.0:10300
+              WYOMING_LOG_LEVEL: INFO
+              WYOMING_LANGUAGES: en
+              STT_OPENAI_URL: http://mac-inference.ai.svc.cluster.local:8000/v1
+              STT_MODELS: local-stt
+              TTS_OPENAI_URL: http://mac-inference.ai.svc.cluster.local:8000/v1
+              TTS_MODELS: local-tts
+              TTS_VOICES: af_heart af_bella af_nicole am_adam bf_emma
+            # STT_OPENAI_KEY and TTS_OPENAI_KEY: the `voice-bridge` oMLX sub key.
+            envFrom:
+              - secretRef:
+                  name: wyoming-openai-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+            probes:
+              liveness:
+                enabled: false
+              readiness:
+                enabled: false
+              startup:
+                enabled: false
+    service:
+      app:
+        controller: *app
+        type: ClusterIP
+        ports:
+          wyoming:
+            port: 10300
+            protocol: TCP
