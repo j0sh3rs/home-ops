@@ -98,6 +98,31 @@ length cap. Rollback: revert the PR (the Codex PVC and mount were kept for this 
 - **Not done:** removing `bash` and `load_skill`, and adding the `local-ha` agent, both need the integration
   loaded (see above).
 
+## 2b. Home Assistant: done 2026-11-13 (after the findings above)
+
+Approved and performed through HA's own API after snapshotting `core.config_entries`, `core.entity_registry`,
+`assist_pipeline.pipelines` and the custom component folders to `/config/backups-eoc-20261113/` on the HA volume
+(it holds API keys; delete it when no longer needed):
+
+- Installed `extended_openai_conversation` **3.0.0-beta12** (`openai>=2.21.0`, matches the version-2 entries with
+  subentries) at `/config/custom_components/extended_openai_conversation/`; the two malformed copies were moved to
+  `backups-eoc-20261113/old-live/`. The files live on the HA PVC (nothing in the helmrelease populates
+  `custom_components`), so they survive restarts but are not reproducible from git. HA restarted once
+  (`homeassistant.restart`), config check clean.
+- **`ai-tap (eval)` entry:** loads; `bash` and `load_skill` removed from its conversation functions.
+- **`Omniroute (Codex)` entry:** still `not_loaded`: Omniroute rejects its key (`401 AUTH_002 Invalid API key`).
+  Its stored functions still include `bash` and `load_skill` and cannot be edited while it is not loaded
+  (`entry_not_loaded`). Re-key it or delete it; if re-keyed, remove those two functions first.
+- **New entry `oMLX local (E4B)`:** base URL `http://mac-inference.ai.svc.cluster.local:8000/v1`, the
+  `home-assistant` sub key, model `local-ha`, tools limited to `execute_services` and `get_attributes`, workspace
+  section removed from the prompt, max 5 tool calls. Entity: `conversation.extended_openai_conversation_3`.
+- **Pipeline "Local (E4B + Whisper + Kokoro)":** that agent, `stt.openai`, `tts.openai` (voice `af_heart`).
+  Not the preferred pipeline; the "Home Assistant" pipeline still points at the unavailable
+  `conversation.extended_openai_conversation` agent and has no STT or TTS.
+- **Verified (read-only requests; no device was actuated):** conversation API answers in 0.5 to 0.9 s; both
+  shell-command requests were refused with no tool call; a spoken request through the pipeline ran Whisper in
+  0.18 s and answered in 0.93 s end to end including the Kokoro audio URL. **Not tested:** device control.
+
 ## 2. Home Assistant: remove the shell tool first (operator step)
 
 Every model tested calls `bash` when asked to run a shell command, so do this before any local model is used

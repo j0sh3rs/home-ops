@@ -12,6 +12,8 @@
   - Omniroute key `home-assistant-conversation` (id `a03fd884-62f5-4e73-a910-b59fadfbd45a`) has `compressionEnabled: false` explicitly patched — Omniroute's default-on compression was found injecting unmarked `ponytail`/`i-have-adhd` output-style content into requests, which has no business being sent to a home-control LLM. Every other existing Omniroute consumer key still has compression **on** — untouched, out of scope for this task, but worth knowing if odd behavior ever shows up elsewhere.
   - Default "Home Assistant" pipeline (`preferred_item` in `.storage/assist_pipeline.pipelines`, i.e. the one actually used by the Assist UI/satellites) has `conversation_engine: conversation.extended_openai_conversation`.
 
+> **Update 2026-11-13:** `extended_openai_conversation` had been failing to load since the HA 2026.11.1 upgrade (see `local-inference-cutover.md` §2a-2b). It was reinstalled (3.0.0-beta12); `bash` and `load_skill` are removed from the `ai-tap (eval)` and the new local entry. The `Omniroute (Codex)` entry is still not loaded (Omniroute rejects its key) and still lists them.
+
 ## Known accepted gap — bash tool exposure (not locked down yet)
 
 `extended_openai_conversation`'s auto-generated default system prompt wires up a **literal `bash` tool function** (plus `load_skill`, `execute_services`, `get_attributes`) that lets the configured model run arbitrary shell commands in a "workspace" inside the HA container, triggered by natural-language conversation — not just entity control. This is the integration's out-of-the-box default; nothing here was added or restricted.
