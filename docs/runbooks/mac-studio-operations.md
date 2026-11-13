@@ -116,6 +116,28 @@ stops updating (pf after 15 min, pull loop after 40 min, wired-limit after
 A single very long `darwin-rebuild` can also trip it for the pull file; it
 clears on the next successful loop run.
 
+## oMLX instance: the user-run app is canonical (for now)
+
+Since 2026-11-13 the oMLX serving port 8000 is the **user-run oMLX app** (`~/.omlx`), not the nix-managed daemon.
+The nix daemon and its two reconcilers are disabled by default (`home-ops.omlx.engine.enable = false` in
+`macos/modules/omlx.nix`); the code, engine project, scripts, tests and CI checks are kept so re-enabling is one
+line. **Quit the app before enabling it**, or the daemon crash-loops on `Address already in use` and the
+reconcilers rewrite the app's aliases, pins and keys every 10 minutes.
+
+- **The three sections below ("Engine (oMLX) upgrade", "Rotate or revoke a consumer key", "Model settings")
+  describe the nix-managed engine and apply only when it is enabled.** With the app canonical: upgrade with the
+  app's updater and rerun the checks in `tools/ai-eval/README.md`; manage models, aliases, pins, TTLs and the
+  memory ceiling in the oMLX admin UI (current values: `docs/research/2026-11-13-omlx-splash-model-evaluation/rollout.md`);
+  add or revoke sub keys in the admin UI and put them in the consumer's SOPS Secret.
+- **`omlx.main-key` in `macos/secrets/mac-jms-01.sops.yaml` must equal the app's main key** (`~/.omlx/settings.json`):
+  the oMLX exporter logs in with it, and `omlx_up` is 0 when it is wrong. Update both when the key changes.
+- **Boot dependency:** the app runs only while the admin user is logged in, so after a FileVault reboot inference
+  stays down until that login (`auto_start_on_launch` is on). The nix daemon used to serve from boot.
+- **Lockout:** a consumer holding a key the app does not know is locked out per source address (8 wrong keys, then
+  30 s, then 5 minutes), and pods share their node's address, so one stale key also locks out other consumers on
+  that node.
+- The app logs to `~/.omlx/logs/server.log` (Splash under `~/.omlx/logs/splash/`).
+
 ## Engine (oMLX) upgrade
 
 1. Renovate's pep621 manager opens the PR. It bumps the `tag` under
