@@ -12,7 +12,7 @@ Hindsight queues, everything else fails fast. Reboot deliberately.
 - `task mac:status` — current generation, `org.nixos.*` daemons, textfile metrics.
 - Grafana → AI → **Mac Studio**.
 - Logs: VictoriaLogs `hostname:"mac-jms-01"`, or on the Mac `/var/log/home-ops/*.log`
-  and `/opt/ai/omlx/home/.omlx/logs/server.log`.
+  and, for the oMLX app, `~/.omlx/logs/server.log` of the admin user.
 
 ## Planned reboot
 
@@ -116,68 +116,31 @@ stops updating (pf after 15 min, pull loop after 40 min, wired-limit after
 A single very long `darwin-rebuild` can also trip it for the pull file; it
 clears on the next successful loop run.
 
-## Engine (oMLX) upgrade
+## oMLX (user-run app)
 
-1. Renovate's pep621 manager opens the PR. It bumps the `tag` under
-   `[tool.uv.sources]` in `macos/engines/omlx/pyproject.toml` and regenerates
-   `uv.lock` in the same commit (`uv lock --upgrade-package omlx`). Keep the
-   pin in `[tool.uv.sources]`: a `omlx @ git+...@tag` URL in `dependencies` is
-   invisible to pep621, and a tag bump without a matching lock stops the
-   daemon (`uv sync --locked` refuses to start, #785).
-2. "Build darwin closure" must pass. A failure there on an engine bump is a
-   blocker, not noise. For a manual bump, `task mac:omlx-lock` regenerates
-   the lock on the Mac.
-3. Run the eval replay against the new build before merging (spec: every
-   engine/model bump re-runs the replay as a regression gate).
+Since 2026-11-13 the canonical oMLX is the **user-run oMLX app** (`~/.omlx`, bundled engine, started at login), not
+a nix-managed daemon. The earlier nix service, its model-settings and sub-key reconcilers and the pinned engine
+project were removed because the app held port 8000 and the daemon crash-looped on `Address already in use`.
+Rationale and evidence: `docs/research/2026-11-13-omlx-splash-model-evaluation/`.
 
-The lock hash is part of the daemon plist (`OMLX_LOCK_HASH`), so the merge
-restarts the engine on the new lock.
-
-## Rotate or revoke a consumer key
-
-oMLX sub keys are inference-only. Keys live in
-`macos/secrets/mac-jms-01.sops.yaml` (`omlx.sub-keys.<name>`) and in the
-consumer's cluster Secret.
-
-- **Add:** add the key to sops and the name to `omlxSubKeyNames` in
-  `macos/modules/omlx.nix`; create the matching SOPS Secret for the consumer.
-- **Rotate:** change the value in both places. The reconciler adds the new
-  key; the old one stays valid until revoked.
-- **Revoke:** log in through the admin UI (`https://omlx.68cc.io/admin`) →
-  sub keys, or POST the main key to `/admin/api/login` (JSON
-  `{"api_key": "<main key>"}`) and use the returned `omlx_admin_session`
-  cookie for `DELETE /admin/api/sub-keys` (check the request shape in the
-  admin UI's network tab before scripting it). oMLX 0.7.0 admin routes do not
-  accept the main key as a Bearer token.
-- **Main key:** change `omlx.main-key` in sops and merge. oMLX picks it up on
-  restart: `sudo launchctl kickstart -k system/org.nixos.omlx`.
-  The exporter re-reads it every scrape.
-
-## Model settings (aliases, pins, max_tokens)
-
-`omlxModelSettings` in `macos/modules/omlx.nix` is the source of truth. The
-`org.nixos.omlx-model-settings` daemon (every 10 minutes, and at load) PUTs
-each entry to `/admin/api/models/<dir>/settings` and loads the pinned ones.
-Changes made in the admin UI are reverted on the next run, so edit nix.
-Log: `/var/log/home-ops/omlx-model-settings.log`.
-
-| Directory | Alias | Mode |
-|---|---|---|
-| `gpt-oss-20b-MXFP4-Q8` | `reasoner` | pinned |
-| `Qwen3.6-35B-A3B-MLX-4bit` | `agent` (thinking off) | pinned |
-| `Qwen3-Coder-Next-MLX-4bit` | `coder` | on demand, 30 min TTL |
-
-- **Add or swap a model:** copy it into `/opt/ai/models.noindex/` as
-  `_omlx` (APFS clone, `cp -c`), then add or edit its entry and merge. To
-  move an alias to a new model, remove it from the old entry in the same
-  change. oMLX rejects an alias that another model still holds (http 400 in
-  the log). Each alias has to be unique and must not match a directory name.
-- **max_tokens** is only the default for requests that send none.
-  Consumers that send their own limit keep it.
-- **Unpin:** set `is_pinned = false` and merge. The model stays loaded
-  until the TTL or memory pressure evicts it. To free the memory now, use
-  `POST /admin/api/models/<dir>/unload` or the admin UI.
-- **Apply now:** `sudo launchctl kickstart -k system/org.nixos.omlx-model-settings`.
+- **Boot dependency:** the app only runs while the admin user is logged in. After a reboot (FileVault
+  `authrestart`, see "Planned reboot") inference stays down until that login happens and the app starts
+  (`auto_start_on_launch` is on). This replaces the old "serves from boot without a login" property; revisit if
+  unattended reboots matter.
+- **Upgrade:** use the app's own updater. Re-run the speech, Hindsight and coding checks in
+  `tools/ai-eval/README.md` after an upgrade (a regression gate), and re-test the Splash profile after any
+  profile edit.
+- **Models, aliases, pins, TTLs, memory ceiling, `max_tokens` defaults:** set in the oMLX admin UI or admin API
+  (`https://omlx.68cc.io/admin`, behind Authentik). Nothing reconciles them any more, so they are not reverted.
+  Current values are in `docs/research/2026-11-13-omlx-splash-model-evaluation/rollout.md`.
+- **Keys:** the main key lives in the app's `~/.omlx/settings.json` and in `macos/secrets/mac-jms-01.sops.yaml`
+  as `omlx.main-key`; the oMLX exporter logs in with the sops copy, so **update both when the main key changes**
+  and merge, or `omlx_up` drops to 0. Sub keys (inference only) live in the app and in each consumer's cluster
+  Secret. Add a key in the admin UI (`POST /admin/api/sub-keys`), then put it in the consumer's SOPS Secret.
+  Revoke by deleting it in the admin UI. A consumer holding a key the app does not know is locked out per
+  source address (8 wrong keys, then 30 s, then 5 minutes), and pods share their node's address, so a stale key
+  also locks out other consumers on that node.
+- **Logs:** the app writes `~/.omlx/logs/server.log`; Splash processes log under `~/.omlx/logs/splash/`.
 
 ## Mac IP change
 
