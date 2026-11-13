@@ -43,7 +43,7 @@ Global Splash settings: KV format `int8`, ANE prefill `on`, memory limit `unset`
 
 | Role | Recommendation | Evidence (distinctions kept) |
 |---|---|---|
-| Hindsight | Keep gpt-oss-20b | Recall 0.648 vs 0.454 to 0.572 for Gemma and Qwen3-30B on the same 100 requests; structured 0.989; the Gemma-26B and Qwen3-30B runs had 7 and 5 length-capped runaways |
+| Hindsight | gpt-oss-20b is the best local model (not yet in use: Hindsight is on a temporary cloud route and needs an alias, route and provider cutover) | Recall 0.648 vs 0.454 to 0.572 for Gemma and Qwen3-30B on the same 100 requests; structured 0.989; the Gemma-26B and Qwen3-30B runs had 7 and 5 length-capped runaways |
 | Home Assistant | gemma-4-E4B (or gemma-4-26B-A4B, a tie); remove the `bash` tool from the HA agent | Both pass 22 of 23 unique non-shell cases (66/69 requests); the 2 shell cases fail for E4B and pass half for the 26B because any offered tool is called on request. Qwen3-30B fails by not calling the tool (15 of 18 control failures), gpt-oss by violating the schema (39 of 39) |
 | Speech-to-text | parakeet-tdt-0.6b-v3 or Whisper large-v3-turbo (fp16) | Both 0.0 word error on clean speech; accents 0.000 to 0.029 (parakeet) vs 0.000 to 0.010 (Whisper); at 0 dB noise 0.249 vs 0.177. Median latency 0.05 s vs 0.13 s |
 | Text-to-speech | Kokoro-82M af_heart | 0.0 word error on the same 36 clips under both STT references, 0.06 s median; Qwen3-TTS-0.6B had 3 runaway clips (9.8 to 15.2 s) and real errors |
