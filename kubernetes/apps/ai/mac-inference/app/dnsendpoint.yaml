@@ -1,0 +1,15 @@
+---
+# LAN A record for the Mac's Traefik TLS edge (macos/modules/traefik.nix).
+# LAN-only: unifi-dns publishes it (crd source); cloudflare-dns must not watch
+# the crd source (see kubernetes/apps/databases/cloudnative-pg/cluster/dnsendpoint.yaml).
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: mac-inference-tls
+spec:
+  endpoints:
+    - dnsName: inference.68cc.io
+      recordTTL: 300
+      recordType: A
+      targets:
+        - 192.168.35.7

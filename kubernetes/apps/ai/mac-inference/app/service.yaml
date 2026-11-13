@@ -1,7 +1,7 @@
 ---
 # The Mac Studio (macOS, not a node) as an in-cluster name. Selector-less:
 # the EndpointSlice below is the one place in Kubernetes that holds the
-# Mac's IP (the other is macos/hosts/mac-jms-01/facts.nix). Consumers,
+# Mac's IP (the others are dnsendpoint.yaml and macos/hosts/mac-jms-01/facts.nix). Consumers,
 # vmagent, Gatus and the admin HTTPRoute all use this Service.
 apiVersion: v1
 kind: Service
