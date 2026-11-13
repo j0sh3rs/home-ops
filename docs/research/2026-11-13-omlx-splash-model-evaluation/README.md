@@ -2,7 +2,7 @@
 
 **Status:** Applied and smoke-verified on the Mac inference host. **Hardware:** Apple M5 Ultra, 80-core GPU, 96 GB unified memory, oMLX memory guard at 80 GiB. **Software:** oMLX 0.7.3 (build 3574), Splash 1.6.1, Qwen3.8-27B and Qwen3.6-35B-A3B checkpoints (MLX affine quantisations), Splash DFlash2 draft models.
 
-Companion documents: [evaluation.md](evaluation.md) (every test scenario and outcome) and [rollout.md](rollout.md) (what was changed, live verification, incidents, rollback).
+Companion documents: [evaluation.md](evaluation.md) (every test scenario and outcome), [fast-lane-and-voice.md](fast-lane-and-voice.md) (open models for Hindsight, Home Assistant and speech; recommendations, nothing applied) and [rollout.md](rollout.md) (what was changed, live verification, incidents, rollback).
 
 ## Executive summary
 
@@ -11,10 +11,10 @@ Companion documents: [evaluation.md](evaluation.md) (every test scenario and out
 | Alias | Checkpoint | Engine | Context window | Max output | Thinking budget | Enabled features | Key evidence |
 |---|---|---|---:|---:|---:|---|---|
 | `local-coding:long` (and plain `local-coding`) | Qwen3.8-27B oQ4e | **Splash** | 131072 | 16384 | 4096 (effort medium) | Splash DFlash2 drafting, int8 KV, ANE prefill, 16 GiB SSD prefix cache, preserved thinking | 32/42 graded coding tasks; ~2.2 correct tasks/min (3.4x the native engine in the first pilot); 150-180 tok/s decode; 36/36 long-context checks to 98K input |
-| `local-quality:long` | Qwen3.8-27B oQ8e | **Splash** | 131072 | 16384 | 4096 (effort medium) | Same as above | 34/42 (tied best); ~1.5 correct tasks/min; 115-130 tok/s decode (native engine: ~27); 36/36 long-context checks to 98K; deep thinking (8K) gave no accuracy gain for ~3x the time |
+| ~~`local-quality:long`~~ (retired 2026-11-13) | Qwen3.8-27B oQ8e | Splash (hidden, weights kept on disk) | 131072 | 16384 | 4096 (effort medium) | Alias and profiles removed from the served set | 34/42 (tied best) vs 32/42 for Q4, within noise; ~1.5 correct tasks/min vs ~2.2; deep thinking (8K) gave no accuracy gain for ~3x the time |
 | `local-coding:daily` | Qwen3.8-27B oQ4e | Splash | 32768 | 6144 | 1536 (effort medium) | Splash engine features (DFlash2, int8 KV, ANE prefill, SSD cache); no preserved thinking; `mtp_enabled` on (inert on Splash, see note) | Unchanged limits; reloads the Splash process when switching to or from `:long` |
-| `local-quality:daily`, plain `local-quality` | Qwen3.8-27B oQ8e | Splash | 32768 | 6144 | 1536 (effort medium) | Same as `local-coding:daily` (`mtp_enabled` on in the daily profile, see note) | Same as above |
-| `local-fast:daily` | Qwen3.6-35B-A3B 4-bit | Native (unchanged) | 32768 | 6144 | 1536 | None of the Splash features | Fastest decode (380-455 tok/s on Splash, 210 native) but only 19/42 tasks and 3 tool errors on Splash; not recommended for correctness-sensitive work, left alone |
+| ~~`local-quality:daily`, plain `local-quality`~~ (retired 2026-11-13) | Qwen3.8-27B oQ8e | Splash (hidden) | 32768 | 6144 | 1536 | Alias and profiles removed from the served set | As above; its `mtp_enabled` reload-trigger workaround is now moot |
+| ~~`local-fast:daily`~~ (not served) | Qwen3.6-35B-A3B 4-bit | Native | 32768 | 6144 | 1536 | None | Only 19/42 tasks and 3 tool errors on Splash; its weights link is dangling, so oMLX does not serve it. See [fast-lane-and-voice.md](fast-lane-and-voice.md) for the replacement candidates |
 
 Global Splash settings: KV format `int8`, ANE prefill `on`, memory limit `unset` (auto-sized per model under the guard), SSD cache quota `16 GiB` per model (was unset, which allowed ~100+ GiB per model).
 
@@ -39,17 +39,28 @@ Global Splash settings: KV format `int8`, ANE prefill `on`, memory limit `unset`
 3. **Only the Qwen3.8 27B and Qwen3.6 35B-A3B checkpoints were exercised.** Other models listed below were never run.
 4. **Final live configuration was only smoke-tested** (short prompts, one 45K-token prompt). No tool-heavy, long-running or concurrent test ran against the final aliases.
 
+### Fast lane and speech (recommended, not applied)
+
+| Role | Recommendation | Evidence (distinctions kept) |
+|---|---|---|
+| Hindsight | Keep gpt-oss-20b | Recall 0.648 vs 0.454 to 0.572 for Gemma and Qwen3-30B on the same 100 requests; structured 0.989; the Gemma-26B and Qwen3-30B runs had 7 and 5 length-capped runaways |
+| Home Assistant | gemma-4-E4B (or gemma-4-26B-A4B, a tie); remove the `bash` tool from the HA agent | Both pass 22 of 23 unique non-shell cases (66/69 requests); the 2 shell cases fail for E4B and pass half for the 26B because any offered tool is called on request. Qwen3-30B fails by not calling the tool (15 of 18 control failures), gpt-oss by violating the schema (39 of 39) |
+| Speech-to-text | parakeet-tdt-0.6b-v3 or Whisper large-v3-turbo (fp16) | Both 0.0 word error on clean speech; accents 0.000 to 0.029 (parakeet) vs 0.000 to 0.010 (Whisper); at 0 dB noise 0.249 vs 0.177. Median latency 0.05 s vs 0.13 s |
+| Text-to-speech | Kokoro-82M af_heart | 0.0 word error on the same 36 clips under both STT references, 0.06 s median; Qwen3-TTS-0.6B had 3 runaway clips (9.8 to 15.2 s) and real errors |
+
+Synthetic or replayed inputs; latency figures were taken under memory pressure (see the caveats in the companion document).
+
 ### Recommendations
 
-1. Use `local-coding:long` for agent and tool-heavy work, `local-quality:long` for hard review/design work, and the `:daily` profiles for short chats.
+1. Use `local-coding:long` for agent and tool-heavy work and `local-coding:daily` for short chats. The Q8 `local-quality` aliases were retired on 2026-11-13; the Q8 weights stay on disk for future evaluation.
 2. Keep the 4K-thinking "balanced" profile. The 8K "deep" profile gave no measurable gain on Q8 for roughly 3x the time.
 3. Keep window sizes as they are (128K long, 32K daily). Probe 192K/256K on the coding model before raising them: prefill latency is the cost (cold 98K already takes about a minute).
 4. Avoid manually unloading the Q8 Splash model (one manual unload stalled ~4 minutes and the server restarted; cause unknown).
-5. Do not switch `local-fast` to Splash without a quality reason: it would be faster but failed most hidden-grader tasks in this evaluation.
+5. Do not use Qwen3.6-35B-A3B as the fast lane: it failed most hidden-grader tasks here. Fast-lane and speech candidates were evaluated separately; see below and [fast-lane-and-voice.md](fast-lane-and-voice.md).
 
 ### Not covered
 
-- Ornith, Flint and Ternary Bonsai Splash models were not downloaded or tested.
+- Ornith, Flint and Ternary Bonsai Splash models were not downloaded or tested. Fast-lane (gpt-oss-20b, Gemma 4, Qwen3-30B-A3B) and speech models were tested separately; see [fast-lane-and-voice.md](fast-lane-and-voice.md).
 - Three GGUF checkpoints present in oMLX (Qwen3.6 UD-Q2_K_XL, Flash-Next Q2_0 and IQ3_S) were not run. The Flash-Next IQ3_S quant is listed upstream at ~86 GB and is unlikely to fit under the 80 GiB guard with long-context state.
 - Native Splash tuning flags (`--activations`, `--state-format`, `--decode-share`, BF16 KV, and so on) were not applied. Installed oMLX 0.7.3 does not forward them, and nothing in the results called for them.
 

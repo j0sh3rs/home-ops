@@ -21,6 +21,8 @@ Companion to [README.md](README.md) and [evaluation.md](evaluation.md). Applied 
 
 The Q4 record mirrored its `long` profile exactly, so the profile was re-applied to the record to keep them in sync. The Q8 record keeps its 32768 window (it behaves like its `daily` profile). Engine choice is per model record, so changing the Q8 engine also moved `local-quality:daily` and plain `local-quality` onto Splash.
 
+**Update, 2026-11-13 (later):** the Q8 and Qwen3.6 aliases were then retired: the Q8 record is hidden with its alias cleared and both profiles unexposed, and the served set is now only `local-coding`, `local-coding:daily` and `local-coding:long`. The Q8 weights stay on disk. The Qwen3.6 record could not be edited because its weights link is dangling. Client configuration that referenced `local-quality` was updated the same day. oMLX settings were backed up before the change.
+
 Backup of the settings files was taken before the change and kept alongside the live oMLX settings (`~/.omlx/backup-pre-splash-<timestamp>/`).
 
 ## Why daily and long differ in `mtp_enabled`

@@ -84,6 +84,48 @@ the corpus. Run it on the Mac where vllm-metal is installed:
 | ha_agreement_rate | same tool calls (name + normalised args) as GPT-5.5 on the intent set; errored or empty answers disagree. Two text-only answers agree regardless of wording — check state-query intents by hand |
 | ttft / latency / decode_tps | measured on streaming replay; decode = completion tokens ÷ (latency − TTFT) |
 
+## Fast-lane and voice candidates (oMLX, 2026-11)
+
+Evaluates open "Haiku-class" models for Hindsight and Home Assistant, and speech models for
+Assist. Plan and rationale: `docs/research/2026-11-13-omlx-splash-model-evaluation/`.
+Run on a quiet Mac against `127.0.0.1:8000`; oMLX loads a candidate on first request, so the
+first row of each run includes cold load. `EVAL_API_KEY` is the oMLX API key. Use one candidate
+per run and one concurrency setting at a time.
+
+    export EVAL_API_KEY=...   # oMLX key; never commit it
+    M=gemma-4-26B-A4B-it-QAT-MLX-4bit            # the model id oMLX lists in /v1/models
+    NOTHINK='{"chat_template_kwargs":{"enable_thinking":false}}'   # for models whose template supports it
+
+    # Hindsight: same 200-request sample (seed 0) as the 2026-10 bake-off, so the on-Mac
+    # gpt-oss-20b rows in results/ are the control (structured 0.97, recall 0.618 at c=5).
+    python3 replay.py --corpus corpus/2026-10-19 --consumer hindsight --base-url http://127.0.0.1:8000/v1 \
+      --model "$M" --concurrency 5 --limit 200 --out results/hindsight-$M-c5.jsonl
+    python3 grade.py results/hindsight-$M-c5.jsonl --markdown --label "hindsight: $M"
+
+    # Home Assistant: synthetic house, graded against expected tool calls (no captured HA traffic or cloud
+    # baseline needed). --repeat 3 gives warm-cache latency; thinking models usually need --extra-body.
+    python3 ha_suite.py --base-url http://127.0.0.1:8000/v1 --model "$M" --repeat 3 \
+      --extra-body "$NOTHINK" --out results/ha-suite-$M.jsonl --label "ha-suite: $M"
+
+    # Speech: STT uses macOS `say` clips (independent of the TTS models); TTS is round-tripped through
+    # a reference STT model. --contend sustains back-to-back ~30K-token prefills on the coding model; only rows that fully overlapped a successful prefill count (the rest are listed as excluded), and the run fails if none did.
+    python3 voice_bench.py stt --base-url http://127.0.0.1:8000/v1 --model parakeet-tdt-0.6b-v3 --out results/stt-parakeet.jsonl
+    # use the -asr-fp16 repo: the plain whisper-large-v3-turbo repo ships no processor/tokenizer files and cannot load in oMLX
+    python3 voice_bench.py stt --base-url http://127.0.0.1:8000/v1 --model whisper-large-v3-turbo-asr-fp16 --out results/stt-whisper.jsonl
+    # robustness: --voice Daniel|Karen|Moira|Aman for accents, --snr-db 10 / 0 for added noise
+    python3 voice_bench.py stt --base-url http://127.0.0.1:8000/v1 --model parakeet-tdt-0.6b-v3 --snr-db 0 --out results/stt-parakeet-snr0.jsonl
+    # several reference models transcribe the identical saved audio, so their disagreements are comparable
+    python3 voice_bench.py tts --base-url http://127.0.0.1:8000/v1 --model Kokoro-82M-bf16 --voice af_heart \
+      --stt-model parakeet-tdt-0.6b-v3,whisper-large-v3-turbo-asr-fp16 --save-audio results/audio-kokoro --out results/tts-kokoro.jsonl
+    python3 voice_bench.py stt --base-url http://127.0.0.1:8000/v1 --model parakeet-tdt-0.6b-v3 \
+      --contend local-coding:long --out results/stt-parakeet-contended.jsonl
+
+Gates (proposed; set before looking at results): Hindsight structured_valid >= 0.95 and recall
+within 5% of the 0.618 control; HA suite pass_rate >= 0.9 with zero `bash` calls and tool_valid 1.0,
+warm ttft p50 < 1 s; STT mean WER <= 0.10 on the clip set and short-command latency p95 < 1.5 s,
+unchanged by more than ~2x under `--contend`. The HA suite is synthetic and the speech clips are
+short synthetic phrases: they screen candidates, they do not prove production accuracy.
+
 ## Retention
 
 Delete `corpus/`, `results/`, the `ai-tap` app and its PVC after the last
