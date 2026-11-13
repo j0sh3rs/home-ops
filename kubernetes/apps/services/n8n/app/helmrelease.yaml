@@ -43,7 +43,7 @@ spec:
           app:
             image:
               repository: docker.io/n8nio/n8n
-              tag: "3.2.0"
+              tag: "3.2.2"
             env:
               - name: TZ
                 value: America/New_York
