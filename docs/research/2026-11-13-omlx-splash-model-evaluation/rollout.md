@@ -13,7 +13,7 @@ Companion to [README.md](README.md) and [evaluation.md](evaluation.md). Applied 
 | Both `long` profiles: thinking budget | 1536 | **4096** (enabled) |
 | Both `long` profiles: preserved thinking | unset | **on** |
 | Both `long` profiles: window | 131072 | 131072 (unchanged by decision) |
-| `daily` profiles: window / output / thinking | 32768 / 6144 / 1536 | unchanged |
+| `daily` profiles: window / output / thinking | 32768 / 6144 / 1536 | unchanged at the time; the Q4 `daily` profile was deleted on 2026-11-13 |
 | Q8 `daily` profile: `mtp_enabled` | off | **on** (reload trigger, see below) |
 | Global `splash_ssd_cache_gb` | unset (volume-limited, observed ~106 GiB per model) | **16** |
 | Global `splash_kv_format`, `splash_ane_prefill`, `splash_max_memory_gb` | int8 / on / unset | unchanged |
@@ -35,13 +35,22 @@ On Splash the context window is fixed when the process starts. oMLX reloads an e
 
 This is a fragile workaround for an oMLX gap. If anyone aligns the MTP flags between a model's daily and long profiles, 128K requests can silently run on a 32K process. Re-test `:daily` then `:long` after any profile edit or oMLX upgrade. Rolling Q8 back to the native engine also means reverting that flag; with MTP on, the Q8 daily profile no longer matches the configuration it was originally qualified with.
 
+## Final decisions and cleanup (2026-11-13)
+
+**Decisions**
+- The 32K coding option is dropped: the Q4 `daily` profile is deleted and `local-coding:daily` is no longer served. Served coding aliases are `local-coding` and `local-coding:long`, both 128K. This also makes the `mtp_enabled` reload-trigger workaround below moot: with a single profile there is no daily-to-long switch to get wrong. OMP's `models.yml` was updated to match (the base `local-coding` window is now 131072; its `maxTokens` of 6144 is unchanged).
+- Home Assistant conversation: **gemma-4-E4B (8-bit)**. Speech-to-text: **Whisper large-v3-turbo (fp16 `-asr-fp16` repo)**. Text-to-speech: Kokoro-82M (recommended). Hindsight: gpt-oss-20b on oMLX once its cutover is done. None of these except the coding change is wired into consumers yet.
+
+**Swap pressure.** The test session grew system swapouts by about 613,000 pages (roughly 9 to 10 GiB) most likely because several fast models stayed resident next to the Splash coding models, and the oMLX log shows a Qwen3-30B replay (40K to 60K-token prompts, 5-way concurrency) growing its pooled Metal buffers to about 64 GB with requeued requests. I did not isolate which event caused the swapouts. Residual swap (about 3.6 of 5 GB in use) stays until those pages are touched again or the machine reboots. What reduces it: (1) idle TTLs so evaluation-class models unload on their own (applied, 900 s on the fast LLMs and speech models); (2) a deterministic resident set of about 50 GB (Q4 about 25, gpt-oss about 12, E4B about 9, Whisper about 2, Kokoro under 1) instead of whatever happened to be loaded; (3) removing rejected models so they cannot be loaded by accident; (4) running evaluations one candidate at a time with an unload between; (5) bounding concurrency for long-prompt consumers such as Hindsight; (6) once the voice stack goes live, pinning E4B, Whisper and Kokoro (about 11.5 GB) so they are not cold-loaded on the first utterance; (7) consider lowering the oMLX memory ceiling from 80 to about 70 GiB so oMLX throttles before macOS swaps (not applied: it is your existing setting).
+
+**Model inventory cleanup (disk).** Deleted through the oMLX delete endpoint: Qwen3-30B-A3B-Instruct-2507 4-bit (17 GB; failed HA at 0.64 and trailed on Hindsight recall), Qwen3-TTS-12Hz-0.6B-CustomVoice 8-bit (1.9 GB; intermittent runaway audio), and the plain `whisper-large-v3-turbo` repo (1.6 GB; cannot load in oMLX, superseded by the `-asr-fp16` repo). About 20 GB freed. Kept on purpose: Qwen3.8 oQ4e and its draft (in use), Qwen3.8 oQ8e (disk only), gpt-oss-20b (Hindsight), gemma-4-E4B, Whisper fp16 and Kokoro (chosen), gemma-4-26B-A4B and parakeet (fallbacks, 15 GB and 2.4 GB), the Qwen3.6 UD-Q2_K_XL GGUF and its DFlash2 draft (never evaluated), and the Flash-Next GGUFs and draft (never evaluated, 141 GB, cannot co-reside with Q4 under the guard).
+
 ## Context window sizing
 
 | Alias / profile | Window | Process after load |
 |---|---:|---|
 | `*:long`, plain `local-coding` | 131072 | Splash at 128K |
-| `*:daily`, plain `local-quality` | 32768 | Splash at 32K |
-| `local-fast:daily` | 32768 | native |
+| ~~`*:daily`, plain `local-quality`, `local-fast:daily`~~ | retired / dropped 2026-11-13 | not served |
 
 - Usable input is window minus output: with 16384 output the long profile leaves about 115K tokens of input.
 - Tested: retrieval and structured output to ~98K input (evaluation), a 45,021-token prompt on live Q8 `:long`. Untested: 192K and 256K (the model's native maximum and oMLX's cap).
@@ -56,7 +65,7 @@ This is a fragile workaround for an oMLX gap. If anyone aligns the MTP flags bet
 | Control | Scope | State |
 |---|---|---|
 | Engine per model record | per model | Splash for both Qwen3.8 records |
-| Model context window | per profile | 32K daily / 128K long |
+| Model context window | per profile | 128K (the 32K coding profile was dropped) |
 | Per-request sampling, effort, thinking budget, preserved thinking, response format | per request / profile | set per profile as above |
 | Splash KV format (int8 / bf16) | global | int8 |
 | Splash memory limit | global | unset (auto-sized for one context window, under the guard) |

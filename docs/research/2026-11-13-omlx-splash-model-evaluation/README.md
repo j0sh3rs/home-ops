@@ -12,13 +12,13 @@ Companion documents: [evaluation.md](evaluation.md) (every test scenario and out
 |---|---|---|---:|---:|---:|---|---|
 | `local-coding:long` (and plain `local-coding`) | Qwen3.8-27B oQ4e | **Splash** | 131072 | 16384 | 4096 (effort medium) | Splash DFlash2 drafting, int8 KV, ANE prefill, 16 GiB SSD prefix cache, preserved thinking | 32/42 graded coding tasks; ~2.2 correct tasks/min (3.4x the native engine in the first pilot); 150-180 tok/s decode; 36/36 long-context checks to 98K input |
 | ~~`local-quality:long`~~ (retired 2026-11-13) | Qwen3.8-27B oQ8e | Splash (hidden, weights kept on disk) | 131072 | 16384 | 4096 (effort medium) | Alias and profiles removed from the served set | 34/42 (tied best) vs 32/42 for Q4, within noise; ~1.5 correct tasks/min vs ~2.2; deep thinking (8K) gave no accuracy gain for ~3x the time |
-| `local-coding:daily` | Qwen3.8-27B oQ4e | Splash | 32768 | 6144 | 1536 (effort medium) | Splash engine features (DFlash2, int8 KV, ANE prefill, SSD cache); no preserved thinking; `mtp_enabled` on (inert on Splash, see note) | Unchanged limits; reloads the Splash process when switching to or from `:long` |
+| ~~`local-coding:daily`~~ (dropped 2026-11-13) | Qwen3.8-27B oQ4e | Splash | was 32768 | | | Profile deleted by decision: one 128K coding configuration only | The 32K option is gone; `local-coding` and `local-coding:long` are the same 128K setup |
 | ~~`local-quality:daily`, plain `local-quality`~~ (retired 2026-11-13) | Qwen3.8-27B oQ8e | Splash (hidden) | 32768 | 6144 | 1536 | Alias and profiles removed from the served set | As above; its `mtp_enabled` reload-trigger workaround is now moot |
 | ~~`local-fast:daily`~~ (not served) | Qwen3.6-35B-A3B 4-bit | Native | 32768 | 6144 | 1536 | None | Only 19/42 tasks and 3 tool errors on Splash; its weights link is dangling, so oMLX does not serve it. See [fast-lane-and-voice.md](fast-lane-and-voice.md) for the replacement candidates |
 
 Global Splash settings: KV format `int8`, ANE prefill `on`, memory limit `unset` (auto-sized per model under the guard), SSD cache quota `16 GiB` per model (was unset, which allowed ~100+ GiB per model).
 
-**Note on `mtp_enabled`:** oMLX does not include the Splash context window in its engine reload signature. A model whose daily and long profiles differ only in window size would keep the first-loaded size (a 32K process serving `:long`). Daily and long profiles therefore differ in `mtp_enabled` (on in daily, off in long). Splash ignores the flag, but it forces a reload on profile switch. Verified on both models (details in [rollout.md](rollout.md)). Do not align these flags.
+**Note on `mtp_enabled` (historical; moot since the daily profile was dropped):** oMLX does not include the Splash context window in its engine reload signature. A model whose daily and long profiles differ only in window size would keep the first-loaded size (a 32K process serving `:long`). Daily and long profiles therefore differ in `mtp_enabled` (on in daily, off in long). Splash ignores the flag, but it forces a reload on profile switch. Verified on both models (details in [rollout.md](rollout.md)). Do not align these flags.
 
 ### Evidence at a glance
 
@@ -52,9 +52,9 @@ Synthetic or replayed inputs; latency figures were taken under memory pressure (
 
 ### Recommendations
 
-1. Use `local-coding:long` for agent and tool-heavy work and `local-coding:daily` for short chats. The Q8 `local-quality` aliases were retired on 2026-11-13; the Q8 weights stay on disk for future evaluation.
+1. Use `local-coding` (or `local-coding:long`, identical 128K setup) for all coding work; the 32K daily profile was dropped on 2026-11-13. The Q8 `local-quality` aliases were retired on 2026-11-13; the Q8 weights stay on disk for future evaluation.
 2. Keep the 4K-thinking "balanced" profile. The 8K "deep" profile gave no measurable gain on Q8 for roughly 3x the time.
-3. Keep window sizes as they are (128K long, 32K daily). Probe 192K/256K on the coding model before raising them: prefill latency is the cost (cold 98K already takes about a minute).
+3. Keep the 128K window. Probe 192K/256K on the coding model before raising them: prefill latency is the cost (cold 98K already takes about a minute).
 4. Avoid manually unloading the Q8 Splash model (one manual unload stalled ~4 minutes and the server restarted; cause unknown).
 5. Do not use Qwen3.6-35B-A3B as the fast lane: it failed most hidden-grader tasks here. Fast-lane and speech candidates were evaluated separately; see below and [fast-lane-and-voice.md](fast-lane-and-voice.md).
 
