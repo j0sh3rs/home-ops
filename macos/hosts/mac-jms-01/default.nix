@@ -8,5 +8,6 @@
     ../../modules/pf.nix
     ../../modules/pull-loop.nix
     ../../modules/server.nix
+    ../../modules/traefik.nix
   ];
 }

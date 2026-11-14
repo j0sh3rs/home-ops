@@ -32,7 +32,7 @@ let
     runtimeInputs = [ pkgs.coreutils ];
     text = ''
       max=$((10 * 1024 * 1024))
-      for name in omlx omlx-exporter macmon vector; do
+      for name in omlx omlx-exporter macmon traefik vector; do
         f=/var/log/home-ops/$name.log
         [ -f "$f" ] || continue
         size=$(stat -c %s "$f")

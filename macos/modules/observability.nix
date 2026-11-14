@@ -67,15 +67,23 @@ in
     StandardErrorPath = "/var/log/home-ops/macmon.log";
   };
 
+  # The exporter runs as nobody, not _omlx. launchd could not spawn it as
+  # _omlx after the engine daemon was disabled (last exit 78: EX_CONFIG, no
+  # process, 9101 closed), and nothing here needs that account. It reads the
+  # same main key through its own copy of the secret.
+  sops.secrets."omlx/exporter-key" = {
+    key = "omlx/main-key";
+    owner = "nobody";
+  };
+
   launchd.daemons.omlx-exporter.serviceConfig = {
     ThrottleInterval = 30;
     ProgramArguments = [
       "${omlxExporter}/bin/omlx-exporter"
       "--listen-port" "9101"
-      "--api-key-file" config.sops.secrets."omlx/main-key".path
+      "--api-key-file" config.sops.secrets."omlx/exporter-key".path
     ];
-    UserName = "_omlx";
-    GroupName = "_omlx";
+    UserName = "nobody";
     RunAtLoad = true;
     KeepAlive = true;
     StandardOutPath = "/var/log/home-ops/omlx-exporter.log";
@@ -92,14 +100,12 @@ in
   };
 
   # preActivation, not postActivation: the launchd step starts the daemons
-  # before postActivation runs, and they need these at first start. The users
-  # step also runs later, so _omlx may not exist yet; chown by numeric id
-  # (455, same as modules/omlx.nix). macmon runs as nobody.
+  # before postActivation runs, and they need these at first start. macmon
+  # and the oMLX exporter run as nobody.
   system.activationScripts.preActivation.text = ''
     install -d -m 0700 -o root -g wheel /var/lib/vector
     install -d -m 0755 -o root -g wheel /var/log/home-ops
     for f in macmon omlx-exporter; do touch /var/log/home-ops/$f.log; done
-    chown nobody /var/log/home-ops/macmon.log
-    chown 455:455 /var/log/home-ops/omlx-exporter.log
+    chown nobody /var/log/home-ops/macmon.log /var/log/home-ops/omlx-exporter.log
   '';
 }

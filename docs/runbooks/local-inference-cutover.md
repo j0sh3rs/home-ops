@@ -121,7 +121,7 @@ Approved and performed through HA's own API after snapshotting `core.config_entr
   `conversation.extended_openai_conversation` agent and has no STT or TTS.
 - **Verified (read-only requests; no device was actuated):** conversation API answers in 0.5 to 0.9 s; both
   shell-command requests were refused with no tool call; a spoken request through the pipeline ran Whisper in
-  0.18 s and answered in 0.93 s end to end including the Kokoro audio URL. **Not tested:** device control.
+  0.18 s and answered in 0.93 s end to end including the Kokoro audio URL. **Not tested:** device control on the real house. Offline, the exact live prompt template and tool schema (rendered against a fake house with `tools/ai-eval/ha_suite.py --live-config`) passed 84 of 87, including the proactive and ambiguous requests; the one failure is `switch.turn_off` used on a light. The Skills block, which referenced the removed `load_skill` and `bash` tools, was also removed from the local agent's prompt.
 
 ## 2. Home Assistant: remove the shell tool first (operator step)
 

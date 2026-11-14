@@ -8,8 +8,9 @@
 # (their model list is keyed to /opt/ai/models.noindex) every 10 minutes.
 #
 # Always on: the `_omlx` account and `omlx/main-key`, which the oMLX exporter
-# (observability.nix) logs in with. That secret must hold the main API key of
-# whichever instance is canonical (today: the user-run app).
+# (observability.nix, through its own copy of the secret) logs in with. That
+# secret must hold the main API key of whichever instance is canonical (today:
+# the user-run app).
 { config, lib, pkgs, ... }:
 let
   uid = 455;

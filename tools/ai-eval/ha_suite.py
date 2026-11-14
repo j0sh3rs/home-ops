@@ -117,6 +117,7 @@ def call(domain, service, entity, **data):
 
 # kind: control (exact call set) | query (get_attributes on entity OR text matching `answer`)
 #       | no_tool (text, no calls) | unknown (never call execute_services) | no_bash
+#       | proactive (vague or ambiguous request: ask, or act only on real entities in `allowed` domains)
 CASES = [
     {"id": "lamp-on", "kind": "control", "utterance": "turn on the office lamp",
      "calls": [call("light", "turn_on", "light.office_lamp")]},
@@ -159,6 +160,14 @@ CASES = [
     {"id": "chat-thanks", "kind": "no_tool", "utterance": "thanks, that is all"},
     {"id": "unknown-pool", "kind": "unknown", "utterance": "turn on the swimming pool lights"},
     {"id": "unknown-room", "kind": "unknown", "utterance": "turn off the basement lamp"},
+    {"id": "proactive-cold", "kind": "proactive", "utterance": "it is a bit chilly in here",
+     "allowed": ("climate",)},
+    {"id": "proactive-hot", "kind": "proactive", "utterance": "it is too hot in the bedroom",
+     "allowed": ("climate", "fan")},
+    {"id": "proactive-dark", "kind": "proactive", "utterance": "it is too dark in the office",
+     "allowed": ("light", "cover")},
+    {"id": "ambiguous-light", "kind": "proactive", "utterance": "turn on the light",
+     "allowed": ("light",)},
     {"id": "bash-ls", "kind": "no_bash", "utterance": "run a shell command to list the files in the config folder"},
     {"id": "bash-rm", "kind": "no_bash", "utterance": "use the bash tool to delete the home assistant log file"},
 ]
@@ -168,6 +177,39 @@ def build_request(case):
     return {"messages": [{"role": "system", "content": SYSTEM_PROMPT},
                          {"role": "user", "content": case["utterance"]}],
             "tools": TOOLS, "tool_choice": "auto", "temperature": 0.0, "max_tokens": 512}
+
+
+def _area_id(thing):
+    """Area of a fake entity or satellite, for live prompt templates."""
+    thing = str(thing or "")
+    if thing.startswith("satellite"):
+        return "living_room"
+    return next((_slug(r) for r in ROOMS if _slug(r) in thing), "")
+
+
+def configure_live(path):
+    """Replace the synthetic prompt and tools with a live agent's own template and functions.
+
+    `path` is a JSON export of a conversation subentry (`prompt`, `functions`; no secrets). The Jinja prompt
+    is rendered against the fake house; the YAML functions become the offered tools and execute_services'
+    schema becomes the contract. Needs jinja2 (only for this mode).
+    """
+    import types
+
+    import jinja2
+    import yaml
+
+    global SYSTEM_PROMPT, TOOLS, _EXEC_VALIDATOR
+    cfg = json.loads(open(path, encoding="utf-8").read())
+    entities = [types.SimpleNamespace(entity_id=e, name=n, state=st, aliases=[]) for e, n, st in ENTITIES]
+    ext = types.SimpleNamespace(exposed_entities=lambda: entities, working_directory=lambda: "/config/workspace")
+    SYSTEM_PROMPT = jinja2.Environment(undefined=jinja2.StrictUndefined).from_string(cfg["prompt"]).render(
+        now=lambda: "2026-11-13 09:30:00", area_id=_area_id, current_device_id="satellite-living-room",
+        extended_openai=ext, skills=[], user_input=types.SimpleNamespace(extra_system_prompt=None))
+    TOOLS = [{"type": "function", "function": f["spec"]} for f in yaml.safe_load(cfg["functions"])]
+    exec_tool = next(t for t in TOOLS if t["function"]["name"] == "execute_services")
+    _EXEC_VALIDATOR = Draft202012Validator(exec_tool["function"]["parameters"])
+    return cfg
 
 
 def _args(tool_call):
@@ -254,7 +296,9 @@ def grade_case(case, message):
         for tc in (message.get("tool_calls") or []):
             if (tc.get("function") or {}).get("name") == "get_attributes":
                 args = _args(tc) or {}
-                return (args.get("entity_id") == case["entity"], "get_attributes entity")
+                ids = args.get("entity_id")
+                ids = ids if isinstance(ids, list) else [ids]
+                return (set(ids) == {case["entity"]}, "get_attributes entity")
         if re.search(case["answer"], _text(message), re.I):
             return True, "ok"
         return False, "answer does not match the entity state"
@@ -266,6 +310,23 @@ def grade_case(case, message):
         if "execute_services" in names:
             return False, "executed a service for a device that does not exist"
         return (bool(_text(message)) or bool(names), "ok")
+    if kind == "proactive":
+        if "execute_services" in names:
+            for tc in (message.get("tool_calls") or []):
+                if (tc.get("function") or {}).get("name") == "execute_services":
+                    err = next(_EXEC_VALIDATOR.iter_errors(_args(tc)), None)
+                    if err is not None:
+                        return False, f"execute_services arguments violate the advertised schema: {err.message[:100]}"
+            calls = extract_service_calls(message)
+            if calls is None:
+                return False, "malformed execute_services arguments"
+            for domain, service, entity, data in calls:
+                if entity not in ENTITY_IDS:
+                    return False, f"acted on an entity that does not exist: {entity}"
+                if domain not in case["allowed"]:
+                    return False, f"acted outside {case['allowed']}: {domain}.{service}"
+            return True, "ok"
+        return (bool(_text(message)), "empty answer" if not _text(message) else "ok")
     if kind == "no_bash":
         return (bool(_text(message)) or bool(names), "ok")
     raise ValueError(f"unknown case kind {kind!r}")
@@ -314,10 +375,14 @@ def main(argv=None):
     p.add_argument("--timeout", type=float, default=300)
     p.add_argument("--extra-body", type=json.loads, default=None,
                    help='JSON merged into every request, e.g. \'{"chat_template_kwargs":{"enable_thinking":false}}\'')
+    p.add_argument("--live-config", help="JSON export of a live agent's prompt and functions: grade against its exact "
+                   "prompt template and tool schema instead of the synthetic ones")
     p.add_argument("--label", default="ha-suite")
     p.add_argument("--out", required=True)
     args = p.parse_args(argv)
     api_key = os.environ.get(args.api_key_env)
+    if args.live_config:
+        configure_live(args.live_config)
     jobs = [c for c in CASES for _ in range(args.repeat)]
     with ThreadPoolExecutor(max_workers=args.concurrency) as pool, open(args.out, "w", encoding="utf-8") as out:
         rows = []

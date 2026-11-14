@@ -84,7 +84,8 @@ console).
 ## Firewall (pf)
 
 `macos/modules/pf.nix` allows only localhost and the cluster node IPs
-(`clusterNodeIps` in `facts.nix`) to reach ports 8000/9090/9100/9101. SSH (22)
+(`clusterNodeIps` in `facts.nix`) to reach ports 8000/9090/9100/9101, and only
+the LAN (`lanCidr`) to reach 443 (the Traefik TLS edge, below). SSH (22)
 is not filtered.
 
 The enforcer is the launchd daemon `org.nixos.pf-home-ops`: it re-asserts the
@@ -116,6 +117,25 @@ stops updating (pf after 15 min, pull loop after 40 min, wired-limit after
 A single very long `darwin-rebuild` can also trip it for the pull file; it
 clears on the next successful loop run.
 
+## TLS edge: `https://inference.68cc.io`
+
+`macos/modules/traefik.nix` runs Traefik (launchd `org.nixos.traefik`, user `nobody`, port 443) in front of oMLX on
+`127.0.0.1:8000`. Certificates are Let's Encrypt DNS-01 on Cloudflare, issued and renewed by Traefik itself (state in
+`/var/lib/traefik/acme.json`), using the **same Cloudflare token as cert-manager**, stored as `traefik.cloudflare-token`
+in `macos/secrets/mac-jms-01.sops.yaml`. When cert-manager's token rotates, rotate this one too (copy
+`kubernetes/apps/cert-manager/cert-manager/app/secret.sops.yaml` `api-token` with `sops set --value-stdin`).
+The name resolves to the Mac through `kubernetes/apps/ai/mac-inference/app/dnsendpoint.yaml` (unifi-dns, LAN only).
+
+- Only `/v1` is routed. The admin UI and its login stay at `https://omlx.68cc.io/admin` behind Authentik; everything
+  else on this name is a 404.
+- oMLX still checks every API key. It exempts loopback peers from its wrong-key lockout and every client is loopback
+  behind the proxy, so key guessing is limited only by Traefik's per-client rate limit (100/s, burst 200) and by pf
+  (443 is LAN only). Consumers should keep using their sub keys; do not give out the main key.
+- Port 8000 is still open to the cluster (consumers use `mac-inference.ai.svc:8000` over plain HTTP). Moving them to
+  the TLS name, then closing 8000 to everything but localhost, is a separate change.
+- Check: `curl -sS https://inference.68cc.io/v1/models -H "Authorization: Bearer <sub key>"`. First issuance takes
+  about a minute after the first apply; `/var/log/home-ops/traefik.log` shows the ACME progress.
+
 ## oMLX instance: the user-run app is canonical (for now)
 
 Since 2026-11-13 the oMLX serving port 8000 is the **user-run oMLX app** (`~/.omlx`), not the nix-managed daemon.
@@ -130,7 +150,9 @@ reconcilers rewrite the app's aliases, pins and keys every 10 minutes.
   memory ceiling in the oMLX admin UI (current values: `docs/research/2026-11-13-omlx-splash-model-evaluation/rollout.md`);
   add or revoke sub keys in the admin UI and put them in the consumer's SOPS Secret.
 - **`omlx.main-key` in `macos/secrets/mac-jms-01.sops.yaml` must equal the app's main key** (`~/.omlx/settings.json`):
-  the oMLX exporter logs in with it, and `omlx_up` is 0 when it is wrong. Update both when the key changes.
+  the oMLX exporter logs in with it (through the sops secret `omlx/exporter-key`, a copy of `omlx/main-key` readable by
+  `nobody`), and `omlx_up` is 0 when it is wrong. Update both when the key changes. The exporter runs as `nobody`
+  because launchd could not spawn it as `_omlx` once the engine daemon was off (last exit 78, `EX_CONFIG`).
 - **Boot dependency:** the app runs only while the admin user is logged in, so after a FileVault reboot inference
   stays down until that login (`auto_start_on_launch` is on). The nix daemon used to serve from boot.
 - **Lockout:** a consumer holding a key the app does not know is locked out per source address (8 wrong keys, then

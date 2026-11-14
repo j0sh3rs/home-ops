@@ -107,6 +107,11 @@ per run and one concurrency setting at a time.
     python3 ha_suite.py --base-url http://127.0.0.1:8000/v1 --model "$M" --repeat 3 \
       --extra-body "$NOTHINK" --out results/ha-suite-$M.jsonl --label "ha-suite: $M"
 
+    # Same suite against a live Home Assistant agent's exact prompt template and tool schema (export its
+    # conversation subentry's `prompt` and `functions` to JSON; needs jinja2; includes vague/ambiguous requests):
+    python3 ha_suite.py --base-url http://127.0.0.1:8000/v1 --model local-ha --repeat 3 \
+      --live-config live-config.json --out results/ha-live-local-ha.jsonl
+
     # Speech: STT uses macOS `say` clips (independent of the TTS models); TTS is round-tripped through
     # a reference STT model. --contend sustains back-to-back ~30K-token prefills on the coding model; only rows that fully overlapped a successful prefill count (the rest are listed as excluded), and the run fails if none did.
     python3 voice_bench.py stt --base-url http://127.0.0.1:8000/v1 --model parakeet-tdt-0.6b-v3 --out results/stt-parakeet.jsonl
