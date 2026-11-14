@@ -24,8 +24,15 @@ let
     providers.file.filename = "${dynamicConfig}";
     certificatesResolvers.letsencrypt.acme = {
       storage = "${stateDir}/acme.json";
-      # The LAN resolver does not know the public _acme-challenge zone.
-      dnsChallenge = { provider = "cloudflare"; resolvers = [ "1.1.1.1:53" "1.0.0.1:53" ]; };
+      # Same approach as cert-manager (kubernetes/apps/cert-manager/cert-manager/app/helm/values.yaml:
+      # dns01RecursiveNameservers 1.1.1.1/1.0.0.1, dns01RecursiveNameserversOnly): look the TXT record up
+      # through Cloudflare's recursive resolvers and never query the zone's authoritative nameservers, which
+      # did not return the record in time (2 failed attempts). lego cannot use DoH, so plain :53 here.
+      dnsChallenge = {
+        provider = "cloudflare";
+        resolvers = [ "1.1.1.1:53" "1.0.0.1:53" ];
+        propagation = { disableANSChecks = true; requireAllRNS = true; };
+      };
     };
   };
 
