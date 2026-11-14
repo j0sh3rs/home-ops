@@ -126,6 +126,8 @@ in `macos/secrets/mac-jms-01.sops.yaml`. When cert-manager's token rotates, rota
 `kubernetes/apps/cert-manager/cert-manager/app/secret.sops.yaml` `api-token` with `sops set --value-stdin`).
 The name resolves to the Mac through `kubernetes/apps/ai/mac-inference/app/dnsendpoint.yaml` (unifi-dns, LAN only).
 
+- Only `/v1` is routed. The admin UI and its login stay at `https://omlx.68cc.io/admin` behind Authentik; everything
+  else on this name is a 404.
 - oMLX still checks every API key. It exempts loopback peers from its wrong-key lockout and every client is loopback
   behind the proxy, so key guessing is limited only by Traefik's per-client rate limit (100/s, burst 200) and by pf
   (443 is LAN only). Consumers should keep using their sub keys; do not give out the main key.

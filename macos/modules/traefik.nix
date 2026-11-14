@@ -32,7 +32,8 @@ let
   dynamicConfig = yaml.generate "traefik-dynamic.yaml" {
     http = {
       routers.omlx = {
-        rule = "Host(`${host}`)";
+        # API only. The admin UI (and its login) stays behind Authentik at omlx.68cc.io.
+        rule = "Host(`${host}`) && PathPrefix(`/v1`)";
         entryPoints = [ "websecure" ];
         service = "omlx";
         middlewares = [ "per-client-limit" ];
