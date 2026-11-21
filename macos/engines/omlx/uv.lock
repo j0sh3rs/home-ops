@@ -318,7 +318,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "omlx", git = "https://github.com/jundot/omlx?tag=v0.8.0" }]
+requires-dist = [{ name = "omlx", git = "https://github.com/jundot/omlx?tag=v0.8.2" }]
 
 [[package]]
 name = "httpcore"
@@ -591,8 +591,8 @@ wheels = [
 
 [[package]]
 name = "mlx-audio"
-version = "0.6.3"
-source = { git = "https://github.com/Neywa-Labs/mlx-audio?rev=8c244a1faff44cfa69e3151c195f52a4c1c90be5#8c244a1faff44cfa69e3151c195f52a4c1c90be5" }
+version = "0.6.5"
+source = { git = "https://github.com/Neywa-Labs/mlx-audio?rev=1157775c1999654b1ebde41ed03d88108e23f88b#1157775c1999654b1ebde41ed03d88108e23f88b" }
 dependencies = [
     { name = "huggingface-hub" },
     { name = "jinja2" },
@@ -705,8 +705,8 @@ wheels = [
 
 [[package]]
 name = "omlx"
-version = "0.8.0"
-source = { git = "https://github.com/jundot/omlx?tag=v0.8.0#7fad36ca030fa6500a660f3d6f4323b2cd3b0073" }
+version = "0.8.2"
+source = { git = "https://github.com/jundot/omlx?tag=v0.8.2#5eeec7757f83bfc99eeb87abe49686d00a0bba1f" }
 dependencies = [
     { name = "cohere-melody" },
     { name = "ddgs" },
