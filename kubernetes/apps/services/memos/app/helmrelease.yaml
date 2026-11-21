@@ -27,7 +27,7 @@ spec:
             image:
               repository: ghcr.io/home-operations/postgres-init
               # Tracks the PG major version of the shared CNPG cluster.
-              tag: 18
+              tag: 19
             envFrom:
               - secretRef:
                   name: memos-secrets

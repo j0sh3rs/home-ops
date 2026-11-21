@@ -32,7 +32,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: init-db
-          image: ghcr.io/home-operations/postgres-init:18
+          image: ghcr.io/home-operations/postgres-init:19
           envFrom:
             - secretRef:
                 name: crowdsec-initdb-secrets

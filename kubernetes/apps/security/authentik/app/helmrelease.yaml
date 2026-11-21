@@ -46,7 +46,7 @@ spec:
           memory: 1Gi
       initContainers:
         - name: init-db
-          image: ghcr.io/home-operations/postgres-init:18
+          image: ghcr.io/home-operations/postgres-init:19
           envFrom:
             - secretRef:
                 name: authentik-secrets
