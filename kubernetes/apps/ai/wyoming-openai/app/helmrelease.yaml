@@ -30,7 +30,7 @@ spec:
             image:
               repository: ghcr.io/roryeckel/wyoming_openai
               # renovate: datasource=docker depName=ghcr.io/roryeckel/wyoming_openai
-              tag: 0.9.0@sha256:27cb450fd60f8651ef90ad3536acff70b3168fe39f2529af4e57701314385094
+              tag: 0.9.1@sha256:ef5300e114e2f324861422d13144884d94acd4db5a1c15f048552db6dc815dd8
               pullPolicy: IfNotPresent
             env:
               WYOMING_URI: tcp://0.0.0.0:10300
