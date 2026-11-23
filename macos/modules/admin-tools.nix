@@ -58,6 +58,7 @@
       "yaml-language-server"
       "yamllint"
       "yq"
+      "zed"
       "zsh"
     ];
     casks = [
