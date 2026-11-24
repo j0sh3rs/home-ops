@@ -42,12 +42,12 @@ jobs:
     runs-on: home-ops-runner
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Setup flate
-        uses: home-operations/flate/action@4e07f351352d235a335e5a1f0a088eab7ec40997  # v0.8.0
+        uses: home-operations/flate/action@4e07f351352d235a335e5a1f0a088eab7ec40997 # v0.8.0
         with:
           cache: true
 
@@ -145,3 +145,13 @@ jobs:
       - name: Clean up baseline worktree
         if: always()
         run: git worktree remove --force /tmp/flate-baseline || true
+
+  reloader-check:
+    name: Reloader Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Check secret consumers have Reloader annotations
+        run: bash .github/tests/check-reloader.sh
