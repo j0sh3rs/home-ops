@@ -1,0 +1,31 @@
+---
+# Consumers of home-assistant :8123 — traefik (network ns,
+# app.kubernetes.io/name=traefik) serving ha.68cc.io via
+# traefik-internal-gateway.
+#
+# CAVEAT: this pod runs with hostNetwork: true (mDNS/UPnP discovery),
+# so whether Cilium enforces this policy against host-network pods is
+# verified live; if enforcement does not apply, this document intent and
+# becomes active if hostNetwork is ever removed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: home-assistant-allow
+  namespace: services
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: home-assistant
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: network
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 8123
+          protocol: TCP
