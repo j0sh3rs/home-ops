@@ -19,6 +19,8 @@ spec:
   values:
     controllers:
       wyoming-openai:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             # Wyoming <-> OpenAI-style audio bridge (roryeckel/wyoming_openai, Apache-2.0).
