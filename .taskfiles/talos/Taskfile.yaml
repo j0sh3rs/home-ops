@@ -1,22 +1,25 @@
 ---
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
-version: '3'
+version: "3"
 
 tasks:
   generate-config:
     desc: Generate Talos configuration
-    dir: '{{.TALOS_DIR}}'
-    cmd: talhelper genconfig
+    dir: "{{.TALOS_DIR}}"
+    cmds:
+      - talhelper genconfig
+      # Seal after generation: clusterconfig files come out of genconfig
+      # plaintext; postcmd is not a valid task v3 key (seal never ran).
+      - task talos:seal
     preconditions:
       - test -f {{.TALOS_DIR}}/talconfig.yaml
       - test -f {{.ROOT_DIR}}/.sops.yaml
       - test -f {{.SOPS_AGE_KEY_FILE}}
       - which talhelper
-    postcmd: task talos:seal
 
   seal:
     desc: Encrypt clusterconfig files at rest with SOPS
-    dir: '{{.TALOS_DIR}}/clusterconfig'
+    dir: "{{.TALOS_DIR}}/clusterconfig"
     preconditions:
       - test -f {{.ROOT_DIR}}/.sops.yaml
       - test -f {{.SOPS_AGE_KEY_FILE}}
@@ -46,7 +49,7 @@ tasks:
 
   unseal:
     desc: Decrypt clusterconfig files (tmp + mv, never sops --in-place decrypt)
-    dir: '{{.TALOS_DIR}}/clusterconfig'
+    dir: "{{.TALOS_DIR}}/clusterconfig"
     preconditions:
       - test -f {{.ROOT_DIR}}/.sops.yaml
       - test -f {{.SOPS_AGE_KEY_FILE}}
@@ -83,7 +86,7 @@ tasks:
 
   apply-node:
     desc: Apply Talos config to a node [IP=required]
-    dir: '{{.TALOS_DIR}}'
+    dir: "{{.TALOS_DIR}}"
     cmd: talhelper gencommand apply --node {{.IP}} --extra-flags '--mode={{.MODE}}' | bash
     vars:
       MODE: '{{.MODE | default "auto"}}'
@@ -106,7 +109,7 @@ tasks:
 
   upgrade-node:
     desc: Upgrade Talos on a single node [IP=required]
-    dir: '{{.TALOS_DIR}}'
+    dir: "{{.TALOS_DIR}}"
     cmd: talhelper gencommand upgrade --node {{.IP}} --extra-flags "--image='{{.TALOS_IMAGE}}:{{.TALOS_VERSION}}' --timeout=10m --preserve" | bash
     vars:
       TALOS_IMAGE:
@@ -130,7 +133,7 @@ tasks:
   etcd-quorum-precheck:
     desc: Verify all OTHER control-plane peers are healthy before rebooting [IP=required]
     internal: true
-    dir: '{{.TALOS_DIR}}'
+    dir: "{{.TALOS_DIR}}"
     requires:
       vars: [IP]
     cmds:
@@ -150,7 +153,7 @@ tasks:
 
   upgrade-k8s:
     desc: Upgrade Kubernetes
-    dir: '{{.TALOS_DIR}}'
+    dir: "{{.TALOS_DIR}}"
     cmd: talhelper gencommand upgrade-k8s --extra-flags "--to '{{.KUBERNETES_VERSION}}'" | bash
     vars:
       KUBERNETES_VERSION:
@@ -162,7 +165,7 @@ tasks:
 
   reset:
     desc: Resets nodes back to maintenance mode
-    dir: '{{.TALOS_DIR}}'
+    dir: "{{.TALOS_DIR}}"
     prompt: This will destroy your cluster and reset the nodes back to maintenance mode... continue?
     cmd: talhelper gencommand reset --extra-flags="--reboot {{- if eq .CLI_FORCE false }} --system-labels-to-wipe STATE --system-labels-to-wipe EPHEMERAL{{ end }} --graceful=false --wait=false" | bash
     preconditions:
