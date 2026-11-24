@@ -65,7 +65,7 @@ All applications follow the **OCIRepository + chartRef** pattern — Helm charts
 
 ### Secret Management
 
-[SOPS](https://github.com/getsops/sops) with age-key encryption. Path-based rules in `.sops.yaml` encrypt only `data`/`stringData` fields in Kubernetes manifests. All secrets are committed encrypted; nothing sensitive is ever stored in plaintext. The age key is injected at bootstrap and never leaves the cluster.
+[SOPS](https://github.com/getsops/sops) with age-key encryption. `.sops.yaml` defines path-based rules: cluster bootstrap paths (bootstrap/, kubernetes/, archive/) encrypt only `data`/`stringData` fields, plus `mac_only` rules for `talos/` and `macos/secrets/`. All secrets are committed encrypted; nothing sensitive is ever stored in plaintext. The age key is never committed — local tooling gets it via `mise` (`SOPS_AGE_KEY_FILE`, see Toolchain).
 
 ---
 
@@ -74,11 +74,10 @@ All applications follow the **OCIRepository + chartRef** pattern — Helm charts
 ```
 kubernetes/
 ├── apps/                        # Application deployments, organized by namespace
-│   ├── ai/                      # AI inference stack (Omniroute, llama-swap, Open WebUI, …)
+│   ├── ai/                      # AI inference stack (Omniroute, llama-swap, …)
 │   ├── cert-manager/
-│   ├── databases/               # CNPG, DragonflyDB, ClickHouse
+│   ├── databases/               # CNPG, DragonflyDB
 │   ├── flux-system/             # Flux Operator + FluxInstance + webhook receiver
-│   ├── kelos-system/            # Kelos agent framework
 │   ├── kube-system/             # CNI, storage, cluster add-ons
 │   ├── monitoring/              # Grafana, Prometheus stack, VictoriaMetrics, logs
 │   ├── network/                 # Traefik, Cloudflare tunnel, external-dns
@@ -87,7 +86,7 @@ kubernetes/
 │   └── velero/
 ├── flux/
 │   ├── cluster/                 # Cluster-level Kustomizations and variable substitution
-│   └── meta/repos/              # Shared HelmRepository and OCIRepository sources
+│   └── meta/repos/              # Shared chart sources (OCI; legacy HelmRepository pending removal)
 └── components/                  # Reusable Kustomize components
     ├── authentik-forwardauth/   # Authentik forwardAuth Middleware, opt-in per namespace
     ├── common/                  # Namespace + cluster-secrets + sops-age
@@ -185,10 +184,14 @@ The cluster runs a fully self-hosted AI stack. All clients speak to **Omniroute*
 
 | Component | Purpose |
 |---|---|
-| [OpenCode](https://github.com/anomalyco/opencode) | Web-based AI coding assistant |
-| [Kelos](https://kelos.ai/) | Agent framework for loop orchestration |
-| [MCPJungle](https://github.com/mcpjungle/mcpjungle) | MCP server registry and proxy |
-| [Omega MCP](https://github.com/omega-memory/omega-mcp) | Persistent cross-session memory for AI agents |
+| [ai-tap](https://github.com/anomalyco/ai-tap) | Logging reverse proxy that captures the LLM eval corpus for `tools/ai-eval` |
+| argus | HolmesGPT alert triage; forwarder bridges critical/warning alerts to Discord with Hindsight incident memory |
+| [atuin-ai-server](https://github.com/atuinsh/atuin-ai-server) | AI assistant backend for Atuin |
+| hindsight | Memory server; the sole memory layer for AI agents since 2026-09-25 |
+| linkwarden-mcp | MCP server exposing Linkwarden via supergateway |
+| mac-inference | In-cluster endpoint for the Mac Studio's oMLX (chat + Wyoming audio; `wyoming-openai` and other apps point at `mac-inference.ai.svc.cluster.local:8000`) |
+| vikunja-mcp | MCP server exposing Vikunja via supergateway |
+| wyoming-openai | Wyoming↔OpenAI audio bridge (STT/TTS) to the Mac's oMLX endpoint |
 
 #### Mac Studio coding models — October 2026
 
@@ -219,6 +222,12 @@ Aliases shown are for the direct oMLX API. Both selected daily presets enforce n
 | [Linkwarden](https://linkwarden.app/) | Bookmark manager |
 | [IT-Tools](https://github.com/CorentinTh/it-tools) | WebUI for common DevOps utilities |
 | [Mosquitto](https://mosquitto.org/) | MQTT broker for Home Assistant integrations |
+| gatus | Health and status checks; feeds Homepage's status widget |
+| changedetector | Website change monitoring |
+| konflate | Kubernetes dashboard |
+| memos | Notes |
+| n8n | Workflow automation |
+| vikunja | Task management |
 
 ### Backup & Recovery (`velero`)
 
@@ -297,11 +306,10 @@ Omniroute addresses models as `<provider-node-prefix>/<model>` (e.g. `llamaswap/
 
 | Workflow | Purpose |
 |---|---|
-| `validate-secrets` | Blocks PRs containing unencrypted `*.sops.yaml` files |
+| `validate-secrets` | Blocks PRs containing unencrypted `*.sops.yaml` files or un-allowlisted plaintext secret patterns |
 | `flux-diff` | Offline Flate render validation and PR diffs; also gates Renovate branch merges |
 | `labeler` | Auto-labels PRs by changed path with risk tiers (`risk/critical` → `risk/low`) |
 | `label-sync` | Syncs GitHub labels from `.github/labels.yaml` |
-| `e2e` | End-to-end cluster tests |
 
 Flate 0.7 uses `--allow-missing-kinds Secret,ConfigMap` instead of `--allow-missing-secrets`. It treats SOPS-encrypted values as unreadable. Both render commands use `.github/tests/flate-values.yaml` for Netdata's required Helm `valuesFrom` keys. These are reference-only dummy values, not deployment manifests or real credentials; CI does not validate their production contents or live cluster health.
 
@@ -324,7 +332,7 @@ Commit prefixes: `fix(container):`, `fix(helm):`, `fix(deps):`, `feat(deps):`
 
 | Service | Use | Cost |
 |---|---|---|
-| [Cloudflare](https://www.cloudflare.com/) | DNS, tunneled public ingress, WAF | ~$30/yr (domain registration; Free plan features) |
+| [Cloudflare](https://www.cloudflare.com/) | DNS, tunneled public ingress, WAF | Domain registration (~$30/yr) + Pro plan |
 | [GitHub](https://github.com/) | Repository hosting, CI/CD via Actions | Free |
 
 The cluster is intentionally self-contained. Cloud dependencies are limited to DNS and the zero-trust tunnel — no managed compute, no managed databases.
