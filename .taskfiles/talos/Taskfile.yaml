@@ -12,6 +12,74 @@ tasks:
       - test -f {{.ROOT_DIR}}/.sops.yaml
       - test -f {{.SOPS_AGE_KEY_FILE}}
       - which talhelper
+    postcmd: task talos:seal
+
+  seal:
+    desc: Encrypt clusterconfig files at rest with SOPS
+    dir: '{{.TALOS_DIR}}/clusterconfig'
+    preconditions:
+      - test -f {{.ROOT_DIR}}/.sops.yaml
+      - test -f {{.SOPS_AGE_KEY_FILE}}
+      - which sops
+    cmds:
+      - |
+        COUNT=0
+        for file in kubernetes-bee-jms-01.yaml kubernetes-bee-jms-02.yaml kubernetes-bee-jms-03.yaml kubernetes-bigboi-jms-01.yaml talosconfig; do
+          if [ ! -f "$file" ]; then
+            echo "ERROR: $file not found" >&2
+            exit 1
+          fi
+          if grep -q 'ENC\[AES256_GCM' "$file"; then
+            echo "  Skipped $file (already sealed)"
+          else
+            echo "  Sealing $file"
+            sops --encrypt --in-place "$file"
+            COUNT=$((COUNT + 1))
+          fi
+        done
+
+        if [ $COUNT -eq 0 ]; then
+          echo "All files already sealed"
+        else
+          echo "Sealed $COUNT file(s)"
+        fi
+
+  unseal:
+    desc: Decrypt clusterconfig files (tmp + mv, never sops --in-place decrypt)
+    dir: '{{.TALOS_DIR}}/clusterconfig'
+    preconditions:
+      - test -f {{.ROOT_DIR}}/.sops.yaml
+      - test -f {{.SOPS_AGE_KEY_FILE}}
+      - which sops
+    cmds:
+      - |
+        COUNT=0
+        for file in kubernetes-bee-jms-01.yaml kubernetes-bee-jms-02.yaml kubernetes-bee-jms-03.yaml kubernetes-bigboi-jms-01.yaml talosconfig; do
+          if [ ! -f "$file" ]; then
+            echo "ERROR: $file not found" >&2
+            exit 1
+          fi
+          if grep -q 'ENC\[AES256_GCM' "$file"; then
+            TMP=$(mktemp)
+            if ! sops --decrypt "$file" > "$TMP"; then
+              echo "ERROR: failed to unseal $file" >&2
+              rm -f "$TMP"
+              exit 1
+            fi
+            mv -f "$TMP" "$file"
+            chmod 600 "$file"
+            echo "  Unsealed $file"
+            COUNT=$((COUNT + 1))
+          else
+            echo "  Skipped $file (not sealed)"
+          fi
+        done
+
+        if [ $COUNT -eq 0 ]; then
+          echo "All files already unsealed"
+        else
+          echo "Unsealed $COUNT file(s)"
+        fi
 
   apply-node:
     desc: Apply Talos config to a node [IP=required]
@@ -26,11 +94,13 @@ tasks:
       - talosctl config info
       - test -f {{.TALOSCONFIG}}
       - which talhelper talosctl yq
-    # Quorum safety: all 3 bee-jms nodes are control-plane members. Rebooting
-    # one drops etcd 3->2. A second failure during the maintenance window is
-    # cluster-down. Verify every OTHER control-plane node is healthy before
-    # touching this one. Runs as a task dep so it fails loudly before apply.
+    # Deps run in listed order BEFORE preconditions (task v3): unseal the
+    # clusterconfig files first, then the quorum precheck. All 3 bee-jms nodes
+    # are control-plane members; rebooting one drops etcd 3->2, so a second
+    # failure during the maintenance window is cluster-down. The precheck
+    # verifies every OTHER control-plane node is healthy before touching this one.
     deps:
+      - unseal
       - task: etcd-quorum-precheck
         vars: { IP: "{{.IP}}" }
 
@@ -50,7 +120,10 @@ tasks:
       - talosctl config info
       - test -f {{.TALOSCONFIG}}
       - which kubectl talhelper talosctl yq
+    # Deps run in listed order BEFORE preconditions (task v3): unseal first so
+    # talosctl/precheck read plaintext, then the quorum precheck (see apply-node).
     deps:
+      - unseal
       - task: etcd-quorum-precheck
         vars: { IP: "{{.IP}}" }
 
