@@ -1,0 +1,33 @@
+---
+# Consumers of n8n :5678. Vikunja (same namespace) calls the /webhook*
+# triage endpoints; traefik (network ns, app.kubernetes.io/name=traefik)
+# serves n8n.68cc.io via traefik-internal-gateway. No other consumers.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: n8n-allow
+  namespace: services
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: n8n
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: vikunja
+      ports:
+        - port: 5678
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: network
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 5678
+          protocol: TCP
