@@ -24,6 +24,8 @@
 - **Category**: security (posture)
 - **Planned at**: commit `8b27891f`, 2026-11-24
 
+**Status: DONE — executed + verified live 2026-11-24 (commits below).**
+
 ## Why this matters
 
 Cluster-wide, only 4 of ~60 apps define a `NetworkPolicy` (argus, dragonflydb,
@@ -177,12 +179,33 @@ Ready, Gatus green.
 
 ## Done criteria
 
-- [ ] Step-0 survey table (service/port/labels/consumers) present in the report for all four apps
-- [ ] Four ingress-only NetworkPolicies committed, one per app, matching the dragonflydb exemplar's shape and comment style
-- [ ] Per-app: allowed-namespace probe succeeds, unrelated-namespace probe is denied
-- [ ] All four apps' pods Running/Ready; Gatus green
-- [ ] `git diff --name-only` covers only the four apps' instance files
-- [ ] `plans/README.md` status row updated
+- [x] Step-0 survey table (service/port/labels/consumers) present in the report for all four apps
+- [x] Four ingress-only NetworkPolicies committed, one per app, matching the dragonflydb exemplar's shape and comment style
+- [x] Per-app: allowed-namespace probe succeeds, unrelated-namespace probe is denied (HA deny probe unsatisfiable — see execution notes)
+- [x] All four apps' pods Running/Ready; Gatus green (none of the four apps have Gatus checks; curl/TCP probes stand in)
+- [x] `git diff --name-only` covers only the four apps' instance files
+- [x] `plans/README.md` status row updated
+
+## Execution notes (2026-11-24)
+
+**Commits (main)**: mosquitto `0d15688d`, n8n `aadc4644` (+ kustomization fix `4493fa44`), atuin + home-assistant in `4493fa44`. All applied by Flux at revision `4493fa44`, revision-verified.
+
+**Deviations from plan**:
+1. **Main branch, not `advisor/007-np-baseline`** — workspace policy blocks branch work; repo convention is main.
+2. **Files at `app/networkpolicy.yaml`** (per app) + `resources` entry — apps use the `app/` layout, no `instance/` dir.
+3. **mosquitto = deny-all** (`ingress: []`): survey found zero in-cluster consumers (no Gatus check, no repo refs). No allow probe possible — nothing in-cluster to probe from.
+4. **HA deny probe unsatisfiable**: `home-assistant` runs `hostNetwork: true`; Cilium NetworkPolicies do not filter traffic to hostNetwork pods. Grafana→`home-assistant.services.svc:8123` = ALLOWED. Policy kept as intent-doc; enforcement requires removing hostNetwork (out of scope).
+5. **n8n allow proof via traefik-internal**: `https://n8n.68cc.io/healthz` from monitoring = 302 OIDC redirect (reached n8n, authentik gate). Vikunja-pod allow rule not directly probed (vikunja image has no shell); real webhook call is the ongoing proof.
+6. **atuin metrics allow verified via scrape**: vmagent target `atuin` health=up, 62 samples, post-policy.
+
+**Probes (from `monitoring/grafana-deployment`, unrelated ns)**:
+
+| App | Deny probe (grafana→svc) | Allow probe |
+|-----|--------------------------|-------------|
+| mosquitto | :1883 timeout = DENIED | n/a (no consumers) |
+| n8n | :5678 timeout = DENIED | n8n.68cc.io/healthz = 302 (via traefik-internal) |
+| atuin | :80 timeout = DENIED; :8080 timeout = DENIED | vmagent scrape health=up |
+| home-assistant | :8123 = **ALLOWED** (hostNetwork) | ha.68cc.io/manifest.json = 200 |
 
 ## STOP conditions
 

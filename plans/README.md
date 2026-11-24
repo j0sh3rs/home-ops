@@ -15,7 +15,7 @@ plans land.
 | 004 | [validate-secrets: real plaintext gate](004-validate-secrets-gate.md) | P1 | S | LOW | 003 (allowlist seeding) | DONE (commit `5624ffcd`, landed on main 2026-11-24; R4 tracked-scope seed/gate, 37-line allowlist, gate body verbatim-verified, clean scan rc=0) |
 | 005 | [ai-eval CI](005-ai-eval-ci.md) | P2 | S | LOW | — | DONE (commit `3222c047`, landed on main 2026-11-24; workflow verbatim vs plan with sanctioned working-directory fallback, 86/86 tests pass locally in shipped invocation shape) |
 | 006 | [talos etcd quorum precheck (investigate-first)](006-talos-quorum-precheck.md) | P2 | S/M | LOW | — (needs cluster access) | DONE (verified live 2026-11-24; precheck+wiring+guard already shipped in `440d960f`, exit-code semantics live-verified, comment corrected on main) |
-| 007 | [NetworkPolicy baseline, batch 1](007-networkpolicy-baseline.md) | P3 | M | MED | — (needs cluster access) | TODO |
+| 007 | [NetworkPolicy baseline, batch 1](007-networkpolicy-baseline.md) | P3 | M | MED | — (needs cluster access) | DONE (4 ingress NPs on main — mosquitto `0d15688d`, n8n `aadc4644` + fix `4493fa44`, atuin + HA in `4493fa44` — applied + probed live 2026-11-24; mosquitto deny-all, deny/allow probes pass; HA deny probe unsatisfiable due to `hostNetwork: true`, policy kept as intent-doc — see plan execution notes) |
 | 008 | [Talos seal at rest + rotate credentials](008-talos-seal-and-rotate.md) | P1 | M | MED | — (Phase B needs cluster window) | Phase A DONE (commit `25375124b7`, landed on main 2026-11-24; seal/unseal tasks + .sops rule + batch finds, dep-not-precondition and sops-marker fixes verified live; Phase B rotate gated on user go) |
 
 
