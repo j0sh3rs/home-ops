@@ -63,7 +63,9 @@ tasks:
     cmds:
       # List every control-plane IP except the target, then query etcd status
       # against each peer in a single talosctl call. talosctl etcd status
-      # exits non-zero if any member is unhealthy or behind the leader.
+      # exits non-zero if any target node is down/unreachable or its etcd
+      # status request errors (live-verified 2026-11-24). A partitioned but
+      # alive member will NOT fail this check — compare RAFT INDEX across rows.
       - |
         PEERS=$(yq '.nodes[] | select(.controlPlane == true) | .ipAddress' talconfig.yaml | grep -v '^{{.IP}}$' | tr '\n' ',' | sed 's/,$//')
         if [ -z "$PEERS" ]; then
