@@ -47,7 +47,7 @@ spec:
             image:
               # Pinned below 4.0.0 (a major released 2026-09-25, unvetted).
               repository: ghcr.io/supercorp-ai/supergateway
-              tag: 4.2.2@sha256:5fd78fb79ffce27812313e5da9b3b3d0bc034267e131961f1140f4a4e0179d3a
+              tag: 4.3.0@sha256:1715ae31aaa25792d8751b207428e0297a33e10fc36803a4309c41b420aab558
             args:
               - --stdio
               - /mcp/linkwarden-mcp-server stdio --read-only
