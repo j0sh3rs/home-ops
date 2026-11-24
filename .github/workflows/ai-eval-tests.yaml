@@ -1,0 +1,44 @@
+---
+# Runs the tools/ai-eval unit test suite. The harness measures the model
+# bake-offs documented in README.md / docs/ai-history/; these tests catch
+# regressions in replay, grading, and corpus handling before they corrupt
+# a measurement. Unit tests only — no corpus, no network, no API keys.
+name: AI Eval Tests
+
+on:
+  pull_request:
+    paths:
+      - "tools/ai-eval/**"
+      - ".github/workflows/ai-eval-tests.yaml"
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/ai-eval/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r tools/ai-eval/requirements.txt pytest
+
+      - name: Run tests
+        run: python -m pytest tests -q -p no:cacheprovider
+        working-directory: tools/ai-eval
