@@ -41,7 +41,6 @@ spec:
               # user or token. Admin user comes from NTFY_AUTH_USERS (secret).
               NTFY_AUTH_DEFAULT_ACCESS: deny-all
               NTFY_ATTACHMENT_CACHE_DIR: /var/cache/ntfy/attachments
-              NTFY_ENABLE_METRICS: "true"
             envFrom:
               - secretRef:
                   name: ntfy-secret
