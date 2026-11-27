@@ -35,7 +35,11 @@ spec:
             args: ["serve"]
             env:
               NTFY_LISTEN_HTTP: :8080
-              NTFY_BASE_URL: http://ntfy.services.svc.cluster.local
+              NTFY_BASE_URL: https://ntfy.68cc.io
+              NTFY_BEHIND_PROXY: "true"
+              # Public via Cloudflare: nothing is readable/writable without a
+              # user or token. Admin user comes from NTFY_AUTH_USERS (secret).
+              NTFY_AUTH_DEFAULT_ACCESS: deny-all
               NTFY_ATTACHMENT_CACHE_DIR: /var/cache/ntfy/attachments
               NTFY_ENABLE_METRICS: "true"
             envFrom:
@@ -78,6 +82,22 @@ spec:
           http:
             port: 80
             targetPort: *port
+    # No authentik-forwardAuth on purpose: the Android/iOS apps and API clients
+    # use arbitrary /{topic}[/json|sse|ws|raw], /v1/* and /file/* paths and
+    # can't follow a browser redirect, so no path allowlist can cover them.
+    # ntfy enforces its own auth (deny-all default, basic auth / bearer tokens).
+    route:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: 192.168.35.15
+        hostnames: ["ntfy.68cc.io"]
+        parentRefs:
+          - name: traefik-external-gateway
+            namespace: network
+        rules:
+          - backendRefs:
+              - name: *app
+                port: 80
     persistence:
       attachments:
         type: persistentVolumeClaim

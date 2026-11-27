@@ -1,0 +1,25 @@
+---
+# ntfy is reached publicly through traefik-external-gateway (network ns,
+# app.kubernetes.io/name=traefik) -> Cloudflare tunnel. No other consumers.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ntfy-allow
+  namespace: services
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ntfy
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: network
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - port: 8080
+          protocol: TCP
