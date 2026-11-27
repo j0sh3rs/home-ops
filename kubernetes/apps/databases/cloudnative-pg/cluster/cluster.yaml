@@ -96,6 +96,14 @@ spec:
         login: true
         passwordSecret:
           name: hindsight-db-creds
+      # ntfy (kubernetes/apps/services/ntfy/). Owns the `ntfy` Database
+      # (database-ntfy.yaml). Password must match the one in NTFY_DATABASE_URL
+      # in kubernetes/apps/services/ntfy/app/secret.sops.yaml.
+      - name: ntfy
+        ensure: present
+        login: true
+        passwordSecret:
+          name: ntfy-db-creds
   postgresql:
     # Parameter tuning rationale (2026-05-21 audit, see
     # docs/runbooks/database-tuning-recommendations.md):

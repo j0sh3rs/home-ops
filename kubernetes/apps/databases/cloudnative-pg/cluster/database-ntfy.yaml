@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/postgresql.cnpg.io/database_v1.json
+# ntfy's database (kubernetes/apps/services/ntfy/). Owner role is declared in
+# cluster.yaml managed.roles. databaseReclaimPolicy: retain keeps the data if
+# this manifest is ever removed.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: ntfy
+spec:
+  cluster:
+    name: postgres17
+  name: ntfy
+  owner: ntfy
+  ensure: present
+  databaseReclaimPolicy: retain

@@ -15,3 +15,5 @@ resources:
   - ./holmesgpt-role-secret.sops.yaml
   - ./hindsight-role-secret.sops.yaml
   - ./database-hindsight.yaml
+  - ./ntfy-role-secret.sops.yaml
+  - ./database-ntfy.yaml
