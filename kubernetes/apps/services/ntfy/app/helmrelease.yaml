@@ -76,7 +76,8 @@ spec:
         controller: *app
         ports:
           http:
-            port: *port
+            port: 80
+            targetPort: *port
     persistence:
       attachments:
         type: persistentVolumeClaim
