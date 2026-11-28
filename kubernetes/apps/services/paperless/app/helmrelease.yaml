@@ -88,6 +88,9 @@ spec:
                   httpGet:
                     path: /
                     port: 8000
+                    httpHeaders:
+                      - name: Host
+                        value: paperless.68cc.io
                   initialDelaySeconds: 60
                   periodSeconds: 30
                   failureThreshold: 5
@@ -98,6 +101,9 @@ spec:
                   httpGet:
                     path: /
                     port: 8000
+                    httpHeaders:
+                      - name: Host
+                        value: paperless.68cc.io
                   initialDelaySeconds: 30
                   periodSeconds: 10
               startup:
@@ -109,8 +115,8 @@ spec:
           app:
             image:
               repository: gotenberg/gotenberg
-              # renovate: datasource=docker depName=gotenberg/gotenberg
-              tag: 9.5.1
+              # Paperless still uses the PDF merge endpoint removed in Gotenberg 9.
+              tag: "8.38"
             env:
               DISABLE_GOOGLE_CHROME: "1"
             resources:
