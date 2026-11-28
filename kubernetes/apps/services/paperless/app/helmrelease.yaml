@@ -116,7 +116,7 @@ spec:
             image:
               repository: gotenberg/gotenberg
               # Paperless still uses the PDF merge endpoint removed in Gotenberg 9.
-              tag: "8.38"
+              tag: "9.10"
             env:
               DISABLE_GOOGLE_CHROME: "1"
             resources:
