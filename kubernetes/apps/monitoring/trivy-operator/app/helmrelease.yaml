@@ -35,6 +35,8 @@ spec:
     # Vector's kubernetes_logs source - no log-shipping config needed here.
     serviceMonitor:
       enabled: true
+    trivyOperator:
+      scanJobAnnotations: k8tz.io/inject=false
     # accessGlobalSecretsAndServiceAccount (chart default: true) grants the
     # operator ClusterRole create/update/get on Secrets cluster-wide plus
     # get on nodes/proxy, solely to copy imagePullSecrets for scanning

@@ -13,9 +13,9 @@ spec:
     remediation:
       retries: 3
   upgrade:
-    cleanupOnFail: true
-    remediation:
-      retries: 3
+    # Database migrations can make the previous image incompatible.
+    strategy:
+      name: RetryOnFailure
   values:
     global:
       annotations:
