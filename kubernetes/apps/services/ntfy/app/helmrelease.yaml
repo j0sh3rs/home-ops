@@ -41,6 +41,10 @@ spec:
               # user or token. Admin user comes from NTFY_AUTH_USERS (secret).
               NTFY_AUTH_DEFAULT_ACCESS: deny-all
               NTFY_ATTACHMENT_CACHE_DIR: /var/cache/ntfy/attachments
+              # Dedicated listener: /metrics is NOT served on the public :8080
+              # (no topic auth on it). Reached only via the ServiceMonitor; the
+              # route backend is svc port 80 and ntfy-allow limits :9090 to vmagent.
+              NTFY_METRICS_LISTEN_HTTP: :9090
             envFrom:
               - secretRef:
                   name: ntfy-secret
@@ -81,6 +85,17 @@ spec:
           http:
             port: 80
             targetPort: *port
+          metrics:
+            port: 9090
+    serviceMonitor:
+      app:
+        serviceName: *app
+        endpoints:
+          - port: metrics
+            scheme: http
+            path: /metrics
+            interval: 1m
+            scrapeTimeout: 10s
     # No authentik-forwardAuth on purpose: the Android/iOS apps and API clients
     # use arbitrary /{topic}[/json|sse|ws|raw], /v1/* and /file/* paths and
     # can't follow a browser redirect, so no path allowlist can cover them.

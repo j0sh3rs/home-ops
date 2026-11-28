@@ -140,6 +140,17 @@ Vikunja's mobile, CalDAV, and MCP clients authenticate with Vikunja tokens
 and can't do an Access redirect. Mirrors the forwardAuth exemptions in
 `kubernetes/apps/services/vikunja/app/helmrelease.yaml` — keep the two in sync.
 
+`ntfy.68cc.io` has no Access app and no Authentik forwardAuth, by design: the
+Android/iOS apps and API clients hit arbitrary `/{topic}`, `/{topic}/json|sse|ws|raw`,
+`/v1/*`, and `/file/*` paths and can't follow a redirect, so no path allowlist
+works. ntfy enforces its own auth (`NTFY_AUTH_DEFAULT_ACCESS=deny-all`, admin
+user from `NTFY_AUTH_USERS`, tokens for clients). `/file/<id>` is readable
+without credentials by design (random ID). `/metrics` is not served on the
+public port; it lives on a private `:9090` listener scraped by vmagent via the
+ServiceMonitor (`kubernetes/apps/services/ntfy/app/`). The host is not in the
+managed-ruleset/OWASP exclusions above — if publishes with odd bodies get
+challenged, check Security → Events before widening scope.
+
 `auth.68cc.io` and `flux-webhook.68cc.io` intentionally have no Access app
 (IdP itself; GitHub machine traffic).
 

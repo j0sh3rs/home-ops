@@ -227,6 +227,7 @@ Aliases shown are for the direct oMLX API. Both selected daily presets enforce n
 | konflate | Kubernetes dashboard |
 | memos | Notes |
 | n8n | Workflow automation |
+| [ntfy](https://ntfy.sh/) | Push notifications; public at `ntfy.68cc.io` with native auth (deny-all), data in the shared CNPG cluster |
 | vikunja | Task management |
 
 ### Backup & Recovery (`velero`)
